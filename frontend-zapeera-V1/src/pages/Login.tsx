@@ -1,0 +1,1 @@
+// Legacy Login page removed; /login now uses AuthContainer with the new auth flow.

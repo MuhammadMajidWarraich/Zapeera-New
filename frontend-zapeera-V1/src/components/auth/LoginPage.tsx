@@ -1,0 +1,1 @@
+// Legacy login page component removed as part of auth cleanup.

@@ -1,0 +1,25 @@
+[build]
+cmd = "npm install && npx prisma generate && npm run build"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[env]
+NODE_ENV = "production"
+PORT = "3000"
+
+[[envs]]
+key = "DATABASE_URL"
+required = true
+
+[[envs]]
+key = "JWT_SECRET"
+required = true
+
+[[envs]]
+key = "ENCRYPTION_KEY"
+required = true

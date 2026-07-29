@@ -1,0 +1,36 @@
+node_modules
+.DS_Store
+dist-electron/
+dist/
+build/
+out/
+release/
+coverage/
+*.exe
+*.msi
+*.dmg
+*.asar
+*.blockmap
+*.zip
+*.7z
+*.AppImage
+*.deb
+*.rpm
+
+# env files (keep .env.example committed)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# local runtime artifacts
+*.log
+*.backup
+*.bak
+token.txt
+*.db
+*.sqlite
+*.sqlite3
+
+# Build cache
+.build-cache.json

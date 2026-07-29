@@ -1,0 +1,60 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # Staging deployment
+      - name: Deploy to Staging VPS
+        if: github.ref == 'refs/heads/staging'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/faza/trainingportalfrontend
+            git fetch --all
+            git reset --hard origin/staging
+            git pull origin staging
+            # Ensure repeatable installs/builds on the server
+            if [ -f package-lock.json ] && node -e "require('./package-lock.json')" >/dev/null 2>&1; then
+              npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+            else
+              npm install --no-audit --no-fund
+            fi
+            npm run build
+            # Frontend static deploy typically does NOT require nginx restart.
+            # If you still want it, make it non-interactive so CI doesn't hang/fail.
+            sudo -n systemctl reload nginx || echo "Skipping nginx reload (no passwordless sudo for this user)"
+      # Production deployment
+      - name: Deploy to Production VPS
+        if: github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/fzapeera/frontend-zapeera-V1
+            git fetch --all
+            git reset --hard origin/main
+            git pull origin main
+            if [ -f package-lock.json ] && node -e "require('./package-lock.json')" >/dev/null 2>&1; then
+              npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+            else
+              npm install --no-audit --no-fund
+            fi
+            npm run build
+            sudo -n systemctl reload nginx || echo "Skipping nginx reload (no passwordless sudo for this user)"

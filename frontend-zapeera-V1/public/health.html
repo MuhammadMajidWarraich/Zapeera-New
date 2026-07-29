@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zapeera - Health Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        h1 { color: #4CAF50; }
+        .status { background: #e8f5e8; padding: 20px; border-radius: 10px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>✅ Zapeera is Running</h1>
+    <div class="status">
+        <p><strong>Status:</strong> Healthy</p>
+        <p><strong>Time:</strong> <span id="time"></span></p>
+        <p><strong>Port:</strong> <span id="port"></span></p>
+    </div>
+    <script>
+        document.getElementById('time').textContent = new Date().toISOString();
+        document.getElementById('port').textContent = window.location.port || 'default';
+    </script>
+</body>
+</html>

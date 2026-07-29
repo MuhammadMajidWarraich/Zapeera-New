@@ -1,0 +1,95 @@
+# Root monorepo (frontend + backend)
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dependencies and generated output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+coverage/
+**/coverage/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+token.txt
+**/token.txt
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Runtime data and uploads
+uploads/
+**/uploads/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+*.out.log
+*.err.log
+vite-dev.log
+vite-dev.err
+
+# Local backup of old nested repo and generated scratch files
+frontend-zapeera-V1/.git.backup-frontend/
+*.backup
+*.bak
+
+# Internal documentation and analysis files (not part of the shipped project)
+.windsurf/
+404_ERROR_ANALYSIS_AND_FIXES.md
+API_INTEGRATION_GUIDE.md
+ARCHITECTURAL_IMPROVEMENTS_SUMMARY.md
+ARCHITECTURE_AUDIT.md
+ARCHITECTURE_IMPROVEMENTS.md
+BUSINESS_LIMIT_REMOVAL_SUMMARY.md
+BUSINESS_MEMBERSHIP_SUBSCRIPTION_ANALYSIS.md
+BUSINESS_NOT_FOUND_DIAGNOSIS.md
+BUSINESS_SCOPED_ROLES_SUMMARY.md
+COMPLETION_CHECKLIST.md
+DEBUG_BUSINESS_SWITCHER.md
+DESKTOP_PROVISIONING_PROTOCOL.md
+DEVELOPER_QUICK_REFERENCE.md
+FRONTEND_MIGRATION_GUIDE.md
+FRONTEND_MULTIBUSINESS_FLOW.md
+IMPLEMENTATION_COMPLETE.md
+IMPLEMENTATION_GUIDE_V2.md
+IMPLEMENTATION_REPORT.md
+IMPLEMENTATION_SUMMARY.md
+MODULE_ACCESS_CONTROL_SUMMARY.md
+MODULE_ACCESS_ROOT_CAUSE_ANALYSIS.md
+MODULE_FIXES_TESTING_GUIDE.md
+MODULE_SYSTEM_ANALYSIS.md
+MULTIBUSINESS_SAAS_COMPLETION_SUMMARY.md
+MULTITENANT_SESSION_SUMMARY.md
+OCR_IMPLEMENTATION_GUIDE.md
+QUICK_REFERENCE.md
+SECURITY_AND_REPO_HYGIENE.md
+SUBSCRIPTION_CONSOLIDATION_SUMMARY.md
+SUBSCRIPTION_ENTITLEMENTS_FIX_SUMMARY.md
+V1_VS_V2_COMPARISON.md
+
+# Generated scratch scripts
+enable-modules.js
+fix-all-issues.ps1
+check-company-slugs.js
+check_db.js
+test-business-api.js

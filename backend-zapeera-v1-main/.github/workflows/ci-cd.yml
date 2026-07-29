@@ -1,0 +1,53 @@
+name: Zapeera Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup PostgreSQL Schema for Production
+        run: npm run setup:web
+
+      - name: Run Tests (if any)
+        run: npm test --if-present -- --forceExit
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to Server via SSH
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            cd /home/bzapeera/backend-zapeera-v1
+            git pull origin main
+            npm ci
+            npm run setup:web
+            npx prisma migrate deploy
+            npm run build
+            pm2 restart zapeera-backend || pm2 start dist/server.js --name zapeera-backend
+            pm2 save

@@ -1,0 +1,14 @@
+﻿≡ƒôª Building for: Web (base: /)
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 3903 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                            [39m[1m[2m    2.01 kB[22m[1m[22m[2m Γöé gzip:     0.86 kB[22m
+[2mdist/[22m[35massets/index-1-mu9Kgn.css             [39m[1m[2m  206.33 kB[22m[1m[22m[2m Γöé gzip:    29.21 kB[22m
+[2mdist/[22m[36massets/api-error-handler-DdcTfyUx.js  [39m[1m[2m    3.17 kB[22m[1m[22m[2m Γöé gzip:     1.09 kB[22m
+[2mdist/[22m[36massets/purify.es-B7CXKgdz.js          [39m[1m[2m   68.80 kB[22m[1m[22m[2m Γöé gzip:    18.37 kB[22m
+[2mdist/[22m[36massets/index.es-CqVl7h21.js           [39m[1m[2m  345.07 kB[22m[1m[22m[2m Γöé gzip:    82.59 kB[22m
+[2mdist/[22m[36massets/html2canvas.esm-C_tcw68Z.js    [39m[1m[2m  409.43 kB[22m[1m[22m[2m Γöé gzip:    73.55 kB[22m
+[2mdist/[22m[36massets/index-3RPGVtKQ.js              [39m[1m[33m5,579.31 kB[39m[22m[2m Γöé gzip: 1,068.59 kB[22m
+[32mΓ£ô built in 38.32s[39m

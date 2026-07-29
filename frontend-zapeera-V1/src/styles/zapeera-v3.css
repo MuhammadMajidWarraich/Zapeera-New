@@ -1,0 +1,248 @@
+/* Zapeera dashboard v3 — motion + bar visuals (reference: zapeera-dashboard-v3.html) */
+
+@keyframes zv3-heroIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes zv3-fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zv3-chipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes zv3-growBar {
+  from {
+    height: 0 !important;
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zv3-glassFloat {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes zv3-sparkGrow {
+  from {
+    height: 0;
+  }
+}
+
+.zv3-animate-hero {
+  animation: zv3-heroIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.zv3-animate-fadeUp {
+  animation: zv3-fadeUp 0.6s ease both;
+}
+
+/* Settings page (matches zapeera-settings.html stagger) */
+.zv3-settings-block {
+  animation: zv3-fadeUp 0.5s ease both;
+}
+
+.zv3-animate-chip {
+  animation: zv3-chipIn 0.5s ease 0.3s both;
+}
+
+.zv3-delay-1 {
+  animation-delay: 0.15s;
+}
+.zv3-delay-2 {
+  animation-delay: 0.25s;
+}
+.zv3-delay-3 {
+  animation-delay: 0.35s;
+}
+
+.zv3-vis-bar {
+  width: 28px;
+  border-radius: 8px 8px 4px 4px;
+  position: relative;
+  align-self: flex-end;
+  animation: zv3-growBar 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.zv3-vis-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 60%);
+}
+
+.zv3-vis-bar:nth-child(1) {
+  height: 50%;
+  background: #1a52c5;
+  opacity: 0.4;
+  animation-delay: 0.2s;
+}
+.zv3-vis-bar:nth-child(2) {
+  height: 72%;
+  background: #1a52c5;
+  opacity: 0.55;
+  animation-delay: 0.3s;
+}
+.zv3-vis-bar:nth-child(3) {
+  height: 40%;
+  background: #1a52c5;
+  opacity: 0.35;
+  animation-delay: 0.4s;
+}
+.zv3-vis-bar:nth-child(4) {
+  height: 90%;
+  background: linear-gradient(180deg, #1a52c5, #28c2ce);
+  opacity: 1;
+  animation-delay: 0.5s;
+  box-shadow: 0 6px 20px rgba(26, 82, 197, 0.3);
+}
+.zv3-vis-bar:nth-child(5) {
+  height: 60%;
+  background: #28c2ce;
+  opacity: 0.6;
+  animation-delay: 0.6s;
+}
+.zv3-vis-bar:nth-child(6) {
+  height: 78%;
+  background: #28c2ce;
+  opacity: 0.45;
+  animation-delay: 0.7s;
+}
+
+.zv3-glass-card {
+  animation: zv3-glassFloat 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.zv3-spark span {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: #1a52c5;
+  animation: zv3-sparkGrow 0.5s ease both;
+}
+
+.zv3-spark span:nth-child(1) {
+  height: 40%;
+  animation-delay: 0.8s;
+}
+.zv3-spark span:nth-child(2) {
+  height: 65%;
+  animation-delay: 0.85s;
+}
+.zv3-spark span:nth-child(3) {
+  height: 45%;
+  animation-delay: 0.9s;
+}
+.zv3-spark span:nth-child(4) {
+  height: 80%;
+  animation-delay: 0.95s;
+  background: #28c2ce;
+}
+.zv3-spark span:nth-child(5) {
+  height: 55%;
+  animation-delay: 1s;
+}
+.zv3-spark span:nth-child(6) {
+  height: 90%;
+  animation-delay: 1.05s;
+  background: linear-gradient(180deg, #1a52c5, #28c2ce);
+}
+
+.zv3-bento-visual-bar span {
+  width: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1a52c5, #28c2ce);
+  transition: height 0.3s ease;
+}
+
+.zv3-bento-visual-bar span:nth-child(1) {
+  height: 40%;
+  opacity: 0.3;
+}
+.zv3-bento-visual-bar span:nth-child(2) {
+  height: 65%;
+  opacity: 0.5;
+}
+.zv3-bento-visual-bar span:nth-child(3) {
+  height: 45%;
+  opacity: 0.4;
+}
+.zv3-bento-visual-bar span:nth-child(4) {
+  height: 85%;
+  opacity: 0.7;
+}
+.zv3-bento-visual-bar span:nth-child(5) {
+  height: 100%;
+  opacity: 1;
+}
+
+.zv3-support-banner {
+  animation: zv3-fadeUp 0.5s ease 0.35s both;
+}
+
+.zv3-bento-grid {
+  animation: zv3-fadeUp 0.5s ease 0.5s both;
+}
+
+.zv3-section-head {
+  animation: zv3-fadeUp 0.5s ease 0.4s both;
+}
+
+/* My Businesses page (zapeera-businesses.html) */
+.zv3-page-hero {
+  animation: zv3-fadeUp 0.6s ease both;
+}
+
+.zv3-table-card {
+  animation: zv3-fadeUp 0.6s ease 0.15s both;
+}
+
+/* Modal email fields: hide WebKit autofill / credential UI; avoid double focus ring */
+.zv3-modal-email-input:focus-visible {
+  outline: none;
+}
+
+.zv3-modal-email-input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.zv3-modal-email-input::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}

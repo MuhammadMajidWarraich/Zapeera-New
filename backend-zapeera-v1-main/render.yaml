@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: zapeera-backend
+    runtime: node
+    plan: standard
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: USE_POSTGRESQL
+        value: "true"
+      - key: PG_CONNECTION_LIMIT
+        value: "10"
+      - key: PG_POOL_TIMEOUT
+        value: "15"

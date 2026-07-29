@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dashboard Exact Theme Colors */
+
+@layer base {
+  :root {
+    /* Core Backgrounds */
+    --background: 220 23% 97%;      /* #F7F9FB - very light gray */
+    --foreground: 215 25% 20%;      /* #1E293B - dark text */
+
+    /* Cards */
+    --card: 0 0% 100%;              /* #FFFFFF */
+    --card-foreground: 215 25% 20%;
+
+    /* Popover */
+    --popover: 0 0% 100%;           /* #FFFFFF */
+    --popover-foreground: 215 25% 20%;
+
+    /* Primary Green (Items Sold box) */
+    --primary: 152 62% 33%;         /* #1F7C47 ✅ exact */
+    --primary-foreground: 0 0% 100%;
+
+    /* Sidebar / Secondary */
+    --secondary: 210 40% 96%;       /* #F3F6F9 ✅ sidebar bg */
+    --secondary-foreground: 215 25% 20%;
+
+    /* Accent Blue (icons, highlights) */
+    --accent: 200 90% 55%;          /* #2CA6E2 */
+    --accent-foreground: 0 0% 100%;
+
+    /* Ring */
+    --ring: 200 90% 55%;
+
+    /* Muted Texts & Backgrounds */
+    --muted: 210 20% 95%;           /* #F5F7FA */
+    --muted-foreground: 215 15% 45%;/* #6B7280 */
+
+    /* Status Colors */
+    --success: 152 62% 33%;         /* same green */
+    --warning: 38 92% 50%;          /* #F59E0B amber */
+    --destructive: 152 62% 33%;       /* #EF4444 red */
+
+    /* Borders / Inputs */
+    --border: 214 32% 91%;          /* #E5E7EB */
+    --input: 214 32% 91%;
+    --ring: 152 62% 33%;            /* green focus */
+
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(215 25% 20% / 0.08);
+    --shadow-medium: 0 4px 16px -4px hsl(215 25% 20% / 0.12);
+    --shadow-strong: 0 8px 32px -8px hsl(215 25% 20% / 0.16);
+
+    /* Radius */
+    --radius: 0.75rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal overflow globally */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  * {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar styling - only show when needed */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Hide scrollbars by default, show on hover/scroll */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
+  }
+
+  *:hover::-webkit-scrollbar {
+    display: block; /* Show on hover */
+  }
+
+  /* Ensure all dropdowns and popovers have white backgrounds */
+  [data-radix-select-content],
+  [data-radix-popover-content],
+  [data-radix-dropdown-menu-content],
+  .radix-select-content,
+  .radix-popover-content,
+  .radix-dropdown-menu-content {
+    background-color: white !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Ensure SelectTrigger has proper background */
+  [data-radix-select-trigger],
+  .radix-select-trigger {
+    background-color: white !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Additional targeting for Select components */
+  [role="listbox"],
+  [data-radix-select-viewport],
+  .select-content,
+  .select-trigger {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Target the actual dropdown content */
+  [data-radix-select-content] > div,
+  [data-radix-select-content] .radix-select-viewport {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* More comprehensive targeting */
+  div[data-radix-select-content],
+  div[data-radix-popover-content],
+  div[data-radix-dropdown-menu-content],
+  .select-content,
+  .popover-content,
+  .dropdown-menu-content {
+    background-color: white !important;
+    background: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  /* Target any element with select-related classes */
+  [class*="select"],
+  [class*="dropdown"],
+  [class*="popover"] {
+    background-color: white !important;
+    color: hsl(var(--foreground)) !important;
+  }
+}
+
+/* Loading animation for branch selector */
+@keyframes loadingFlow {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* Subtle shimmer effect with left-right movement */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) translateY(0);
+  }
+  50% {
+    transform: translateX(0%) translateY(0);
+  }
+  100% {
+    transform: translateX(100%) translateY(0);
+  }
+}
