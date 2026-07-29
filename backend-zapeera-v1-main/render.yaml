@@ -1,25 +1,31 @@
 services:
   - type: web
-    name: zapeera-backend
-    runtime: node
-    plan: standard
-    buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/health
+    name: zapeera-api
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: npm run build:prod
+    startCommand: npm run start:web
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
-      - key: DATABASE_URL
-        sync: false
-      - key: JWT_SECRET
-        sync: false
-      - key: ENCRYPTION_KEY
-        sync: false
+        value: 10000
       - key: USE_POSTGRESQL
         value: "true"
-      - key: PG_CONNECTION_LIMIT
-        value: "10"
-      - key: PG_POOL_TIMEOUT
-        value: "15"
+      - key: DATABASE_URL
+        sync: false
+      - key: REMOTE_DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://zapeera.vercel.app
+      - key: CORS_ORIGIN
+        value: https://zapeera.vercel.app
+      - key: CSRF_BYPASS
+        value: "false"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: noreply@zapeera.com
