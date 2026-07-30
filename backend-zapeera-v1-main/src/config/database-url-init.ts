@@ -55,7 +55,7 @@ if (schemaProvider === 'sqlite' && process.env.USE_POSTGRESQL === 'true') {
   console.warn('[DB URL Init] ⚠️ Schema is SQLite but USE_POSTGRESQL=true - forcing SQLite mode');
 }
 
-function withPostgresConnectionLimit(databaseUrl) {
+function withPostgresConnectionLimit(databaseUrl: string) {
   try {
     const parsed = new URL(databaseUrl);
     // IMPORTANT:
@@ -107,8 +107,8 @@ if (!fs.existsSync(sqliteDir)) {
   try {
     fs.mkdirSync(sqliteDir, { recursive: true });
     console.log('[DB URL Init] 📁 Created SQLite directory:', sqliteDir);
-  } catch (err) {
-    console.warn('[DB URL Init] ⚠️ Could not create SQLite directory:', err.message);
+  } catch (err: unknown) {
+    console.warn('[DB URL Init] ⚠️ Could not create SQLite directory:', err instanceof Error ? err.message : String(err));
   }
 }
 
