@@ -123,7 +123,7 @@ if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('file:')) {
 } else if (usePostgreSQL) {
   // Website mode
   console.log('[DB URL Init] 🌐 WEBSITE MODE - PostgreSQL');
-  process.env.DATABASE_URL = postgresUrlWithLimits;
+  process.env.DATABASE_URL = postgresUrlWithLimits!;
 } else {
   // Electron mode - SQLite for offline
   console.log('[DB URL Init] 💻 ELECTRON MODE - SQLite');
