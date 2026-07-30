@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm run build:prod"
+buildCommand = "NODE_ENV=development npm install --include=dev && npm run build:prod"
 
 [deploy]
 startCommand = "npm run start:web"
