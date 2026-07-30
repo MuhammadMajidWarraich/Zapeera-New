@@ -120,6 +120,24 @@ import { notFound } from './middleware/notFound.middleware';
 
 const app = express();
 
+// DIAGNOSTIC: Log ALL incoming requests to debug Railway routing
+app.use((req, res, next) => {
+  console.log(`[DIAG] 📨 ${req.method} ${req.path} from ${req.ip}`);
+  console.log(`[DIAG] 📋 Headers:`, JSON.stringify({
+    host: req.headers.host,
+    'user-agent': req.headers['user-agent'],
+    'content-type': req.headers['content-type'],
+    accept: req.headers.accept,
+    'x-forwarded-for': req.headers['x-forwarded-for'],
+    'x-forwarded-proto': req.headers['x-forwarded-proto'],
+    'x-railway-deployment': req.headers['x-railway-deployment'],
+  }));
+  res.on('finish', () => {
+    console.log(`[DIAG] ✅ ${req.method} ${req.path} -> ${res.statusCode}`);
+  });
+  next();
+});
+
 // Trust proxy for correct client IP detection (needed for rate limiting behind proxies)
 app.set('trust proxy', true);
 
