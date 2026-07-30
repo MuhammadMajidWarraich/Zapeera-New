@@ -1,9 +1,9 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "NODE_ENV=development npm install --include=dev && npm run build:prod"
+buildCommand = "npm run build:prod"
 
 [deploy]
-startCommand = "npm run start:web"
+startCommand = "NODE_ENV=production npm run start:web"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
