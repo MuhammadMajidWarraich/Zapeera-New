@@ -3,7 +3,7 @@ builder = "NIXPACKS"
 buildCommand = "npm run build:prod:force"
 
 [deploy]
-startCommand = "NODE_ENV=production npm run start:web"
+startCommand = "npm run start:web"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
