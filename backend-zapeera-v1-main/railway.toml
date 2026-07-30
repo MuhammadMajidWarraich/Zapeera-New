@@ -1,8 +1,9 @@
 [build]
-cmd = "npm install && npx prisma generate && npm run build"
+builder = "NIXPACKS"
+buildCommand = "npm run build:prod"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "npm run start:web"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
@@ -11,15 +12,3 @@ restartPolicyMaxRetries = 3
 [env]
 NODE_ENV = "production"
 PORT = "3000"
-
-[[envs]]
-key = "DATABASE_URL"
-required = true
-
-[[envs]]
-key = "JWT_SECRET"
-required = true
-
-[[envs]]
-key = "ENCRYPTION_KEY"
-required = true
