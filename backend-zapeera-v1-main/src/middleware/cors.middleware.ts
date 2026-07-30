@@ -58,7 +58,7 @@ export function configureCors(app: Express): void {
 
   // Standard cors middleware for non-OPTIONS requests (GET, POST, etc.)
   app.use(cors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allowed?: boolean) => void) => {
       callback(null, isOriginAllowed(origin));
     },
     credentials: true,
