@@ -1,0 +1,37 @@
+name: Deploy Backend to Railway
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend-zapeera-v1-main/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-zapeera-v1-main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build:prod:force
+
+      - name: Deploy to Railway
+        uses: railwayapp/actions/deploy@v3
+        with:
+          projectId: ${{ secrets.RAILWAY_PROJECT_ID }}
+          serviceId: ${{ secrets.RAILWAY_SERVICE_ID }}
+          token: ${{ secrets.RAILWAY_TOKEN }}
+          dir: backend-zapeera-v1-main
