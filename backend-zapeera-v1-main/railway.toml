@@ -10,5 +10,4 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
 [env]
-PORT = "3000"
 NODE_VERSION = "22"
