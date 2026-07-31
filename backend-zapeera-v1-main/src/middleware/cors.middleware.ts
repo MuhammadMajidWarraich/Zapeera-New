@@ -17,7 +17,10 @@ function isOriginAllowed(origin: string | undefined): boolean {
     const url = new URL(origin);
     if (url.hostname === 'zapeera.com' || url.hostname.endsWith('.zapeera.com')) return true;
   } catch { /* not a valid URL */ }
-  if (origin.startsWith('file://')) return isProduction === false;
+  // Allow desktop/Electron clients: the packaged app loads from file:// (opaque
+  // origin -> "null" header) and talks to the cloud API cross-origin. Auth is via
+  // Bearer JWT + CSRF token, so reflecting these origins does not leak cookies.
+  if (origin === 'null' || origin.startsWith('file://')) return true;
   const envOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim());
   if (envOrigins?.includes(origin)) return true;
   if (process.env.NODE_ENV === 'development') return true;
