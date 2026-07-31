@@ -22,7 +22,7 @@ export const ensureBusinessRole = async (
     const normalized = String(roleName || '').toUpperCase();
     const existing = await prisma.$queryRaw<any[]>`
       SELECT id FROM roles
-      WHERE businessId = ${businessId}
+      WHERE "businessId" = ${businessId}
         AND name = ${normalized}
       LIMIT 1
     `;
@@ -30,7 +30,7 @@ export const ensureBusinessRole = async (
 
     const id = newId('role');
     await prisma.$executeRaw`
-      INSERT INTO roles (id, businessId, name, createdAt, updatedAt, uuid, syncStatus)
+      INSERT INTO roles (id, "businessId", name, "createdAt", "updatedAt", uuid, "syncStatus")
       VALUES (${id}, ${businessId}, ${normalized}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ${newId('uuid')}, 'PENDING')
     `;
     return id;
@@ -55,8 +55,8 @@ export const upsertMembership = async (
     const existing = await prisma.$queryRaw<any[]>`
       SELECT id
       FROM memberships
-      WHERE userId = ${params.userId}
-        AND businessId = ${params.businessId}
+      WHERE "userId" = ${params.userId}
+        AND "businessId" = ${params.businessId}
       LIMIT 1
     `;
 
@@ -64,11 +64,11 @@ export const upsertMembership = async (
       const id = String(existing[0].id);
       await prisma.$executeRaw`
         UPDATE memberships
-        SET roleId = ${params.roleId || null},
+        SET "roleId" = ${params.roleId || null},
             status = ${status},
-            invitedBy = ${params.invitedBy || null},
-            updatedAt = CURRENT_TIMESTAMP,
-            syncStatus = 'PENDING'
+            "invitedBy" = ${params.invitedBy || null},
+            "updatedAt" = CURRENT_TIMESTAMP,
+            "syncStatus" = 'PENDING'
         WHERE id = ${id}
       `;
       return id;
@@ -77,7 +77,7 @@ export const upsertMembership = async (
     const id = newId('mem');
     await prisma.$executeRaw`
       INSERT INTO memberships (
-        id, userId, businessId, roleId, status, invitedBy, createdAt, updatedAt, uuid, syncStatus
+        id, "userId", "businessId", "roleId", status, "invitedBy", "createdAt", "updatedAt", uuid, "syncStatus"
       )
       VALUES (
         ${id}, ${params.userId}, ${params.businessId}, ${params.roleId || null}, ${status}, ${params.invitedBy || null},
@@ -101,15 +101,15 @@ export const upsertMembershipBranch = async (
     const existing = await prisma.$queryRaw<any[]>`
       SELECT id
       FROM membership_branches
-      WHERE membershipId = ${membershipId}
-        AND branchId = ${branchId}
+      WHERE "membershipId" = ${membershipId}
+        AND "branchId" = ${branchId}
       LIMIT 1
     `;
     if (existing[0]?.id) return;
 
     const id = newId('mbr');
     await prisma.$executeRaw`
-      INSERT INTO membership_branches (id, membershipId, branchId, createdAt, updatedAt, uuid, syncStatus)
+      INSERT INTO membership_branches (id, "membershipId", "branchId", "createdAt", "updatedAt", uuid, "syncStatus")
       VALUES (${id}, ${membershipId}, ${branchId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ${newId('uuid')}, 'PENDING')
     `;
   } catch (error: any) {
@@ -127,14 +127,14 @@ export const deleteMembershipByUserBusiness = async (
     const rows = await prisma.$queryRaw<any[]>`
       SELECT id
       FROM memberships
-      WHERE userId = ${userId}
-        AND businessId = ${businessId}
+      WHERE "userId" = ${userId}
+        AND "businessId" = ${businessId}
       LIMIT 1
     `;
     if (!rows[0]?.id) return false;
     const membershipId = String(rows[0].id);
 
-    await prisma.$executeRaw`DELETE FROM membership_branches WHERE membershipId = ${membershipId}`;
+    await prisma.$executeRaw`DELETE FROM membership_branches WHERE "membershipId" = ${membershipId}`;
     await prisma.$executeRaw`DELETE FROM memberships WHERE id = ${membershipId}`;
     return true;
   } catch (error: any) {
@@ -163,23 +163,23 @@ export const listBusinessMembershipUsers = async (
     const rows = await prisma.$queryRaw<any[]>`
       SELECT
         m.id AS membership_id,
-        m.userId AS user_id,
+        m."userId" AS user_id,
         m.status AS membership_status,
-        m.createdAt AS created_at,
+        m."createdAt" AS created_at,
         u.name AS user_name,
         u.username AS username,
         u.email AS email,
-        u.isActive AS user_is_active,
+        u."isActive" AS user_is_active,
         r.name AS role_name,
-        mb.branchId AS branch_id,
+        mb."branchId" AS branch_id,
         b.name AS branch_name
       FROM memberships m
-      INNER JOIN zapeera_users u ON u.id = m.userId
-      LEFT JOIN roles r ON r.id = m.roleId
-      LEFT JOIN membership_branches mb ON mb.membershipId = m.id
-      LEFT JOIN branches b ON b.id = mb.branchId
-      WHERE m.businessId = ${businessId}
-      ORDER BY m.createdAt DESC
+      INNER JOIN zapeera_users u ON u.id = m."userId"
+      LEFT JOIN roles r ON r.id = m."roleId"
+      LEFT JOIN membership_branches mb ON mb."membershipId" = m.id
+      LEFT JOIN branches b ON b.id = mb."branchId"
+      WHERE m."businessId" = ${businessId}
+      ORDER BY m."createdAt" DESC
     `;
 
     const merged = new Map<string, any>();

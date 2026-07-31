@@ -89,9 +89,9 @@ export const sendInvitation = async (req: AuthRequest, res: Response): Promise<v
 
     // Check if user sending invitation has permission
     const senderMembership = await prisma.$queryRaw<any[]>`
-      SELECT m.id, m.role_id FROM memberships m
-      WHERE m.user_id = ${req.user?.id}
-        AND m.business_id = ${businessId}
+      SELECT m.id, m."roleId" FROM memberships m
+      WHERE m."userId" = ${req.user?.id}
+        AND m."businessId" = ${businessId}
         AND m.status = 'ACTIVE'
       LIMIT 1
     `;
@@ -105,22 +105,28 @@ export const sendInvitation = async (req: AuthRequest, res: Response): Promise<v
     }
 
     // Check if sender is owner or has invite permission
-    const senderRole = senderMembership[0].role_id;
+    const senderRole = senderMembership[0].roleId;
     const company = await prisma.$queryRaw<any[]>`
-      SELECT created_by FROM businesses WHERE id = ${businessId} LIMIT 1
+      SELECT "createdBy" FROM businesses WHERE id = ${businessId} LIMIT 1
     `;
 
-    const isOwner = company[0]?.created_by === req.user?.id;
+    const isOwner = company[0]?.createdBy === req.user?.id;
     if (!isOwner && senderRole) {
-      // Check if role has invite permission
-      const permission = await prisma.$queryRaw<any[]>`
-        SELECT 1 FROM role_permissions rp
-        INNER JOIN permissions p ON p.id = rp.permission_id
-        WHERE rp.role_id = ${senderRole} AND p.name = 'INVITE_USERS'
-        LIMIT 1
-      `;
+      // Check if role has invite permission (legacy tables may be absent — fail closed)
+      let hasInvitePermission = false;
+      try {
+        const permission = await prisma.$queryRaw<any[]>`
+          SELECT 1 FROM role_permissions rp
+          INNER JOIN permissions p ON p.id = rp."permissionId"
+          WHERE rp."roleId" = ${senderRole} AND p.name = 'INVITE_USERS'
+          LIMIT 1
+        `;
+        hasInvitePermission = permission.length > 0;
+      } catch (err: any) {
+        hasInvitePermission = false;
+      }
 
-      if (permission.length === 0) {
+      if (!hasInvitePermission) {
         res.status(403).json({
           success: false,
           message: 'You do not have permission to invite users'
@@ -235,7 +241,7 @@ export const acceptInvitationHandler = async (req: AuthRequest, res: Response): 
     // Send confirmation email
     const businessData = await prisma.$queryRaw<any[]>`
       SELECT c.name FROM businesses c
-      WHERE c.id = (SELECT business_id FROM business_invitations WHERE token = ${token})
+      WHERE c.id = (SELECT "businessId" FROM business_invitations WHERE token = ${token})
       LIMIT 1
     `;
 
@@ -336,17 +342,17 @@ export const getBusinessInvitationsHandler = async (req: AuthRequest, res: Respo
     // Check if user has access to this business
     const membership = await prisma.$queryRaw<any[]>`
       SELECT m.id FROM memberships m
-      WHERE m.user_id = ${req.user?.id}
-        AND m.business_id = ${businessId}
+      WHERE m."userId" = ${req.user?.id}
+        AND m."businessId" = ${businessId}
         AND m.status = 'ACTIVE'
       LIMIT 1
     `;
 
     const company = await prisma.$queryRaw<any[]>`
-      SELECT created_by FROM businesses WHERE id = ${businessId} LIMIT 1
+      SELECT "createdBy" FROM businesses WHERE id = ${businessId} LIMIT 1
     `;
 
-    const isOwner = company[0]?.created_by === req.user?.id;
+    const isOwner = company[0]?.createdBy === req.user?.id;
     if (membership.length === 0 && !isOwner) {
       res.status(403).json({
         success: false,
@@ -424,7 +430,7 @@ export const cancelInvitationHandler = async (req: AuthRequest, res: Response): 
 
     // Get invitation details
     const invitations = await prisma.$queryRaw<any[]>`
-      SELECT business_id, status FROM business_invitations
+      SELECT "businessId", status FROM business_invitations
       WHERE id = ${invitationId}
       LIMIT 1
     `;
@@ -442,17 +448,17 @@ export const cancelInvitationHandler = async (req: AuthRequest, res: Response): 
     // Check if user has permission
     const membership = await prisma.$queryRaw<any[]>`
       SELECT m.id FROM memberships m
-      WHERE m.user_id = ${req.user?.id}
-        AND m.business_id = ${invitation.business_id}
+      WHERE m."userId" = ${req.user?.id}
+        AND m."businessId" = ${invitation.businessId}
         AND m.status = 'ACTIVE'
       LIMIT 1
     `;
 
     const company = await prisma.$queryRaw<any[]>`
-      SELECT created_by FROM businesses WHERE id = ${invitation.business_id} LIMIT 1
+      SELECT "createdBy" FROM businesses WHERE id = ${invitation.businessId} LIMIT 1
     `;
 
-    const isOwner = company[0]?.created_by === req.user?.id;
+    const isOwner = company[0]?.createdBy === req.user?.id;
     if (membership.length === 0 && !isOwner) {
       res.status(403).json({
         success: false,
@@ -470,7 +476,7 @@ export const cancelInvitationHandler = async (req: AuthRequest, res: Response): 
     }
 
     // Cancel invitation
-    await cancelInvitations(prisma, invitation.business_id, undefined);
+    await cancelInvitations(prisma, invitation.businessId, undefined);
 
     res.json({
       success: true,
@@ -501,12 +507,12 @@ export const verifyInvitationToken = async (req: Request, res: Response): Promis
         bi.id,
         bi.email,
         bi.status,
-        bi.expires_at,
+        bi."expiresAt",
         c.name AS business_name,
         r.name AS role_name
       FROM business_invitations bi
-      LEFT JOIN businesses c ON c.id = bi.business_id
-      LEFT JOIN roles r ON r.id = bi.role_id
+      LEFT JOIN businesses c ON c.id = bi."businessId"
+      LEFT JOIN roles r ON r.id = bi."roleId"
       WHERE bi.token = ${token}
       LIMIT 1
     `;
@@ -522,7 +528,7 @@ export const verifyInvitationToken = async (req: Request, res: Response): Promis
     const invitation = invitations[0];
 
     // Check if expired
-    if (new Date() > new Date(invitation.expires_at)) {
+    if (new Date() > new Date(invitation.expiresAt)) {
       res.status(400).json({
         success: false,
         message: 'Invitation has expired'

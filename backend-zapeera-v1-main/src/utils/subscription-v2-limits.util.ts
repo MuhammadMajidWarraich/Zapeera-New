@@ -91,7 +91,7 @@ export const validateMembershipInviteAllowanceV2 = async (
     const rows = await prisma.$queryRaw<any[]>`
       SELECT COUNT(1) as total
       FROM memberships
-      WHERE businessId = ${params.businessId}
+      WHERE "businessId" = ${params.businessId}
         AND status = 'ACTIVE'
     `;
     const activeMembers = Number(rows[0]?.total || 0);

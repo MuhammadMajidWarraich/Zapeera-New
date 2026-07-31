@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { notifyUserDeactivation, notifyUserReactivation } from '../routes/sse.routes';
@@ -29,9 +30,9 @@ const getBusinessOwnerUserIds = async (prisma: any): Promise<string[]> => {
   const ownerIds = new Set<string>();
 
   const selfOwnedUsers = await prisma.$queryRaw<any[]>`
-    SELECT DISTINCT createdBy AS id
+    SELECT DISTINCT "createdBy" AS id
     FROM businesses
-    WHERE createdBy IS NOT NULL
+    WHERE "createdBy" IS NOT NULL
   `;
   selfOwnedUsers.forEach((user: any) => {
     if (user?.id) {
@@ -42,9 +43,9 @@ const getBusinessOwnerUserIds = async (prisma: any): Promise<string[]> => {
   // CompanyMember model is deprecated. Access logic moved entirely to memberships and Company.createdBy.
 
   const membershipOwners = await prisma.$queryRaw<any[]>`
-    SELECT DISTINCT m.userId
+    SELECT DISTINCT m."userId"
     FROM memberships m
-    LEFT JOIN roles r ON r.id = m.roleId
+    LEFT JOIN roles r ON r.id = m."roleId"
     WHERE m.status = 'ACTIVE'
       AND r.name = 'OWNER'
   `;
@@ -68,8 +69,8 @@ const isBusinessOwner = async (prisma: any, userId: string): Promise<boolean> =>
     prisma.$queryRaw<any[]>`
       SELECT 1
       FROM memberships m
-      LEFT JOIN roles r ON r.id = m.roleId
-      WHERE m.userId = ${userId}
+      LEFT JOIN roles r ON r.id = m."roleId"
+      WHERE m."userId" = ${userId}
         AND m.status = 'ACTIVE'
         AND r.name = 'OWNER'
       LIMIT 1
@@ -424,8 +425,8 @@ export const createAdmin = async (req: AuthRequest, res: Response): Promise<void
 
       // Link membership to branch
       await tx.$executeRaw`
-        INSERT INTO "MembershipBranch" ("id", "membershipId", "branchId", "createdAt", "updatedAt")
-        VALUES (${require('cuid')()}, ${membership.id}, ${branch.id}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO membership_branches ("id", "membershipId", "branchId", "createdAt", "updatedAt")
+        VALUES (${randomUUID()}, ${membership.id}, ${branch.id}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `;
 
       return { admin, company: newCompany, branch };
@@ -755,11 +756,11 @@ export const getAdminUsers = async (req: Request, res: Response): Promise<void> 
     const roleByUserId = new Map<string, string>();
     try {
       const membershipRoles = await prisma.$queryRaw<any[]>`
-        SELECT m.userId, r.name AS roleName
+        SELECT m."userId", r.name AS roleName
         FROM memberships m
-        LEFT JOIN roles r ON r.id = m.roleId
+        LEFT JOIN roles r ON r.id = m."roleId"
         WHERE m.status = 'ACTIVE'
-          AND m.businessId = ${company.id}
+          AND m."businessId" = ${company.id}
           AND r.name IN ('MANAGER', 'CASHIER')
       `;
       membershipRoles.forEach(row => {

@@ -16,52 +16,52 @@ async function ensureModulePermissionTables(prisma: any): Promise<void> {
     // Main module permission tables
     `CREATE TABLE IF NOT EXISTS plan_module_permissions (
        id TEXT PRIMARY KEY,
-       planId TEXT NOT NULL,
-       moduleName TEXT NOT NULL,
-       enabled INTEGER NOT NULL DEFAULT 0,
-       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       UNIQUE(planId, moduleName)
+       "planId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT false,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("planId", "moduleName")
      )`,
     `CREATE TABLE IF NOT EXISTS role_module_permissions (
        id TEXT PRIMARY KEY,
-       roleName TEXT NOT NULL,
-       moduleName TEXT NOT NULL,
-       enabled INTEGER NOT NULL DEFAULT 0,
-       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       UNIQUE(roleName, moduleName)
+       "roleName" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT false,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("roleName", "moduleName")
      )`,
     // Sub-module permission tables
     `CREATE TABLE IF NOT EXISTS business_type_sub_module_permissions (
        id TEXT PRIMARY KEY,
-       businessTypeId TEXT NOT NULL,
-       moduleName TEXT NOT NULL,
-       subModuleKey TEXT NOT NULL,
-       enabled INTEGER NOT NULL DEFAULT 1,
-       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       UNIQUE(businessTypeId, moduleName, subModuleKey)
+       "businessTypeId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("businessTypeId", "moduleName", "subModuleKey")
      )`,
     `CREATE TABLE IF NOT EXISTS plan_sub_module_permissions (
        id TEXT PRIMARY KEY,
-       planId TEXT NOT NULL,
-       moduleName TEXT NOT NULL,
-       subModuleKey TEXT NOT NULL,
-       enabled INTEGER NOT NULL DEFAULT 1,
-       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       UNIQUE(planId, moduleName, subModuleKey)
+       "planId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("planId", "moduleName", "subModuleKey")
      )`,
     `CREATE TABLE IF NOT EXISTS role_sub_module_permissions (
        id TEXT PRIMARY KEY,
-       roleName TEXT NOT NULL,
-       moduleName TEXT NOT NULL,
-       subModuleKey TEXT NOT NULL,
-       enabled INTEGER NOT NULL DEFAULT 1,
-       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-       UNIQUE(roleName, moduleName, subModuleKey)
+       "roleName" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("roleName", "moduleName", "subModuleKey")
      )`,
   ];
   for (const stmt of ddl) {
@@ -80,21 +80,21 @@ async function upsertModulePermission(
   moduleName: string,
   enabled: boolean
 ): Promise<void> {
-  const enabledVal = enabled ? 1 : 0;
+  const scopeQuoted = scopeCol === 'planId' ? '"planId"' : '"roleName"';
   const id = crypto.randomUUID();
   try {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO ${table} (id, ${scopeCol}, moduleName, enabled, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      id, scopeVal, moduleName, enabledVal
+      `INSERT INTO ${table} (id, ${scopeQuoted}, "moduleName", "enabled", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      id, scopeVal, moduleName, enabled
     );
   } catch (insertErr: any) {
     const message = String(insertErr?.message || '').toLowerCase();
     if (message.includes('unique') || message.includes('constraint')) {
       await prisma.$executeRawUnsafe(
-        `UPDATE ${table} SET enabled = ?, updatedAt = CURRENT_TIMESTAMP
-         WHERE ${scopeCol} = ? AND moduleName = ?`,
-        enabledVal, scopeVal, moduleName
+        `UPDATE ${table} SET "enabled" = $1, "updatedAt" = CURRENT_TIMESTAMP
+         WHERE ${scopeQuoted} = $2 AND "moduleName" = $3`,
+        enabled, scopeVal, moduleName
       );
     } else {
       throw insertErr;
@@ -121,14 +121,16 @@ async function upsertSubModulePermission(
   subModuleKey: string,
   enabled: boolean
 ): Promise<void> {
+  const scopeQuoted =
+    scopeCol === 'businessTypeId' ? '"businessTypeId"' : scopeCol === 'planId' ? '"planId"' : '"roleName"';
   await prisma.$executeRawUnsafe(
-    `DELETE FROM ${table} WHERE ${scopeCol} = ? AND moduleName = ? AND subModuleKey = ?`,
+    `DELETE FROM ${table} WHERE ${scopeQuoted} = $1 AND "moduleName" = $2 AND "subModuleKey" = $3`,
     scopeVal, moduleName, subModuleKey
   );
   await prisma.$executeRawUnsafe(
-    `INSERT INTO ${table} (id, ${scopeCol}, moduleName, subModuleKey, enabled, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    crypto.randomUUID(), scopeVal, moduleName, subModuleKey, enabled ? 1 : 0
+    `INSERT INTO ${table} (id, ${scopeQuoted}, "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    crypto.randomUUID(), scopeVal, moduleName, subModuleKey, enabled
   );
 }
 
@@ -137,13 +139,9 @@ export const getModulePermissionMatrix = async (req: AdminAuthRequest, res: Resp
     const prisma = await getPrisma();
     await ensureModulePermissionTables(prisma);
 
-    const roles = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT roleName, moduleName, enabled FROM role_module_permissions ORDER BY roleName, moduleName`
-    );
-    const plans = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT planId, moduleName, enabled FROM plan_module_permissions ORDER BY planId, moduleName`
-    );
-    const allModRows = await prisma.$queryRawUnsafe<any[]>('SELECT name FROM modules');
+    const roles = await prisma.$queryRaw<any[]>`SELECT "roleName", "moduleName", "enabled" FROM role_module_permissions ORDER BY "roleName", "moduleName"`;
+    const plans = await prisma.$queryRaw<any[]>`SELECT "planId", "moduleName", "enabled" FROM plan_module_permissions ORDER BY "planId", "moduleName"`;
+    const allModRows = await prisma.$queryRaw<any[]>`SELECT name FROM modules`;
     const allModules = allModRows.map((row) => String(row.name).toLowerCase());
 
     const roleMap = new Map<string, Set<string>>();
@@ -186,8 +184,10 @@ export async function getSubModuleStateMap(
   scopeCol: 'businessTypeId' | 'planId' | 'roleName'
 ): Promise<Map<string, Map<string, boolean>>> {
   await ensureSubModuleTables(prisma);
+  const scopeQuoted =
+    scopeCol === 'businessTypeId' ? '"businessTypeId"' : scopeCol === 'planId' ? '"planId"' : '"roleName"';
   const rows: any[] = await prisma.$queryRawUnsafe(
-    `SELECT ${scopeCol} AS scope, moduleName, subModuleKey, enabled FROM ${table}`
+    `SELECT ${scopeQuoted} AS scope, "moduleName", "subModuleKey", "enabled" FROM ${table}`
   );
   const map = new Map<string, Map<string, boolean>>();
   for (const r of rows) {
@@ -210,9 +210,7 @@ export const getPlanModulePermissions = async (req: AdminAuthRequest, res: Respo
     await ensureModulePermissionTables(prisma);
     const plans = await loadPricingPlans(prisma);
 
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT planId, moduleName, enabled FROM plan_module_permissions ORDER BY planId, moduleName`
-    );
+    const rows = await prisma.$queryRaw<any[]>`SELECT "planId", "moduleName", "enabled" FROM plan_module_permissions ORDER BY "planId", "moduleName"`;
 
     // Build map: planId -> Set<moduleName>
     const dbMap = new Map<string, Set<string>>();
@@ -303,16 +301,15 @@ export const updatePlanModulePermissions = async (req: AdminAuthRequest, res: Re
     const allMods = new Set(allModRows.map((r) => String(r.name).toLowerCase()));
 
     // Delete existing rows for this plan, re-insert fresh
-    await prisma.$executeRawUnsafe(`DELETE FROM plan_module_permissions WHERE planId = ?`, planId);
+    await prisma.$executeRaw`DELETE FROM plan_module_permissions WHERE "planId" = ${planId}`;
 
     for (const mod of allMods) {
-      const enabled = normalizedModules.includes(mod) ? 1 : 0;
+      const enabled = normalizedModules.includes(mod);
       const id = crypto.randomUUID();
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO plan_module_permissions (id, planId, moduleName, enabled, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        id, planId, mod, enabled
-      );
+      await prisma.$executeRaw`
+        INSERT INTO plan_module_permissions (id, "planId", "moduleName", "enabled", "createdAt", "updatedAt")
+        VALUES (${id}, ${planId}, ${mod}, ${enabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
     }
 
     invalidateModuleCache({ type: 'PLAN_CHANGED', businessId: planId });
@@ -335,9 +332,7 @@ export const getRoleModulePermissions = async (req: AdminAuthRequest, res: Respo
     const prisma = await getPrisma();
     await ensureModulePermissionTables(prisma);
 
-    const rows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT roleName, moduleName, enabled FROM role_module_permissions ORDER BY roleName, moduleName`
-    );
+    const rows = await prisma.$queryRaw<any[]>`SELECT "roleName", "moduleName", "enabled" FROM role_module_permissions ORDER BY "roleName", "moduleName"`;
 
     const allModRows = await prisma.$queryRawUnsafe<any[]>('SELECT name FROM modules');
     const allMods = allModRows.map((r) => String(r.name).toLowerCase());
@@ -422,16 +417,15 @@ export const updateRoleModulePermissions = async (req: AdminAuthRequest, res: Re
     const allModRows = await prisma.$queryRawUnsafe<any[]>('SELECT name FROM modules');
     const allMods = new Set(allModRows.map((r) => String(r.name).toLowerCase()));
 
-    await prisma.$executeRawUnsafe(`DELETE FROM role_module_permissions WHERE roleName = ?`, normalized);
+    await prisma.$executeRaw`DELETE FROM role_module_permissions WHERE "roleName" = ${normalized}`;
 
     for (const mod of allMods) {
-      const enabled = normalizedModules.includes(mod) ? 1 : 0;
+      const enabled = normalizedModules.includes(mod);
       const id = crypto.randomUUID();
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO role_module_permissions (id, roleName, moduleName, enabled, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        id, normalized, mod, enabled
-      );
+      await prisma.$executeRaw`
+        INSERT INTO role_module_permissions (id, "roleName", "moduleName", "enabled", "createdAt", "updatedAt")
+        VALUES (${id}, ${normalized}, ${mod}, ${enabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
     }
 
     invalidateModuleCache({ type: 'ROLE_PERMISSION_CHANGED', userId: normalized });
@@ -464,20 +458,17 @@ export const updateBusinessTypeSubModulePermission = async (req: AdminAuthReques
     // Bulk replacement mode
     if (subModules && typeof subModules === 'object') {
       // Delete all existing sub-module permissions for this business type
-      await prisma.$executeRawUnsafe(
-        `DELETE FROM business_type_sub_module_permissions WHERE businessTypeId = ?`, id
-      );
+      await prisma.$executeRaw`DELETE FROM business_type_sub_module_permissions WHERE "businessTypeId" = ${id}`;
 
       // Insert all entries
       for (const [composite, isEnabled] of Object.entries(subModules)) {
         const parts = composite.split('::');
         if (parts.length !== 2) continue;
         const [modKey, subKey] = parts;
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO business_type_sub_module_permissions (id, businessTypeId, moduleName, subModuleKey, enabled, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          crypto.randomUUID(), id, modKey.toLowerCase(), subKey.toLowerCase(), isEnabled ? 1 : 0
-        );
+        await prisma.$executeRaw`
+          INSERT INTO business_type_sub_module_permissions (id, "businessTypeId", "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${id}, ${modKey.toLowerCase()}, ${subKey.toLowerCase()}, ${isEnabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
       }
 
       moduleAccessCache.clear();
@@ -523,18 +514,15 @@ export const updatePlanSubModulePermission = async (req: AdminAuthRequest, res: 
     await ensureSubModuleTables(prisma);
 
     if (subModules && typeof subModules === 'object') {
-      await prisma.$executeRawUnsafe(
-        `DELETE FROM plan_sub_module_permissions WHERE planId = ?`, planId
-      );
+      await prisma.$executeRaw`DELETE FROM plan_sub_module_permissions WHERE "planId" = ${planId}`;
       for (const [composite, isEnabled] of Object.entries(subModules)) {
         const parts = composite.split('::');
         if (parts.length !== 2) continue;
         const [modKey, subKey] = parts;
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO plan_sub_module_permissions (id, planId, moduleName, subModuleKey, enabled, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          crypto.randomUUID(), planId, modKey.toLowerCase(), subKey.toLowerCase(), isEnabled ? 1 : 0
-        );
+        await prisma.$executeRaw`
+          INSERT INTO plan_sub_module_permissions (id, "planId", "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${planId}, ${modKey.toLowerCase()}, ${subKey.toLowerCase()}, ${isEnabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
       }
       moduleAccessCache.clear();
       return res.json({ success: true, message: 'Sub-module permissions updated' });
@@ -582,18 +570,15 @@ export const updateRoleSubModulePermission = async (req: AdminAuthRequest, res: 
     await ensureSubModuleTables(prisma);
 
     if (subModules && typeof subModules === 'object') {
-      await prisma.$executeRawUnsafe(
-        `DELETE FROM role_sub_module_permissions WHERE roleName = ?`, normalized
-      );
+      await prisma.$executeRaw`DELETE FROM role_sub_module_permissions WHERE "roleName" = ${normalized}`;
       for (const [composite, isEnabled] of Object.entries(subModules)) {
         const parts = composite.split('::');
         if (parts.length !== 2) continue;
         const [modKey, subKey] = parts;
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO role_sub_module_permissions (id, roleName, moduleName, subModuleKey, enabled, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          crypto.randomUUID(), normalized, modKey.toLowerCase(), subKey.toLowerCase(), isEnabled ? 1 : 0
-        );
+        await prisma.$executeRaw`
+          INSERT INTO role_sub_module_permissions (id, "roleName", "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${normalized}, ${modKey.toLowerCase()}, ${subKey.toLowerCase()}, ${isEnabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
       }
       moduleAccessCache.clear();
       return res.json({ success: true, message: 'Sub-module permissions updated' });

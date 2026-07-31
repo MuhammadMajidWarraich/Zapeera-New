@@ -847,10 +847,10 @@ const getPlanModulesFromPermissions = async (
     }
 
     const rows = await prisma.$queryRaw<any[]>`
-      SELECT moduleName
+      SELECT "moduleName"
       FROM plan_module_permissions
-      WHERE planId = ${planId}
-        AND enabled = 1
+      WHERE "planId" = ${planId}
+        AND "enabled" = true
     `;
     if (!Array.isArray(rows)) return [];
 

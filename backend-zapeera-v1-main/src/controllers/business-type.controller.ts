@@ -21,10 +21,10 @@ export const getBusinessTypesWithCounts = async (req: AuthRequest, res: Response
     let btmRows: any[] = [];
     try {
       btmRows = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT btm.businessTypeId, btm.isEnabled, btm.sortOrder,
+        `SELECT btm."businessTypeId", btm."isEnabled", btm."sortOrder",
                 m.id as module_id, m.name as module_name, m.description as module_desc
          FROM business_type_modules btm
-         JOIN modules m ON m.id = btm.moduleId`
+         JOIN modules m ON m.id = btm."moduleId"`
       );
     } catch (btmErr: any) {
       console.warn('[BusinessTypeController] btm raw query failed:', btmErr.message);
@@ -183,10 +183,10 @@ export const getBusinessTypes = async (req: AuthRequest, res: Response) => {
     let btmRows: any[] = [];
     try {
       btmRows = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT btm.businessTypeId, btm.isEnabled, btm.sortOrder,
+        `SELECT btm."businessTypeId", btm."isEnabled", btm."sortOrder",
                 m.id as module_id, m.name as module_name, m.description as module_desc
          FROM business_type_modules btm
-         JOIN modules m ON m.id = btm.moduleId`
+         JOIN modules m ON m.id = btm."moduleId"`
       );
     } catch (btmErr: any) {
       console.warn('[BusinessTypeController] getBusinessTypes btm raw query failed:', btmErr.message);
@@ -481,32 +481,30 @@ export const updateBusinessTypeModules = async (req: AuthRequest, res: Response)
     // Use raw SQL to avoid Prisma composite-PK issues with deleteMany/createMany on SQLite
     await prisma.$transaction(async (tx) => {
       // 1. Remove all existing module associations for this business type
-      await tx.$executeRaw`DELETE FROM business_type_modules WHERE businessTypeId = ${id}`;
+      await tx.$executeRaw`DELETE FROM business_type_modules WHERE "businessTypeId" = ${id}`;
 
       // 2. Re-insert ALL modules with isEnabled + sortOrder
-      const now = new Date().toISOString();
+      const now = new Date();
       for (const key of allKeys) {
         const moduleId = moduleNameToId.get(key);
         if (!moduleId) continue;
-        const isEnabled = enabledSet.has(key) ? 1 : 0;
+        const isEnabled = enabledSet.has(key);
         const sortOrder = sortOrderMap.has(key) ? sortOrderMap.get(key)! : 99;
-        await tx.$executeRawUnsafe(
-          `INSERT INTO business_type_modules (businessTypeId, moduleId, isEnabled, sortOrder, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          id, moduleId, isEnabled, sortOrder, now, now
-        );
+        await tx.$executeRaw`
+          INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
+          VALUES (${id}, ${moduleId}, ${isEnabled}, ${sortOrder}, ${now}, ${now})
+        `;
       }
     });
 
     // Fetch updated business type with modules ordered by sortOrder
-    const updatedRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT m.id, m.name, m.description, btm.isEnabled, btm.sortOrder
-       FROM business_type_modules btm
-       JOIN modules m ON m.id = btm.moduleId
-       WHERE btm.businessTypeId = ?
-       ORDER BY btm.sortOrder ASC, m.name ASC`,
-      id
-    );
+    const updatedRows = await prisma.$queryRaw<any[]>`
+      SELECT m.id, m.name, m.description, btm."isEnabled", btm."sortOrder"
+      FROM business_type_modules btm
+      JOIN modules m ON m.id = btm."moduleId"
+      WHERE btm."businessTypeId" = ${id}
+      ORDER BY btm."sortOrder" ASC, m.name ASC
+    `;
 
     const transformedModules = updatedRows.map((row: any) => ({
       id: row.id,
@@ -611,11 +609,11 @@ export const updateBusinessTypeModule = async (req: AuthRequest, res: Response) 
 
     // Upsert the business type module association
     await prisma.$executeRaw`
-      INSERT INTO business_type_modules (businessTypeId, moduleId, isEnabled, sortOrder, updatedAt)
-      VALUES (${id}, ${moduleId}, ${enabled}, 0, datetime('now'))
-      ON CONFLICT(businessTypeId, moduleId) DO UPDATE SET
-        isEnabled = ${enabled},
-        updatedAt = datetime('now')
+      INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "updatedAt")
+      VALUES (${id}, ${moduleId}, ${enabled}, 0, ${new Date()})
+      ON CONFLICT ("businessTypeId", "moduleId") DO UPDATE SET
+        "isEnabled" = ${enabled},
+        "updatedAt" = ${new Date()}
     `;
 
     return res.json({

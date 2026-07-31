@@ -320,8 +320,8 @@ export const resolveBranch = (options?: { required?: boolean }) => {
       const rows = await prisma.$queryRaw<any[]>`
         SELECT id
         FROM membership_branches
-        WHERE membershipId = ${req.membership.id}
-          AND branchId = ${branchId}
+        WHERE "membershipId" = ${req.membership.id}
+          AND "branchId" = ${branchId}
         LIMIT 1
       `;
 
@@ -392,8 +392,8 @@ export const checkPermission = (permissionName: string) => {
       const rows = await prisma.$queryRaw<any[]>`
         SELECT 1 as allowed
         FROM role_permissions rp
-        INNER JOIN permissions p ON p.id = rp.permissionId
-        WHERE rp.roleId = ${req.membership.role_id}
+        INNER JOIN permissions p ON p.id = rp."permissionId"
+        WHERE rp."roleId" = ${req.membership.role_id}
           AND p.name = ${permissionName}
         LIMIT 1
       `;
@@ -495,13 +495,13 @@ export const checkModule = (moduleName: string) => {
       if (!ownerUserId) {
         // Fallback: Find the first member with OWNER role
         const ownerMembership = await prisma.$queryRaw<any[]>`
-          SELECT m.userId 
+          SELECT m."userId"
           FROM memberships m
-          INNER JOIN roles r ON r.id = m.roleId
-          WHERE m.businessId = ${businessId} 
+          INNER JOIN roles r ON r.id = m."roleId"
+          WHERE m."businessId" = ${businessId}
             AND r.name = 'OWNER'
             AND m.status = 'ACTIVE'
-          ORDER BY m.createdAt ASC 
+          ORDER BY m."createdAt" ASC
           LIMIT 1
         `;
         if (ownerMembership && ownerMembership.length > 0) {
@@ -524,7 +524,7 @@ export const checkModule = (moduleName: string) => {
 
       // Resolve the business type ID for this company (used in all type checks below)
       const btIdRows = await prisma.$queryRaw<any[]>`
-        SELECT businessType as btId FROM businesses WHERE id = ${businessId} LIMIT 1
+        SELECT "businessType" as "btId" FROM businesses WHERE id = ${businessId} LIMIT 1
       `;
       const resolvedBtId: string | null = btIdRows?.[0]?.btId || null;
       console.log(`[checkModule:${moduleName}] businessId=${businessId} resolvedBtId=${resolvedBtId}`);
@@ -533,7 +533,7 @@ export const checkModule = (moduleName: string) => {
       // skip the type gate entirely and fall through to plan/business-level checks.
       if (resolvedBtId) {
         const typeRowCount = await prisma.$queryRaw<any[]>`
-          SELECT COUNT(*) as cnt FROM business_type_modules WHERE businessTypeId = ${resolvedBtId}
+          SELECT COUNT(*) as cnt FROM business_type_modules WHERE "businessTypeId" = ${resolvedBtId}
         `;
         const totalTypeRows = Number(typeRowCount?.[0]?.cnt ?? 0);
         console.log(`[checkModule:${moduleName}] totalTypeRows for btId=${resolvedBtId}: ${totalTypeRows}`);
@@ -563,10 +563,10 @@ export const checkModule = (moduleName: string) => {
           const typeCheck = resolvedBtId ? await prisma.$queryRaw<any[]>`
             SELECT 1
             FROM business_type_modules btm
-            INNER JOIN modules m ON m.id = btm.moduleId
-            WHERE btm.businessTypeId = ${resolvedBtId}
+            INNER JOIN modules m ON m.id = btm."moduleId"
+            WHERE btm."businessTypeId" = ${resolvedBtId}
               AND LOWER(m.name) = LOWER(${moduleName})
-              AND btm.isEnabled = 1
+              AND btm."isEnabled" = true
             LIMIT 1
           ` : [];
           console.log(`[checkModule:${moduleName}] typeCheck rows=${typeCheck?.length} (plan path)`);
@@ -577,10 +577,10 @@ export const checkModule = (moduleName: string) => {
           const businessEnabled = await prisma.$queryRaw<any[]>`
             SELECT bm.id
             FROM business_modules bm
-            INNER JOIN modules m ON m.id = bm.moduleId
-            WHERE bm.businessId = ${businessId}
+            INNER JOIN modules m ON m.id = bm."moduleId"
+            WHERE bm."businessId" = ${businessId}
               AND LOWER(m.name) = LOWER(${moduleName})
-              AND bm.enabled = 1
+              AND bm."enabled" = true
             LIMIT 1
           `;
           if (businessEnabled && businessEnabled.length > 0) {
@@ -603,10 +603,10 @@ export const checkModule = (moduleName: string) => {
       const typeEnabledCheck = resolvedBtId ? await prisma.$queryRaw<any[]>`
         SELECT 1
         FROM business_type_modules btm
-        INNER JOIN modules m ON m.id = btm.moduleId
-        WHERE btm.businessTypeId = ${resolvedBtId}
+        INNER JOIN modules m ON m.id = btm."moduleId"
+        WHERE btm."businessTypeId" = ${resolvedBtId}
           AND LOWER(m.name) = LOWER(${moduleName})
-          AND btm.isEnabled = 1
+          AND btm."isEnabled" = true
         LIMIT 1
       ` : [];
       console.log(`[checkModule:${moduleName}] typeEnabledCheck rows=${typeEnabledCheck?.length} (fallback path)`);
@@ -624,10 +624,10 @@ export const checkModule = (moduleName: string) => {
       const businessDisabled = await prisma.$queryRaw<any[]>`
         SELECT bm.id
         FROM business_modules bm
-        INNER JOIN modules m ON m.id = bm.moduleId
-        WHERE bm.businessId = ${businessId}
+        INNER JOIN modules m ON m.id = bm."moduleId"
+        WHERE bm."businessId" = ${businessId}
           AND m.name = ${moduleName}
-          AND bm.enabled = 0
+          AND bm."enabled" = false
         LIMIT 1
       `;
 

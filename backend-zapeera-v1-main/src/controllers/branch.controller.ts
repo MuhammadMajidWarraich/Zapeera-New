@@ -310,8 +310,8 @@ export const getBranch = async (req: AuthRequest, res: Response) => {
           const allowed = await prisma.$queryRaw<any[]>`
             SELECT 1 as allowed
             FROM membership_branches
-            WHERE membershipId = ${membershipId}
-              AND branchId = ${String(branch.id)}
+            WHERE "membershipId" = ${membershipId}
+              AND "branchId" = ${String(branch.id)}
             LIMIT 1
           `;
           if (!allowed[0]) {

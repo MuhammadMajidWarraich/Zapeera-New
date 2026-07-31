@@ -78,7 +78,7 @@ export const createAnnouncement = async (req: AdminAuthRequest, res: Response): 
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO announcements (id, title, content, type, status, "createdBy", "createdAt", "updatedAt")
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         id, title, content, type || 'INFO', status || 'ACTIVE', adminId, now, now
       );
     } catch {
@@ -115,12 +115,13 @@ export const updateAnnouncement = async (req: AdminAuthRequest, res: Response): 
     const now = new Date().toISOString();
     const sets: string[] = [];
     const params: any[] = [];
+    let paramIdx = 1;
 
-    if (title !== undefined)  { sets.push(`title = ?`);  params.push(title); }
-    if (content !== undefined) { sets.push(`content = ?`); params.push(content); }
-    if (type !== undefined)   { sets.push(`type = ?`);   params.push(type); }
-    if (status !== undefined) { sets.push(`status = ?`); params.push(status); }
-    sets.push(`"updatedAt" = ?`);
+    if (title !== undefined)  { sets.push(`title = $${paramIdx++}`);  params.push(title); }
+    if (content !== undefined) { sets.push(`content = $${paramIdx++}`); params.push(content); }
+    if (type !== undefined)   { sets.push(`type = $${paramIdx++}`);   params.push(type); }
+    if (status !== undefined) { sets.push(`status = $${paramIdx++}`); params.push(status); }
+    sets.push(`"updatedAt" = $${paramIdx++}`);
     params.push(now);
 
     if (sets.length === 1) {
@@ -130,7 +131,7 @@ export const updateAnnouncement = async (req: AdminAuthRequest, res: Response): 
 
     params.push(id);
     await prisma.$executeRawUnsafe(
-      `UPDATE announcements SET ${sets.join(', ')} WHERE id = ?`,
+      `UPDATE announcements SET ${sets.join(', ')} WHERE id = $${paramIdx}`,
       ...params
     );
 
@@ -152,7 +153,7 @@ export const deleteAnnouncement = async (req: AdminAuthRequest, res: Response): 
     const { id } = req.params;
     const adminId = req.admin!.id;
 
-    await prisma.$executeRawUnsafe(`DELETE FROM announcements WHERE id = ?`, id);
+    await prisma.$executeRawUnsafe(`DELETE FROM announcements WHERE id = $1`, id);
 
     await logAdminAction(adminId, 'DELETE_ANNOUNCEMENT', 'Announcement', id);
 

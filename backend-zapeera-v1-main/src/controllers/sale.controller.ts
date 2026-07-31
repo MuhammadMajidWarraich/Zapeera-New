@@ -732,9 +732,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         try {
           await tx.$executeRaw`
             UPDATE sales
-            SET membershipId = ${actorMembershipId},
-                updatedAt = CURRENT_TIMESTAMP,
-                syncStatus = 'PENDING'
+            SET "membershipId" = ${actorMembershipId},
+                "updatedAt" = CURRENT_TIMESTAMP,
+                "syncStatus" = 'PENDING'
             WHERE id = ${sale.id}
           `;
         } catch (membershipColumnError: any) {

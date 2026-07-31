@@ -225,10 +225,10 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
       if (companyCtxId) {
         try {
           const membershipRows = await prisma.$queryRaw<any[]>`
-            SELECT DISTINCT m.userId
+            SELECT DISTINCT m."userId"
             FROM memberships m
-            LEFT JOIN roles r ON r.id = m.roleId AND (r.businessId = m.businessId OR r.businessId IS NULL)
-            WHERE m.businessId = ${companyCtxId}
+            LEFT JOIN roles r ON r.id = m."roleId" AND (r."businessId" = m."businessId" OR r."businessId" IS NULL)
+            WHERE m."businessId" = ${companyCtxId}
               AND m.status = 'ACTIVE'
               AND UPPER(COALESCE(r.name, '')) = ${normalizedRole}
           `;
@@ -1682,21 +1682,21 @@ export const getBusinessStaff = async (req: AuthRequest, res: Response) => {
     let query = `
       SELECT
         m.id AS membership_id,
-        m.userId AS user_id,
+        m."userId" AS user_id,
         m.status AS membership_status,
-        m.createdAt AS created_at,
+        m."createdAt" AS created_at,
         u.name AS user_name,
         u.username AS username,
         u.email AS email,
-        u.isActive AS user_is_active,
+        u."isActive" AS user_is_active,
         r.id AS role_id,
         r.name AS role_name,
-        COUNT(DISTINCT mb.branchId) AS branch_count
+        COUNT(DISTINCT mb."branchId") AS branch_count
       FROM memberships m
-      INNER JOIN zapeera_users u ON u.id = m.userId
-      LEFT JOIN roles r ON r.id = m.roleId
-      LEFT JOIN membership_branches mb ON mb.membershipId = m.id
-      WHERE m.businessId = '${String(businessId)}'
+      INNER JOIN zapeera_users u ON u.id = m."userId"
+      LEFT JOIN roles r ON r.id = m."roleId"
+      LEFT JOIN membership_branches mb ON mb."membershipId" = m.id
+      WHERE m."businessId" = '${String(businessId)}'
     `;
 
     // Add search filter
@@ -1715,15 +1715,15 @@ export const getBusinessStaff = async (req: AuthRequest, res: Response) => {
     }
 
     query += ` GROUP BY m.id, u.id, r.id
-      ORDER BY m.created_at DESC
+      ORDER BY created_at DESC
       LIMIT ${take} OFFSET ${skip}`;
 
     const countQuery = `
       SELECT COUNT(DISTINCT m.id) as total
       FROM memberships m
-      INNER JOIN zapeera_users u ON u.id = m.userId
-      LEFT JOIN roles r ON r.id = m.roleId
-      WHERE m.businessId = '${String(businessId)}'
+      INNER JOIN zapeera_users u ON u.id = m."userId"
+      LEFT JOIN roles r ON r.id = m."roleId"
+      WHERE m."businessId" = '${String(businessId)}'
       ${search && typeof search === 'string' && search.trim() !== '' ? `
         AND (
           LOWER(u.name) LIKE '%${String(search).trim().toLowerCase()}%' 
@@ -1735,8 +1735,8 @@ export const getBusinessStaff = async (req: AuthRequest, res: Response) => {
     `;
 
     const [staff, countResult] = await Promise.all([
-      prisma.$queryRaw<any[]>(query as any),
-      prisma.$queryRaw<any[]>(countQuery as any)
+      prisma.$queryRawUnsafe<any[]>(query),
+      prisma.$queryRawUnsafe<any[]>(countQuery)
     ]);
 
     const total = countResult[0]?.total || 0;

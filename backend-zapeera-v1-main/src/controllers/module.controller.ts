@@ -103,7 +103,7 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
   try {
     // For backoffice admins (SUPER_ADMIN or ADMIN), return full hierarchy without business context
     if (adminRole === 'SUPER_ADMIN' || adminRole === 'ADMIN') {
-      const allModuleRowsRaw = await prisma.$queryRawUnsafe('SELECT id, name, displayName FROM modules ORDER BY name ASC');
+      const allModuleRowsRaw = await prisma.$queryRawUnsafe('SELECT id, name, "displayName" FROM modules ORDER BY name ASC');
       const allModuleRows = (allModuleRowsRaw as Array<{ name: string; displayName?: string }>) || [];
       const moduleDisplayMap = new Map(allModuleRows.map(m => [m.name.toLowerCase(), m.displayName || m.name]));
 
@@ -171,7 +171,7 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
     }
 
     // ── Get module enablement status from database ─────────────────────────
-    const allModuleRowsRaw = await prisma.$queryRawUnsafe('SELECT id, name, displayName FROM modules ORDER BY name ASC');
+    const allModuleRowsRaw = await prisma.$queryRawUnsafe('SELECT id, name, "displayName" FROM modules ORDER BY name ASC');
     const allModuleRows = (allModuleRowsRaw as Array<{ name: string; displayName?: string }>) || [];
 
     const v2Payload = await getModuleAccessV2(prisma, businessId, req.user?.id || '', {

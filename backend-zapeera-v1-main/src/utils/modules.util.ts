@@ -95,18 +95,17 @@ export async function ensureBusinessTypesExist(): Promise<void> {
       const allLegacyModules = await prisma.module.findMany({ select: { id: true, name: true } });
       if (allLegacyModules.length > 0) {
         for (const type of defaultTypes) {
-          const rowCount = await prisma.$queryRaw<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM business_type_modules WHERE businessTypeId = ${type.id}`;
+          const rowCount = await prisma.$queryRaw<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM business_type_modules WHERE "businessTypeId" = ${type.id}`;
           if (Number(rowCount?.[0]?.cnt ?? 0) > 0) continue;
 
-          const now = new Date().toISOString();
+          const now = new Date();
           for (const mod of allLegacyModules) {
-            const moduleKey = String(mod.name).toLowerCase();
-            const isEnabled = moduleKey === 'subscription' ? 1 : 1;
             try {
-              await prisma.$executeRawUnsafe(
-                `INSERT OR IGNORE INTO business_type_modules (businessTypeId, moduleId, isEnabled, sortOrder, createdAt, updatedAt) VALUES (?, ?, ?, 0, ?, ?)`,
-                type.id, mod.id, isEnabled, now, now
-              );
+              await prisma.$executeRaw`
+                INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
+                VALUES (${type.id}, ${mod.id}, true, 0, ${now}, ${now})
+                ON CONFLICT ("businessTypeId", "moduleId") DO NOTHING
+              `;
             } catch {
               // ignore individual insert errors (table may not exist yet)
             }

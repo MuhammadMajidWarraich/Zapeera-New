@@ -39,8 +39,8 @@ export const createBusinessInvitation = async (
     // Check if user already has a membership for this business
     const existingMembership = await prisma.$queryRaw<any[]>`
       SELECT id FROM memberships
-      WHERE business_id = ${params.businessId}
-        AND user_id = (SELECT id FROM zapeera_users WHERE email = ${params.email})
+      WHERE "businessId" = ${params.businessId}
+        AND "userId" = (SELECT id FROM zapeera_users WHERE email = ${params.email})
       LIMIT 1
     `;
 
@@ -51,7 +51,7 @@ export const createBusinessInvitation = async (
     // Check if invitation already exists
     const existingInvitation = await prisma.$queryRaw<any[]>`
       SELECT id FROM business_invitations
-      WHERE business_id = ${params.businessId}
+      WHERE "businessId" = ${params.businessId}
         AND email = ${params.email}
         AND status IN ('PENDING', 'ACCEPTED')
       LIMIT 1
@@ -66,8 +66,8 @@ export const createBusinessInvitation = async (
 
     await prisma.$executeRaw`
       INSERT INTO business_invitations (
-        id, business_id, email, invited_by, role_id, status, expires_at, token, 
-        created_at, updated_at, uuid, sync_status
+        id, "businessId", email, "invitedBy", "roleId", status, "expiresAt", token,
+        "createdAt", "updatedAt", uuid, "syncStatus"
       )
       VALUES (
         ${generateId('inv')}, ${params.businessId}, ${params.email}, ${params.invitedBy},
@@ -104,7 +104,7 @@ export const acceptInvitation = async (
   try {
     // Find invitation by token
     const invitations = await prisma.$queryRaw<any[]>`
-      SELECT id, business_id, role_id, expires_at, email, status
+      SELECT id, "businessId", "roleId", "expiresAt", email, status
       FROM business_invitations
       WHERE token = ${params.token}
       LIMIT 1
@@ -161,7 +161,7 @@ export const acceptInvitation = async (
     // Mark invitation as accepted
     await prisma.$executeRaw`
       UPDATE business_invitations
-      SET status = 'ACCEPTED', accepted_at = CURRENT_TIMESTAMP, sync_status = 'PENDING'
+      SET status = 'ACCEPTED', "acceptedAt" = CURRENT_TIMESTAMP, "syncStatus" = 'PENDING'
       WHERE token = ${params.token}
     `;
 
@@ -209,7 +209,7 @@ export const rejectInvitation = async (
 
     await prisma.$executeRaw`
       UPDATE business_invitations
-      SET status = 'REJECTED', rejected_at = CURRENT_TIMESTAMP, sync_status = 'PENDING'
+      SET status = 'REJECTED', "rejectedAt" = CURRENT_TIMESTAMP, "syncStatus" = 'PENDING'
       WHERE token = ${token}
     `;
 
@@ -250,7 +250,7 @@ const createMembershipFromInvitation = async (
     // Check if membership already exists
     const existing = await prisma.$queryRaw<any[]>`
       SELECT id FROM memberships
-      WHERE user_id = ${resolvedUserId} AND business_id = ${businessId}
+      WHERE "userId" = ${resolvedUserId} AND "businessId" = ${businessId}
     `;
 
     if (existing.length > 0) {
@@ -261,7 +261,7 @@ const createMembershipFromInvitation = async (
     const membershipId = generateId('mem');
     await prisma.$executeRaw`
       INSERT INTO memberships (
-        id, user_id, business_id, role_id, status, created_at, updated_at, uuid, sync_status
+        id, "userId", "businessId", "roleId", status, "createdAt", "updatedAt", uuid, "syncStatus"
       )
       VALUES (
         ${membershipId}, ${resolvedUserId}, ${businessId}, ${roleId || null},
@@ -271,14 +271,14 @@ const createMembershipFromInvitation = async (
 
     // Assign all branches
     const branches = await prisma.$queryRaw<any[]>`
-      SELECT id FROM branches WHERE company_id = ${businessId}
+      SELECT id FROM branches WHERE "companyId" = ${businessId}
     `;
 
     for (const branch of branches) {
       const mbId = generateId('mbr');
       await prisma.$executeRaw`
         INSERT INTO membership_branches (
-          id, membership_id, branch_id, created_at, updated_at, uuid, sync_status
+          id, "membershipId", "branchId", "createdAt", "updatedAt", uuid, "syncStatus"
         )
         VALUES (
           ${mbId}, ${membershipId}, ${branch.id},
@@ -317,24 +317,24 @@ export const getBusinessInvitations = async (
         bi.id AS invitation_id,
         bi.email,
         bi.status,
-        bi.invited_by,
-        bi.expires_at,
-        bi.created_at,
+        bi."invitedBy",
+        bi."expiresAt",
+        bi."createdAt",
         r.name AS role_name,
         u.name AS inviter_name
       FROM business_invitations bi
-      LEFT JOIN roles r ON r.id = bi.role_id
-      LEFT JOIN zapeera_users u ON u.id = bi.invited_by
-      WHERE bi.business_id = ${businessId}
+      LEFT JOIN roles r ON r.id = bi."roleId"
+      LEFT JOIN zapeera_users u ON u.id = bi."invitedBy"
+      WHERE bi."businessId" = '${businessId}'
     `;
 
     if (status) {
       query += ` AND bi.status = '${status}'`;
     }
 
-    query += ' ORDER BY bi.created_at DESC';
+    query += ' ORDER BY bi."createdAt" DESC';
 
-    const rows = await prisma.$queryRaw<any[]>(query as any);
+    const rows = await prisma.$queryRawUnsafe<any[]>(query);
 
     return rows.map(row => ({
       invitationId: String(row.invitation_id),
@@ -372,16 +372,16 @@ export const getUserInvitations = async (
         bi.id AS invitation_id,
         bi.token,
         bi.status,
-        bi.expires_at,
+        bi."expiresAt",
         c.name AS business_name,
         r.name AS role_name
       FROM business_invitations bi
-      LEFT JOIN businesses c ON c.id = bi.business_id
-      LEFT JOIN roles r ON r.id = bi.role_id
+      LEFT JOIN businesses c ON c.id = bi."businessId"
+      LEFT JOIN roles r ON r.id = bi."roleId"
       WHERE bi.email = ${email}
         AND bi.status = 'PENDING'
-        AND bi.expires_at > CURRENT_TIMESTAMP
-      ORDER BY bi.created_at DESC
+        AND bi."expiresAt" > CURRENT_TIMESTAMP
+      ORDER BY bi."createdAt" DESC
     `;
 
     return rows.map(row => ({
@@ -408,15 +408,15 @@ export const cancelInvitations = async (
 ): Promise<number> => {
   try {
     let query = `
-      UPDATE business_invitations SET status = 'CANCELLED', sync_status = 'PENDING'
-      WHERE business_id = ${businessId} AND status = 'PENDING'
+      UPDATE business_invitations SET status = 'CANCELLED', "syncStatus" = 'PENDING'
+      WHERE "businessId" = '${businessId}' AND status = 'PENDING'
     `;
 
     if (email) {
       query += ` AND email = '${email}'`;
     }
 
-    const result = await prisma.$executeRaw(query as any);
+    const result = await prisma.$executeRawUnsafe(query);
     return Number(result) || 0;
   } catch (error) {
     console.error('Cancel invitations error:', error);

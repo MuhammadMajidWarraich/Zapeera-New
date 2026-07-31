@@ -379,16 +379,21 @@ async function testDatabaseConnection() {
     // Test a simple query - use database-agnostic query
     // Try SQLite first, then fallback to PostgreSQL
     let result: any;
+    const isSQLiteUrl = (process.env.DATABASE_URL || '').startsWith('file:');
     try {
       // Try SQLite compatible query first
-      result = await prismaClient.$queryRaw`SELECT datetime('now') as current_time` as any[];
-      console.log('='.repeat(60));
-      console.log('✅ DATABASE CONNECTION: SUCCESSFUL');
-      console.log('='.repeat(60));
-      console.log('📋 Database Type: SQLite');
-      console.log('🕐 Connection Time:', result[0].current_time);
-      console.log('🔗 Status: CONNECTED');
-      console.log('='.repeat(60));
+      if (isSQLiteUrl) {
+        result = await prismaClient.$queryRaw`SELECT datetime('now') as current_time` as any[];
+        console.log('='.repeat(60));
+        console.log('✅ DATABASE CONNECTION: SUCCESSFUL');
+        console.log('='.repeat(60));
+        console.log('📋 Database Type: SQLite');
+        console.log('🕐 Connection Time:', result[0].current_time);
+        console.log('🔗 Status: CONNECTED');
+        console.log('='.repeat(60));
+      } else {
+        throw new Error('PostgreSQL mode - skip SQLite query');
+      }
     } catch (sqliteError: any) {
       // If SQLite query fails, try PostgreSQL
       try {

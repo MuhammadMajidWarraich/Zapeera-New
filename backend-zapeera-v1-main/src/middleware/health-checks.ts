@@ -11,7 +11,11 @@ async function healthCheckHandler(_req: Request, res: Response): Promise<void> {
     try {
       const prismaClient = await getPrisma();
       try {
-        await prismaClient.$queryRaw`SELECT datetime('now') as test`;
+        if (currentType === DatabaseType.SQLITE) {
+          await prismaClient.$queryRaw`SELECT datetime('now') as test`;
+        } else {
+          await prismaClient.$queryRaw`SELECT 1 as test`;
+        }
       } catch {
         try {
           await prismaClient.$queryRaw`SELECT 1 as test`;
@@ -59,7 +63,7 @@ async function testOfflineHandler(_req: Request, res: Response): Promise<void> {
 
     const userCount = await prismaClient.zapeeraUser.count();
     const companyCount = await prismaClient.business.count();
-    const testResult = (await prismaClient.$queryRaw`SELECT datetime('now') as current_time`) as any[];
+    const testResult = (await prismaClient.$queryRaw`SELECT NOW() as current_time`) as any[];
     const currentTime = testResult[0]?.current_time || new Date().toISOString();
 
     res.json({

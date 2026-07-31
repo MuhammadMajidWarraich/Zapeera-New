@@ -384,10 +384,10 @@ async function loadModulePermissionState(
   if (business.businessType) {
     try {
       const btId = String(business.businessType).trim();
-      const btSubRows = await (prisma as any).$queryRawUnsafe(
-        `SELECT moduleName, subModuleKey FROM business_type_sub_module_permissions WHERE businessTypeId = ? AND enabled = 0`,
-        btId
-      ) as Array<{ moduleName: string; subModuleKey: string }>;
+      const btSubRows = await prisma.$queryRaw<Array<{ moduleName: string; subModuleKey: string }>>`
+        SELECT "moduleName", "subModuleKey" FROM business_type_sub_module_permissions
+        WHERE "businessTypeId" = ${btId} AND "enabled" = false
+      `;
 
       for (const row of btSubRows) {
         const moduleKey = normalizeModuleKey(row.moduleName);
@@ -403,10 +403,9 @@ async function loadModulePermissionState(
 
   // ── Plan module + sub-module denials ──────────────────────────────────
   if (business?.businessSubscription?.planId) {
-    const planRows = await (prisma as any).$queryRawUnsafe(
-      `SELECT moduleName, enabled FROM plan_module_permissions WHERE planId = ?`,
-      business.businessSubscription.planId
-    ) as Array<{ moduleName: string; enabled: number }>;
+    const planRows = await prisma.$queryRaw<Array<{ moduleName: string; enabled: boolean }>>`
+      SELECT "moduleName", "enabled" FROM plan_module_permissions WHERE "planId" = ${business.businessSubscription.planId}
+    `;
 
     for (const row of planRows) {
       const moduleKey = normalizeModuleKey(row.moduleName);
@@ -418,10 +417,9 @@ async function loadModulePermissionState(
       }
     }
 
-    const planSubRows = await (prisma as any).$queryRawUnsafe(
-      `SELECT moduleName, subModuleKey FROM plan_sub_module_permissions WHERE planId = ? AND enabled = 0`,
-      business.businessSubscription.planId
-    ) as Array<{ moduleName: string; subModuleKey: string }>;
+    const planSubRows = await prisma.$queryRaw<Array<{ moduleName: string; subModuleKey: string }>>`
+      SELECT "moduleName", "subModuleKey" FROM plan_sub_module_permissions WHERE "planId" = ${business.businessSubscription.planId} AND "enabled" = false
+    `;
 
     for (const row of planSubRows) {
       const moduleKey = normalizeModuleKey(row.moduleName);
@@ -437,10 +435,9 @@ async function loadModulePermissionState(
   const effectiveRole = normalizedRole === 'ADMIN' ? 'OWNER' : normalizedRole;
 
   if (effectiveRole) {
-    const roleRows = await (prisma as any).$queryRawUnsafe(
-      `SELECT moduleName, enabled FROM role_module_permissions WHERE roleName = ?`,
-      effectiveRole
-    ) as Array<{ moduleName: string; enabled: number }>;
+    const roleRows = await prisma.$queryRaw<Array<{ moduleName: string; enabled: boolean }>>`
+      SELECT "moduleName", "enabled" FROM role_module_permissions WHERE "roleName" = ${effectiveRole}
+    `;
 
     for (const row of roleRows) {
       const moduleKey = normalizeModuleKey(row.moduleName);
@@ -452,10 +449,9 @@ async function loadModulePermissionState(
       }
     }
 
-    const roleSubRows = await (prisma as any).$queryRawUnsafe(
-      `SELECT moduleName, subModuleKey FROM role_sub_module_permissions WHERE roleName = ? AND enabled = 0`,
-      effectiveRole
-    ) as Array<{ moduleName: string; subModuleKey: string }>;
+    const roleSubRows = await prisma.$queryRaw<Array<{ moduleName: string; subModuleKey: string }>>`
+      SELECT "moduleName", "subModuleKey" FROM role_sub_module_permissions WHERE "roleName" = ${effectiveRole} AND "enabled" = false
+    `;
 
     for (const row of roleSubRows) {
       const moduleKey = normalizeModuleKey(row.moduleName);
@@ -563,11 +559,11 @@ async function resolveModuleAccessLayers(
 
         // Load modules for this business type via raw SQL (avoids Prisma relation issues)
         const rawBtModules = await prisma.$queryRaw<any[]>`
-          SELECT btm.businessTypeId, btm.moduleId, btm.isEnabled, btm.sortOrder,
-                 m.name as moduleName, m.displayName as moduleDisplayName
+          SELECT btm."businessTypeId", btm."moduleId", btm."isEnabled", btm."sortOrder",
+                 m.name as "moduleName", m."displayName" as "moduleDisplayName"
           FROM business_type_modules btm
-          LEFT JOIN modules m ON m.id = btm.moduleId
-          WHERE btm.businessTypeId = ${btRecord.id}
+          LEFT JOIN modules m ON m.id = btm."moduleId"
+          WHERE btm."businessTypeId" = ${btRecord.id}
         `;
 
         businessType = {

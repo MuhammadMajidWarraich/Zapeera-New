@@ -105,15 +105,15 @@ const listUserSharedMembershipsV2 = async (
   try {
     const rows = await prisma.$queryRaw<any[]>`
       SELECT
-        m.businessId AS business_id,
+        m."businessId" AS business_id,
         r.name AS role_name,
-        mb.branchId AS branch_id
+        mb."branchId" AS branch_id
       FROM memberships m
-      LEFT JOIN roles r ON r.id = m.roleId
-      LEFT JOIN membership_branches mb ON mb.membershipId = m.id
-      WHERE m.userId = ${userId}
+      LEFT JOIN roles r ON r.id = m."roleId"
+      LEFT JOIN membership_branches mb ON mb."membershipId" = m.id
+      WHERE m."userId" = ${userId}
         AND m.status = 'ACTIVE'
-      ORDER BY m.createdAt DESC
+      ORDER BY m."createdAt" DESC
     `;
 
     const byBusiness = new Map<string, { businessId: string; role: string | null; branchId: string | null }>();
@@ -143,12 +143,12 @@ const getBusinessMembershipContextV2 = async (
     const rows = await prisma.$queryRaw<any[]>`
       SELECT
         r.name AS role_name,
-        mb.branchId AS branch_id
+        mb."branchId" AS branch_id
       FROM memberships m
-      LEFT JOIN roles r ON r.id = m.roleId
-      LEFT JOIN membership_branches mb ON mb.membershipId = m.id
-      WHERE m.businessId = ${businessId}
-        AND m.userId = ${userId}
+      LEFT JOIN roles r ON r.id = m."roleId"
+      LEFT JOIN membership_branches mb ON mb."membershipId" = m.id
+      WHERE m."businessId" = ${businessId}
+        AND m."userId" = ${userId}
         AND m.status = 'ACTIVE'
       LIMIT 1
     `;

@@ -217,7 +217,7 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
       `INSERT INTO payment_proofs
          (id, "businessId", "planId", amount, currency, method, "referenceNote",
           "screenshotUrl", "screenshotHash", status, "createdAt", "updatedAt")
-       VALUES (?, ?, ?, ?, 'PKR', ?, ?, ?, ?, 'PENDING', ?, ?)`,
+       VALUES ($1, $2, $3, $4, 'PKR', $5, $6, $7, $8, 'PENDING', $9, $10)`,
       id, businessId, planId, parsedAmount, method,
       referenceNote || null, screenshotUrl, fileHash, now, now
     );
@@ -284,11 +284,12 @@ export const getAllPaymentProofs = async (req: Request, res: Response): Promise<
     // Build WHERE clauses dynamically using raw
     let where = '1=1';
     const params: any[] = [];
+    let paramIdx = 1;
 
-    if (status)     { where += ` AND pp.status = ?`;       params.push(String(status)); }
-    if (businessId) { where += ` AND pp."businessId" = ?`; params.push(String(businessId)); }
-    if (dateFrom)   { where += ` AND pp."createdAt" >= ?`; params.push(String(dateFrom)); }
-    if (dateTo)     { where += ` AND pp."createdAt" <= ?`; params.push(String(dateTo)); }
+    if (status)     { where += ` AND pp.status = $${paramIdx++}`; params.push(String(status)); }
+    if (businessId) { where += ` AND pp."businessId" = $${paramIdx++}`; params.push(String(businessId)); }
+    if (dateFrom)   { where += ` AND pp."createdAt" >= $${paramIdx++}`; params.push(String(dateFrom)); }
+    if (dateTo)     { where += ` AND pp."createdAt" <= $${paramIdx++}`; params.push(String(dateTo)); }
 
     const sql = `
       SELECT pp.id, pp."businessId", pp."planId", pp.amount, pp.currency,
@@ -365,8 +366,8 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
     try {
       await prisma.$executeRawUnsafe(
         `UPDATE payment_proofs
-         SET "updatedAt" = ?
-         WHERE id = ? AND status = 'PENDING'`,
+         SET "updatedAt" = $1
+         WHERE id = $2 AND status = 'PENDING'`,
         nowIso, proofId
       );
       console.log(`[PaymentProof] Step 1: Payment proof validated for approval`);
@@ -404,9 +405,9 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
     try {
       await prisma.$executeRawUnsafe(
         `UPDATE payment_proofs
-         SET status = 'APPROVED', "reviewedBy" = ?, "reviewedAt" = ?,
-             "subscriptionId" = ?, "updatedAt" = ?
-         WHERE id = ?`,
+         SET status = 'APPROVED', "reviewedBy" = $1, "reviewedAt" = $2,
+             "subscriptionId" = $3, "updatedAt" = $4
+         WHERE id = $5`,
         req.admin!.id, nowIso, subId, nowIso, proofId
       );
       console.log(`[PaymentProof] Step 3: Payment proof approved and linked to subscription`);
@@ -514,9 +515,9 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
 
     await prisma.$executeRawUnsafe(
       `UPDATE payment_proofs
-       SET status = 'REJECTED', "reviewedBy" = ?, "reviewedAt" = ?,
-           "rejectionReason" = ?, "updatedAt" = ?
-       WHERE id = ?`,
+       SET status = 'REJECTED', "reviewedBy" = $1, "reviewedAt" = $2,
+           "rejectionReason" = $3, "updatedAt" = $4
+       WHERE id = $5`,
       req.admin!.id, nowIso, String(reason).trim(), nowIso, proofId
     );
 

@@ -47,7 +47,7 @@ export const createFeatureFlag = async (req: AdminAuthRequest, res: Response): P
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO feature_flags (id, key, name, description, enabled, "createdAt", "updatedAt")
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         id, key, name, description || '', enabled ?? false, now, now
       );
     } catch {
@@ -81,12 +81,13 @@ export const updateFeatureFlag = async (req: AdminAuthRequest, res: Response): P
     const now = new Date().toISOString();
     const sets: string[] = [];
     const params: any[] = [];
+    let paramIdx = 1;
 
-    if (key !== undefined)         { sets.push(`key = ?`);         params.push(key); }
-    if (name !== undefined)        { sets.push(`name = ?`);        params.push(name); }
-    if (description !== undefined) { sets.push(`description = ?`); params.push(description); }
-    if (enabled !== undefined)     { sets.push(`enabled = ?`);     params.push(enabled); }
-    sets.push(`"updatedAt" = ?`);
+    if (key !== undefined)         { sets.push(`key = $${paramIdx++}`);         params.push(key); }
+    if (name !== undefined)        { sets.push(`name = $${paramIdx++}`);        params.push(name); }
+    if (description !== undefined) { sets.push(`description = $${paramIdx++}`); params.push(description); }
+    if (enabled !== undefined)     { sets.push(`enabled = $${paramIdx++}`);     params.push(enabled); }
+    sets.push(`"updatedAt" = $${paramIdx++}`);
     params.push(now);
 
     if (sets.length === 1) {
@@ -96,7 +97,7 @@ export const updateFeatureFlag = async (req: AdminAuthRequest, res: Response): P
 
     params.push(id);
     await prisma.$executeRawUnsafe(
-      `UPDATE feature_flags SET ${sets.join(', ')} WHERE id = ?`,
+      `UPDATE feature_flags SET ${sets.join(', ')} WHERE id = $${paramIdx}`,
       ...params
     );
 
@@ -118,7 +119,7 @@ export const deleteFeatureFlag = async (req: AdminAuthRequest, res: Response): P
     const { id } = req.params;
     const adminId = req.admin!.id;
 
-    await prisma.$executeRawUnsafe(`DELETE FROM feature_flags WHERE id = ?`, id);
+    await prisma.$executeRawUnsafe(`DELETE FROM feature_flags WHERE id = $1`, id);
 
     await logAdminAction(adminId, 'DELETE_FEATURE_FLAG', 'FeatureFlag', id);
 

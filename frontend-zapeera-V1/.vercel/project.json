@@ -1,4 +1,16 @@
 {
-    "projectId":  "prj_UyCovQmEyFEX8bULskEOYQh3HfAf",
-    "orgId":  "team_X2UxctNR1oEnWpfN1GGV1f4B"
+  "projectId": "prj_EeljAcUI3CA88cWvG1U3kDbCvwrt",
+  "orgId": "team_X2UxctNR1oEnWpfN1GGV1f4B",
+  "projectName": "zapeera-new",
+  "settings": {
+    "createdAt": 1785367387481,
+    "framework": null,
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
 }

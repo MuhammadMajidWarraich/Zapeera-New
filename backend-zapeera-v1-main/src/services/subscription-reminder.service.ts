@@ -107,7 +107,7 @@ export async function sendSubscriptionExpiryReminders(): Promise<{
             // Log the notification
             await prisma.$executeRaw`
               INSERT INTO email_notifications (id, "businessId", type, "daysRemaining", status, "createdAt")
-              VALUES (${crypto.randomUUID()}, ${sub.businessId}, 'SUBSCRIPTION_EXPIRY_REMINDER', ${daysRemaining}, 'SENT', datetime('now'))
+              VALUES (${crypto.randomUUID()}, ${sub.businessId}, 'SUBSCRIPTION_EXPIRY_REMINDER', ${daysRemaining}, 'SENT', CURRENT_TIMESTAMP)
             `;
             
             result.remindersSent++;

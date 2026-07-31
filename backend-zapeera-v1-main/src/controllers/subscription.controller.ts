@@ -601,28 +601,28 @@ export const updatePlanModule = async (req: Request, res: Response): Promise<voi
       await prisma.$executeRawUnsafe(
         `CREATE TABLE IF NOT EXISTS plan_module_permissions (
           id TEXT PRIMARY KEY,
-          planId TEXT NOT NULL,
-          moduleName TEXT NOT NULL,
-          enabled INTEGER NOT NULL DEFAULT 0,
-          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(planId, moduleName)
+          "planId" TEXT NOT NULL,
+          "moduleName" TEXT NOT NULL,
+          enabled BOOLEAN NOT NULL DEFAULT false,
+          "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE("planId", "moduleName")
         )`
       );
       const existing = await prisma.$queryRawUnsafe(
-        `SELECT id FROM plan_module_permissions WHERE planId = ? AND moduleName = ?`,
+        `SELECT id FROM plan_module_permissions WHERE "planId" = $1 AND "moduleName" = $2`,
         normalizedPlanId, normalizedModuleId
       ) as Array<{ id: string }>;
       if (existing.length > 0) {
         await prisma.$executeRawUnsafe(
-          `UPDATE plan_module_permissions SET enabled = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-          enabled ? 1 : 0, existing[0].id
+          `UPDATE plan_module_permissions SET enabled = $1, "updatedAt" = CURRENT_TIMESTAMP WHERE id = $2`,
+          Boolean(enabled), existing[0].id
         );
       } else {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO plan_module_permissions (id, planId, moduleName, enabled, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          crypto.randomUUID(), normalizedPlanId, normalizedModuleId, enabled ? 1 : 0
+          `INSERT INTO plan_module_permissions (id, "planId", "moduleName", enabled, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          crypto.randomUUID(), normalizedPlanId, normalizedModuleId, Boolean(enabled)
         );
       }
     } catch (permErr: any) {
