@@ -235,6 +235,7 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
             companyId: businessId,
             updatedAt: { gte: sinceDate }
           },
+          orderBy: { updatedAt: 'asc' },
           take: 100
         });
         for (const record of records) {
