@@ -170,13 +170,9 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     // For users created by others, preserve createdBy; self-creators use their own ID
 
-    if (decoded.sessionToken && user.sessionToken && decoded.sessionToken !== user.sessionToken) {
-      return res.status(401).json({
-        success: false,
-        message: 'Session expired. You have been logged out because your account logged in from another device.',
-        code: 'SESSION_EXPIRED_ANOTHER_DEVICE'
-      });
-    }
+    // NOTE: Single-session enforcement is disabled so that desktop and web
+    // sessions can coexist. Logging in on the desktop no longer invalidates
+    // the active web session.
 
     // Get context headers from frontend
     const selectedCompanyId = req.header('X-Business-ID');

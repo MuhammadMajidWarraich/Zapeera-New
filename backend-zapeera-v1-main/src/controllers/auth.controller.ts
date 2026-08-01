@@ -1251,41 +1251,10 @@ export const checkAccountStatus = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    // Check if session token matches (for single-session enforcement)
-    // Get sessionToken from JWT token (decoded in authenticate middleware)
-    // The authenticate middleware doesn't set sessionToken on req.user, so we need to decode it from the token
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    let requestSessionToken: string | undefined;
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-        requestSessionToken = decoded.sessionToken;
-        console.log('🔍 [checkAccountStatus] SessionToken from JWT:', requestSessionToken ? 'Present' : 'Missing');
-        console.log('🔍 [checkAccountStatus] SessionToken from DB:', user.sessionToken ? 'Present' : 'Missing');
-      } catch (error) {
-        console.error('❌ [checkAccountStatus] Error decoding token:', error);
-      }
-    }
-
-    // Only validate if BOTH tokens exist (same logic as authenticate middleware)
-    // CRITICAL FIX: Only validate if BOTH tokens exist and are different
-    // If user.sessionToken is null/undefined, allow the request (might be from old token or migration)
-    if (requestSessionToken && user.sessionToken) {
-      if (requestSessionToken !== user.sessionToken) {
-        console.log(`❌ [checkAccountStatus] Session token mismatch for user: ${user.username}`);
-        res.status(401).json({
-          success: false,
-          isActive: false,
-          message: 'Session expired - logged in from another device',
-          shouldLogout: true
-        });
-        return;
-      }
-    }
-    // If requestSessionToken exists but user.sessionToken is null/undefined, allow it
-    // This handles cases where sessionToken was cleared by sync or other operations
-    // The user will get a new sessionToken on next login
+    // Check if account is active
+    // NOTE: Single-session enforcement is disabled so that desktop and web
+    // sessions can coexist. Logging in on the desktop no longer invalidates
+    // the active web session.
 
     // If account is deactivated
     if (!user.isActive) {
