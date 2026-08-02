@@ -59,9 +59,9 @@ export const config = {
 
   // Support Contact Configuration
   support: {
-    phoneNumber: import.meta.env.VITE_SUPPORT_PHONE || '+923107100663',
+    phoneNumber: import.meta.env.VITE_SUPPORT_PHONE || '+923075445509',
     email: import.meta.env.VITE_SUPPORT_EMAIL || 'support@zapeera.com',
-    whatsappUrl: import.meta.env.VITE_WHATSAPP_URL || 'https://wa.me/923107100663',
+    whatsappUrl: import.meta.env.VITE_WHATSAPP_URL || 'https://wa.me/923075445509',
     contactUrl: import.meta.env.VITE_CONTACT_URL || 'https://zapeera.com/contact',
   },
 

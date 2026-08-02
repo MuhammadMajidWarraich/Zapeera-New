@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { getCloudApi, persistCloudToken, persistLocalToken, clearCloudToken, clearLocalToken } from '@/services/api-clients';
+import { config } from '@/lib/config';
 import LoginForm from '@/components/auth/LoginForm';
 import { WifiOff, CheckCircle2, Loader2, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 
@@ -70,6 +71,38 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
       if (syncResult.data.user) {
         cloudUser = { ...user, ...syncResult.data.user };
       }
+
+      // Fetch the full business list (owned + shared) so every accessible
+      // business is provisioned locally — even businesses whose membership
+      // status is not ACTIVE (otherwise they would be missing on desktop).
+      try {
+        const companiesRes = await cloud.getMyCompanies();
+        if (companiesRes?.success && companiesRes?.data) {
+          const myBusinesses = [
+            ...((companiesRes.data as any).owned || []),
+            ...((companiesRes.data as any).shared || []),
+          ].filter(Boolean);
+          if (myBusinesses.length > 0) {
+            const seen = new Set(businesses.map((b: any) => b?.id));
+            for (const cb of myBusinesses) {
+              if (!cb?.id || seen.has(cb.id)) continue;
+              seen.add(cb.id);
+              businesses.push({
+                id: cb.id,
+                name: cb.name || '',
+                slug: cb.slug || null,
+                description: cb.description || null,
+                address: cb.address || null,
+                phone: cb.phone || null,
+                email: cb.email || null,
+                businessType: cb.businessType || '',
+              });
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn('[DesktopLogin] Full business list fetch failed:', e?.message);
+      }
     } catch (e: any) {
       setPhase('failed');
       setErrorMessage(e.message || 'Could not fetch your account data from the cloud. Make sure you are connected to the internet and try again.');
@@ -107,6 +140,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
         memberships,
         businesses,
         cloudAccessToken: cloud.accessToken,
+        cloudApiUrl: String(config.cloud.baseUrl || '').replace(/\/api$/, ''),
       });
 
       if (!provisionResult?.success || !provisionResult?.data) {

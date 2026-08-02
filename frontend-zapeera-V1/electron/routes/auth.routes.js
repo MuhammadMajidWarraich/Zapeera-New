@@ -1557,7 +1557,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             return res.status(403).json({ success: false, message: 'Invalid or expired provisioning token' });
           }
 
-          const { user: cloudUser, memberships, businesses } = req.body;
+          const { user: cloudUser, memberships, businesses, cloudAccessToken, cloudApiUrl } = req.body;
           if (!cloudUser || !cloudUser.id || !cloudUser.email) {
             return res.status(400).json({ success: false, message: 'Invalid provisioning payload' });
           }
@@ -1617,6 +1617,71 @@ function registerAuthRoutes(app, authMiddleware, deps) {
 
           // Generate local JWT
           localToken = generateToken({ id: userId, email, name, role: cloudUser.role || 'USER', companyId: cloudUser.companyId, branchId: cloudUser.branchId });
+
+          // Configure the embedded cloud sync client so the periodic sync engine
+          // can authenticate to the Cloud Backend and download business data.
+          try {
+            const cloudApiService = require('../services/cloud-api.service');
+            if (cloudApiUrl) {
+              cloudApiService.setCloudApiUrl(cloudApiUrl);
+            }
+            if (cloudAccessToken) {
+              cloudApiService.setAuthToken(cloudAccessToken);
+            }
+            // Persist so the token/url survive an app restart (restored on boot).
+            try {
+              const existingToken = query("SELECT id FROM settings WHERE key = 'zapeera_cloud_access_token'");
+              if (existingToken && existingToken.length > 0) {
+                run("UPDATE settings SET value = ?, updatedAt = ? WHERE key = 'zapeera_cloud_access_token'",
+                  [cloudAccessToken || '', timestamp]);
+              } else {
+                run("INSERT OR IGNORE INTO settings (id, key, value, createdAt, updatedAt) VALUES (?, 'zapeera_cloud_access_token', ?, ?, ?)",
+                  [uuid(), cloudAccessToken || '', timestamp, timestamp]);
+              }
+              const existingUrl = query("SELECT id FROM settings WHERE key = 'zapeera_cloud_api_url'");
+              if (existingUrl && existingUrl.length > 0) {
+                run("UPDATE settings SET value = ?, updatedAt = ? WHERE key = 'zapeera_cloud_api_url'",
+                  [cloudApiUrl || '', timestamp]);
+              } else {
+                run("INSERT OR IGNORE INTO settings (id, key, value, createdAt, updatedAt) VALUES (?, 'zapeera_cloud_api_url', ?, ?, ?)",
+                  [uuid(), cloudApiUrl || '', timestamp, timestamp]);
+              }
+              saveDatabase();
+            } catch (persistErr) {
+              console.warn('[Provision] Cloud credential persistence warning:', persistErr.message);
+            }
+          } catch (apiErr) {
+            console.warn('[Provision] Cloud API setup warning:', apiErr.message);
+          }
+
+          // Persist the user's businesses into the local companies table so they
+          // appear in /api/companies/my/list immediately (offline-first bootstrap).
+          try {
+            const businessList = Array.isArray(businesses) ? businesses : [];
+            for (const biz of businessList) {
+              if (!biz || !biz.id) continue;
+              const existing = query('SELECT id FROM companies WHERE id = ?', [biz.id]);
+              if (existing && existing.length > 0) {
+                run('UPDATE companies SET name = ?, description = ?, address = ?, phone = ?, email = ?, slug = ?, businessType = ?, updatedAt = ? WHERE id = ?',
+                  [biz.name || '', biz.description || null, biz.address || null, biz.phone || null, biz.email || null, biz.slug || null, biz.businessType || 'PHARMACY', timestamp, biz.id]);
+              } else {
+                run(`INSERT INTO companies (id, name, description, address, phone, email, slug, businessType, isActive, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+                  [biz.id, biz.name || '', biz.description || null, biz.address || null, biz.phone || null, biz.email || null, biz.slug || null, biz.businessType || 'PHARMACY', userId, timestamp, timestamp]);
+              }
+            }
+            saveDatabase();
+          } catch (bizErr) {
+            console.warn('[Provision] Business persistence warning:', bizErr.message);
+          }
+
+          // Persist identity + memberships (requires the cloud token set above)
+          try {
+            if (syncAccountService && syncAccountService.syncAccount) {
+              await syncAccountService.syncAccount(userId, email);
+            }
+          } catch (accErr) {
+            console.warn('[Provision] Account sync warning:', accErr.message);
+          }
 
           // Set cookies
           res.cookie('zapeera_token', localToken, {

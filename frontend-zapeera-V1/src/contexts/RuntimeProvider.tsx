@@ -5,6 +5,27 @@ interface RuntimeProviderProps {
   children: ReactNode;
 }
 
+type ElectronStateResult =
+  | { states?: Array<Partial<DesktopBusinessState> & { status?: string }>; lastSyncAt?: string | null }
+  | undefined
+  | null;
+
+function normalizeDesktopStates(result: ElectronStateResult): DesktopBusinessState[] {
+  if (!result || !Array.isArray(result.states)) return [];
+  return result.states
+    .map((s) => ({
+      businessId: String(s.businessId || ''),
+      name: s.name || null,
+      slug: s.slug || null,
+      provisioned: Boolean(s.provisioned ?? s.availableOffline ?? s.status === 'DOWNLOADED'),
+      availableOffline: Boolean(s.availableOffline ?? s.status === 'DOWNLOADED'),
+      status: s.status || (s.availableOffline ? 'DOWNLOADED' : 'ACTIVE'),
+      lastSyncedAt: s.lastSyncedAt || null,
+      pendingChanges: s.pendingChanges || 0,
+    }))
+    .filter((s) => s.businessId);
+}
+
 export function RuntimeProvider({ children }: RuntimeProviderProps) {
   const [info, setInfo] = useState(() => createRuntimeInfo());
 
@@ -40,6 +61,35 @@ export function RuntimeProvider({ children }: RuntimeProviderProps) {
       }
     }
   }, [info.isDesktop]);
+
+  // Populate per-business desktop states (provisioned/downloaded vs cloud-only).
+  useEffect(() => {
+    if (!info.isDesktop) return;
+    const electronApi = (window as any).electronAPI;
+    if (!electronApi?.getLocalBusinessStates) return;
+
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const result = await electronApi.getLocalBusinessStates();
+        if (cancelled) return;
+        const states = normalizeDesktopStates(result);
+        if (result?.lastSyncAt) {
+          setInfo(prev => (prev.lastSyncAt === result.lastSyncAt ? prev : { ...prev, lastSyncAt: result.lastSyncAt }));
+        }
+        setDesktopBusinessStates(states);
+      } catch {
+        /* ignore transient failures */
+      }
+    };
+
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [info.isDesktop, setDesktopBusinessStates]);
 
   const value = useMemo(() => ({
     ...info,

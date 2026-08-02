@@ -59,6 +59,12 @@ import { ModuleGuard, AutoModuleGuard } from "./components/auth/ModuleGuard";
 import { RuntimeProvider } from "./contexts/RuntimeProvider";
 import { SyncProvider } from "./contexts/SyncProvider";
 import { DesktopLoginFlow } from "./components/desktop/DesktopLoginFlow";
+import InvitationsPage from "./components/user-dashboard/InvitationsPage";
+import ProfileSecurityPage from "./components/user-dashboard/ProfileSecurityPage";
+import BillingPage from "./components/user-dashboard/BillingPage";
+import NotificationsPage from "./components/user-dashboard/NotificationsPage";
+import SupportPage from "./components/user-dashboard/SupportPage";
+import DownloadsPage from "./components/user-dashboard/DownloadsPage";
 
 // Build target: web, desktop, backoffice - replaced at compile time by Vite define
 declare const __VITE_APP_TARGET__: string;
@@ -493,7 +499,7 @@ const AppRoutes = () => {
             <BusinessTypeGuard>
               <AutoModuleGuard>
                 <ZapeeraLayout>
-                  <SettingsPage />
+                  <ProfileSecurityPage />
                 </ZapeeraLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -505,6 +511,66 @@ const AppRoutes = () => {
             <BusinessTypeGuard>
               <AutoModuleGuard>
                 <ZapeeraDashboard />
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/invitations" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <InvitationsPage />
+                </ZapeeraLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/billing" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <BillingPage />
+                </ZapeeraLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/notifications" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <NotificationsPage />
+                </ZapeeraLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/support" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <SupportPage />
+                </ZapeeraLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/downloads" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <DownloadsPage />
+                </ZapeeraLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
           </AuthStatus>

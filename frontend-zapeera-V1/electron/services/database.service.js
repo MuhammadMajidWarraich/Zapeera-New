@@ -81,7 +81,9 @@ async function initDatabase() {
     `ALTER TABLE users ADD COLUMN lastLoginAt TEXT`,
     // Add password reset token columns if they don't exist
     `ALTER TABLE users ADD COLUMN passwordResetToken TEXT`,
-    `ALTER TABLE users ADD COLUMN passwordResetExpires TEXT`
+    `ALTER TABLE users ADD COLUMN passwordResetExpires TEXT`,
+    // Add slug column to companies so tenant-scoped routes (/business/:slug) work on desktop
+    `ALTER TABLE companies ADD COLUMN slug TEXT`
   ];
 
   for (const migration of migrations) {
@@ -114,7 +116,7 @@ async function initDatabase() {
     )`,
     `CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, description TEXT, address TEXT, phone TEXT, email TEXT,
-      businessType TEXT DEFAULT 'PHARMACY', isActive INTEGER DEFAULT 1, createdBy TEXT,
+      slug TEXT, businessType TEXT DEFAULT 'PHARMACY', isActive INTEGER DEFAULT 1, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS branches (

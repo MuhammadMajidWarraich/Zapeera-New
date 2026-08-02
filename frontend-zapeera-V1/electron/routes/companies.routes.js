@@ -30,10 +30,11 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
             // SUPERADMIN can see all companies
             console.log('[Companies] SUPERADMIN - showing all companies');
           } else if (user?.role === 'ADMIN' || user?.role === 'OWNER') {
-            // ADMIN/OWNER can see companies they created
-            whereClause += ' AND createdBy = ?';
-            params.push(user.id);
-            console.log('[Companies] ADMIN/OWNER - showing companies created by:', user.id);
+            // ADMIN/OWNER can see companies they created, plus any company they
+            // are a member of (synced from cloud during provisioning).
+            whereClause += ' AND (createdBy = ? OR id IN (SELECT businessId FROM memberships WHERE userId = ?))';
+            params.push(user.id, user.id);
+            console.log('[Companies] ADMIN/OWNER - showing companies created by or shared with:', user.id);
           } else if (user?.role === 'MANAGER' || user?.role === 'CASHIER') {
             // MANAGER/CASHIER can only see their branch's company
             if (user?.branchId) {
@@ -513,12 +514,12 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
       app.get('/api/companies/my/list', authMiddleware, (req, res) => {
         try {
           const userId = req.user.id;
-          const companies = query(
-            'SELECT id, name, slug, description, address, phone, email, createdBy FROM companies WHERE isActive = 1 AND createdBy = ?',
+          const ownedCompanies = query(
+            'SELECT id, name, description, address, phone, email, slug, businessType, createdBy FROM companies WHERE isActive = 1 AND createdBy = ?',
             [userId]
           );
 
-          const owned = companies.map(c => ({
+          const owned = ownedCompanies.map(c => ({
             ...c,
             slug: c.slug || null,
             description: c.description || null,
@@ -529,7 +530,31 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
             accessType: 'owned'
           }));
 
-          res.json({ success: true, data: { owned, shared: [] } });
+          // Shared businesses: companies the user has an ACTIVE membership for
+          // (synced from cloud during provisioning), even when not the creator.
+          const sharedRows = query(
+            `SELECT c.id, c.name, c.description, c.address, c.phone, c.email, c.slug, c.businessType, c.createdBy,
+                    m.role AS memberRole, m.branchIds AS memberBranchIds
+             FROM memberships m
+             JOIN companies c ON c.id = m.businessId
+             WHERE m.userId = ? AND m.status IN ('ACTIVE', 'DOWNLOADED') AND c.isActive = 1`,
+            [userId]
+          );
+
+          const shared = (sharedRows || []).map(c => ({
+            ...c,
+            slug: c.slug || null,
+            description: c.description || null,
+            address: c.address || null,
+            phone: c.phone || null,
+            email: c.email || null,
+            createdBy: c.createdBy || null,
+            accessType: 'shared',
+            memberRole: (c.memberRole || 'MANAGER').toUpperCase() === 'CASHIER' ? 'CASHIER' : 'MANAGER',
+            memberBranchId: (c.memberBranchIds || '').split(',')[0] || null,
+          }));
+
+          res.json({ success: true, data: { owned, shared } });
         } catch (e) {
           console.error('[Companies] my/list error:', e.message);
           res.status(500).json({ success: false, message: e.message });

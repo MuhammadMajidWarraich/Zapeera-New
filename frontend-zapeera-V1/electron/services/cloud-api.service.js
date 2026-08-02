@@ -12,6 +12,18 @@ function setAuthToken(token) {
   authToken = token;
 }
 
+function getAuthToken() {
+  return authToken;
+}
+
+function getCloudApiUrl() {
+  return CLOUD_API_URL;
+}
+
+function isConfigured() {
+  return Boolean(authToken);
+}
+
 function getBaseUrl() {
   const url = new URL(CLOUD_API_URL);
   return { hostname: url.hostname, port: url.port, protocol: url.protocol };
@@ -115,6 +127,9 @@ async function checkConnectivity() {
 module.exports = {
   setCloudApiUrl,
   setAuthToken,
+  getAuthToken,
+  getCloudApiUrl,
+  isConfigured,
   makeRequest,
   checkHealth,
   login,

@@ -23,6 +23,7 @@ const VALID_INVOKE_CHANNELS = [
   'print-receipt',
   'get-sync-status',
   'check-connectivity',
+  'get-local-business-states',
   'provision-local-session'
 ];
 
@@ -94,6 +95,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Sync
   getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
   checkConnectivity: () => ipcRenderer.invoke('check-connectivity'),
+  getLocalBusinessStates: () => ipcRenderer.invoke('get-local-business-states'),
 
   // Printing
   printReceipt: (options) => ipcRenderer.invoke('print-receipt', options)

@@ -1174,7 +1174,7 @@ function createWindow() {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: https:; " +
           "font-src 'self' data: https://fonts.gstatic.com; " +
-          "connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.zapeera.com; " +
+          "connect-src 'self' http://localhost:* http://127.0.0.1:* https:; " +
           "frame-ancestors 'none'; " +
           "base-uri 'self'; " +
           "form-action 'self';"
@@ -1409,7 +1409,7 @@ function setupIPC() {
   // Main process validates cloud token, generates provisioning token signed
   // with embedded server's JWT_SECRET, and POSTs to the embedded provision-session endpoint.
   ipcMain.handle('provision-local-session', async (event, provisionData) => {
-    const { user, memberships, businesses, cloudAccessToken } = provisionData || {};
+    const { user, memberships, businesses, cloudAccessToken, cloudApiUrl } = provisionData || {};
     if (!user || !user.id || !cloudAccessToken) {
       return { success: false, message: 'Missing required provisioning data' };
     }
@@ -1459,7 +1459,7 @@ function setupIPC() {
 
       // 3. POST to embedded provision-session endpoint
       const http = require('http');
-      const postData = JSON.stringify({ user, memberships, businesses });
+      const postData = JSON.stringify({ user, memberships, businesses, cloudAccessToken, cloudApiUrl: cloudApiUrl || process.env.CLOUD_API_URL || '' });
       const result = await new Promise((resolve) => {
         const options = {
           hostname: '127.0.0.1',
@@ -1528,21 +1528,63 @@ function setupIPC() {
     }
   });
 
-  // Sync status
+  // Sync status (shape matches what the renderer SyncService consumes)
   ipcMain.handle('get-sync-status', async () => {
     try {
       if (useEmbeddedApi) {
         const syncService = require('./services/sync.service');
+        const connState = syncService.getConnectionState ? syncService.getConnectionState() : 'OFFLINE';
+        const isOnline = ['SYNC_READY', 'SYNCED', 'SYNCING'].includes(connState);
+        const pending = syncService.getOfflineQueue ? (syncService.getOfflineQueue() || []).filter(q => !q.synced).length : 0;
         return {
-          isOnline: syncService.getIsOnline ? syncService.getIsOnline() : false,
+          connectionState: connState,
+          syncState: connState === 'SYNCING' ? 'syncing' : connState === 'SYNCED' ? 'synced' : isOnline ? 'idle' : 'offline',
+          isOnline,
+          lastSyncAt: syncService.getLastSyncTime ? syncService.getLastSyncTime() : null,
           lastSyncTime: syncService.getLastSyncTime ? syncService.getLastSyncTime() : null,
+          pendingChanges: pending,
+          failedChanges: 0,
           syncInProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
+          inProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
           queueLength: syncService.getOfflineQueue ? (syncService.getOfflineQueue() || []).length : 0
         };
       }
-      return { isOnline: false, lastSyncTime: null, syncInProgress: false, queueLength: 0 };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0 };
     } catch (e) {
-      return { isOnline: false, lastSyncTime: null, syncInProgress: false, queueLength: 0, error: e.message };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, error: e.message };
+    }
+  });
+
+  // Per-business desktop state (provisioned/downloaded vs cloud-only) for the renderer.
+  ipcMain.handle('get-local-business-states', async () => {
+    try {
+      if (useEmbeddedApi) {
+        const db = require('./services/database.service');
+        const syncService = require('./services/sync.service');
+        const rows = db.query
+          ? db.query(`
+              SELECT m.businessId, m.status, m.updatedAt AS lastSyncedAt, c.name, c.slug
+              FROM memberships m
+              LEFT JOIN companies c ON c.id = m.businessId
+              WHERE m.status IN ('ACTIVE', 'DOWNLOADED', 'OUT_OF_SYNC')
+              ORDER BY m.updatedAt DESC
+            `)
+          : [];
+        const lastSyncAt = syncService.getLastSyncTime ? syncService.getLastSyncTime() : null;
+        const states = (rows || []).map((r) => ({
+          businessId: r.businessId,
+          name: r.name || null,
+          slug: r.slug || null,
+          provisioned: r.status === 'DOWNLOADED',
+          availableOffline: r.status === 'DOWNLOADED',
+          status: r.status,
+          lastSyncedAt: r.lastSyncedAt || lastSyncAt || null
+        }));
+        return { states, lastSyncAt };
+      }
+      return { states: [], lastSyncAt: null };
+    } catch (e) {
+      return { states: [], lastSyncAt: null, error: e.message };
     }
   });
 

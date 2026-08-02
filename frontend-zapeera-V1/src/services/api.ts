@@ -105,7 +105,10 @@ export class ApiService {
           headers.set('Authorization', `Bearer ${this._accessToken}`);
         } else {
           try {
-            const storedToken = localStorage.getItem('token');
+            // Desktop persists the embedded-backend token under 'localAccessToken'
+            // (provisioned after cloud login); web uses 'token'. Prefer the local
+            // token so desktop API calls authenticate against the embedded server.
+            const storedToken = localStorage.getItem('localAccessToken') || localStorage.getItem('token');
             if (storedToken) {
               headers.set('Authorization', `Bearer ${storedToken}`);
             }
@@ -1937,6 +1940,39 @@ export class ApiService {
         memberBranchId?: string;
       }>;
     }>('/companies/my/list');
+  }
+
+  async getMyInvitations() {
+    return this.request<{
+      invitations: Array<{
+        invitationId: string;
+        token: string;
+        businessName: string;
+        roleName: string | null;
+        status: string;
+        expiresAt: string;
+      }>;
+      count: number;
+    }>('/invitations/pending');
+  }
+
+  async acceptInvitation(token: string) {
+    return this.request<{
+      membershipId: string;
+      message: string;
+    }>('/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async rejectInvitation(token: string) {
+    return this.request<{
+      message: string;
+    }>('/invitations/reject', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
   }
 
   async getCompany(companyId: string) {

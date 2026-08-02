@@ -169,7 +169,7 @@
     "createDesktopShortcut": "always",
     "createStartMenuShortcut": true,
     "shortcutName": "Zapeera",
-    "deleteAppDataOnUninstall": false,
+    "deleteAppDataOnUninstall": true,
     "runAfterFinish": true,
     "menuCategory": "Business",
     "installerLanguages": ["en_US"],

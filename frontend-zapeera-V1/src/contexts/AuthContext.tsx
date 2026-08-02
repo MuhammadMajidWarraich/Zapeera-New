@@ -7,7 +7,6 @@ import {
   clearStoredSession,
   readStoredUser,
   writeStoredUser,
-  SESSION_TOKEN_STORAGE_KEY,
 } from '../lib/session-storage';
 
 interface Membership {
@@ -196,22 +195,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Continue with normal login flow - restore session from localStorage
       try {
+        const isElectron = typeof window !== 'undefined' && typeof window.electronAPI !== 'undefined';
+        let restoreUser: Record<string, unknown> | null = null;
+
         if (savedUser) {
           const userData = JSON.parse(savedUser);
-
           if (userData && userData.id) {
-            const normalizedUser = normalizeStoredUser(userData as Record<string, unknown>);
-            setUser(normalizedUser);
-            setIsAuthenticated(true);
-            if (String(userData.role).toUpperCase() !== normalizedUser.role) {
-              writeStoredUser(normalizedUser);
-            }
+            restoreUser = userData as Record<string, unknown>;
           } else {
             clearStoredSession();
             setUser(null);
             setIsAuthenticated(false);
           }
         } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+
+        // Desktop: validate the saved local session against the embedded backend
+        // BEFORE trusting it. A stale session from an older install (or a reset
+        // local database) would otherwise cause a storm of 401s on boot; instead
+        // we clear it and fall through to the login screen.
+        if (restoreUser && isElectron) {
+          try {
+            const sessionResult = await apiService.sessionLogin();
+            const freshUser = (sessionResult as any)?.data?.user;
+            if (sessionResult?.success && freshUser?.id) {
+              restoreUser = freshUser as Record<string, unknown>;
+            } else {
+              restoreUser = null;
+            }
+          } catch {
+            restoreUser = null;
+          }
+        }
+
+        if (restoreUser) {
+          const normalizedUser = normalizeStoredUser(restoreUser);
+          setUser(normalizedUser);
+          setIsAuthenticated(true);
+          writeStoredUser(normalizedUser);
+        } else if (savedUser) {
+          // Stale/invalid local session — clear it so the app shows the login screen
+          clearStoredSession();
           setUser(null);
           setIsAuthenticated(false);
         }
@@ -237,12 +263,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setIsAuthenticated(false);
           }
         }
-      }
-
-      // Silently refresh session token so subsequent API calls have a fresh JWT
-      const storedSessionToken = localStorage.getItem(SESSION_TOKEN_STORAGE_KEY);
-      if (storedSessionToken && savedUser) {
-        apiService.sessionLogin().catch(() => {});
       }
 
       setIsInitialized(true);
@@ -467,11 +487,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // Cookie-only auth: httpOnly cookie is auto-sent with credentials:'include'
+        // Send the local (desktop) or web token as Bearer so the embedded server
+        // authenticates even when the httpOnly cookie round-trip is unavailable.
+        const token = localStorage.getItem('localAccessToken') || localStorage.getItem('token');
         const response = await fetch(`${apiBaseUrl}/api/auth/check-status`, {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: 'include',
         });

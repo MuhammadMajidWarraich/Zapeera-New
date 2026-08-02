@@ -116,8 +116,8 @@ export function DesktopStatusPanel() {
           <div className="pt-1">
             <div className="text-xs text-muted-foreground mb-1">Local Businesses</div>
             {runtime.desktopBusinessStates.map(b => (
-              <div key={b.businessId} className="flex items-center justify-between text-xs py-0.5">
-                <span className="truncate max-w-[180px]">{b.businessId}</span>
+              <div key={b.businessId} className="flex items-center justify-between gap-2 text-xs py-0.5">
+                <span className="truncate max-w-[180px]">{b.name || b.businessId}</span>
                 <span className={b.availableOffline ? 'text-green-500' : 'text-gray-400'}>
                   {b.availableOffline ? 'Available offline' : 'Cloud only'}
                 </span>

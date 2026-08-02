@@ -48,6 +48,13 @@ uploads/
 vite-dev.log
 vite-dev.err
 
+# Vercel CLI artifacts (may contain local env values)
+.vercel/
+**/.vercel/
+
+# Temp upload/release response files
+upload-response.json
+
 # Local backup of old nested repo and generated scratch files
 frontend-zapeera-V1/.git.backup-frontend/
 *.backup

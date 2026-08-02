@@ -88,7 +88,7 @@ async function startServer(port = 4201, userDataPath = null) {
   // Setup Express
   console.log('[Server] Setting up Express...');
   app = express();
-  app.use(cors());
+  app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: '50mb' }));
 
   // Health check
@@ -280,6 +280,24 @@ async function startServer(port = 4201, userDataPath = null) {
             syncAccountService.setCloudApi && syncAccountService.setCloudApi(cloudApi);
             syncBusinessService.setCloudApi && syncBusinessService.setCloudApi(cloudApi);
             syncInventoryService.setCloudApi && syncInventoryService.setCloudApi(cloudApi);
+
+            // Restore persisted cloud credentials so entitlement lookups and sync
+            // keep working after an app restart (set during provision-session).
+            try {
+              const savedToken = databaseService.query("SELECT value FROM settings WHERE key = 'zapeera_cloud_access_token'");
+              const savedUrl = databaseService.query("SELECT value FROM settings WHERE key = 'zapeera_cloud_api_url'");
+              if (savedToken && savedToken.length > 0 && savedToken[0].value) {
+                cloudApi.setAuthToken(savedToken[0].value);
+              }
+              if (savedUrl && savedUrl.length > 0 && savedUrl[0].value) {
+                cloudApi.setCloudApiUrl(savedUrl[0].value);
+              }
+              if (savedToken && savedToken.length > 0 && savedToken[0].value) {
+                console.log('[Server] ✅ Restored cloud credentials from settings');
+              }
+            } catch (credErr) {
+              console.warn('[Server] Cloud credential restore warning:', credErr.message);
+            }
 
             // Load offline queue and start periodic sync
             syncService.loadOfflineQueue();

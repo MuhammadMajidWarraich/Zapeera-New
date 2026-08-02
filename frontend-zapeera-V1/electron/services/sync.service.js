@@ -28,6 +28,43 @@ let fullSyncCounter = 0;
 let pushDebounceTimer = null;
 let pendingPushTables = new Set();
 
+// Cloud API reports entity types using Prisma model names (singular, e.g. 'product').
+// Local SQLite tables use plural names (e.g. 'products'). Map one to the other so
+// pulled changes land in the correct tables.
+const ENTITY_TYPE_TO_TABLE = {
+  product: 'products',
+  customer: 'customers',
+  sale: 'sales',
+  saleItem: 'sale_items',
+  purchase: 'purchases',
+  purchaseItem: 'purchase_items',
+  batch: 'batches',
+  category: 'categories',
+  supplier: 'suppliers',
+  manufacturer: 'manufacturers',
+  shelf: 'shelves',
+  stockMovement: 'stock_movements',
+  company: 'companies',
+  branch: 'branches',
+  user: 'users',
+  employee: 'employees',
+  receipt: 'receipts',
+  refund: 'refunds',
+  refundItem: 'refund_items',
+  attendance: 'attendance',
+  shift: 'shifts',
+  scheduledShift: 'scheduled_shifts',
+  scheduledShiftUser: 'scheduled_shift_users',
+  commission: 'commissions',
+  settings: 'settings',
+  cardDetails: 'card_details',
+  subscription: 'subscriptions'
+};
+
+function resolveLocalTable(entityType) {
+  return ENTITY_TYPE_TO_TABLE[entityType] || entityType;
+}
+
 const SYNC_TABLES = [
   { name: 'companies', priority: 1 },
   { name: 'branches', priority: 2 },
@@ -213,6 +250,82 @@ async function pullChangesFromCloud() {
   }
 }
 
+// Download full business payloads (branches, subscription, roles, modules, slug)
+// for memberships that have not been downloaded yet, then mark them DOWNLOADED
+// so the business can be used offline. Idempotent: businesses with local branches
+// are skipped.
+async function provisionPendingBusinesses() {
+  if (!query || !run || !saveDatabase) return { provisioned: 0, failed: 0 };
+  if (!cloudApi) return { provisioned: 0, failed: 0 };
+
+  let provisioned = 0;
+  let failed = 0;
+  const memberships = query(`SELECT * FROM memberships WHERE status = 'ACTIVE'`);
+  for (const m of memberships || []) {
+    const businessId = m.businessId;
+    if (!businessId) continue;
+
+    const branchRows = query('SELECT id FROM branches WHERE companyId = ? LIMIT 1', [businessId]);
+    if (branchRows && branchRows.length > 0) continue;
+
+    try {
+      const result = await cloudApi.provisionBusiness(businessId);
+      if (result && result.success !== false && result.data) {
+        persistProvisionedBusiness(result.data);
+        run('UPDATE memberships SET status = ?, updatedAt = ? WHERE businessId = ?', ['DOWNLOADED', now(), businessId]);
+        provisioned++;
+        console.log(`[Sync] Provisioned business ${businessId}`);
+      } else {
+        console.log(`[Sync] Provision rejected for ${businessId}: ${result && result.message}`);
+        failed++;
+      }
+    } catch (e) {
+      console.log(`[Sync] Provision failed for ${businessId}: ${e.message}`);
+      failed++;
+    }
+  }
+  if (provisioned > 0 || failed > 0) saveDatabase();
+  return { provisioned, failed };
+}
+
+function persistProvisionedBusiness(data) {
+  const biz = data.business;
+  if (!biz || !biz.id) return;
+
+  const existingCompany = query('SELECT id FROM companies WHERE id = ?', [biz.id]);
+  if (existingCompany && existingCompany.length > 0) {
+    run(`UPDATE companies SET name = ?, description = ?, address = ?, phone = ?, email = ?, slug = ?, businessType = ?, updatedAt = ? WHERE id = ?`,
+      [biz.name || '', biz.description || null, biz.address || null, biz.phone || null, biz.email || null, biz.slug || null, biz.businessType || 'PHARMACY', now(), biz.id]);
+  } else {
+    run(`INSERT INTO companies (id, name, description, address, phone, email, slug, businessType, isActive, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+      [biz.id, biz.name || '', biz.description || null, biz.address || null, biz.phone || null, biz.email || null, biz.slug || null, biz.businessType || 'PHARMACY', biz.createdBy || null, now(), now()]);
+  }
+
+  for (const b of data.branches || []) {
+    if (!b || !b.id) continue;
+    const existing = query('SELECT id FROM branches WHERE id = ?', [b.id]);
+    const isActive = b.isActive === false || b.isActive === 0 ? 0 : 1;
+    if (existing && existing.length > 0) {
+      run(`UPDATE branches SET name = ?, address = ?, phone = ?, email = ?, companyId = ?, isActive = ?, updatedAt = ? WHERE id = ?`,
+        [b.name || '', b.address || null, b.phone || null, b.email || null, biz.id, isActive, now(), b.id]);
+    } else {
+      run(`INSERT INTO branches (id, name, address, phone, email, companyId, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [b.id, b.name || '', b.address || null, b.phone || null, b.email || null, biz.id, isActive, now(), now()]);
+    }
+  }
+
+  if (data.subscription) {
+    const sub = data.subscription;
+    const existing = query('SELECT id FROM subscriptions WHERE companyId = ?', [biz.id]);
+    if (existing && existing.length > 0) {
+      run(`UPDATE subscriptions SET plan = ?, status = ?, updatedAt = ? WHERE companyId = ?`, [sub.planId || 'BASIC', sub.status || 'ACTIVE', now(), biz.id]);
+    } else {
+      run(`INSERT INTO subscriptions (id, companyId, plan, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+        [uuid(), biz.id, sub.planId || 'BASIC', sub.status || 'ACTIVE', now(), now()]);
+    }
+  }
+}
+
 function loadOperationsForPush() {
   if (!query) return [];
   return query(
@@ -244,7 +357,9 @@ function getLocalBusinessIds() {
 function getSyncCursor(businessId) {
   if (!query) return null;
   const rows = query(`SELECT value FROM settings WHERE key = ?`, [`sync_cursor_${businessId}`]);
-  return rows && rows.length > 0 ? rows[0].value : null;
+  // First pull: start from the beginning so the desktop downloads full history,
+  // not just the backend's default 24-hour window.
+  return rows && rows.length > 0 ? rows[0].value : '1970-01-01T00:00:00.000Z';
 }
 
 function setSyncCursor(businessId, cursor) {
@@ -264,22 +379,23 @@ function applyChanges(changes) {
   for (const change of changes) {
     try {
       const { entityType, entityId, operation, data } = change;
+      const table = resolveLocalTable(entityType);
       if (operation === 'DELETE') {
-        run(`DELETE FROM ${entityType} WHERE id = ?`, [entityId]);
+        run(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
       } else {
         const columns = Object.keys(data);
         const values = columns.map(c => data[c]);
-        const existing = query(`SELECT id FROM ${entityType} WHERE id = ?`, [entityId]);
+        const existing = query(`SELECT id FROM ${table} WHERE id = ?`, [entityId]);
         if (existing && existing.length > 0) {
           const setClause = columns.filter(c => c !== 'id').map(c => `${c} = ?`).join(', ');
           const updateValues = columns.filter(c => c !== 'id').map(c => data[c]);
           if (setClause) {
-            run(`UPDATE ${entityType} SET ${setClause} WHERE id = ?`, [...updateValues, entityId]);
+            run(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...updateValues, entityId]);
           }
         } else {
           const placeholders = columns.map(() => '?').join(', ');
           const columnList = columns.join(', ');
-          run(`INSERT INTO ${entityType} (${columnList}) VALUES (${placeholders})`, values);
+          run(`INSERT INTO ${table} (${columnList}) VALUES (${placeholders})`, values);
         }
       }
     } catch (e) {
@@ -299,6 +415,12 @@ async function syncBidirectional() {
     return { status: state === 'OFFLINE' ? 'OFFLINE' : 'AUTH_REQUIRED', uploaded: 0, downloaded: 0 };
   }
   console.log('[Sync] Starting synchronization');
+  try {
+    const provisionResult = await provisionPendingBusinesses();
+    if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
+  } catch (e) {
+    console.log(`[Sync] Provision pass error: ${e.message}`);
+  }
   const pushResult = await pushChangesToCloud();
   const pullResult = await pullChangesFromCloud();
   _lastSyncTime = now();
@@ -339,6 +461,12 @@ function startPeriodicSync() {
       const st = await checkCloudConnectivity();
       if (st !== 'SYNC_READY') return;
       fullSyncCounter++;
+      try {
+        const provisionResult = await provisionPendingBusinesses();
+        if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
+      } catch (e) {
+        console.log(`[Sync] Provision pass error: ${e.message}`);
+      }
       await pullChangesFromCloud();
     }, SYNC_CONFIG.POLL_INTERVAL);
     if (syncInterval) clearInterval(syncInterval);
@@ -498,6 +626,7 @@ module.exports = {
   checkCloudConnectivity,
   pushChangesToCloud,
   pullChangesFromCloud,
+  provisionPendingBusinesses,
   syncBidirectional,
   getSyncResult,
   SYNC_CONFIG,

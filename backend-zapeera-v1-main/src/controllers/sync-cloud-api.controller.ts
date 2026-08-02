@@ -23,6 +23,7 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true,
+            slug: true,
             businessType: true,
             businessSubscription: {
               select: {
@@ -41,7 +42,7 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
     // is not ACTIVE, so desktop shows the exact same list as the web dashboard.
     const ownedBusinesses = await prisma.business.findMany({
       where: { isActive: true, createdBy: userId },
-      select: { id: true, name: true, businessType: true }
+      select: { id: true, name: true, slug: true, businessType: true }
     });
 
     const membershipBusinessIds = new Set(memberships.map((m: any) => m.businessId));
@@ -66,6 +67,7 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
         businessId: m.businessId,
         role: m.role?.name || 'OWNER',
         businessName: m.business.name,
+        businessSlug: m.business.slug || '',
         businessType: m.business.businessType || '',
         status: m.status,
         subscriptionPlan: m.business?.businessSubscription?.planId || '',
@@ -76,6 +78,7 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
       businesses: mergedBusinesses.map(b => ({
         id: b.id,
         name: b.name,
+        slug: b.slug || '',
         businessType: b.businessType || ''
       }))
     };

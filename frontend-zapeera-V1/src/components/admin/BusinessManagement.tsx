@@ -944,7 +944,11 @@ const BusinessManagement = () => {
     if (membership.status === 'OUT_OF_SYNC') {
       return { label: 'Out of Sync', badgeClass: 'border-amber-200 bg-amber-100 text-amber-700' };
     }
-    return { label: 'Cloud Only', badgeClass: 'border-slate-200 bg-slate-100 text-slate-500' };
+    if (membership.status === 'CLOUD_ONLY') {
+      return { label: 'Cloud Only', badgeClass: 'border-slate-200 bg-slate-100 text-slate-500' };
+    }
+    // ACTIVE (or other cloud-synced) membership -> accessible online, not downloaded for offline use.
+    return { label: 'Cloud', badgeClass: 'border-sky-200 bg-sky-50 text-sky-600' };
   };
 
   const getBusinessNavigationTarget = (business: Business) => {
