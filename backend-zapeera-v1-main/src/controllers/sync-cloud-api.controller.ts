@@ -19,11 +19,36 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
     const memberships = await (prisma.membership.findMany as any)({
       where: { userId, status: 'ACTIVE' },
       include: {
-        business: { select: { id: true, name: true, businessType: true } },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            businessType: true,
+            businessSubscription: {
+              select: {
+                planId: true,
+                status: true
+              }
+            }
+          }
+        },
         branches: { include: { branch: { select: { id: true, name: true } } } },
         role: { select: { name: true } }
       }
     }) as any[];
+
+    // Include businesses the user owns (createdBy) even when their membership
+    // is not ACTIVE, so desktop shows the exact same list as the web dashboard.
+    const ownedBusinesses = await prisma.business.findMany({
+      where: { isActive: true, createdBy: userId },
+      select: { id: true, name: true, businessType: true }
+    });
+
+    const membershipBusinessIds = new Set(memberships.map((m: any) => m.businessId));
+    const mergedBusinesses = [
+      ...memberships.map((m: any) => m.business),
+      ...ownedBusinesses.filter((b) => !membershipBusinessIds.has(b.id))
+    ];
 
     const data = {
       user: {
@@ -43,13 +68,15 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
         businessName: m.business.name,
         businessType: m.business.businessType || '',
         status: m.status,
+        subscriptionPlan: m.business?.businessSubscription?.planId || '',
+        subscriptionStatus: m.business?.businessSubscription?.status || '',
         branchIds: m.branches.map((b: any) => b.branch.id),
         branches: m.branches.map((b: any) => ({ id: b.branch.id, name: b.branch.name }))
       })),
-      businesses: memberships.map(m => ({
-        id: m.business.id,
-        name: m.business.name,
-        businessType: m.business.businessType || ''
+      businesses: mergedBusinesses.map(b => ({
+        id: b.id,
+        name: b.name,
+        businessType: b.businessType || ''
       }))
     };
 
