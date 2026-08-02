@@ -3,31 +3,22 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Home,
-  Settings,
   MessageCircle,
-  Calendar,
   LogOut,
   User,
   ArrowLeft,
   ChevronDown,
   Zap,
-  Building2,
   UserPlus,
   CreditCard,
   BellRing,
   ShieldCheck,
-  Phone,
   Search,
   Sparkles,
   Menu,
   X,
   HelpCircle,
-  Mail,
-  BadgeCheck,
-  Star,
-  ExternalLink,
-  CheckCircle2,
-  AlertTriangle,
+  Laptop,
   RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,7 +32,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { whatsappUrl, callUrl, emailUrl } from "@/lib/support-links";
+import { whatsappUrl } from "@/lib/support-links";
 
 interface ZapeeraLayoutProps {
   children: React.ReactNode;
@@ -100,6 +91,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       setActiveTab("billing");
     } else if (path.startsWith("/zapeera/notifications")) {
       setActiveTab("notifications");
+    } else if (path.startsWith("/downloads")) {
+      setActiveTab("downloads");
     }
   }, [location.pathname]);
 
@@ -282,23 +275,18 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
           <div className="px-3.5 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Main</div>
           {renderNavItem({ key: "dashboard", label: "Dashboard", icon: LayoutDashboard, to: "/zapeera" })}
           {renderNavItem({ key: "businesses", label: "My Businesses", icon: Home, to: "/zapeera/my-businesses" })}
-        </div>
-        <div>
-          <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Manage</div>
           {renderNavItem({ key: "invitations", label: "Invitations", icon: UserPlus, to: "/zapeera/invitations", badge: pendingInvites || undefined })}
-          {renderNavItem({ key: "create", label: "Create Business", icon: Building2, to: "/zapeera?create=1" })}
         </div>
         <div>
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Account</div>
           {renderNavItem({ key: "settings", label: "Profile & Security", icon: ShieldCheck, to: "/settings" })}
           {renderNavItem({ key: "billing", label: "Billing & Payments", icon: CreditCard, to: "/zapeera/billing" })}
           {renderNavItem({ key: "notifications", label: "Notification Settings", icon: BellRing, to: "/zapeera/notifications" })}
+          {renderNavItem({ key: "downloads", label: "Downloads", icon: Laptop, to: "/downloads" })}
         </div>
         <div>
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Support</div>
           {renderNavItem({ key: "support", label: "Support Center", icon: HelpCircle, to: "/zapeera/support" })}
-          {renderNavItem({ key: "contact", label: "Contact Us", icon: Mail, external: emailUrl("Zapeera Support", "Hello, I need help with Zapeera.") })}
-          {renderNavItem({ key: "whatsapp", label: "WhatsApp Support", icon: MessageCircle, external: whatsappUrl("Hello! I need support with Zapeera.") })}
         </div>
       </nav>
 
@@ -405,7 +393,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <p className="truncate text-sm font-semibold text-[#0a1128]">
                 {greeting}, <span className="font-extrabold">{user?.name?.split(" ")[0] || "there"}</span> <span aria-hidden>👋</span>
               </p>
-              <p className="truncate text-xs text-[#8c95b0]">Smart. Seamless. Scalable.</p>
+              <p className="truncate text-xs text-[#8c95b0]">This is your Zapeera control center — manage your businesses, invitations, subscriptions and account settings</p>
             </div>
           </div>
 

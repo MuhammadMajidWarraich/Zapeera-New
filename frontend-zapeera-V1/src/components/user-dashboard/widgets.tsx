@@ -37,7 +37,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
-import { whatsappUrl, callUrl, emailUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
+import { whatsappUrl, callUrl, emailUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 import { config } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -297,7 +297,6 @@ export function SupportWidget() {
 export function DesktopStatusCard() {
   const runtime = useRuntime();
   const { status, triggerSync } = useSync();
-  const navigate = useNavigate();
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -311,9 +310,16 @@ export function DesktopStatusCard() {
       <Panel title="Desktop App">
         <div className="p-4 pt-1">
           <p className="text-[13px] text-[#4a5578]">Use Zapeera offline with the desktop app — your data stays in sync automatically.</p>
-          <Button variant="outline" size="sm" onClick={() => navigate("/downloads")} className="mt-3 w-full border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]">
-            <Laptop className="mr-1.5 h-4 w-4 text-[#1a52c5]" />
-            Download Desktop App
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="mt-3 w-full border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+          >
+            <a href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+              <Laptop className="mr-1.5 h-4 w-4 text-[#1a52c5]" />
+              Download Desktop App
+            </a>
           </Button>
         </div>
       </Panel>

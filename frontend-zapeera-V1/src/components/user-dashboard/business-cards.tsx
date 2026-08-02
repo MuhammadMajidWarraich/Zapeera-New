@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   MoreVertical,
   ExternalLink,
-  Eye,
   CreditCard,
   UserMinus,
   Trash2,
@@ -14,6 +13,7 @@ import {
   Wifi,
   WifiOff,
   Clock,
+  ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -304,10 +304,6 @@ export function BusinessCardGrid() {
                       <ExternalLink className="h-4 w-4" />
                       Open Workspace
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/zapeera/my-businesses")} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]">
-                      <Eye className="h-4 w-4 opacity-60" />
-                      View Details
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => b.slug && navigate(`/business/${encodeURIComponent(b.slug)}/subscription`)}
                       className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
@@ -385,18 +381,13 @@ export function BusinessCardGrid() {
                 <button
                   type="button"
                   onClick={() => openWorkspace(b)}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
+                  className="inline-flex flex-1 items-center justify-between gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  Open Workspace
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/zapeera/my-businesses")}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7]"
-                >
-                  <Eye className="h-4 w-4" />
-                  Details
+                  <span className="inline-flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    Open Workspace
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             </div>

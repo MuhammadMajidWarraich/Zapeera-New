@@ -2,6 +2,10 @@ import { config } from "@/lib/config";
 
 export const SUPPORT_PHONE_DISPLAY = "+92 307 5445509";
 
+/** Direct download link for the Windows desktop installer (GitHub release asset). */
+export const DESKTOP_DOWNLOAD_URL =
+  "https://github.com/MuhammadMajidWarraich/Zapeera-New/releases/download/v1.0.0/Zapeera-Setup-1.0.0.exe";
+
 function digits(phone: string): string {
   return String(phone || "").replace(/[^0-9]/g, "");
 }

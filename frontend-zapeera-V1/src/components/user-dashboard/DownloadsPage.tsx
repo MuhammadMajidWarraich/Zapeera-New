@@ -2,6 +2,7 @@ import { Laptop, Monitor, ShieldCheck, CheckCircle2, ArrowLeft } from "lucide-re
 import { useNavigate } from "react-router-dom";
 import { useRuntime } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
+import { DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 
 const DownloadsPage = () => {
   const navigate = useNavigate();
@@ -50,11 +51,13 @@ const DownloadsPage = () => {
                 Run your business even without internet. Sales, inventory and more stay on your machine and sync when you're back online.
               </p>
               <Button
-                onClick={() => (window.location.href = "mailto:support@zapeera.com?subject=Desktop%20app%20download")}
+                asChild
                 className="h-12 w-fit rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_20px_rgba(26,82,197,0.3)] hover:-translate-y-px hover:shadow-[0_8px_32px_rgba(26,82,197,0.4)]"
               >
-                <Laptop className="mr-2 h-4 w-4" />
-                Request Download Link
+                <a href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                  <Laptop className="mr-2 h-4 w-4" />
+                  Download Zapeera for Windows
+                </a>
               </Button>
             </div>
             <div className="border-t border-[rgba(15,23,60,0.06)] bg-[#f8fafc] p-8 md:border-l md:border-t-0">

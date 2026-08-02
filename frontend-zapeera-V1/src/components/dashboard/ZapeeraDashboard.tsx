@@ -14,11 +14,10 @@ import {
   Plus,
   UserPlus,
   LogOut,
-  Sparkles,
-  ShieldCheck,
   ArrowRight,
   Building2,
   X,
+  Lock,
 } from "lucide-react";
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import { apiService } from "@/services/api";
@@ -26,8 +25,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRuntime } from "@/lib/runtime";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
-import { AccountStats, SecurityCard, AccountCompletion, SupportWidget, DesktopStatusCard, ActivityTimeline, RecentlyAccessed, FavoriteBusinesses, InvitationsWidget, RecentNotifications } from "@/components/user-dashboard/widgets";
+import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
+import { AccountStats, AccountCompletion, DesktopStatusCard, ActivityTimeline, RecentlyAccessed, FavoriteBusinesses, InvitationsWidget, RecentNotifications } from "@/components/user-dashboard/widgets";
 import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
 
 const ZapeeraDashboard = () => {
@@ -38,14 +37,6 @@ const ZapeeraDashboard = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [businessTypes, setBusinessTypes] = useState<any[]>([]);
-  const [greeting, setGreeting] = useState("");
-
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 18) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-  }, []);
 
   // Support deep-link ?create=1 to open the create dialog
   useEffect(() => {
@@ -224,85 +215,83 @@ const ZapeeraDashboard = () => {
   return (
     <ZapeeraLayout>
       <main className="mx-auto w-full max-w-[1400px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
-        {/* Hero greeting + primary actions */}
-        <section className="relative mb-7 overflow-hidden rounded-[24px] border border-[rgba(15,23,60,0.05)] bg-gradient-to-br from-white via-white to-[#f4f8ff] p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_10px_40px_rgba(26,82,197,0.06)] sm:p-8">
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(circle at 85% 15%, rgba(40,194,206,0.08) 0%, transparent 45%), radial-gradient(circle at 10% 90%, rgba(26,82,197,0.06) 0%, transparent 45%)",
-            }}
-          />
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Your account overview
-              </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-[#0a1128] sm:text-3xl">
-                {greeting}, {currentUser?.name?.split(" ")[0] || "there"} <span aria-hidden>👋</span>
-              </h1>
-              <p className="mt-1.5 max-w-xl text-sm text-[#4a5578]">
-                This is your Zapeera control center — manage your businesses, invitations, subscriptions and account settings in one place.
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/zapeera/invitations")}
-                className="inline-flex items-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.1)] bg-white px-6 py-3 text-sm font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-              >
-                <UserPlus className="h-[18px] w-[18px] text-[#1a52c5]" />
-                Join a Business
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateBusiness}
-                disabled={!canCreateBusiness}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(26,82,197,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_8px_32px_rgba(26,82,197,0.4),0_0_0_4px_rgba(26,82,197,0.08)] disabled:pointer-events-none disabled:opacity-50"
-                )}
-              >
-                <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
-                Create New Business
-              </button>
-            </div>
-          </div>
-        </section>
-
         {/* Quick account stats */}
         <AccountStats />
 
         {/* My Businesses + widgets */}
-        <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
-            <div className="flex items-center justify-between">
+        <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-4">
+          <div className="space-y-6 xl:col-span-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
                 <p className="text-[13px] text-[#8c95b0]">Owned and joined businesses — open the workspace to operate.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate("/zapeera/my-businesses")}
-                className="hidden items-center gap-1 text-sm font-semibold text-[#1a52c5] transition-colors hover:text-[#28c2ce] sm:inline-flex"
-              >
-                Manage Businesses <ArrowRight className="h-4 w-4" />
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => navigate("/zapeera/invitations")}
+                  className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                >
+                  <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
+                  Join a Business
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateBusiness}
+                  disabled={!canCreateBusiness}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
+                  )}
+                >
+                  <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
+                  Create New Business
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/zapeera/my-businesses")}
+                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#1a52c5] transition-colors hover:text-[#28c2ce]"
+                >
+                  Manage Businesses <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <BusinessCardGrid />
-            <InvitationsWidget />
-            <RecentNotifications />
+
+            {/* Security CTA */}
+            <section className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_6px_20px_rgba(26,82,197,0.3)]">
+                  <Lock className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-[17px] font-extrabold tracking-tight text-[#0a1128]">Secure. reliable. always yours.</h3>
+                  <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[#8c95b0]">
+                    Your data is protected with enterprise grade security and 99.9% uptime so you can focus on growing your businesses.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => navigate("/settings")}
+                className="h-11 shrink-0 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)]"
+              >
+                Learn more about security
+              </Button>
+            </section>
           </div>
 
           <div className="space-y-6">
             <DesktopStatusCard />
-            <SecurityCard />
             <AccountCompletion />
             <RecentlyAccessed onOpen={openWorkspace} />
             <FavoriteBusinesses onOpen={openWorkspace} />
             <ActivityTimeline compact />
-            <SupportWidget />
           </div>
+        </div>
+
+        {/* Invitations + Recent notifications */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <InvitationsWidget />
+          <RecentNotifications />
         </div>
 
         {/* Desktop download strip (web only) */}
@@ -318,9 +307,14 @@ const ZapeeraDashboard = () => {
                   <p className="text-[13px] text-[#8c95b0]">Download the desktop app for offline business management and automatic sync.</p>
                 </div>
               </div>
-              <Button onClick={() => navigate("/downloads")} className="h-10 shrink-0 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-md">
+              <a
+                href={DESKTOP_DOWNLOAD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-md"
+              >
                 Download Desktop App
-              </Button>
+              </a>
             </div>
           </section>
         )}
