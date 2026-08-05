@@ -271,6 +271,9 @@ model Product {
   maxStock             Int?
   unitsPerPack         Int       @default(1)
   barcode              String?   @unique
+  additionalBarcodes   String?   // JSON array of additional barcodes: ["CODE1","CODE2"]
+  barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
+  isGenerated          Boolean   @default(false) // true if barcode was auto-generated
   requiresPrescription Boolean   @default(false)
   isActive             Boolean   @default(true)
   uuid                 String?   @unique

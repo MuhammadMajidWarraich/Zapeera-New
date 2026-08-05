@@ -5608,6 +5608,48 @@ export class ApiService {
     });
   }
 
+  // ==================== BARCODE METHODS ====================
+
+  async lookupBarcode(barcode: string) {
+    return this.request<any>('/barcodes/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ barcode }),
+    });
+  }
+
+  async generateBarcode(options: { prefix?: string; length?: number; type?: string }) {
+    return this.request<any>('/barcodes/generate', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    });
+  }
+
+  async validateBarcode(barcode: string, type?: string, excludeProductId?: string) {
+    return this.request<any>('/barcodes/validate', {
+      method: 'POST',
+      body: JSON.stringify({ barcode, type, excludeProductId }),
+    });
+  }
+
+  async getBarcodeStats() {
+    return this.request<any>('/barcodes/stats');
+  }
+
+  async getProductBarcodes(productId: string) {
+    return this.request<any>(`/barcodes/product/${productId}`);
+  }
+
+  async updateProductBarcodes(productId: string, data: {
+    barcode?: string;
+    additionalBarcodes?: string[];
+    barcodeType?: string;
+  }) {
+    return this.request<any>(`/barcodes/product/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
 }
 
 export const apiService = new ApiService(API_BASE_URL);

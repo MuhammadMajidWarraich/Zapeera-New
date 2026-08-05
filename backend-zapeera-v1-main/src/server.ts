@@ -104,6 +104,7 @@ import paymentProofRoutes from './routes/payment-proof.routes';
 import ocrRoutes from './routes/ocr.routes';
 import notificationRoutes from './routes/notification.routes';
 import expenseRoutes from './routes/expense.routes';
+import barcodeRoutes from './routes/barcode.routes';
 import { startSubscriptionCron } from './jobs/subscription-cron';
 import { getDatabaseService, DatabaseType } from './services/database.service';
 import { getSyncService } from './services/sync.service';
@@ -546,6 +547,7 @@ app.use('/api/v1/payments/manual', paymentProofRoutes);
 app.use('/api/v1/ocr', ocrRoutes);
   app.use('/api/v1/expenses', expenseRoutes);
   app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/barcodes', barcodeRoutes);
 app.use('/api/v1/backoffice', backofficeRoutes);
 
 // Legacy /api/* routes — kept for backward compatibility; new clients should use /api/v1/*
@@ -587,6 +589,7 @@ app.use('/api/payments/manual', paymentProofRoutes);
 app.use('/api/ocr', ocrRoutes);
   app.use('/api/expenses', expenseRoutes);
   app.use('/api/notifications', notificationRoutes);
+  app.use('/api/barcodes', barcodeRoutes);
 
 // Static: serve uploaded receipt screenshots
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

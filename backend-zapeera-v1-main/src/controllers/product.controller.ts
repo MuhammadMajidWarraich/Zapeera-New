@@ -57,6 +57,9 @@ const createProductSchema = Joi.object({
   supplierId: Joi.string().allow('', null).optional(), // Optional - supplier is assigned to batches, not products
   branchId: Joi.string().required(),
   barcode: Joi.string().allow(''),
+  additionalBarcodes: Joi.array().items(Joi.string()).optional(),
+  barcodeType: Joi.string().valid('CODE128', 'EAN13', 'EAN8', 'UPC_A', 'UPC_E', 'CODE39', 'QR').optional(),
+  isGenerated: Joi.boolean().optional(),
   requiresPrescription: Joi.boolean().default(false),
   isActive: Joi.boolean().default(true),
   minStock: Joi.number().min(0).default(1).optional(),
@@ -73,6 +76,9 @@ const updateProductSchema = Joi.object({
   supplierId: Joi.string().allow(''),
   branchId: Joi.string().allow(''),
   barcode: Joi.string().allow(''),
+  additionalBarcodes: Joi.array().items(Joi.string()).optional(),
+  barcodeType: Joi.string().valid('CODE128', 'EAN13', 'EAN8', 'UPC_A', 'UPC_E', 'CODE39', 'QR').optional(),
+  isGenerated: Joi.boolean().optional(),
   requiresPrescription: Joi.boolean(),
   isActive: Joi.boolean(),
   minStock: Joi.number().min(0).optional(),
@@ -135,7 +141,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
     if (search) {
       // Use database-agnostic search helper for case-insensitive search
       const searchConditions = createSearchConditions(
-        ['name', 'barcode', 'description', 'formula'],
+        ['name', 'barcode', 'sku', 'description', 'formula'],
         search as string
       );
       if (searchConditions.OR) {
@@ -396,6 +402,9 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       companyId: targetCompanyId,
       createdBy: req.user?.createdBy || req.user?.id || null,
       barcode: productData.barcode || null,
+      additionalBarcodes: productData.additionalBarcodes ? JSON.stringify(productData.additionalBarcodes) : null,
+      barcodeType: productData.barcodeType || 'CODE128',
+      isGenerated: productData.isGenerated || false,
       requiresPrescription: productData.requiresPrescription || false,
       minStock: productData.minStock || 1,
       maxStock: productData.maxStock || null,
@@ -531,6 +540,13 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.maxStock !== undefined) updateFields.maxStock = updateData.maxStock !== null ? Number(updateData.maxStock) : null;
     if (updateData.unitsPerPack !== undefined) updateFields.unitsPerPack = updateData.unitsPerPack;
     if (updateData.barcode !== undefined) updateFields.barcode = updateData.barcode || null;
+    if (updateData.additionalBarcodes !== undefined) {
+      updateFields.additionalBarcodes = Array.isArray(updateData.additionalBarcodes)
+        ? JSON.stringify(updateData.additionalBarcodes)
+        : null;
+    }
+    if (updateData.barcodeType !== undefined) updateFields.barcodeType = updateData.barcodeType;
+    if (updateData.isGenerated !== undefined) updateFields.isGenerated = updateData.isGenerated;
     if (updateData.requiresPrescription !== undefined) updateFields.requiresPrescription = updateData.requiresPrescription;
     if (updateData.isActive !== undefined) updateFields.isActive = updateData.isActive;
 
