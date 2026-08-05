@@ -7,6 +7,7 @@ import {
   getSyncStatus,
   syncToPostgreSQL,
   syncToSQLite,
+  syncPush,
   getSyncQueue,
   clearSyncQueue,
   checkConnectivity
@@ -27,6 +28,7 @@ router.get('/connectivity', checkConnectivity);
 // Sync operations
 router.post('/to-postgresql', syncToPostgreSQL);
 router.post('/to-sqlite', syncToSQLite);
+router.post('/push', syncPush);
 
 // Queue management
 router.get('/queue', getSyncQueue);

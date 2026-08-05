@@ -14,10 +14,12 @@ import {
   WifiOff,
   Clock,
   ArrowRight,
+  CloudUpload,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime, type DesktopBusinessState } from "@/lib/runtime";
+import { useSync } from "@/contexts/SyncProvider";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -128,11 +130,13 @@ export function BusinessCardGrid() {
   const { user } = useAuth();
   const { allCompanies, refreshCompanies } = useAdmin();
   const runtime = useRuntime();
+  const { triggerSync } = useSync();
   const [entitlements, setEntitlements] = useState<EntitlementsMap>({});
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [confirmAction, setConfirmAction] = useState<null | { type: "delete" | "leave"; business: BusinessCardData }>(null);
   const [deleting, setDeleting] = useState(false);
+  const [syncingBusinessId, setSyncingBusinessId] = useState<string | null>(null);
 
   const desktopByBusiness = new Map<string, DesktopBusinessState>((runtime.desktopBusinessStates || []).map((s) => [s.businessId, s]));
 
@@ -203,6 +207,25 @@ export function BusinessCardGrid() {
       localStorage.setItem("zapeera_recent_businesses", JSON.stringify(filtered.slice(0, 5)));
     } catch {
       /* ignore */
+    }
+  };
+
+  const handleSyncNow = async (b: BusinessCardData) => {
+    setSyncingBusinessId(b.id);
+    try {
+      const res = await apiService.request<{ success?: boolean; message?: string }>("/sync/push", {
+        method: "POST",
+        body: JSON.stringify({ businessId: b.id }),
+      });
+      if (res?.success !== false) {
+        toast({ title: "Sync started", description: `${b.name} data is being synced to cloud.` });
+      } else {
+        toast({ title: "Sync failed", description: (res as any)?.message || "Could not start sync.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Sync failed", description: e.message || "Could not start sync.", variant: "destructive" });
+    } finally {
+      setSyncingBusinessId(null);
     }
   };
 
@@ -337,6 +360,18 @@ export function BusinessCardGrid() {
                     >
                       <CreditCard className="h-4 w-4 opacity-60" />
                       Manage Subscription
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleSyncNow(b)}
+                      disabled={syncingBusinessId === b.id}
+                      className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
+                    >
+                      {syncingBusinessId === b.id ? (
+                        <RefreshCw className="h-4 w-4 animate-spin opacity-60" />
+                      ) : (
+                        <CloudUpload className="h-4 w-4 opacity-60" />
+                      )}
+                      {syncingBusinessId === b.id ? "Syncing…" : "Sync Now"}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {!owned && (

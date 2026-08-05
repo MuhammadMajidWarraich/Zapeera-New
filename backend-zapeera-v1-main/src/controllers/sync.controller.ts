@@ -91,6 +91,45 @@ export const syncToPostgreSQL = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * Push local data to PostgreSQL (called by frontend triggerSync)
+ */
+export const syncPush = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const syncService = getSyncService();
+    const dbService = getDatabaseService();
+    const { businessId } = req.body;
+
+    if (!dbService.isOnline()) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot sync: Not connected to PostgreSQL'
+      });
+      return;
+    }
+
+    // Start sync in background
+    syncService.syncToPostgreSQL().catch(err => {
+      console.error('[SyncPush] Background sync error:', err);
+    });
+
+    console.log(`[SyncPush] Sync triggered for business: ${businessId || 'all'}`);
+
+    res.json({
+      success: true,
+      message: businessId
+        ? `Sync to cloud started for business ${businessId}`
+        : 'Sync to cloud started'
+    });
+  } catch (error: any) {
+    console.error('[SyncPush] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to start sync'
+    });
+  }
+};
+
+/**
  * Trigger sync to SQLite
  */
 export const syncToSQLite = async (req: Request, res: Response): Promise<void> => {
