@@ -5,7 +5,7 @@ import Joi from 'joi';
 
 // Validation schemas
 const calculateCommissionSchema = Joi.object({
-  employeeId: Joi.string().required(),
+  staffId: Joi.string().required(),
   branchId: Joi.string().required(),
   period: Joi.string().required(),
   periodType: Joi.string().valid('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY').default('MONTHLY'),
@@ -19,7 +19,7 @@ const updateCommissionSchema = Joi.object({
   notes: Joi.string().optional()
 });
 
-// Calculate commission for an employee
+// Calculate commission for a staff member
 export const calculateCommission = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -32,32 +32,32 @@ export const calculateCommission = async (req: Request, res: Response) => {
       });
     }
 
-    const { employeeId, branchId, period, periodType, baseRate, bonusRate, notes } = req.body;
+    const { staffId, branchId, period, periodType, baseRate, bonusRate, notes } = req.body;
 
-    // Check if employee exists and is active
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
+    // Check if staff exists and is active
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
       include: { branch: true }
     });
 
-    if (!employee) {
+    if (!staff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
-    if (!employee.isActive) {
+    if (!staff.isActive) {
       return res.status(400).json({
         success: false,
-        message: 'Employee is not active'
+        message: 'Staff is not active'
       });
     }
 
     // Check if commission already exists for this period
     const existingCommission = await prisma.commission.findFirst({
       where: {
-        employeeId,
+        staffId,
         period,
         periodType
       }
@@ -112,7 +112,7 @@ export const calculateCommission = async (req: Request, res: Response) => {
     // Get sales data for the period
     const salesData = await prisma.sale.aggregate({
       where: {
-        userId: employeeId, // Assuming userId refers to employee who made the sale
+        userId: staffId, // Assuming userId refers to staff who made the sale
         branchId,
         createdAt: {
           gte: startDate,
@@ -140,7 +140,7 @@ export const calculateCommission = async (req: Request, res: Response) => {
     // Create commission record
     const commission = await prisma.commission.create({
       data: {
-        employeeId,
+        staffId,
         branchId,
         period,
         periodType,
@@ -155,11 +155,11 @@ export const calculateCommission = async (req: Request, res: Response) => {
         notes
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -198,7 +198,7 @@ export const getCommissions = async (req: Request, res: Response) => {
     const {
       page = 1,
       limit = 10,
-      employeeId = '',
+      staffId = '',
       branchId = '',
       status = '',
       periodType = '',
@@ -211,8 +211,8 @@ export const getCommissions = async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    if (employeeId) {
-      where.employeeId = employeeId;
+    if (staffId) {
+      where.staffId = staffId;
     }
 
     if (branchId) {
@@ -245,11 +245,11 @@ export const getCommissions = async (req: Request, res: Response) => {
         skip,
         take,
         include: {
-          employee: {
+          staff: {
             select: {
               id: true,
               name: true,
-              employeeId: true,
+              staffId: true,
               position: true
             }
           },
@@ -295,11 +295,11 @@ export const getCommission = async (req: Request, res: Response) => {
     const commission = await prisma.commission.findUnique({
       where: { id },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -371,11 +371,11 @@ export const updateCommission = async (req: Request, res: Response) => {
       where: { id },
       data: updateData,
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -475,14 +475,14 @@ export const getCommissionStats = async (req: Request, res: Response) => {
   }
 };
 
-// Get employee performance summary
-export const getEmployeePerformance = async (req: Request, res: Response) => {
+// Get staff performance summary
+export const getStaffPerformance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { employeeId } = req.params;
+    const { staffId } = req.params;
     const { startDate, endDate } = req.query;
 
-    const where: any = { employeeId };
+    const where: any = { staffId };
     if (startDate || endDate) {
       where.createdAt = {};
       if (startDate) {
@@ -498,7 +498,7 @@ export const getEmployeePerformance = async (req: Request, res: Response) => {
     // Get sales performance
     const salesData = await prisma.sale.aggregate({
       where: {
-        userId: employeeId,
+        userId: staffId,
         status: 'COMPLETED',
         ...(startDate || endDate ? {
           createdAt: {
@@ -548,7 +548,7 @@ export const getEmployeePerformance = async (req: Request, res: Response) => {
       by: ['productId'],
       where: {
         sale: {
-          userId: employeeId,
+          userId: staffId,
           status: 'COMPLETED',
           ...(startDate || endDate ? {
             createdAt: {
@@ -606,7 +606,7 @@ export const getEmployeePerformance = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching employee performance:', error);
+    console.error('Error fetching staff performance:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

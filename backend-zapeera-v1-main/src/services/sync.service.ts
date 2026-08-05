@@ -646,7 +646,7 @@ class SyncService {
         // Users EXCLUDED - users only sync TO PostgreSQL, not FROM
         // { pg: 'users', sqlite: 'user' }, // DISABLED to prevent overwriting local users
         { pg: 'branches', sqlite: 'branch' },
-        { pg: 'employees', sqlite: 'employee' },
+        { pg: 'staff', sqlite: 'staff' },
         // Products (depend on category, supplier, manufacturer, shelf)
         { pg: 'products', sqlite: 'product' },
         // Batches (depend on product, supplier, manufacturer)
@@ -1344,7 +1344,7 @@ class SyncService {
       'settings': 'settings',
       'user': 'users',
       'branch': 'branches',
-      'employee': 'employees',
+      'staff': 'staff',
       'product': 'products',
       'batch': 'batches',
       'stockMovement': 'stock_movements',
@@ -1381,7 +1381,7 @@ class SyncService {
       'settings': 'settings',
       'users': 'user',
       'branches': 'branch',
-      'employees': 'employee',
+      'staff': 'staff',
       'products': 'product',
       'batches': 'batch',
       'stock_movements': 'stockMovement',
@@ -1435,7 +1435,7 @@ class SyncService {
       // User EXCLUDED - users only sync TO PostgreSQL, not FROM
       // 'user', // DISABLED to prevent overwriting local users
       'branch',
-      'employee',
+      'staff',
       // Products (depend on category, supplier, manufacturer, shelf)
       'product',
       // Batches (depend on product)
@@ -1917,7 +1917,7 @@ class SyncService {
     // Common relation field names to exclude
     const relationFields = [
       'branch', 'company', 'user', 'customer', 'product', 'sale', 'purchase',
-      'category', 'supplier', 'manufacturer', 'shelf', 'role', 'employee',
+      'category', 'supplier', 'manufacturer', 'shelf', 'role', 'staff',
       'items', 'batches', 'sales', 'purchases', 'receipts', 'refunds',
       'subscriptions', 'card_details', 'attendance', 'shifts', 'commissions'
     ];
@@ -2079,7 +2079,7 @@ class SyncService {
       // But users are NEVER synced FROM PostgreSQL (to prevent overwriting local users)
       { prisma: 'user', pg: 'users' },
       { prisma: 'branch', pg: 'branches' },
-      { prisma: 'employee', pg: 'employees' },
+      { prisma: 'staff', pg: 'staff' },
       { prisma: 'product', pg: 'products' },
       { prisma: 'batch', pg: 'batches' },
       { prisma: 'stockMovement', pg: 'stock_movements' },

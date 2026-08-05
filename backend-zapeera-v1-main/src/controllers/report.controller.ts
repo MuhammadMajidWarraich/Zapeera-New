@@ -1028,7 +1028,7 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       select: { companyId: true }
     }))?.companyId;
 
-    const [membershipCount, employeeCount] = await Promise.all([
+    const [membershipCount, staffCount] = await Promise.all([
       companyId ? prisma.membership.count({
         where: {
           businessId: companyId,
@@ -1042,7 +1042,7 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
           } : {})
         }
       }) : Promise.resolve(0),
-      prisma.employee.count({
+      prisma.staff.count({
         where: {
           ...where,
           isActive: true
@@ -1050,7 +1050,7 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       })
     ]);
 
-    const totalStaff = membershipCount + employeeCount;
+    const totalStaff = membershipCount + staffCount;
 
     // Get total cost and batches overview
     const batches = await prisma.batch.findMany({

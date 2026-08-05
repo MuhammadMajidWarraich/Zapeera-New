@@ -5,7 +5,7 @@ import {
   getCommission,
   updateCommission,
   getCommissionStats,
-  getEmployeePerformance
+  getStaffPerformance
 } from '../controllers/commission.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -18,7 +18,7 @@ router.use(authenticate);
 router.post('/calculate', calculateCommission);
 router.get('/', getCommissions);
 router.get('/stats', getCommissionStats);
-router.get('/performance/:employeeId', getEmployeePerformance);
+router.get('/performance/:staffId', getStaffPerformance);
 router.get('/:id', getCommission);
 router.put('/:id', updateCommission);
 

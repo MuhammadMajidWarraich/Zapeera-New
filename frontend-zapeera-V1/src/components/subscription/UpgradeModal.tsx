@@ -30,7 +30,7 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   pos: 'Point of Sale system for in-person transactions.',
   customers: 'Manage customer relationships and purchase history.',
   purchases: 'Track purchases, manage suppliers, and procurement.',
-  staff: 'Manage employees, attendance, shifts, and payroll.',
+  staff: 'Manage staff, attendance, shifts, and payroll.',
   branches: 'Manage multiple store locations and branch operations.',
   reports: 'Access detailed analytics, sales reports, and business insights.',
   dashboard: 'View business overview and key metrics.',

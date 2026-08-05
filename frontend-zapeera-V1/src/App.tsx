@@ -39,7 +39,7 @@ import RoleBasedDashboard from "./components/dashboard/RoleBasedDashboard";
 import { RoleBasedSidebar } from "./components/layout/RoleBasedSidebar";
 import Refunds from "./components/pos/Refunds";
 import Invoices from "./components/pos/Invoices";
-import EmployeeCheckIn from "./components/pos/EmployeeCheckIn";
+import StaffCheckIn from "./components/pos/EmployeeCheckIn";
 import PerformanceTracking from "./components/pos/PerformanceTracking";
 import InventoryTransfers from "./components/inventory/InventoryTransfers";
 import SubscriptionManagement from "./components/admin/SubscriptionManagement";
@@ -283,7 +283,7 @@ const AppRoutes = () => {
             <BusinessTypeGuard>
               <AutoModuleGuard>
                 <MainLayout>
-                  <EmployeeCheckIn />
+                  <StaffCheckIn />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>

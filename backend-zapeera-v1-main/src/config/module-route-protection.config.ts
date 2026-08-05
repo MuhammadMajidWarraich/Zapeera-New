@@ -29,7 +29,7 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   '/api/purchases': 'purchases',
 
   // Staff Management (employees, attendance, shifts, commissions)
-  '/api/employees': 'staff',
+  '/api/staff': 'staff',
   '/api/attendance': 'staff',
   '/api/shifts': 'staff',
   '/api/scheduled-shifts': 'staff',

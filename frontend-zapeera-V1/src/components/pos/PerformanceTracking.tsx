@@ -41,11 +41,11 @@ import { apiService } from "@/services/api";
 
 interface Commission {
   id: string;
-  employeeId: string;
-  employee: {
+  staffId: string;
+  staff: {
     id: string;
     name: string;
-    employeeId: string;
+    staffId: string;
     position: string;
   };
   period: string;
@@ -118,10 +118,10 @@ const PerformanceTracking = () => {
 
       // Mock performance data
       const mockPerformanceData = {
-        employee: {
+        staff: {
           id: user.id,
           name: user.name || "Unknown User",
-          employeeId: user.id,
+          staffId: user.id,
           position: user.role || "Cashier"
         },
         period: selectedPeriod,
@@ -188,11 +188,11 @@ const PerformanceTracking = () => {
         recentCommissions: [
           {
             id: "comm_001",
-            employeeId: user?.id || "",
-            employee: {
+            staffId: user?.id || "",
+            staff: {
               id: user?.id || "",
               name: user?.name || "Unknown User",
-              employeeId: user?.id || "",
+              staffId: user?.id || "",
               position: user?.role || "Cashier"
             },
             period: "2024-01",
@@ -211,11 +211,11 @@ const PerformanceTracking = () => {
           },
           {
             id: "comm_002",
-            employeeId: user?.id || "",
-            employee: {
+            staffId: user?.id || "",
+            staff: {
               id: user?.id || "",
               name: user?.name || "Unknown User",
-              employeeId: user?.id || "",
+              staffId: user?.id || "",
               position: user?.role || "Cashier"
             },
             period: "2024-01",
@@ -254,11 +254,11 @@ const PerformanceTracking = () => {
       const mockCommissions: Commission[] = [
         {
           id: "comm_001",
-          employeeId: user.id,
-          employee: {
+          staffId: user.id,
+          staff: {
             id: user.id,
             name: user.name || "Unknown User",
-            employeeId: user.id,
+            staffId: user.id,
             position: user.role || "Cashier"
           },
           period: "2024-01",
@@ -278,11 +278,11 @@ const PerformanceTracking = () => {
         },
         {
           id: "comm_002",
-          employeeId: user.id,
-          employee: {
+          staffId: user.id,
+          staff: {
             id: user.id,
             name: user.name || "Unknown User",
-            employeeId: user.id,
+            staffId: user.id,
             position: user.role || "Cashier"
           },
           period: "2024-01",
@@ -329,11 +329,11 @@ const PerformanceTracking = () => {
 
       const newCommissionData = {
         id: `comm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        employeeId: user.id,
-        employee: {
+        staffId: user.id,
+        staff: {
           id: user.id,
           name: user.name || "Unknown User",
-          employeeId: user.id,
+          staffId: user.id,
           position: user.role || "Cashier"
         },
         period: newCommission.period,

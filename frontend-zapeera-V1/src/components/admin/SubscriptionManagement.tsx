@@ -82,7 +82,7 @@ interface CompanyDetailsLite {
   branches?: Array<{ id: string }>;
   _count?: {
     users: number;
-    employees: number;
+    staff: number;
     products: number;
   };
   usageMetrics?: {

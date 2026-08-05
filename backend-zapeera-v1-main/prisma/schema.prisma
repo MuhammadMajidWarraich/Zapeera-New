@@ -54,9 +54,9 @@ model ZapeeraUser {
   @@map("zapeera_users")
 }
 
-model Employee {
+model Staff {
   id                       String       @id @default(cuid())
-  employeeId               String       @unique
+  staffId                  String       @unique
   name                     String
   email                    String       @unique
   phone                    String?
@@ -80,10 +80,10 @@ model Employee {
   company                  Business     @relation(fields: [companyId], references: [id])
   shifts                   Shift[]
 
-  @@index([companyId], name: "idx_employee_company")
-  @@index([branchId], name: "idx_employee_branch")
-  @@index([status], name: "idx_employee_status")
-  @@map("employees")
+  @@index([companyId], name: "idx_staff_company")
+  @@index([branchId], name: "idx_staff_branch")
+  @@index([status], name: "idx_staff_status")
+  @@map("staff")
 }
 
 model Business {
@@ -105,7 +105,7 @@ model Business {
 
   deviceActivations         DeviceActivation[]
   branches                  Branch[]
-  employees                 Employee[]
+  staff                     Staff[]
   products                  Product[]
   customers                 Customer[]
   sales                     Sale[]
@@ -147,7 +147,7 @@ model Branch {
   attendance         Attendance[]
   commissions        Commission[]
   customers          Customer[]
-  employees          Employee[]
+  staff              Staff[]
   products           Product[]
   receipts           Receipt[]
   sales              Sale[]
@@ -550,20 +550,20 @@ model RefundItem {
 }
 
 model Attendance {
-  id         String    @id @default(cuid())
-  employeeId String
-  branchId   String
-  checkIn    DateTime
-  checkOut   DateTime?
+  id        String    @id @default(cuid())
+  staffId   String
+  branchId  String
+  checkIn   DateTime
+  checkOut  DateTime?
   totalHours Float?
-  status     String    @default("PRESENT")
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  branch     Branch    @relation(fields: [branchId], references: [id])
-  employee   Employee  @relation(fields: [employeeId], references: [id])
+  status    String    @default("PRESENT")
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  branch    Branch    @relation(fields: [branchId], references: [id])
+  staff     Staff     @relation(fields: [staffId], references: [id])
 
-  @@index([employeeId], name: "idx_attendance_employee")
+  @@index([staffId], name: "idx_attendance_staff")
   @@index([branchId], name: "idx_attendance_branch")
   @@index([checkIn], name: "idx_attendance_checkIn")
   @@index([status], name: "idx_attendance_status")
@@ -572,7 +572,7 @@ model Attendance {
 
 model Shift {
   id              String    @id @default(cuid())
-  employeeId      String
+  staffId         String
   branchId        String
   shiftDate       DateTime
   startTime       DateTime
@@ -588,9 +588,9 @@ model Shift {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   branch          Branch    @relation(fields: [branchId], references: [id])
-  employee        Employee  @relation(fields: [employeeId], references: [id])
+  staff           Staff     @relation(fields: [staffId], references: [id])
 
-  @@index([employeeId], name: "idx_shift_employee")
+  @@index([staffId], name: "idx_shift_staff")
   @@index([branchId], name: "idx_shift_branch")
   @@index([shiftDate], name: "idx_shift_date")
   @@index([status], name: "idx_shift_status")
@@ -599,7 +599,7 @@ model Shift {
 
 model Commission {
   id                String    @id @default(cuid())
-  employeeId        String
+  staffId           String
   branchId          String
   period            String
   periodType        String    @default("MONTHLY")
@@ -617,9 +617,9 @@ model Commission {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   branch            Branch    @relation(fields: [branchId], references: [id])
-  employee          Employee  @relation(fields: [employeeId], references: [id])
+  staff             Staff     @relation(fields: [staffId], references: [id])
 
-  @@index([employeeId], name: "idx_commission_employee")
+  @@index([staffId], name: "idx_commission_staff")
   @@index([branchId], name: "idx_commission_branch")
   @@index([period], name: "idx_commission_period")
   @@index([status], name: "idx_commission_status")

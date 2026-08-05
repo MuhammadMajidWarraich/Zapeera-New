@@ -18,7 +18,7 @@ router.use(authenticate);
 router.post('/check-in', checkIn);
 router.post('/check-out', checkOut);
 router.get('/', getAttendance);
-router.get('/today/:employeeId', getTodayAttendance);
+router.get('/today/:staffId', getTodayAttendance);
 router.get('/stats', getAttendanceStats);
 router.put('/:id', updateAttendance);
 

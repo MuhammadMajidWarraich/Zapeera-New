@@ -5,7 +5,7 @@ import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middlewa
 import Joi from 'joi';
 
 // Validation schemas
-const createEmployeeSchema = Joi.object({
+const createStaffSchema = Joi.object({
   name: Joi.string().required(),
   email: Joi.string().email().required(),
   phone: Joi.string().optional().allow(''),
@@ -21,7 +21,7 @@ const createEmployeeSchema = Joi.object({
   emergencyContactRelation: Joi.string().optional().allow('')
 });
 
-const updateEmployeeSchema = Joi.object({
+const updateStaffSchema = Joi.object({
   name: Joi.string(),
   email: Joi.string().email(),
   phone: Joi.string().allow(''),
@@ -38,22 +38,22 @@ const updateEmployeeSchema = Joi.object({
   isActive: Joi.boolean()
 });
 
-// Generate unique employee ID
-const generateEmployeeId = async (prisma: any): Promise<string> => {
-  const lastEmployee = await prisma.employee.findFirst({
-    orderBy: { employeeId: 'desc' }
+// Generate unique staff ID
+const generateStaffId = async (prisma: any): Promise<string> => {
+  const lastStaff = await prisma.staff.findFirst({
+    orderBy: { staffId: 'desc' }
   });
 
-  if (!lastEmployee) {
-    return 'EMP001';
+  if (!lastStaff) {
+    return 'STF001';
   }
 
-  const lastNumber = parseInt(lastEmployee.employeeId.replace('EMP', ''));
+  const lastNumber = parseInt(lastStaff.staffId.replace('STF', ''));
   const newNumber = lastNumber + 1;
-  return `EMP${newNumber.toString().padStart(3, '0')}`;
+  return `STF${newNumber.toString().padStart(3, '0')}`;
 };
 
-export const getEmployees = async (req: AuthRequest, res: Response) => {
+export const getStaff = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const {
@@ -65,7 +65,7 @@ export const getEmployees = async (req: AuthRequest, res: Response) => {
       isActive = true
     } = req.query;
 
-    console.log('Getting employees with params:', { page, limit, search, status, branchId, isActive });
+    console.log('Getting staff with params:', { page, limit, search, status, branchId, isActive });
 
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
@@ -91,13 +91,13 @@ export const getEmployees = async (req: AuthRequest, res: Response) => {
       where.OR = [
         { name: { contains: search } },
         { email: { contains: search } },
-        { employeeId: { contains: search } },
+        { staffId: { contains: search } },
         { position: { contains: search } }
       ];
     }
 
-    const [employees, total] = await Promise.all([
-      prisma.employee.findMany({
+    const [staff, total] = await Promise.all([
+      prisma.staff.findMany({
         where,
         skip,
         take,
@@ -111,15 +111,15 @@ export const getEmployees = async (req: AuthRequest, res: Response) => {
         },
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.employee.count({ where })
+      prisma.staff.count({ where })
     ]);
 
-    console.log('Found employees:', employees.length, 'Total:', total);
+    console.log('Found staff:', staff.length, 'Total:', total);
 
     return res.json({
       success: true,
       data: {
-        employees,
+        staff,
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -129,7 +129,7 @@ export const getEmployees = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching employees:', error);
+    console.error('Error fetching staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -137,12 +137,12 @@ export const getEmployees = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getEmployee = async (req: AuthRequest, res: Response) => {
+export const getStaffMember = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const employee = await prisma.employee.findFirst({
+    const staff = await prisma.staff.findFirst({
       where: buildBranchWhereClause(req, { id }),
       include: {
         branch: {
@@ -154,19 +154,19 @@ export const getEmployee = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    if (!employee) {
+    if (!staff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
     return res.json({
       success: true,
-      data: employee
+      data: staff
     });
   } catch (error) {
-    console.error('Error fetching employee:', error);
+    console.error('Error fetching staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -174,12 +174,12 @@ export const getEmployee = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const createEmployee = async (req: AuthRequest, res: Response) => {
+export const createStaff = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    console.log('Creating employee with data:', req.body);
+    console.log('Creating staff with data:', req.body);
 
-    const { error } = createEmployeeSchema.validate(req.body);
+    const { error } = createStaffSchema.validate(req.body);
     if (error) {
       console.log('Validation error:', error.details);
       return res.status(400).json({
@@ -189,23 +189,23 @@ export const createEmployee = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const employeeData = req.body;
+    const staffData = req.body;
 
-    // Check if employee with email already exists
-    const existingEmployee = await prisma.employee.findUnique({
-      where: { email: employeeData.email }
+    // Check if staff with email already exists
+    const existingStaff = await prisma.staff.findUnique({
+      where: { email: staffData.email }
     });
 
-    if (existingEmployee) {
+    if (existingStaff) {
       return res.status(400).json({
         success: false,
-        message: 'Employee with this email already exists'
+        message: 'Staff with this email already exists'
       });
     }
 
     // Check if branch exists and resolve companyId
     const branch = await prisma.branch.findUnique({
-      where: { id: employeeData.branchId },
+      where: { id: staffData.branchId },
       select: { id: true, companyId: true }
     });
 
@@ -225,17 +225,17 @@ export const createEmployee = async (req: AuthRequest, res: Response) => {
        });
     }
 
-    // Generate unique employee ID
-    const employeeId = await generateEmployeeId(prisma);
+    // Generate unique staff ID
+    const staffId = await generateStaffId(prisma);
 
-    // Create employee
-    const employee = await prisma.employee.create({
+    // Create staff
+    const staff = await prisma.staff.create({
       data: {
-        ...employeeData,
-        employeeId,
+        ...staffData,
+        staffId,
         companyId: branch.companyId,
-        hireDate: new Date(employeeData.hireDate),
-        salary: employeeData.salary && employeeData.salary > 0 ? employeeData.salary : null
+        hireDate: new Date(staffData.hireDate),
+        salary: staffData.salary && staffData.salary > 0 ? staffData.salary : null
       },
       include: {
         branch: {
@@ -248,17 +248,17 @@ export const createEmployee = async (req: AuthRequest, res: Response) => {
     });
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
-    syncAfterOperation('employee', 'create', employee).catch(err => {
-      console.error('[Sync] Employee create sync failed:', err.message);
+    syncAfterOperation('staff', 'create', staff).catch(err => {
+      console.error('[Sync] Staff create sync failed:', err.message);
     });
 
     return res.status(201).json({
       success: true,
-      data: employee,
-      message: 'Employee created successfully'
+      data: staff,
+      message: 'Staff created successfully'
     });
   } catch (error) {
-    console.error('Error creating employee:', error);
+    console.error('Error creating staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -266,11 +266,11 @@ export const createEmployee = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const updateEmployee = async (req: AuthRequest, res: Response) => {
+export const updateStaff = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { id } = req.params;
-    const { error } = updateEmployeeSchema.validate(req.body);
+    const { error } = updateStaffSchema.validate(req.body);
 
     if (error) {
       return res.status(400).json({
@@ -282,34 +282,34 @@ export const updateEmployee = async (req: AuthRequest, res: Response) => {
 
     const updateData = req.body;
 
-    // Check if employee exists and belongs to user's business
-    const existingEmployee = await prisma.employee.findFirst({
+    // Check if staff exists and belongs to user's business
+    const existingStaff = await prisma.staff.findFirst({
       where: buildBranchWhereClause(req, { id })
     });
 
-    if (!existingEmployee) {
+    if (!existingStaff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
     // Check if email is being changed and if it already exists
-    if (updateData.email && updateData.email !== existingEmployee.email) {
-      const emailExists = await prisma.employee.findUnique({
+    if (updateData.email && updateData.email !== existingStaff.email) {
+      const emailExists = await prisma.staff.findUnique({
         where: { email: updateData.email }
       });
 
       if (emailExists) {
         return res.status(400).json({
           success: false,
-          message: 'Employee with this email already exists'
+          message: 'Staff with this email already exists'
         });
       }
     }
 
     // Check if branch exists (if being changed)
-    if (updateData.branchId && updateData.branchId !== existingEmployee.branchId) {
+    if (updateData.branchId && updateData.branchId !== existingStaff.branchId) {
       const branch = await prisma.branch.findUnique({
         where: { id: updateData.branchId }
       });
@@ -322,8 +322,8 @@ export const updateEmployee = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Update employee
-    const employee = await prisma.employee.update({
+    // Update staff
+    const staff = await prisma.staff.update({
       where: { id },
       data: {
         ...updateData,
@@ -340,17 +340,17 @@ export const updateEmployee = async (req: AuthRequest, res: Response) => {
     });
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
-    syncAfterOperation('employee', 'update', employee).catch(err => {
-      console.error('[Sync] Employee update sync failed:', err.message);
+    syncAfterOperation('staff', 'update', staff).catch(err => {
+      console.error('[Sync] Staff update sync failed:', err.message);
     });
 
     return res.json({
       success: true,
-      data: employee,
-      message: 'Employee updated successfully'
+      data: staff,
+      message: 'Staff updated successfully'
     });
   } catch (error) {
-    console.error('Error updating employee:', error);
+    console.error('Error updating staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -358,40 +358,40 @@ export const updateEmployee = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const deleteEmployee = async (req: AuthRequest, res: Response) => {
+export const deleteStaff = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    // Check if employee exists and belongs to user's business
-    const existingEmployee = await prisma.employee.findFirst({
+    // Check if staff exists and belongs to user's business
+    const existingStaff = await prisma.staff.findFirst({
       where: buildBranchWhereClause(req, { id })
     });
 
-    if (!existingEmployee) {
+    if (!existingStaff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
     // Soft delete by setting isActive to false
-    const deletedEmployee = await prisma.employee.update({
+    const deletedStaff = await prisma.staff.update({
       where: { id },
       data: { isActive: false }
     });
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
-    syncAfterOperation('employee', 'update', deletedEmployee).catch(err => {
-      console.error('[Sync] Employee delete sync failed:', err.message);
+    syncAfterOperation('staff', 'update', deletedStaff).catch(err => {
+      console.error('[Sync] Staff delete sync failed:', err.message);
     });
 
     return res.json({
       success: true,
-      message: 'Employee deleted successfully'
+      message: 'Staff deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting employee:', error);
+    console.error('Error deleting staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -399,7 +399,7 @@ export const deleteEmployee = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getEmployeeStats = async (req: AuthRequest, res: Response) => {
+export const getStaffStats = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { branchId } = req.query;
@@ -410,31 +410,31 @@ export const getEmployeeStats = async (req: AuthRequest, res: Response) => {
     }
 
     const [
-      totalEmployees,
-      activeEmployees,
-      inactiveEmployees,
-      terminatedEmployees,
-      onLeaveEmployees
+      totalStaff,
+      activeStaff,
+      inactiveStaff,
+      terminatedStaff,
+      onLeaveStaff
     ] = await Promise.all([
-      prisma.employee.count({ where }),
-      prisma.employee.count({ where: { ...where, status: 'ACTIVE' } }),
-      prisma.employee.count({ where: { ...where, status: 'INACTIVE' } }),
-      prisma.employee.count({ where: { ...where, status: 'TERMINATED' } }),
-      prisma.employee.count({ where: { ...where, status: 'ON_LEAVE' } })
+      prisma.staff.count({ where }),
+      prisma.staff.count({ where: { ...where, status: 'ACTIVE' } }),
+      prisma.staff.count({ where: { ...where, status: 'INACTIVE' } }),
+      prisma.staff.count({ where: { ...where, status: 'TERMINATED' } }),
+      prisma.staff.count({ where: { ...where, status: 'ON_LEAVE' } })
     ]);
 
     return res.json({
       success: true,
       data: {
-        totalEmployees,
-        activeEmployees,
-        inactiveEmployees,
-        terminatedEmployees,
-        onLeaveEmployees
+        totalStaff,
+        activeStaff,
+        inactiveStaff,
+        terminatedStaff,
+        onLeaveStaff
       }
     });
   } catch (error) {
-    console.error('Error fetching employee stats:', error);
+    console.error('Error fetching staff stats:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

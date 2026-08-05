@@ -5,7 +5,7 @@ import Joi from 'joi';
 
 // Validation schemas
 const checkInSchema = Joi.object({
-  employeeId: Joi.string().required(),
+  staffId: Joi.string().required(),
   branchId: Joi.string().required(),
   notes: Joi.string().optional()
 });
@@ -20,7 +20,7 @@ const updateAttendanceSchema = Joi.object({
   notes: Joi.string().optional()
 });
 
-// Check in employee
+// Check in staff
 export const checkIn = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -33,29 +33,29 @@ export const checkIn = async (req: Request, res: Response) => {
       });
     }
 
-    const { employeeId, branchId, notes } = req.body;
+    const { staffId, branchId, notes } = req.body;
 
-    // Check if employee exists and is active
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
+    // Check if staff exists and is active
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
       include: { branch: true }
     });
 
-    if (!employee) {
+    if (!staff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
-    if (!employee.isActive) {
+    if (!staff.isActive) {
       return res.status(400).json({
         success: false,
-        message: 'Employee is not active'
+        message: 'Staff is not active'
       });
     }
 
-    // Check if employee is already checked in today
+    // Check if staff is already checked in today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -63,7 +63,7 @@ export const checkIn = async (req: Request, res: Response) => {
 
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
-        employeeId,
+        staffId,
         checkIn: {
           gte: today,
           lt: tomorrow
@@ -75,25 +75,25 @@ export const checkIn = async (req: Request, res: Response) => {
     if (existingAttendance) {
       return res.status(400).json({
         success: false,
-        message: 'Employee is already checked in today'
+        message: 'Staff is already checked in today'
       });
     }
 
     // Create attendance record
     const attendance = await prisma.attendance.create({
       data: {
-        employeeId,
+        staffId,
         branchId,
         checkIn: new Date(),
         status: 'PRESENT',
         notes
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -117,7 +117,7 @@ export const checkIn = async (req: Request, res: Response) => {
       message: 'Check-in successful'
     });
   } catch (error) {
-    console.error('Error checking in employee:', error);
+    console.error('Error checking in staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -125,7 +125,7 @@ export const checkIn = async (req: Request, res: Response) => {
   }
 };
 
-// Check out employee
+// Check out staff
 export const checkOut = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -144,11 +144,11 @@ export const checkOut = async (req: Request, res: Response) => {
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -171,7 +171,7 @@ export const checkOut = async (req: Request, res: Response) => {
     if (attendance.checkOut) {
       return res.status(400).json({
         success: false,
-        message: 'Employee is already checked out'
+        message: 'Staff is already checked out'
       });
     }
 
@@ -189,11 +189,11 @@ export const checkOut = async (req: Request, res: Response) => {
         notes: notes || attendance.notes
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -212,7 +212,7 @@ export const checkOut = async (req: Request, res: Response) => {
       message: 'Check-out successful'
     });
   } catch (error) {
-    console.error('Error checking out employee:', error);
+    console.error('Error checking out staff:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -227,7 +227,7 @@ export const getAttendance = async (req: Request, res: Response) => {
     const {
       page = 1,
       limit = 10,
-      employeeId = '',
+      staffId = '',
       branchId = '',
       startDate = '',
       endDate = '',
@@ -239,8 +239,8 @@ export const getAttendance = async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    if (employeeId) {
-      where.employeeId = employeeId;
+    if (staffId) {
+      where.staffId = staffId;
     }
 
     if (branchId) {
@@ -269,11 +269,11 @@ export const getAttendance = async (req: Request, res: Response) => {
         skip,
         take,
         include: {
-          employee: {
+          staff: {
             select: {
               id: true,
               name: true,
-              employeeId: true,
+              staffId: true,
               position: true
             }
           },
@@ -310,11 +310,11 @@ export const getAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// Get today's attendance for an employee
+// Get today's attendance for a staff member
 export const getTodayAttendance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { employeeId } = req.params;
+    const { staffId } = req.params;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -323,18 +323,18 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
 
     const attendance = await prisma.attendance.findFirst({
       where: {
-        employeeId,
+        staffId,
         checkIn: {
           gte: today,
           lt: tomorrow
         }
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -394,11 +394,11 @@ export const updateAttendance = async (req: Request, res: Response) => {
       where: { id },
       data: updateData,
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },

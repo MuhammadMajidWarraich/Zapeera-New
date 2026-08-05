@@ -34,9 +34,9 @@ interface StaffUser {
   branchId?: string;
 }
 
-interface Employee {
+interface StaffMember {
   id: string;
-  employeeId: string;
+  staffId: string;
   name: string;
   position: string;
   branchId: string;
@@ -59,13 +59,13 @@ interface ScheduledShift {
 
 interface ActiveShift {
   id: string;
-  employeeId: string;
+  staffId: string;
   branchId: string;
   shiftDate: string;
   startTime: string;
   openingBalance: number;
   status: string;
-  employee?: { id: string; name: string; employeeId: string; position: string };
+  staff?: { id: string; name: string; staffId: string; position: string };
   branch?: { id: string; name: string };
 }
 
@@ -102,7 +102,7 @@ const ShiftManagement = () => {
   const [scheduledShifts, setScheduledShifts] = useState<ScheduledShift[]>([]);
   const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [newShift, setNewShift] = useState({
@@ -118,7 +118,7 @@ const ShiftManagement = () => {
   const [assignment, setAssignment] = useState({ shiftId: "", userId: "" });
   const [swap, setSwap] = useState({ firstShiftId: "", firstUserId: "", secondShiftId: "", secondUserId: "" });
   const [startShiftForm, setStartShiftForm] = useState({
-    employeeId: "",
+    staffId: "",
     branchId: selectedBranchId || "",
     openingBalance: "0",
   });
@@ -161,7 +161,7 @@ const ShiftManagement = () => {
   const loadShiftData = async () => {
     try {
       setIsLoading(true);
-      const [scheduledResponse, activeResponse, usersResponse, employeesResponse] = await Promise.all([
+      const [scheduledResponse, activeResponse, usersResponse, staffResponse] = await Promise.all([
         apiService.getScheduledShifts(),
         apiService.getShifts({
           page: 1,
@@ -172,13 +172,13 @@ const ShiftManagement = () => {
           branchId: selectedBranchId || undefined,
         }),
         apiService.getUsers({ page: 1, limit: 100, branchId: selectedBranchId || undefined }),
-        apiService.getEmployees({ page: 1, limit: 100, isActive: true, branchId: selectedBranchId || undefined }),
+        apiService.getStaff({ page: 1, limit: 100, isActive: true, branchId: selectedBranchId || undefined }),
       ]);
 
       if (scheduledResponse.success && scheduledResponse.data) setScheduledShifts(scheduledResponse.data as ScheduledShift[]);
       if (activeResponse.success && activeResponse.data) setActiveShifts(activeResponse.data.shifts as ActiveShift[]);
       if (usersResponse.success && usersResponse.data) setStaff(usersResponse.data.users as StaffUser[]);
-      if (employeesResponse.success && employeesResponse.data) setEmployees(employeesResponse.data.employees as Employee[]);
+      if (staffResponse.success && staffResponse.data) setStaffMembers(staffResponse.data.staff as StaffMember[]);
     } catch (error) {
       console.error("Failed to load shift management data:", error);
       toast({ title: "Could not load shift data" });
@@ -342,7 +342,7 @@ const ShiftManagement = () => {
 
   const handleStartActiveShift = async (event: FormEvent) => {
     event.preventDefault();
-    if (!startShiftForm.employeeId || !startShiftForm.branchId) {
+    if (!startShiftForm.staffId || !startShiftForm.branchId) {
       toast({ title: "Choose staff and branch" });
       return;
     }
@@ -350,7 +350,7 @@ const ShiftManagement = () => {
     try {
       setIsSaving(true);
       const response = await apiService.startShift({
-        employeeId: startShiftForm.employeeId,
+        staffId: startShiftForm.staffId,
         branchId: startShiftForm.branchId,
         shiftDate: new Date(`${today}T00:00:00`).toISOString(),
         startTime: new Date().toISOString(),
@@ -360,7 +360,7 @@ const ShiftManagement = () => {
         toast({ title: responseMessage(response) || "Failed to start active shift" });
         return;
       }
-      setStartShiftForm({ employeeId: "", branchId: defaultBranchId, openingBalance: "0" });
+      setStartShiftForm({ staffId: "", branchId: defaultBranchId, openingBalance: "0" });
       toast({ title: "Active shift started" });
       await loadShiftData();
     } catch (error) {
@@ -574,10 +574,10 @@ const ShiftManagement = () => {
           <form onSubmit={handleStartActiveShift} className="grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label>Staff</Label>
-              <Select value={startShiftForm.employeeId} onValueChange={(value) => setStartShiftForm((current) => ({ ...current, employeeId: value }))}>
+              <Select value={startShiftForm.staffId} onValueChange={(value) => setStartShiftForm((current) => ({ ...current, staffId: value }))}>
                 <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
                 <SelectContent>
-                  {employees.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name} - {employee.position}</SelectItem>)}
+                  {staffMembers.map((member) => <SelectItem key={member.id} value={member.id}>{member.name} - {member.position}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -614,7 +614,7 @@ const ShiftManagement = () => {
                 <TableRow><TableCell colSpan={5} className="h-24 text-center text-slate-500">No active shifts for today.</TableCell></TableRow>
               ) : activeToday.map((shift) => (
                 <TableRow key={shift.id}>
-                  <TableCell className="font-medium">{shift.employee?.name || "Staff"}</TableCell>
+                  <TableCell className="font-medium">{shift.staff?.name || "Staff"}</TableCell>
                   <TableCell>{shift.branch?.name || getBranchName(shift.branchId)}</TableCell>
                   <TableCell>{new Date(shift.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</TableCell>
                   <TableCell>Rs. {Number(shift.openingBalance || 0).toLocaleString()}</TableCell>

@@ -5,7 +5,7 @@ import Joi from 'joi';
 
 // Validation schemas
 const startShiftSchema = Joi.object({
-  employeeId: Joi.string().required(),
+  staffId: Joi.string().required(),
   branchId: Joi.string().required(),
   shiftDate: Joi.date().required(),
   startTime: Joi.date().required(),
@@ -39,32 +39,32 @@ export const startShift = async (req: Request, res: Response) => {
       });
     }
 
-    const { employeeId, branchId, shiftDate, startTime, openingBalance, notes } = req.body;
+    const { staffId, branchId, shiftDate, startTime, openingBalance, notes } = req.body;
 
-    // Check if employee exists and is active
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
+    // Check if staff exists and is active
+    const staff = await prisma.staff.findUnique({
+      where: { id: staffId },
       include: { branch: true }
     });
 
-    if (!employee) {
+    if (!staff) {
       return res.status(404).json({
         success: false,
-        message: 'Employee not found'
+        message: 'Staff not found'
       });
     }
 
-    if (!employee.isActive) {
+    if (!staff.isActive) {
       return res.status(400).json({
         success: false,
-        message: 'Employee is not active'
+        message: 'Staff is not active'
       });
     }
 
-    // Check if employee already has an active shift
+    // Check if staff already has an active shift
     const activeShift = await prisma.shift.findFirst({
       where: {
-        employeeId,
+        staffId,
         status: 'ACTIVE'
       }
     });
@@ -72,14 +72,14 @@ export const startShift = async (req: Request, res: Response) => {
     if (activeShift) {
       return res.status(400).json({
         success: false,
-        message: 'Employee already has an active shift'
+        message: 'Staff already has an active shift'
       });
     }
 
     // Create shift record
     const shift = await prisma.shift.create({
       data: {
-        employeeId,
+        staffId,
         branchId,
         shiftDate: new Date(shiftDate),
         startTime: new Date(startTime),
@@ -87,11 +87,11 @@ export const startShift = async (req: Request, res: Response) => {
         notes
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -142,11 +142,11 @@ export const endShift = async (req: Request, res: Response) => {
     const shift = await prisma.shift.findUnique({
       where: { id: shiftId },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -189,11 +189,11 @@ export const endShift = async (req: Request, res: Response) => {
         notes: notes || shift.notes
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -227,7 +227,7 @@ export const getShifts = async (req: Request, res: Response) => {
     const {
       page = 1,
       limit = 10,
-      employeeId = '',
+      staffId = '',
       branchId = '',
       status = '',
       startDate = '',
@@ -239,8 +239,8 @@ export const getShifts = async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    if (employeeId) {
-      where.employeeId = employeeId;
+    if (staffId) {
+      where.staffId = staffId;
     }
 
     if (branchId) {
@@ -269,11 +269,11 @@ export const getShifts = async (req: Request, res: Response) => {
         skip,
         take,
         include: {
-          employee: {
+          staff: {
             select: {
               id: true,
               name: true,
-              employeeId: true,
+              staffId: true,
               position: true
             }
           },
@@ -310,23 +310,23 @@ export const getShifts = async (req: Request, res: Response) => {
   }
 };
 
-// Get active shift for employee
+// Get active shift for staff
 export const getActiveShift = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { employeeId } = req.params;
+    const { staffId } = req.params;
 
     const activeShift = await prisma.shift.findFirst({
       where: {
-        employeeId,
+        staffId,
         status: 'ACTIVE'
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },
@@ -401,11 +401,11 @@ export const updateShift = async (req: Request, res: Response) => {
         expectedBalance
       },
       include: {
-        employee: {
+        staff: {
           select: {
             id: true,
             name: true,
-            employeeId: true,
+            staffId: true,
             position: true
           }
         },

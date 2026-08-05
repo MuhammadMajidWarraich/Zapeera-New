@@ -34,10 +34,10 @@ interface AttendanceRecord {
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE';
   notes?: string;
   createdAt: string;
-  employee?: {
+  staff?: {
     id: string;
     name: string;
-    employeeId: string;
+    staffId: string;
     position: string;
   };
   branch?: {
@@ -57,10 +57,10 @@ interface SalesData {
   }>;
 }
 
-interface Employee {
+interface StaffMember {
   id: string;
   name: string;
-  employeeId: string;
+  staffId: string;
   position: string;
   email: string;
   phone?: string;
@@ -68,7 +68,7 @@ interface Employee {
   branchId: string;
 }
 
-const EmployeeCheckIn = () => {
+const StaffCheckIn = () => {
   const { user } = useAuth();
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentAttendance, setCurrentAttendance] = useState<AttendanceRecord | null>(null);
@@ -78,10 +78,10 @@ const EmployeeCheckIn = () => {
   const [error, setError] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Employee management states
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [showEmployeeTable, setShowEmployeeTable] = useState(false);
+  // Staff management states
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [showStaffTable, setShowStaffTable] = useState(false);
 
   // Sales tracking states
   const [currentShiftSales, setCurrentShiftSales] = useState<SalesData | null>(null);
@@ -92,38 +92,38 @@ const EmployeeCheckIn = () => {
   useEffect(() => {
     if (user?.id) {
       loadTodayAttendance();
-      loadEmployees();
+      loadStaffMembers();
     }
   }, [user?.id, user?.branchId]);
 
-  // Load employees
-  const loadEmployees = async () => {
+  // Load staff members
+  const loadStaffMembers = async () => {
     try {
-      console.log('Loading employees for branch:', user?.branchId);
-      const response = await apiService.getEmployees({
+      console.log('Loading staff for branch:', user?.branchId);
+      const response = await apiService.getStaff({
         branchId: user?.membership?.branchIds?.[0] || user?.branchId || undefined,
         limit: 100
       });
 
-      console.log('Employees response:', response);
+      console.log('Staff response:', response);
       if (response.success && response.data) {
-        setEmployees(response.data.employees || []);
-        console.log('Loaded employees:', response.data.employees?.length || 0);
+        setStaffMembers(response.data.staff || []);
+        console.log('Loaded staff:', response.data.staff?.length || 0);
       } else {
-        console.error('Failed to load employees:', response.message);
-        setEmployees([]);
+        console.error('Failed to load staff:', response.message);
+        setStaffMembers([]);
       }
     } catch (err) {
-      console.error('Error loading employees:', err);
-      setEmployees([]);
+      console.error('Error loading staff:', err);
+      setStaffMembers([]);
     }
   };
 
   // Load sales data for current shift
-  const loadCurrentShiftSales = async (employeeId: string) => {
+  const loadCurrentShiftSales = async (staffId: string) => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const response = await apiService.getEmployeePerformance(employeeId, {
+      const response = await apiService.getStaffPerformance(staffId, {
         startDate: today,
         endDate: today
       });
@@ -137,13 +137,13 @@ const EmployeeCheckIn = () => {
   };
 
   // Load sales data for previous shift
-  const loadPreviousShiftSales = async (employeeId: string) => {
+  const loadPreviousShiftSales = async (staffId: string) => {
     try {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-      const response = await apiService.getEmployeePerformance(employeeId, {
+      const response = await apiService.getStaffPerformance(staffId, {
         startDate: yesterdayStr,
         endDate: yesterdayStr
       });
@@ -188,10 +188,10 @@ const EmployeeCheckIn = () => {
     }
   };
 
-  const handleCheckIn = async (employeeId?: string) => {
-    const targetEmployeeId = employeeId || user?.id;
-    if (!targetEmployeeId || !user?.branchId) {
-      setError("Employee or branch information not found");
+  const handleCheckIn = async (staffId?: string) => {
+    const targetStaffId = staffId || user?.id;
+    if (!targetStaffId || !user?.branchId) {
+      setError("Staff or branch information not found");
       return;
     }
 
@@ -200,7 +200,7 @@ const EmployeeCheckIn = () => {
       setError("");
 
       const response = await apiService.checkIn({
-        employeeId: targetEmployeeId,
+        staffId: targetStaffId,
         branchId: user?.membership?.branchIds?.[0] || user?.branchId || undefined,
         notes: notes.trim() || undefined
       });
@@ -212,7 +212,7 @@ const EmployeeCheckIn = () => {
         setNotes("");
 
         // Load previous shift sales when checking in
-        await loadPreviousShiftSales(targetEmployeeId);
+        await loadPreviousShiftSales(targetStaffId);
 
         toast.success("Check-in Successful", {
           description: "Check-in successful!",
@@ -239,8 +239,8 @@ const EmployeeCheckIn = () => {
       setError("");
 
       // Load current shift sales before checkout
-      if (currentAttendance.employee?.id) {
-        await loadCurrentShiftSales(currentAttendance.employee.id);
+      if (currentAttendance.staff?.id) {
+        await loadCurrentShiftSales(currentAttendance.staff.id);
         setShowSalesSummary(true);
       }
 
@@ -314,7 +314,7 @@ const EmployeeCheckIn = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Employee Check-in</h1>
+          <h1 className="text-3xl font-bold text-foreground">Staff Check-in</h1>
           <p className="text-muted-foreground">Check in and out for your shifts</p>
         </div>
 
@@ -562,30 +562,30 @@ const EmployeeCheckIn = () => {
         </Card>
       </div>
 
-      {/* Employee Management Section */}
+      {/* Staff Management Section */}
       <Card className="shadow-soft border-0">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
-              <span>Employee Management</span>
+              <span>Staff Management</span>
             </CardTitle>
             <div className="flex space-x-2">
               <Button
                 onClick={() => {
-                  setShowEmployeeTable(!showEmployeeTable);
-                  if (!showEmployeeTable) {
-                    loadEmployees();
+                  setShowStaffTable(!showStaffTable);
+                  if (!showStaffTable) {
+                    loadStaffMembers();
                   }
                 }}
                 variant="outline"
                 className="flex items-center space-x-2"
               >
                 <Users className="w-4 h-4" />
-                <span>{showEmployeeTable ? "Hide" : "Show"} Employee Table</span>
+                <span>{showStaffTable ? "Hide" : "Show"} Staff Table</span>
               </Button>
               <Button
-                onClick={loadEmployees}
+                onClick={loadStaffMembers}
                 variant="outline"
                 className="flex items-center space-x-2"
                 disabled={isLoading}
@@ -600,34 +600,34 @@ const EmployeeCheckIn = () => {
             </div>
           </div>
         </CardHeader>
-        {showEmployeeTable && (
+        {showStaffTable && (
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Select an employee to manage their check-in/check-out
+                  Select a staff member to manage their check-in/check-out
                 </div>
                 <div className="text-sm font-medium text-foreground">
-                  Total Employees: {employees.length}
+                  Total Staff: {staffMembers.length}
                 </div>
               </div>
 
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  <span>Loading employees...</span>
+                  <span>Loading staff...</span>
                 </div>
-              ) : employees.length === 0 ? (
+              ) : staffMembers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p>No employees found</p>
-                  <p className="text-sm">Make sure employees are created and assigned to this branch</p>
+                  <p>No staff found</p>
+                  <p className="text-sm">Make sure staff are created and assigned to this branch</p>
                 </div>
               ) : (
                 <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee ID</TableHead>
+                    <TableHead>Staff ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Position</TableHead>
                     <TableHead>Email</TableHead>
@@ -636,15 +636,15 @@ const EmployeeCheckIn = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.employeeId}</TableCell>
-                      <TableCell>{employee.name}</TableCell>
-                      <TableCell>{employee.position}</TableCell>
-                      <TableCell>{employee.email}</TableCell>
+                  {staffMembers.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell className="font-medium">{member.staffId}</TableCell>
+                      <TableCell>{member.name}</TableCell>
+                      <TableCell>{member.position}</TableCell>
+                      <TableCell>{member.email}</TableCell>
                       <TableCell>
-                        <Badge className={employee.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {employee.status}
+                        <Badge className={member.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {member.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -652,8 +652,8 @@ const EmployeeCheckIn = () => {
                           <Button
                             size="sm"
                             onClick={() => {
-                              setSelectedEmployee(employee);
-                              handleCheckIn(employee.id);
+                              setSelectedStaff(member);
+                              handleCheckIn(member.id);
                             }}
                             disabled={isProcessing}
                             className="bg-green-600 hover:bg-green-700"
@@ -665,8 +665,8 @@ const EmployeeCheckIn = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedEmployee(employee);
-                              loadPreviousShiftSales(employee.id);
+                              setSelectedStaff(member);
+                              loadPreviousShiftSales(member.id);
                             }}
                           >
                             <TrendingUp className="w-3 h-3 mr-1" />
@@ -821,4 +821,4 @@ const EmployeeCheckIn = () => {
   );
 };
 
-export default EmployeeCheckIn;
+export default StaffCheckIn;

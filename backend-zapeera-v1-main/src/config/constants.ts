@@ -156,7 +156,7 @@ export const RESOURCES = {
   CUSTOMERS: 'customers',
   SUPPLIERS: 'suppliers',
   USERS: 'users',
-  EMPLOYEES: 'employees',
+  STAFF: 'staff',
   BRANCHES: 'branches',
   INVENTORY: 'inventory',
   REFUNDS: 'refunds',

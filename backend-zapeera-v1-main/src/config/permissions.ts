@@ -19,7 +19,7 @@ export interface RolePermissions {
 export const RESOURCES = {
   // User Management
   USERS: 'users',
-  EMPLOYEES: 'employees',
+  STAFF: 'staff',
   BRANCHES: 'branches',
 
   // Inventory Management
@@ -78,7 +78,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     description: 'Business owner - Full control over their own businesses and staff',
     permissions: [
       { resource: RESOURCES.USERS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
-      { resource: RESOURCES.EMPLOYEES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
+      { resource: RESOURCES.STAFF, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.BRANCHES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.PRODUCTS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.CATEGORIES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
@@ -98,7 +98,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     description: 'Registered user - same operational scope as owner when managing a business (promoted to OWNER when creating a business)',
     permissions: [
       { resource: RESOURCES.USERS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
-      { resource: RESOURCES.EMPLOYEES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
+      { resource: RESOURCES.STAFF, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.BRANCHES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.PRODUCTS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.CATEGORIES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
@@ -119,7 +119,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
     permissions: [
       // Branch-level management
       { resource: RESOURCES.USERS, actions: [ACTIONS.CREATE, ACTIONS.READ, ACTIONS.UPDATE], conditions: { branchId: true } },
-      { resource: RESOURCES.EMPLOYEES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
+      { resource: RESOURCES.STAFF, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.PRODUCTS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.CATEGORIES, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
       { resource: RESOURCES.SUPPLIERS, actions: [ACTIONS.MANAGE], conditions: { branchId: true } },
@@ -160,7 +160,7 @@ export const ROLE_PERMISSIONS: RolePermissions[] = [
 
       // Cannot edit inventory, manage users, or change settings
       { resource: RESOURCES.USERS, actions: [], conditions: {} },
-      { resource: RESOURCES.EMPLOYEES, actions: [], conditions: {} },
+      { resource: RESOURCES.STAFF, actions: [], conditions: {} },
       { resource: RESOURCES.SETTINGS, actions: [], conditions: {} },
       { resource: RESOURCES.SUPPLIERS, actions: [], conditions: {} },
       { resource: RESOURCES.STOCK_MOVEMENTS, actions: [], conditions: {} },

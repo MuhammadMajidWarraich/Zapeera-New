@@ -62,7 +62,7 @@ interface Business {
   }>;
   _count: {
     memberships: number;
-    employees: number;
+    staff: number;
     products: number;
   };
   accessType?: 'owned' | 'shared';
@@ -451,7 +451,7 @@ const BusinessManagement = () => {
       branches: [],
       _count: {
         memberships: 0,
-        employees: 0,
+        staff: 0,
         products: 0
       }
     };
@@ -1288,10 +1288,10 @@ const BusinessManagement = () => {
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#28c2ce]/[0.08] px-3.5 py-1.5 text-[13px] font-semibold text-[#1aa8b3]">
                                   <Users className="h-[15px] w-[15px]" strokeWidth={2} />
                                   {(business.accessType === 'shared' && business.memberRole === 'MANAGER')
-                                    ? (business._count?.memberships || 0) + (business._count?.employees || 0)
+                                    ? (business._count?.memberships || 0) + (business._count?.staff || 0)
                                     : role === "MANAGER"
                                       ? branchStaffCount
-                                      : (business._count?.memberships || 0) + (business._count?.employees || 0)}
+                                      : (business._count?.memberships || 0) + (business._count?.staff || 0)}
                                 </span>
                               </td>
                             )}
@@ -1724,7 +1724,7 @@ const BusinessManagement = () => {
                   <li>All branches ({businessToDelete?.branches?.length || 0})</li>
                   <li>
                     All staff members (
-                    {(businessToDelete?._count?.memberships || 0) + (businessToDelete?._count?.employees || 0)})
+                    {(businessToDelete?._count?.memberships || 0) + (businessToDelete?._count?.staff || 0)})
                   </li>
                   <li>All products and inventory data</li>
                 </ul>

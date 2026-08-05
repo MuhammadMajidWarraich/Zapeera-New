@@ -33,7 +33,7 @@ const TABLE_MAPPINGS: Record<string, string> = {
   'settings': 'settings',
   'user': 'zapeera_users',
   'branch': 'branches',
-  'employee': 'employees',
+  'staff': 'staff',
   'product': 'products',
   'batch': 'batches',
   'stockMovement': 'stock_movements',

@@ -1,4 +1,4 @@
-export interface CreateEmployeeData {
+export interface CreateStaffData {
   name: string;
   email: string;
   phone?: string;
@@ -14,7 +14,7 @@ export interface CreateEmployeeData {
   emergencyContactRelation?: string;
 }
 
-export interface UpdateEmployeeData {
+export interface UpdateStaffData {
   name?: string;
   email?: string;
   phone?: string;

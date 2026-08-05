@@ -432,7 +432,7 @@ const AdvancedReports = () => {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard label="Total Employees" value={s.totalEmployees || 0} icon={Users} tone="blue" />
+          <SummaryCard label="Total Staff" value={s.totalEmployees || 0} icon={Users} tone="blue" />
           <SummaryCard label="Attendance Records" value={s.attendanceRecords || 0} icon={Clock} tone="green" />
           <SummaryCard label="Total Commissions" value={formatPKR(s.totalCommissions || 0)} icon={DollarSign} tone="purple" />
           <SummaryCard label="Commission Count" value={s.commissionCount || 0} icon={CheckCircle} tone="amber" />

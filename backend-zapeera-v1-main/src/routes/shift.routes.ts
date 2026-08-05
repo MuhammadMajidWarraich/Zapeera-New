@@ -18,7 +18,7 @@ router.use(authenticate);
 router.post('/start', startShift);
 router.post('/end', endShift);
 router.get('/', getShifts);
-router.get('/active/:employeeId', getActiveShift);
+router.get('/active/:staffId', getActiveShift);
 router.get('/stats', getShiftStats);
 router.put('/:id', updateShift);
 

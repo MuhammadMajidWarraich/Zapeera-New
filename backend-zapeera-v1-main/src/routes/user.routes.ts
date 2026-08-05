@@ -40,7 +40,7 @@ router.get(
   resolveMembership(),
   resolveBranch({ required: false }),
   checkModule('business_management'),
-  checkPermission('read_employee'),
+  checkPermission('read_staff'),
   getBusinessStaff
 );
 

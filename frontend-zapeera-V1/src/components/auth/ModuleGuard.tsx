@@ -267,7 +267,6 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/scheduled-shifts': 'business_management',
   '/attendance': 'business_management',
   '/commissions': 'business_management',
-  '/employees': 'business_management',
   '/business/expenses': 'expenses',
   '/business/shifts': 'business_management',
   '/expenses': 'expenses',

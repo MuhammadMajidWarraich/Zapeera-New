@@ -536,7 +536,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const rolePermissions: Record<string, Record<string, string[]>> = {
       OWNER: {
         users: ['create', 'read', 'update', 'manage'],
-        employees: ['manage'],
+        staff: ['manage'],
         branches: ['manage'],
         products: ['manage'],
         categories: ['manage'],
@@ -555,7 +555,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       },
       USER: {
         users: ['create', 'read', 'update'],
-        employees: ['manage'],
+        staff: ['manage'],
         products: ['manage'],
         categories: ['manage'],
         suppliers: ['manage'],
@@ -572,7 +572,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       },
       MANAGER: {
         users: ['create', 'read', 'update'],
-        employees: ['manage'],
+        staff: ['manage'],
         products: ['manage'],
         categories: ['manage'],
         suppliers: ['manage'],
@@ -624,9 +624,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!userRole) return false;
 
     const accessibleResources: Record<string, string[]> = {
-      OWNER: ['users', 'employees', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices', 'subscription'],
-      USER: ['users', 'employees', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices', 'subscription'],
-      MANAGER: ['users', 'employees', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices'],
+      OWNER: ['users', 'staff', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices', 'subscription'],
+      USER: ['users', 'staff', 'branches', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices', 'subscription'],
+      MANAGER: ['users', 'staff', 'products', 'categories', 'suppliers', 'sales', 'reports', 'dashboard', 'refunds', 'customers', 'commissions', 'settings', 'invoices'],
       CASHIER: ['sales', 'receipts', 'refunds', 'products', 'customers', 'categories', 'dashboard', 'reports', 'invoices']
     };
 

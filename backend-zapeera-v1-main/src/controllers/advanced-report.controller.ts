@@ -206,18 +206,18 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
   try {
     const prisma = await getPrisma();
     const dateFilter = buildDateFilter(req);
-    const employeeWhere = buildBranchWhereClause(req, { isActive: true });
+    const staffWhere = buildBranchWhereClause(req, { isActive: true });
     const saleWhere = buildBranchWhereClause(req, {});
     const { branchId } = req.query as any;
     if (branchId) {
-      employeeWhere.branchId = branchId;
+      staffWhere.branchId = branchId;
       saleWhere.branchId = branchId;
     }
 
-    const [totalEmployees, attendanceCount, shifts, commissions, salesByUser] = await Promise.all([
-      prisma.employee.count({ where: employeeWhere }),
+    const [totalStaff, attendanceCount, shifts, commissions, salesByUser] = await Promise.all([
+      prisma.staff.count({ where: staffWhere }),
       prisma.attendance.count({ where: { checkIn: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined } }),
-      prisma.shift.findMany({ where: { shiftDate: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined }, select: { employeeId: true, status: true } }),
+      prisma.shift.findMany({ where: { shiftDate: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined }, select: { staffId: true, status: true } }),
       prisma.commission.aggregate({ where: { createdAt: dateFilter, branchId: branchId || undefined }, _sum: { totalAmount: true }, _count: { id: true } }),
       prisma.sale.groupBy({ by: ['userId'], where: { ...saleWhere, createdAt: dateFilter, status: { not: 'REFUNDED' } }, _sum: { totalAmount: true }, _count: { id: true } }),
     ]);
@@ -228,16 +228,16 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
 
     const shiftMap: Record<string, { present: number; absent: number; late: number }> = {};
     shifts.forEach((s: any) => {
-      if (!shiftMap[s.employeeId]) shiftMap[s.employeeId] = { present: 0, absent: 0, late: 0 };
-      shiftMap[s.employeeId][s.status as 'present' | 'absent' | 'late']++;
+      if (!shiftMap[s.staffId]) shiftMap[s.staffId] = { present: 0, absent: 0, late: 0 };
+      shiftMap[s.staffId][s.status as 'present' | 'absent' | 'late']++;
     });
 
     return res.json({
       success: true,
       data: {
-        summary: { totalEmployees, attendanceRecords: attendanceCount, totalCommissions: commissions._sum.totalAmount || 0, commissionCount: commissions._count.id },
+        summary: { totalStaff, attendanceRecords: attendanceCount, totalCommissions: commissions._sum.totalAmount || 0, commissionCount: commissions._count.id },
         salesByStaff: salesByUser.map((s: any) => ({ ...s, staffName: userMap.get(s.userId)?.name || 'Unknown' })),
-        shiftSummary: Object.entries(shiftMap).map(([employeeId, stats]) => ({ employeeId, ...stats })),
+        shiftSummary: Object.entries(shiftMap).map(([staffId, stats]) => ({ staffId, ...stats })),
       },
     });
   } catch (error: any) {
