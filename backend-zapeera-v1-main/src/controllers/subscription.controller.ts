@@ -18,6 +18,7 @@ import { reconcileLatestApprovedPaymentProofSubscription } from '../utils/manual
 import { invalidateModuleCache } from '../utils/modules-v2.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
 import crypto from 'crypto';
+import { createNotification } from './notification.controller';
 
 const PRICING_PLANS_SETTINGS_OWNER = 'global_pricing';
 const PRICING_PLANS_SETTINGS_KEY = 'plans';
@@ -388,6 +389,15 @@ export const updateSubscription = async (req: Request, res: Response): Promise<v
     } catch (syncErr) {
       console.warn('Could not sync subscription update:', syncErr);
     }
+
+    createNotification({
+      userId: userId || '',
+      businessId: selectedCompanyId || '',
+      type: 'subscription_updated',
+      title: 'Subscription Updated',
+      body: `Your subscription plan has been updated successfully.`,
+      actionUrl: `/business/${selectedCompanyId}/subscription`,
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -1252,6 +1262,15 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
     } catch (emailErr: any) {
       console.warn('[Email] Could not send subscription email:', emailErr.message);
     }
+
+    createNotification({
+      userId: business?.createdBy || '',
+      businessId: businessId || '',
+      type: 'subscription_activated',
+      title: 'Subscription Activated',
+      body: `Your subscription on plan '${plan?.name || 'Unknown'}' has been activated.`,
+      actionUrl: `/business/${businessId}/subscription`,
+    }).catch(() => {});
 
     res.json({
       success: true,

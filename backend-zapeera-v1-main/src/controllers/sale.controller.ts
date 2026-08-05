@@ -8,6 +8,7 @@ import { AuthRequest, buildBranchWhereClause, getUserRole } from '../middleware/
 import { notifySaleChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { isMissingTableError } from '../utils/membership-bridge.util';
+import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
 // Validation schemas
@@ -1094,6 +1095,17 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     syncAfterOperation('sale', 'create', completeSale).catch(err => {
       console.error('[Sync] Sale create sync failed:', err.message);
     });
+
+    // Create notification for the sale
+    createNotification({
+      userId: createdBy || userId,
+      businessId: createdBy || userId,
+      type: 'sale_created',
+      title: 'New Sale Recorded',
+      body: `Sale #${completeSale.invoiceNumber || completeSale.id?.slice(-8)} recorded for Rs. ${completeSale.totalAmount || 0}`,
+      actionUrl: `/business/${createdBy}/sales`,
+      metadata: { saleId: completeSale.id, amount: completeSale.totalAmount },
+    }).catch(() => {});
 
     return res.status(201).json({
       success: true,

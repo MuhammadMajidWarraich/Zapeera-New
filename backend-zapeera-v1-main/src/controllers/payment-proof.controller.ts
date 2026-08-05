@@ -8,6 +8,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AdminAuthRequest, logAdminAction } from '../middleware/admin-auth.middleware';
 import { emailService } from '../services/email.service';
 import { notifyPaymentProofStatusChange } from '../routes/sse.routes';
+import { createNotification } from './notification.controller';
 import {
   applyApprovedPaymentProofSubscription,
   pricingPlanIdForPlatformPlan,
@@ -465,6 +466,19 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
       // Don't fail the request if SSE fails
     }
 
+    // Notify business owner
+    const ownerUser = await prisma.company.findUnique({ where: { id: proof.businessId }, select: { createdBy: true } });
+    if (ownerUser?.createdBy) {
+      createNotification({
+        userId: ownerUser.createdBy,
+        businessId: proof.businessId,
+        type: 'subscription_activated',
+        title: 'Payment Approved',
+        body: `Your payment proof has been approved. Subscription activated.`,
+        actionUrl: `/business/${proof.businessId}/subscription`,
+      }).catch(() => {});
+    }
+
     res.json({
       success: true,
       message: `Subscription activated on plan '${(plan as any).name}' until ${periodEnd.toLocaleDateString()}`,
@@ -563,6 +577,22 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
     } catch (sseError) {
       console.error('[PaymentProof] Failed to send SSE notification:', sseError);
       // Don't fail the request if SSE fails
+    }
+
+    // Notify business owner
+    const proofBusinessId = proofRows[0]?.businessId;
+    if (proofBusinessId) {
+      const ownerUser = await prisma.company.findUnique({ where: { id: proofBusinessId }, select: { createdBy: true } });
+      if (ownerUser?.createdBy) {
+        createNotification({
+          userId: ownerUser.createdBy,
+          businessId: proofBusinessId,
+          type: 'billing_payment_rejected',
+          title: 'Payment Rejected',
+          body: `Your payment proof has been rejected. Please contact support.`,
+          actionUrl: `/zapeera/billing`,
+        }).catch(() => {});
+      }
     }
 
     res.json({ success: true, message: 'Payment proof rejected' });

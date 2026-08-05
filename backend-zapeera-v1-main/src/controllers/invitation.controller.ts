@@ -12,6 +12,7 @@ import {
   getUserInvitations,
   cancelInvitations
 } from '../utils/invitation.util';
+import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
 // Validation schemas
@@ -184,6 +185,15 @@ export const sendInvitation = async (req: AuthRequest, res: Response): Promise<v
     if (!emailSent) {
       console.warn(`⚠️ [Invitation] Email sending failed for ${email}, but invitation was created`);
     }
+
+    createNotification({
+      userId: req.user!.id,
+      businessId: businessId,
+      type: 'invitation_sent',
+      title: 'Invitation Sent',
+      body: `Invitation sent to ${email} for ${businessName}`,
+      actionUrl: `/zapeera/invitations`,
+    }).catch(() => {});
 
     res.json({
       success: true,
