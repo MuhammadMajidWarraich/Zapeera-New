@@ -38,8 +38,8 @@ export async function createNotification(params: {
     const category = mapTypeToCategory(params.type);
 
     // Check user preference — if no row exists, default is enabled
-    const pref = await prisma.notificationPreference.findUnique({
-      where: { userId_category: { userId: params.userId, category } },
+    const pref = await prisma.notificationPreference.findFirst({
+      where: { userId: params.userId, category },
     });
     if (pref && !pref.enabled) return null;
 
@@ -166,11 +166,20 @@ export const updateNotificationPreference = async (req: AuthRequest, res: Respon
     const { category, enabled } = req.body;
     const prisma = await getPrisma();
 
-    const pref = await prisma.notificationPreference.upsert({
-      where: { userId_category: { userId, category } },
-      update: { enabled },
-      create: { userId, category, enabled },
+    const existing = await prisma.notificationPreference.findFirst({
+      where: { userId, category },
     });
+    let pref;
+    if (existing) {
+      pref = await prisma.notificationPreference.update({
+        where: { id: existing.id },
+        data: { enabled },
+      });
+    } else {
+      pref = await prisma.notificationPreference.create({
+        data: { userId, category, enabled },
+      });
+    }
 
     res.json({ success: true, data: { category: pref.category, enabled: pref.enabled } });
   } catch (error) {
@@ -200,11 +209,19 @@ export const bulkUpdatePreferences = async (req: AuthRequest, res: Response): Pr
     const prisma = await getPrisma();
     for (const [category, enabled] of Object.entries(prefs)) {
       if (NOTIFICATION_CATEGORIES.includes(category as NotificationCategory)) {
-        await prisma.notificationPreference.upsert({
-          where: { userId_category: { userId, category } },
-          update: { enabled: Boolean(enabled) },
-          create: { userId, category, enabled: Boolean(enabled) },
+        const existing = await prisma.notificationPreference.findFirst({
+          where: { userId, category },
         });
+        if (existing) {
+          await prisma.notificationPreference.update({
+            where: { id: existing.id },
+            data: { enabled: Boolean(enabled) },
+          });
+        } else {
+          await prisma.notificationPreference.create({
+            data: { userId, category, enabled: Boolean(enabled) },
+          });
+        }
       }
     }
 
