@@ -14,25 +14,20 @@ import {
   Plus,
   UserPlus,
   LogOut,
-  ArrowRight,
-  Building2,
   X,
-  Lock,
 } from "lucide-react";
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRuntime } from "@/lib/runtime";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
-import { AccountStats, AccountCompletion, DesktopStatusCard, ActivityTimeline, RecentlyAccessed, FavoriteBusinesses, InvitationsWidget, RecentNotifications } from "@/components/user-dashboard/widgets";
+import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
+import { AccountStats, AccountCompletion, DesktopStatusCard, ActivityTimeline, RecentlyAccessed, FavoriteBusinesses, InvitationsWidget } from "@/components/user-dashboard/widgets";
 import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const runtime = useRuntime();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -246,37 +241,10 @@ const ZapeeraDashboard = () => {
                   <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
                   Create New Business
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/zapeera/my-businesses")}
-                  className="inline-flex items-center gap-1 text-[13px] font-semibold text-[#1a52c5] transition-colors hover:text-[#28c2ce]"
-                >
-                  Manage Businesses <ArrowRight className="h-4 w-4" />
-                </button>
               </div>
             </div>
             <BusinessCardGrid />
-
-            {/* Security CTA */}
-            <section className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_6px_20px_rgba(26,82,197,0.3)]">
-                  <Lock className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-[17px] font-extrabold tracking-tight text-[#0a1128]">Secure. reliable. always yours.</h3>
-                  <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[#8c95b0]">
-                    Your data is protected with enterprise grade security and 99.9% uptime so you can focus on growing your businesses.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => navigate("/settings")}
-                className="h-11 shrink-0 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)]"
-              >
-                Learn more about security
-              </Button>
-            </section>
+            <InvitationsWidget />
           </div>
 
           <div className="space-y-6">
@@ -287,37 +255,6 @@ const ZapeeraDashboard = () => {
             <ActivityTimeline compact />
           </div>
         </div>
-
-        {/* Invitations + Recent notifications */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <InvitationsWidget />
-          <RecentNotifications />
-        </div>
-
-        {/* Desktop download strip (web only) */}
-        {!runtime.isDesktop && (
-          <section className="mt-8 overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-[15px] font-bold text-[#0a1128]">Take Zapeera with you</h3>
-                  <p className="text-[13px] text-[#8c95b0]">Download the desktop app for offline business management and automatic sync.</p>
-                </div>
-              </div>
-              <a
-                href={DESKTOP_DOWNLOAD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-10 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-md"
-              >
-                Download Desktop App
-              </a>
-            </div>
-          </section>
-        )}
       </main>
 
       {/* Create business dialog */}

@@ -61,6 +61,7 @@ type BusinessCardData = {
   memberRole?: "MANAGER" | "CASHIER" | string | null;
   branches?: Array<{ id: string; name?: string }>;
   _count?: { branches?: number };
+  updatedAt?: string | null;
 };
 
 function normalizeStatus(status?: string | null): "active" | "trial" | "expired" | "inactive" | "pending" {
@@ -94,6 +95,32 @@ function formatDate(iso?: string | null): string {
   } catch {
     return "—";
   }
+}
+
+/** Correct expiry date for a business card based on its subscription status. */
+function expiryLabel(status: string, ent: Entitlement): string {
+  const trialDate = ent.trialEndsAt || null;
+  const periodDate = ent.currentPeriodEnd || null;
+  if (status === "trial") {
+    return trialDate ? `Trial ends ${formatDate(trialDate)}` : periodDate ? `Expires ${formatDate(periodDate)}` : "Trial";
+  }
+  if (status === "active") {
+    return periodDate ? `Renews ${formatDate(periodDate)}` : trialDate ? `Renews ${formatDate(trialDate)}` : "Active";
+  }
+  if (status === "expired") {
+    return periodDate ? `Expired ${formatDate(periodDate)}` : trialDate ? `Expired ${formatDate(trialDate)}` : "Expired";
+  }
+  if (status === "pending") {
+    return periodDate ? `Expires ${formatDate(periodDate)}` : trialDate ? `Expires ${formatDate(trialDate)}` : "Pending";
+  }
+  return periodDate ? `Expires ${formatDate(periodDate)}` : trialDate ? `Expires ${formatDate(trialDate)}` : "Inactive";
+}
+
+/** Best available "last synced" date for a business card. */
+function lastSyncedFor(business: BusinessCardData, desktopState: DesktopBusinessState | undefined, isDesktop: boolean): string | null {
+  if (isDesktop && desktopState?.lastSyncedAt) return desktopState.lastSyncedAt;
+  if (business.updatedAt) return business.updatedAt;
+  return null;
 }
 
 export function BusinessCardGrid() {
@@ -345,7 +372,7 @@ export function BusinessCardGrid() {
                 </div>
                 <div className="flex items-center gap-2 text-[#4a5578]">
                   <CreditCard className="h-4 w-4 text-[#8c95b0]" />
-                  <span className="truncate">{status === "trial" ? `Renews ${formatDate(ent.trialEndsAt)}` : `Expires ${formatDate(ent.currentPeriodEnd)}`}</span>
+                  <span className="truncate">{expiryLabel(status, ent)}</span>
                 </div>
               </div>
 
@@ -372,7 +399,7 @@ export function BusinessCardGrid() {
                 ) : (
                   <>
                     <RefreshCw className="h-3.5 w-3.5" />
-                    <span>Last synced {formatDate(desktopState?.lastSyncedAt || null)}</span>
+                    <span>Last synced {formatDate(lastSyncedFor(b, desktopState, runtime.isDesktop))}</span>
                   </>
                 )}
               </div>
@@ -381,12 +408,9 @@ export function BusinessCardGrid() {
                 <button
                   type="button"
                   onClick={() => openWorkspace(b)}
-                  className="inline-flex flex-1 items-center justify-between gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <ExternalLink className="h-4 w-4" />
-                    Open Workspace
-                  </span>
+                  Open Workspace
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

@@ -528,6 +528,14 @@ export class ApiService {
       name: string;
       role: string;
       email: string;
+      profileImage?: string;
+      phone?: string | null;
+      address?: string | null;
+      city?: string | null;
+      country?: string | null;
+      dateOfBirth?: string | null;
+      bio?: string | null;
+      twoFactorEnabled?: boolean;
       branchId: string;
       branch?: {
         id: string;
@@ -657,12 +665,27 @@ export class ApiService {
     name?: string;
     username?: string;
     email?: string;
+    phone?: string | null;
+    address?: string | null;
+    city?: string | null;
+    country?: string | null;
+    dateOfBirth?: string | null;
+    bio?: string | null;
+    twoFactorEnabled?: boolean;
   }) {
     return this.request<{
       id: string;
       username: string;
       name: string;
       email: string;
+      profileImage?: string;
+      phone?: string | null;
+      address?: string | null;
+      city?: string | null;
+      country?: string | null;
+      dateOfBirth?: string | null;
+      bio?: string | null;
+      twoFactorEnabled?: boolean;
       role: string;
       branchId: string;
       updatedAt: string;
@@ -1974,6 +1997,72 @@ export class ApiService {
       body: JSON.stringify({ token }),
     });
   }
+
+  // ─── Notifications ──────────────────────────────────────────────────────────
+
+  async getNotificationPreferences() {
+    return this.request<Record<string, boolean>>('/notifications/preferences');
+  }
+
+  async updateNotificationPreference(category: string, enabled: boolean) {
+    return this.request<{ category: string; enabled: boolean }>('/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ category, enabled }),
+    });
+  }
+
+  async bulkUpdateNotificationPreferences(preferences: Record<string, boolean>) {
+    return this.request<any>('/notifications/preferences/all', {
+      method: 'PUT',
+      body: JSON.stringify({ preferences }),
+    });
+  }
+
+  async getNotifications(options?: { page?: number; limit?: number; unreadOnly?: boolean; businessId?: string }) {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.unreadOnly) params.set('unreadOnly', 'true');
+    if (options?.businessId) params.set('businessId', options.businessId);
+    const qs = params.toString();
+    return this.request<{
+      notifications: Array<{
+        id: string;
+        userId: string;
+        businessId: string | null;
+        type: string;
+        title: string;
+        body: string;
+        actionUrl: string | null;
+        metadata: any;
+        read: boolean;
+        createdAt: string;
+      }>;
+      total: number;
+      unreadCount: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(`/notifications${qs ? `?${qs}` : ''}`);
+  }
+
+  async getNotificationUnreadCount() {
+    return this.request<{ unreadCount: number }>('/notifications/unread-count');
+  }
+
+  async markNotificationAsRead(id: string) {
+    return this.request<any>(`/notifications/${id}/read`, { method: 'PUT' });
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request<any>('/notifications/read-all', { method: 'PUT' });
+  }
+
+  async deleteNotification(id: string) {
+    return this.request<any>(`/notifications/${id}`, { method: 'DELETE' });
+  }
+
+  // ─── Companies ─────────────────────────────────────────────────────────────
 
   async getCompany(companyId: string) {
     return this.request<{

@@ -4,12 +4,10 @@ import {
   ShieldCheck,
   Lock,
   Mail,
-  Phone,
   Save,
   Camera,
   CheckCircle2,
   XCircle,
-  Laptop,
   ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,16 +17,28 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DesktopStatusPanel } from "@/components/DesktopStatus";
-import { useRuntime } from "@/lib/runtime";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 const ProfileSecurityPage = () => {
   const { user } = useAuth();
-  const runtime = useRuntime();
 
-  const [profile, setProfile] = useState({ name: "", email: "", username: "" });
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    username: "",
+    phone: "",
+    address: "",
+    city: "",
+    country: "",
+    dateOfBirth: "",
+    bio: "",
+  });
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [toggling2FA, setToggling2FA] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -44,13 +54,43 @@ const ProfileSecurityPage = () => {
           name: res.data.name || "",
           email: res.data.email || "",
           username: res.data.username || "",
+          phone: res.data.phone || "",
+          address: res.data.address || "",
+          city: res.data.city || "",
+          country: res.data.country || "",
+          dateOfBirth: res.data.dateOfBirth ? String(res.data.dateOfBirth).slice(0, 10) : "",
+          bio: res.data.bio || "",
         });
+        setTwoFactorEnabled(Boolean(res.data.twoFactorEnabled));
       } else if (user) {
-        setProfile({ name: user.name || "", email: (user as any).email || "", username: (user as any).username || "" });
+        setProfile({
+          name: user.name || "",
+          email: (user as any).email || "",
+          username: (user as any).username || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth ? String((user as any).dateOfBirth).slice(0, 10) : "",
+          bio: (user as any).bio || "",
+        });
+        setTwoFactorEnabled(Boolean((user as any).twoFactorEnabled));
       }
     } catch (error) {
       console.error("Failed to load profile:", error);
-      if (user) setProfile({ name: user.name || "", email: (user as any).email || "", username: (user as any).username || "" });
+      if (user)
+        setProfile({
+          name: user.name || "",
+          email: (user as any).email || "",
+          username: (user as any).username || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth ? String((user as any).dateOfBirth).slice(0, 10) : "",
+          bio: (user as any).bio || "",
+        });
+      setTwoFactorEnabled(Boolean((user as any)?.twoFactorEnabled));
     } finally {
       setProfileLoading(false);
     }
@@ -67,7 +107,15 @@ const ProfileSecurityPage = () => {
     }
     setSavingProfile(true);
     try {
-      const res = await apiService.updateProfile({ name: profile.name.trim() });
+      const res = await apiService.updateProfile({
+        name: profile.name.trim(),
+        phone: profile.phone.trim() || null,
+        address: profile.address.trim() || null,
+        city: profile.city.trim() || null,
+        country: profile.country.trim() || null,
+        dateOfBirth: profile.dateOfBirth || null,
+        bio: profile.bio.trim() || null,
+      });
       if (res.success) {
         toast({ title: "Profile updated", description: "Your profile has been saved." });
       } else {
@@ -112,8 +160,67 @@ const ProfileSecurityPage = () => {
   };
 
   const hasEmail = Boolean(user?.email);
-  const hasPhone = Boolean((user as any)?.phone);
-  const has2fa = Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
+  const hasPhone = Boolean(profile.phone) || Boolean((user as any)?.phone);
+  const has2fa = twoFactorEnabled || Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
+
+  const handleToggle2FA = async (enabled: boolean) => {
+    setToggling2FA(true);
+    try {
+      const res = await apiService.updateProfile({ twoFactorEnabled: enabled });
+      if (res.success) {
+        setTwoFactorEnabled(enabled);
+        toast({
+          title: enabled ? "2FA enabled" : "2FA disabled",
+          description: enabled ? "Two-factor authentication is now on." : "Two-factor authentication is now off.",
+        });
+      } else {
+        toast({ title: "Update failed", description: res.message || "Could not update 2FA.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message || "Could not update 2FA.", variant: "destructive" });
+    } finally {
+      setToggling2FA(false);
+    }
+  };
+
+  const handleChangeProfilePicture = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Invalid file", description: "Please select an image.", variant: "destructive" });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Image must be under 5MB.", variant: "destructive" });
+        return;
+      }
+      setUploadingPhoto(true);
+      try {
+        const base64String = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        const res = await apiService.updateProfile({ profileImage: base64String });
+        if (res.success) {
+          toast({ title: "Photo updated", description: "Your profile picture has been saved." });
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          toast({ title: "Update failed", description: res.message || "Could not update profile picture.", variant: "destructive" });
+        }
+      } catch (e: any) {
+        toast({ title: "Update failed", description: e.message || "Could not update profile picture.", variant: "destructive" });
+      } finally {
+        setUploadingPhoto(false);
+      }
+    };
+    input.click();
+  };
 
   return (
     <main className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
@@ -146,7 +253,15 @@ const ProfileSecurityPage = () => {
                       (profile.name?.charAt(0) || user?.name?.charAt(0) || "U").toUpperCase()
                     )}
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-[3px] border-white bg-green-600" />
+                  <button
+                    type="button"
+                    onClick={handleChangeProfilePicture}
+                    disabled={uploadingPhoto}
+                    title="Change profile photo"
+                    className="absolute -bottom-0.5 -right-0.5 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-md transition-opacity hover:opacity-90"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-lg font-bold text-[#0a1128]">{profile.name || user?.name || "User"}</p>
@@ -190,6 +305,70 @@ const ProfileSecurityPage = () => {
                       disabled
                       className="h-12 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7]/50 text-[15px] text-[#8c95b0]"
                     />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="pp-phone" className="text-sm font-semibold text-[#0a1128]">Phone</Label>
+                      <Input
+                        id="pp-phone"
+                        type="tel"
+                        value={profile.phone}
+                        onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+                        placeholder="+92 300 1234567"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pp-dob" className="text-sm font-semibold text-[#0a1128]">Date of Birth</Label>
+                      <Input
+                        id="pp-dob"
+                        type="date"
+                        value={profile.dateOfBirth}
+                        onChange={(e) => setProfile((p) => ({ ...p, dateOfBirth: e.target.value }))}
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pp-city" className="text-sm font-semibold text-[#0a1128]">City</Label>
+                      <Input
+                        id="pp-city"
+                        value={profile.city}
+                        onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
+                        placeholder="e.g. Lahore"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pp-country" className="text-sm font-semibold text-[#0a1128]">Country</Label>
+                      <Input
+                        id="pp-country"
+                        value={profile.country}
+                        onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
+                        placeholder="e.g. Pakistan"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="pp-address" className="text-sm font-semibold text-[#0a1128]">Address</Label>
+                      <Input
+                        id="pp-address"
+                        value={profile.address}
+                        onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="Street, area"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="pp-bio" className="text-sm font-semibold text-[#0a1128]">About</Label>
+                      <Textarea
+                        id="pp-bio"
+                        value={profile.bio}
+                        onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
+                        placeholder="Tell us a little about yourself"
+                        rows={3}
+                        className="min-h-[84px] rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      />
+                    </div>
                   </div>
                   <Button
                     onClick={handleSaveProfile}
@@ -258,8 +437,10 @@ const ProfileSecurityPage = () => {
               </Button>
             </div>
           </section>
+        </div>
 
-          {/* Security status */}
+        <div className="space-y-6">
+          {/* Security Status */}
           <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
               <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
@@ -289,35 +470,33 @@ const ProfileSecurityPage = () => {
               ))}
             </div>
           </section>
-        </div>
 
-        <div className="space-y-6">
-          {runtime.isDesktop ? (
-            <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-1 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center gap-2 px-5 pt-5 text-[16px] font-bold text-[#0a1128]">
-                <Laptop className="h-5 w-5 text-[#1a52c5]" />
-                Desktop Status
-              </div>
-              <DesktopStatusPanel />
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+          {/* Two-factor authentication */}
+          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
               <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                <Laptop className="h-5 w-5 text-[#1a52c5]" />
-                Desktop App
+                <ShieldCheck className="h-5 w-5 text-[#1a52c5]" />
+                Two-Factor Authentication
               </div>
-              <p className="mt-2 text-[13px] leading-relaxed text-[#8c95b0]">
-                Download the Zapeera desktop app to work offline. Your data stays in sync automatically.
+              <Switch
+                id="2fa-toggle"
+                checked={has2fa}
+                disabled={toggling2FA}
+                onCheckedChange={handleToggle2FA}
+                className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]"
+              />
+            </div>
+            <div className="p-6">
+              <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                {has2fa
+                  ? "Two-factor authentication is enabled on your account for an extra layer of security."
+                  : "Add an extra layer of security to your account. Turn this on to require a second verification step."}
               </p>
-              <Button
-                onClick={() => (window.location.href = "/downloads")}
-                className="mt-4 h-10 w-full rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)]"
-              >
-                <Laptop className="mr-2 h-4 w-4" />
-                Download Desktop App
-              </Button>
-            </section>
-          )}
+              <p className="mt-3 text-xs text-[#8c95b0]">
+                {has2fa ? "You can disable it anytime from this toggle." : "Your account isn't fully protected until 2FA is on."}
+              </p>
+            </div>
+          </section>
 
           <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#1a52c5]/[0.04] to-[#28c2ce]/[0.04] p-6">
             <h3 className="text-[15px] font-bold text-[#0a1128]">Need to change your email?</h3>

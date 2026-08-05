@@ -687,6 +687,14 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         username: user.username,
         name: user.name,
         email: user.email,
+        profileImage: user.profileImage,
+        phone: user.phone,
+        address: user.address,
+        city: user.city,
+        country: user.country,
+        dateOfBirth: user.dateOfBirth,
+        bio: user.bio,
+        twoFactorEnabled: user.twoFactorEnabled,
         isActive: user.isActive,
         role: effectiveRole,
         membership: currentMembership || null,
@@ -775,7 +783,14 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 const updateProfileSchema = Joi.object({
   name: Joi.string().optional(),
   email: Joi.string().email().optional(),
-  profileImage: Joi.string().uri().optional()
+  profileImage: Joi.string().uri().optional(),
+  phone: Joi.string().allow('').optional(),
+  address: Joi.string().allow('').optional(),
+  city: Joi.string().allow('').optional(),
+  country: Joi.string().allow('').optional(),
+  dateOfBirth: Joi.string().isoDate().allow(null).optional(),
+  bio: Joi.string().allow('').optional(),
+  twoFactorEnabled: Joi.boolean().optional()
 });
 
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
@@ -791,7 +806,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     }
 
     const userId = (req as any).user.id;
-    const { name, email, profileImage } = req.body;
+    const { name, email, profileImage, phone, address, city, country, dateOfBirth, bio, twoFactorEnabled } = req.body;
 
     // Get database client (works with SQLite or PostgreSQL)
     const prisma = await getPrisma();
@@ -820,7 +835,14 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       data: {
         ...(name && { name }),
         ...(email && { email }),
-        ...(profileImage !== undefined && { profileImage })
+        ...(profileImage !== undefined && { profileImage }),
+        ...(phone !== undefined && { phone: phone || null }),
+        ...(address !== undefined && { address: address || null }),
+        ...(city !== undefined && { city: city || null }),
+        ...(country !== undefined && { country: country || null }),
+        ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }),
+        ...(bio !== undefined && { bio: bio || null }),
+        ...(twoFactorEnabled !== undefined && { twoFactorEnabled })
       }
     });
 
@@ -838,6 +860,13 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         email: updatedUser.email,
         username: updatedUser.username,
         profileImage: updatedUser.profileImage,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        city: updatedUser.city,
+        country: updatedUser.country,
+        dateOfBirth: updatedUser.dateOfBirth,
+        bio: updatedUser.bio,
+        twoFactorEnabled: updatedUser.twoFactorEnabled,
         role: normalizeAppRole((req as any)?.membership?.role_name || 'USER')
       }
     });

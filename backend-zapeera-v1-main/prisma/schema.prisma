@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,8 +15,15 @@ model ZapeeraUser {
   password                 String
   name                     String
   profileImage             String?
+  phone                    String?
+  address                  String?
+  city                     String?
+  country                  String?
+  dateOfBirth              DateTime?
+  bio                      String?
   isActive                 Boolean   @default(true)
   businessAccessGranted    Boolean   @default(true)
+  twoFactorEnabled         Boolean   @default(false)
   sessionToken             String?
   passwordResetToken       String?
   passwordResetExpires     DateTime?
@@ -40,6 +47,7 @@ model ZapeeraUser {
   memberships       Membership[]
   invitationsSent   BusinessInvitation[] @relation("inviter")
   billingProfiles   BillingProfile[]     @relation("userBillingProfiles")
+  notifications     Notification[]
   hasUsedTrial      Boolean              @default(false)
   trialUsedAt       DateTime?
 
@@ -1242,4 +1250,44 @@ model FeatureFlag {
   updatedAt   DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+// Persisted notifications for users (in-app notification feed)
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String?
+  type       String   // e.g. sale_created, subscription_expiry, invitation_received, staff_added, payment_approved, inventory_low, system_announcement
+  title      String
+  body       String
+  actionUrl  String?  // deep link to relevant page
+  metadata   String?  // JSON string for extra data
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     ZapeeraUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_notification_user")
+  @@index([userId, read], name: "idx_notification_user_read")
+  @@index([businessId], name: "idx_notification_business")
+  @@index([type], name: "idx_notification_type")
+  @@index([createdAt], name: "idx_notification_created")
+  @@map("notifications")
+}
+
+// Per-user notification preference for each category
+// One row per user per category. Missing rows = enabled (default).
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   // sale, inventory, subscription, invitation, staff, billing, system
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category], name: "unique_notification_pref_user_category")
+  @@index([userId], name: "idx_notif_pref_user")
+  @@map("notification_preferences")
 }

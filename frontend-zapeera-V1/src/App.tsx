@@ -63,6 +63,9 @@ import InvitationsPage from "./components/user-dashboard/InvitationsPage";
 import ProfileSecurityPage from "./components/user-dashboard/ProfileSecurityPage";
 import BillingPage from "./components/user-dashboard/BillingPage";
 import NotificationsPage from "./components/user-dashboard/NotificationsPage";
+import NotificationsListPage from "./components/user-dashboard/NotificationsListPage";
+import NotificationPreferencesPage from "./components/user-dashboard/NotificationPreferencesPage";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import SupportPage from "./components/user-dashboard/SupportPage";
 import DownloadsPage from "./components/user-dashboard/DownloadsPage";
 
@@ -545,7 +548,19 @@ const AppRoutes = () => {
             <BusinessTypeGuard>
               <AutoModuleGuard>
                 <ZapeeraLayout>
-                  <NotificationsPage />
+                  <NotificationsListPage />
+                </ZapeeraLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/zapeera/notification-settings" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <ZapeeraLayout>
+                  <NotificationPreferencesPage />
                 </ZapeeraLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1050,11 +1065,13 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <RuntimeProvider>
           <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <AppRoutes />
-            </TooltipProvider>
+            <NotificationProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <AppRoutes />
+              </TooltipProvider>
+            </NotificationProvider>
           </AuthProvider>
         </RuntimeProvider>
       </QueryClientProvider>
@@ -1068,11 +1085,13 @@ const App = () => {
           <AdminProvider>
             <DashboardDataProvider>
               <SyncProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <AppRoutes />
-                </TooltipProvider>
+                <NotificationProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <AppRoutes />
+                  </TooltipProvider>
+                </NotificationProvider>
               </SyncProvider>
             </DashboardDataProvider>
           </AdminProvider>

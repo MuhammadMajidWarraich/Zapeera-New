@@ -1163,9 +1163,6 @@ const BusinessManagement = () => {
                           </th>
                         )}
                         <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
-                          Status
-                        </th>
-                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
                           Subscription
                         </th>
                         <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
@@ -1193,7 +1190,7 @@ const BusinessManagement = () => {
                       {filteredBusinesses.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={7 + (showBranchesCol ? 1 : 0) + (showStaffCol ? 1 : 0) + (showOwnershipTabs && businessListTab === "shared" ? 1 : 0)}
+                            colSpan={6 + (showBranchesCol ? 1 : 0) + (showStaffCol ? 1 : 0) + (showOwnershipTabs && businessListTab === "shared" ? 1 : 0)}
                             className="px-8 py-16 text-center text-sm text-[#8c95b0]"
                           >
                             {searchQuery.trim()
@@ -1248,15 +1245,6 @@ const BusinessManagement = () => {
                                 </span>
                               </td>
                             )}
-                            <td className="px-6 py-5 align-middle">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                business.isActive
-                                  ? 'bg-green-50 text-green-600 border border-green-200'
-                                  : 'bg-red-50 text-red-600 border border-red-200'
-                              }`}>
-                                {business.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
                             <td className="px-6 py-5 align-middle">
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${subscriptionDisplay.badgeClass}`}>
                                 {subscriptionDisplay.planLabel}

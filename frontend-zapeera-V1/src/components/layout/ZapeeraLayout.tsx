@@ -11,6 +11,7 @@ import {
   Zap,
   UserPlus,
   CreditCard,
+  Bell,
   BellRing,
   ShieldCheck,
   Search,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { useRuntime } from "@/lib/runtime";
 import {
   DropdownMenu,
@@ -58,6 +60,7 @@ function getGreeting(): string {
 const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   const { user, logout } = useAuth();
   const { allCompanies } = useAdmin();
+  const { unreadCount } = useNotifications();
   const runtime = useRuntime();
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,6 +94,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       setActiveTab("billing");
     } else if (path.startsWith("/zapeera/notifications")) {
       setActiveTab("notifications");
+    } else if (path.startsWith("/zapeera/notification-settings")) {
+      setActiveTab("notification-settings");
     } else if (path.startsWith("/downloads")) {
       setActiveTab("downloads");
     }
@@ -148,7 +153,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       { keywords: "support help center faq contact", type: "Support", title: "Support Center", subtitle: "Help, guides & contact", to: "/zapeera/support" },
       { keywords: "billing payment invoice subscription plans", type: "Account", title: "Billing & Payments", subtitle: "Invoices and payment methods", to: "/zapeera/billing" },
       { keywords: "profile security password 2fa account", type: "Account", title: "Profile & Security", subtitle: "Personal info and security", to: "/settings" },
-      { keywords: "notification alert settings", type: "Account", title: "Notification Settings", subtitle: "Email, desktop & push", to: "/zapeera/notifications" },
+      { keywords: "notification alert settings", type: "Account", title: "Notification Settings", subtitle: "Email, desktop & push", to: "/zapeera/notification-settings" },
+      { keywords: "notifications feed alerts activity", type: "Account", title: "Notifications", subtitle: "View all notifications", to: "/zapeera/notifications" },
       { keywords: "create new business", type: "Action", title: "Create a Business", subtitle: "Start a new business", to: "/zapeera?create=1" },
     ];
     const linkResults = links
@@ -281,7 +287,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Account</div>
           {renderNavItem({ key: "settings", label: "Profile & Security", icon: ShieldCheck, to: "/settings" })}
           {renderNavItem({ key: "billing", label: "Billing & Payments", icon: CreditCard, to: "/zapeera/billing" })}
-          {renderNavItem({ key: "notifications", label: "Notification Settings", icon: BellRing, to: "/zapeera/notifications" })}
+          {renderNavItem({ key: "notifications", label: "Notifications", icon: Bell, to: "/zapeera/notifications", badge: unreadCount > 0 ? unreadCount : undefined })}
+          {renderNavItem({ key: "notification-settings", label: "Notification Settings", icon: BellRing, to: "/zapeera/notification-settings" })}
           {renderNavItem({ key: "downloads", label: "Downloads", icon: Laptop, to: "/downloads" })}
         </div>
         <div>
@@ -393,7 +400,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <p className="truncate text-sm font-semibold text-[#0a1128]">
                 {greeting}, <span className="font-extrabold">{user?.name?.split(" ")[0] || "there"}</span> <span aria-hidden>👋</span>
               </p>
-              <p className="truncate text-xs text-[#8c95b0]">This is your Zapeera control center — manage your businesses, invitations, subscriptions and account settings</p>
+              <p className="truncate text-xs text-[#8c95b0]">Your control center for businesses, subscriptions & settings</p>
             </div>
           </div>
 
@@ -445,12 +452,12 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 <button
                   type="button"
                   className="relative grid h-10 w-10 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] transition-colors hover:border-black/10"
-                  aria-label={`Notifications${notifications.length ? ` (${notifications.length} new)` : ""}`}
+                  aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
                 >
                   <BellRing className="h-[18px] w-[18px]" />
-                  {notifications.length > 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-1 text-[10px] font-bold text-white">
-                      {notifications.length}
+                      {unreadCount}
                     </span>
                   )}
                 </button>

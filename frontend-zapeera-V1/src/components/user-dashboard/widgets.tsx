@@ -32,12 +32,16 @@ import {
   ChevronRight,
   FileText,
   HelpCircle,
+  Bell,
+  DollarSign,
+  Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
 import { whatsappUrl, callUrl, emailUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
+import { apiService } from "@/services/api";
 import { config } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -553,6 +557,26 @@ export function RecentNotifications() {
   const navigate = useNavigate();
   const runtime = useRuntime();
   const { user } = useAuth();
+  const [apiNotifications, setApiNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchNotifications() {
+      try {
+        const res = await apiService.getNotifications({ limit: 5, unreadOnly: true });
+        if (!cancelled && res.success) {
+          setApiNotifications(res.data.notifications || []);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchNotifications();
+    return () => { cancelled = true; };
+  }, []);
 
   const pendingInvites = useMemo(
     () =>
@@ -562,10 +586,27 @@ export function RecentNotifications() {
     [user]
   );
 
+  const typeIcons: Record<string, { icon: React.ElementType; tint: string }> = {
+    sale: { icon: DollarSign, tint: "bg-green-500/12 text-green-600" },
+    inventory: { icon: Package, tint: "bg-orange-500/12 text-orange-600" },
+    subscription: { icon: CreditCard, tint: "bg-blue-500/12 text-blue-600" },
+    invitation: { icon: UserPlus, tint: "bg-amber-500/12 text-amber-600" },
+    staff: { icon: Users, tint: "bg-purple-500/12 text-purple-600" },
+    billing: { icon: CreditCard, tint: "bg-indigo-500/12 text-indigo-600" },
+    system: { icon: Bell, tint: "bg-gray-500/12 text-gray-600" },
+  };
+
   const items: Array<{ id: string; icon: React.ElementType; tint: string; title: string; body: string; to?: string }> = [];
+
   if (pendingInvites > 0) {
     items.push({ id: "invites", icon: UserPlus, tint: "bg-amber-500/12 text-amber-600", title: "Pending invitations", body: `${pendingInvites} business invitation${pendingInvites > 1 ? "s" : ""} awaiting your response.`, to: "/zapeera/invitations" });
   }
+
+  apiNotifications.forEach((n: any) => {
+    const mapping = typeIcons[n.type] || typeIcons.system;
+    items.push({ id: n.id, icon: mapping.icon, tint: mapping.tint, title: n.title, body: n.message || "", to: "/zapeera/notifications" });
+  });
+
   const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
   if (runtime.isDesktop && desktopCount > 0) {
     items.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500/12 text-violet-600", title: "Offline ready", body: `${desktopCount} business${desktopCount > 1 ? "es" : ""} are available offline on your desktop.`, to: "/zapeera" });
@@ -575,7 +616,7 @@ export function RecentNotifications() {
     return (
       <Panel title="Recent Notifications" action={() => navigate("/zapeera/notifications")} actionLabel="View All">
         <div className="p-4 pt-1">
-          <p className="text-[13px] text-[#8c95b0]">No unread notifications right now.</p>
+          <p className="text-[13px] text-[#8c95b0]">{loading ? "Loading notifications…" : "No unread notifications right now."}</p>
         </div>
       </Panel>
     );

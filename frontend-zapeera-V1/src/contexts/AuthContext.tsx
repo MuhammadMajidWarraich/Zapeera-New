@@ -25,6 +25,13 @@ interface User {
   username: string;
   email?: string;
   profileImage?: string;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  dateOfBirth?: string | null;
+  bio?: string | null;
+  twoFactorEnabled?: boolean;
   role?: string;
   branchId?: string;
   companyId?: string;

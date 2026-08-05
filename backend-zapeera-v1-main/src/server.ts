@@ -1,7 +1,7 @@
 // CRITICAL: Import CommonJS database URL initialization FIRST
 // This MUST be CommonJS (not ES6) to ensure it runs synchronously before ES6 imports
 // ES6 imports are hoisted, so we need CommonJS to set DATABASE_URL before Prisma loads
-require('./config/database-url-init.js');
+require('./config/database-url-init');
 
 // Now import the TypeScript database initialization (for additional setup)
 import './config/database.init';
@@ -102,6 +102,7 @@ import businessTypeRoutes from './routes/business-type.routes';
 import backofficeRoutes from './routes/backoffice.routes';
 import paymentProofRoutes from './routes/payment-proof.routes';
 import ocrRoutes from './routes/ocr.routes';
+import notificationRoutes from './routes/notification.routes';
 import expenseRoutes from './routes/expense.routes';
 import { startSubscriptionCron } from './jobs/subscription-cron';
 import { getDatabaseService, DatabaseType } from './services/database.service';
@@ -543,7 +544,8 @@ app.use('/api/v1/invitations', invitationRoutes);
 app.use('/api/v1/business-types', businessTypeRoutes);
 app.use('/api/v1/payments/manual', paymentProofRoutes);
 app.use('/api/v1/ocr', ocrRoutes);
-app.use('/api/v1/expenses', expenseRoutes);
+  app.use('/api/v1/expenses', expenseRoutes);
+  app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/backoffice', backofficeRoutes);
 
 // Legacy /api/* routes — kept for backward compatibility; new clients should use /api/v1/*
@@ -583,7 +585,8 @@ app.use('/api/invitations', invitationRoutes);
 app.use('/api/business-types', businessTypeRoutes);
 app.use('/api/payments/manual', paymentProofRoutes);
 app.use('/api/ocr', ocrRoutes);
-app.use('/api/expenses', expenseRoutes);
+  app.use('/api/expenses', expenseRoutes);
+  app.use('/api/notifications', notificationRoutes);
 
 // Static: serve uploaded receipt screenshots
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
