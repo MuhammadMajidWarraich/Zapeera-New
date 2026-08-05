@@ -1263,14 +1263,25 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
       console.warn('[Email] Could not send subscription email:', emailErr.message);
     }
 
-    createNotification({
-      userId: business?.createdBy || '',
-      businessId: businessId || '',
-      type: 'subscription_activated',
-      title: 'Subscription Activated',
-      body: `Your subscription on plan '${plan?.name || 'Unknown'}' has been activated.`,
-      actionUrl: `/business/${businessId}/subscription`,
-    }).catch(() => {});
+    // Fetch business owner for notification
+    try {
+      const biz = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { createdBy: true }
+      });
+      if (biz?.createdBy) {
+        createNotification({
+          userId: biz.createdBy,
+          businessId: businessId || '',
+          type: 'subscription_activated',
+          title: 'Subscription Activated',
+          body: `Your subscription on plan '${plan?.name || 'Unknown'}' has been activated.`,
+          actionUrl: `/business/${businessId}/subscription`,
+        }).catch(() => {});
+      }
+    } catch (notifErr) {
+      console.warn('[Notification] Could not send subscription notification:', notifErr);
+    }
 
     res.json({
       success: true,

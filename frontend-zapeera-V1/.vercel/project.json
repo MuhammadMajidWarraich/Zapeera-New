@@ -4,11 +4,10 @@
   "projectName": "zapeera-new",
   "settings": {
     "createdAt": 1785367387481,
-    "framework": null,
-    "devCommand": null,
-    "installCommand": null,
-    "buildCommand": null,
-    "outputDirectory": null,
+    "framework": "vite",
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "installCommand": "npm install",
     "rootDirectory": null,
     "directoryListing": false,
     "nodeVersion": "24.x"

@@ -467,7 +467,7 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
     }
 
     // Notify business owner
-    const ownerUser = await prisma.company.findUnique({ where: { id: proof.businessId }, select: { createdBy: true } });
+    const ownerUser = await prisma.business.findUnique({ where: { id: proof.businessId }, select: { createdBy: true } });
     if (ownerUser?.createdBy) {
       createNotification({
         userId: ownerUser.createdBy,
@@ -582,7 +582,7 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
     // Notify business owner
     const proofBusinessId = proofRows[0]?.businessId;
     if (proofBusinessId) {
-      const ownerUser = await prisma.company.findUnique({ where: { id: proofBusinessId }, select: { createdBy: true } });
+      const ownerUser = await prisma.business.findUnique({ where: { id: proofBusinessId }, select: { createdBy: true } });
       if (ownerUser?.createdBy) {
         createNotification({
           userId: ownerUser.createdBy,
