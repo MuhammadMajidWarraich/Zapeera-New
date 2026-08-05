@@ -181,7 +181,8 @@ export function BarcodeLabelPrint({
                 margin: 0,
               });
             } catch(e) {
-              svg.innerHTML = '<text x="2" y="15" font-size="8">' + barcodes[idx] + '</text>';
+              const safeText = String(barcodes[idx] || '').replace(/[<>&"']/g, '');
+              svg.innerHTML = '<text x="2" y="15" font-size="8">' + safeText + '</text>';
             }
           });
           window.onload = () => { window.print(); window.close(); };

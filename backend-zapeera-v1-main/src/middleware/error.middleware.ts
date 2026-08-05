@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -15,7 +16,7 @@ export const errorHandler = (
   error.message = err.message;
 
   // Log error with context for debugging
-  console.error('Error occurred:', {
+  logger.error('Error occurred:', {
     message: err.message,
     name: err.name,
     statusCode: err.statusCode,
@@ -24,22 +25,22 @@ export const errorHandler = (
     timestamp: new Date().toISOString()
   });
 
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = { message, statusCode: 404 } as AppError;
-  }
-
-  // Mongoose duplicate key
-  if (err.name === 'MongoError' && (err as any).code === 11000) {
+  // Prisma unique constraint error
+  if (err.name === 'UniqueConstraintViolationError' || ((err as any).code === 'P2002')) {
     const message = 'Duplicate field value entered';
     error = { message, statusCode: 400 } as AppError;
   }
 
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const message = Object.values((err as any).errors).map((val: any) => val.message).join(', ');
+  // Prisma validation error
+  if (err.name === 'ValidationError' || (err as any).code === 'P2014') {
+    const message = 'Invalid data provided';
     error = { message, statusCode: 400 } as AppError;
+  }
+
+  // Prisma record not found
+  if ((err as any).code === 'P2025') {
+    const message = 'Resource not found';
+    error = { message, statusCode: 404 } as AppError;
   }
 
   // JWT errors

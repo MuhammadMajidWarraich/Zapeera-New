@@ -142,7 +142,6 @@ export class ApiService {
       // Include X-Business-ID in the key so requests for different companies don't collide
       const requestKey = `${method}:${url}:${headers.get('X-Business-ID') || ''}`;
       if (method === 'GET' && this.pendingRequests.has(requestKey)) {
-        console.log(`[API Service] Request deduplication: reusing existing request for ${requestKey}`);
         return this.pendingRequests.get(requestKey)!;
       }
 
@@ -182,12 +181,6 @@ export class ApiService {
         const contentType = response.headers.get('content-type') || '';
         const looksLikeHtml = typeof data === 'string' && data.trim().startsWith('<');
         if (looksLikeHtml || contentType.includes('text/html')) {
-          console.error('[API Service] Invalid HTML response received from API:', {
-            url,
-            status: response.status,
-            contentType,
-            bodyPreview: String(data).slice(0, 300),
-          });
           return {
             success: false,
             message: 'Invalid API response: received HTML instead of JSON. Check API base URL and backend connectivity.',
@@ -248,22 +241,12 @@ export class ApiService {
         if (data && typeof data === 'object' && 'success' in data) {
           const result = data as ApiResponse<T>;
           if (endpoint.includes('entitlements')) {
-            console.log('[API] request() returning ApiResponse for entitlements:', {
-              success: result.success,
-              hasData: !!result.data,
-              endpoint,
-            });
           }
           return result;
         }
 
         const successResult = { success: true, data: data as T };
         if (endpoint.includes('entitlements')) {
-          console.log('[API] request() returning default success response for entitlements:', {
-            success: successResult.success,
-            hasData: !!successResult.data,
-            endpoint,
-          });
         }
         return successResult;
       })();
@@ -288,14 +271,10 @@ export class ApiService {
     // CRITICAL: Request lock to prevent multiple simultaneous login requests
     const lockKey = 'auth:login';
     if (this.authRequestLocks.has(lockKey)) {
-      console.warn('⚠️ [API Service] Login request already in progress, reusing existing request');
       return this.authRequestLocks.get(lockKey)!;
     }
 
     if (DEBUG_MODE) {
-      console.log('[API Service] Starting login request');
-      console.log('[API Service] Base URL:', this.baseURL);
-      console.log('[API Service] Endpoint: /auth/login');
     }
 
     const loginPromise = (async () => {
@@ -476,7 +455,6 @@ export class ApiService {
     // CRITICAL: Request lock to prevent multiple simultaneous register requests
     const lockKey = 'auth:register';
     if (this.authRequestLocks.has(lockKey)) {
-      console.warn('⚠️ [API Service] Register request already in progress, reusing existing request');
       return this.authRequestLocks.get(lockKey)!;
     }
 
@@ -504,7 +482,6 @@ export class ApiService {
           writeStoredUser(userForStore);
         } else if (response.success) {
           // Registration successful but no token (pending activation) - ensure no stale data
-          console.log('🔍 Registration successful but no token returned (pending activation)');
           clearStoredSession();
           localStorage.removeItem('auth_initialized');
         }
@@ -1875,7 +1852,6 @@ export class ApiService {
     branchId: string | null;
     password: string;
   }) {
-    console.log('API createAdmin called with data:', adminData);
     return this.request<{
       id: string;
       name: string;
@@ -4488,7 +4464,6 @@ export class ApiService {
   }
 
   async getBusinessEntitlements(companyId: string) {
-    console.log('[API] getBusinessEntitlements called with companyId:', companyId);
     const response = await this.request<{
       companyId: string;
       businessType: 'PHARMACY' | 'STORE' | 'HOTEL' | 'CLINIC';
@@ -4537,13 +4512,6 @@ export class ApiService {
       };
     } | null>(`/subscription/entitlements/business/${companyId}`);
     
-    console.log('[API] getBusinessEntitlements response keys:', Object.keys(response));
-    console.log('[API] getBusinessEntitlements response:', {
-      success: (response as any).success,
-      data: (response as any).data,
-      response: (response as any).response,
-      text: typeof (response as any).text,
-    });
     return response;
   }
 

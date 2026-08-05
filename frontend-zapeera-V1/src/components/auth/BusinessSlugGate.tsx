@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { apiService } from "@/services/api";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ export default function BusinessSlugGate({
   children: React.ReactNode;
 }) {
   const { businessSlug } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const {
     selectedBusinessId,
@@ -238,7 +239,7 @@ export default function BusinessSlugGate({
             <p className="text-sm text-destructive mb-4">{error}</p>
           )}
           <button
-            onClick={() => window.location.href = '/zapeera/my-businesses'}
+            onClick={() => navigate('/zapeera/my-businesses')}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
             Go to My Businesses
@@ -293,7 +294,7 @@ export default function BusinessSlugGate({
             )}
           </div>
           <button
-            onClick={() => window.location.href = '/zapeera/my-businesses'}
+            onClick={() => navigate('/zapeera/my-businesses')}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
             Go to My Businesses

@@ -10,6 +10,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES } from '../config/module-route-protection.config';
 import { checkModuleAccess } from './module-access.middleware';
 import { authenticate } from './auth.middleware';
+import logger from '../utils/logger';
 
 interface AuthRequest extends Request {
   user?: {
@@ -69,7 +70,7 @@ function setCachedAccess(userId: string, businessId: string, moduleKey: string, 
     for (let i = 0; i < entriesToEvict && i < entries.length; i++) {
       accessCache.delete(entries[i][0]);
     }
-    console.log(`[Universal Protection] 🧹 Evicted ${entriesToEvict} old cache entries`);
+    logger.debug(`[Universal Protection] Evicted ${entriesToEvict} old cache entries`);
   }
   
   accessCache.set(key, entry);
@@ -110,7 +111,7 @@ export async function universalModuleProtection(
 
     return enforceModuleAccess(req, res, next, path, requiredModule, startTime);
   } catch (error) {
-    console.error('[Universal Protection] Error:', error);
+    logger.error('[Universal Protection] Error:', { error: String(error) });
     // Fail secure - block access if check fails
     return res.status(500).json({
       success: false,
@@ -140,7 +141,7 @@ async function enforceModuleAccess(
       req.user?.companyId;
 
     if (!businessId) {
-      console.warn(`[Universal Protection] ❌ No business context for ${path}`);
+      logger.warn(`[Universal Protection] No business context for ${path}`);
       return res.status(400).json({
         success: false,
         error: 'NO_BUSINESS_CONTEXT',
@@ -155,7 +156,7 @@ async function enforceModuleAccess(
 
     if (cached !== null) {
       if (!cached.allowed) {
-        console.warn(`[Universal Protection] ❌ BLOCKED (cached): ${path} for user ${userId} | error=${cached.error}`);
+        logger.warn(`[Universal Protection] BLOCKED (cached): ${path} for user ${userId} | error=${cached.error}`);
         if (cached.error === 'NO_MEMBERSHIP') {
           return res.status(401).json({
             success: false,
@@ -188,7 +189,7 @@ async function enforceModuleAccess(
     const duration = Date.now() - startTime;
 
     if (!accessResult.allowed) {
-      console.warn(`[Universal Protection] ❌ BLOCKED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
+      logger.warn(`[Universal Protection] BLOCKED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
 
       if (accessResult.error === 'NO_MEMBERSHIP') {
         return res.status(401).json({
@@ -208,14 +209,14 @@ async function enforceModuleAccess(
     }
 
     // Access granted
-    console.log(`[Universal Protection] ✅ ALLOWED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
+    logger.debug(`[Universal Protection] ALLOWED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
 
     // Attach module info to request for downstream use
     (req as any).requiredModule = requiredModule;
 
     return next();
   } catch (error) {
-    console.error('[Universal Protection] Error:', error);
+    logger.error('[Universal Protection] Error:', { error: String(error) });
     // Fail secure - block access if check fails
     return res.status(500).json({
       success: false,
@@ -231,7 +232,7 @@ async function enforceModuleAccess(
 export function clearModuleAccessCache(userId?: string, businessId?: string): void {
   if (!userId && !businessId) {
     accessCache.clear();
-    console.log('[Universal Protection] 🗑️ Cleared all module access cache');
+    logger.debug('[Universal Protection] Cleared all module access cache');
     return;
   }
 
@@ -243,7 +244,7 @@ export function clearModuleAccessCache(userId?: string, businessId?: string): vo
     }
   }
 
-  console.log(`[Universal Protection] 🗑️ Cleared cache for user ${userId || 'all'}, business ${businessId || 'all'}`);
+  logger.debug(`[Universal Protection] Cleared cache for user ${userId || 'all'}, business ${businessId || 'all'}`);
 }
 
 /**
@@ -253,5 +254,5 @@ export function applyUniversalModuleProtection(app: any): void {
   // Apply to all API routes
   app.use('/api', universalModuleProtection);
 
-  console.log('[Universal Protection] 🔒 Module protection enabled for all API routes');
+  logger.info('[Universal Protection] Module protection enabled for all API routes');
 }

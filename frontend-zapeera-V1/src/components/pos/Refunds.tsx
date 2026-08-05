@@ -90,13 +90,11 @@ const Refunds = () => {
 
     // Listen for new refunds
     const handleRefundCreated = (event: CustomEvent) => {
-      console.log('🔄 Refund created event received, refreshing refunds list');
       loadRefunds(true); // Force refresh when new refund is created
     };
 
     // Real-time data synchronization
     const handleRefundChanged = (event: CustomEvent) => {
-      console.log('🔄 Real-time refund change received:', event.detail);
       const { action, refund } = event.detail;
 
       if (action === 'created') {
@@ -153,24 +151,13 @@ const Refunds = () => {
 
   const loadRefunds = useCallback(async (forceRefresh: boolean = false) => {
     try {
-      console.log('🔄 Loading refunds...');
-
       // Check if user is loaded
       if (!user) {
-        console.log('⚠️ User not loaded yet, skipping refunds load');
         setLoading(false);
         return;
       }
 
       // Try to load from API with date filtering
-      console.log('🔍 Loading refunds with date filter:', { startDate, endDate });
-      console.log('🔍 User context:', {
-        id: user?.id,
-        role: user?.role,
-        adminId: user?.adminId,
-        branchId: user?.branchId
-      });
-
       try {
         // Determine which refunds to load based on user role and selected branch
         const params: any = {
@@ -182,9 +169,7 @@ const Refunds = () => {
           // Admin users can see refunds from selected branch or all branches
           if (selectedBranchId) {
             params.branchId = selectedBranchId;
-            console.log('Admin selected specific branch for refunds:', selectedBranch?.name);
           } else {
-            console.log('Admin viewing all branches - loading all refunds');
           }
         } else {
           // For non-owner users (MANAGER, CASHIER), get branch from branchId or membership.branchIds
@@ -202,36 +187,19 @@ const Refunds = () => {
           }
           
           params.branchId = branchId;
-          console.log('Regular user branch for refunds:', branchId);
         }
 
         const response = await apiService.getRefunds(params);
-        console.log('🔍 API Response:', response);
         if (response.success && response.data) {
-          console.log('🔍 Refunds data from API:', response.data.refunds);
-          console.log('🔍 Number of refunds received:', response.data.refunds?.length || 0);
           response.data.refunds?.forEach((refund: any, index: number) => {
-            console.log(`Refund ${index + 1}: Created by ${refund.refundedByUser?.username} (${refund.refundedByUser?.role}) - Amount: ${refund.refundAmount}`);
           });
 
           // Transform API data to match frontend format
           const transformedRefunds = response.data.refunds.map((refund: any) => {
             try {
-              console.log('🔍 Processing refund:', refund.id);
-
             // Handle Prisma Decimal type for refundAmount
-            console.log('🔍 Raw refund amount:', refund.refundAmount, 'Type:', typeof refund.refundAmount, 'Constructor:', refund.refundAmount?.constructor?.name);
             const refundAmount = refund.refundAmount?.toString ? refund.refundAmount.toString() : String(refund.refundAmount);
             const parsedAmount = parseFloat(refundAmount);
-            console.log('🔍 Refund amount conversion:', {
-              raw: refund.refundAmount,
-              string: refundAmount,
-              parsed: parsedAmount,
-              isNaN: isNaN(parsedAmount),
-              final: isNaN(parsedAmount) ? 0 : parsedAmount
-            });
-            console.log('🔍 Refund ID:', refund.id, 'Original Sale ID:', refund.originalSaleId);
-
             // Handle Date object for refundedAt with proper validation
             let refundedAt;
             try {
@@ -240,7 +208,6 @@ const Refunds = () => {
                 const dateStr = typeof refund.createdAt === 'string' ? refund.createdAt : refund.createdAt.toString();
                 const date = new Date(dateStr);
                 if (isNaN(date.getTime())) {
-                  console.warn('⚠️ Invalid date for refund:', refund.id, 'Date:', refund.createdAt);
                   refundedAt = new Date().toISOString();
                 } else {
                   refundedAt = date.toISOString();
@@ -249,11 +216,8 @@ const Refunds = () => {
                 refundedAt = new Date().toISOString();
               }
             } catch (dateError) {
-              console.warn('⚠️ Date conversion error for refund:', refund.id, dateError);
               refundedAt = new Date().toISOString();
             }
-            console.log('🔍 Refunded at:', refund.createdAt, 'Formatted:', refundedAt);
-
             return {
               id: refund.id,
               originalInvoiceId: refund.originalSaleId,
@@ -269,9 +233,6 @@ const Refunds = () => {
                 const unitPrice = parseFloat(unitPriceStr) || 0;
                 const quantity = parseInt(item.quantity) || 0;
                 const totalPrice = unitPrice * quantity;
-
-                console.log('🔍 Item price:', item.unitPrice, 'String:', unitPriceStr, 'Parsed:', unitPrice, 'Quantity:', quantity, 'Total:', totalPrice);
-
                 return {
                   productId: item.productId,
                   productName: item.product?.name || 'Unknown Product',
@@ -291,13 +252,7 @@ const Refunds = () => {
               } : undefined
             };
 
-            console.log('🔍 Final refund object:', {
-              id: refund.id,
-              refundAmount: isNaN(parsedAmount) ? 0 : parsedAmount,
-              receiptNumber: refund.originalSale?.receipts?.[0]?.receiptNumber || refund.originalSale?.id || 'N/A'
-            });
             } catch (error) {
-              console.error('❌ Error processing refund:', refund.id, error);
               // Return a fallback refund object
               return {
                 id: refund.id || 'unknown',
@@ -314,17 +269,13 @@ const Refunds = () => {
             }
           });
 
-          console.log('🔍 Final transformed refunds:', transformedRefunds.map(r => ({ id: r.id, amount: r.refundAmount, receiptNumber: r.receiptNumber })));
           setRefunds(transformedRefunds);
-          console.log('✅ Refunds loaded successfully, count:', transformedRefunds.length);
           return;
         }
       } catch (apiError) {
-        console.error('❌ API call failed:', apiError);
         setRefunds([]);
       }
     } catch (error) {
-      console.error('Error loading refunds:', error);
       setRefunds([]);
       // Don't set loading - silent fail in background
     } finally {
@@ -344,9 +295,6 @@ const Refunds = () => {
   }, [user, selectedBranchId, selectedCompanyId]);
 
   const filterRefunds = () => {
-    console.log('🔍 Filtering refunds...');
-    console.log('Total refunds before filtering:', refunds.length);
-
     let filtered = [...refunds];
 
     // Date range filter (client-side on loaded data)
@@ -371,9 +319,6 @@ const Refunds = () => {
       );
     }
 
-    console.log('Filtered refunds count:', filtered.length);
-    console.log('Filtered refunds:', filtered.map(refund => ({ id: refund.id, createdBy: refund.refundedBy, amount: refund.refundAmount })));
-
     setFilteredRefunds(filtered);
     setCurrentPage(1);
   };
@@ -393,18 +338,13 @@ const Refunds = () => {
   };
 
   const formatDate = (dateString: string) => {
-    console.log('🔍 formatDate called with:', dateString, 'Type:', typeof dateString);
-
     if (!dateString) {
-      console.log('🔍 No dateString provided, returning Invalid Date');
       return 'Invalid Date';
     }
 
     const date = new Date(dateString);
-    console.log('🔍 Date object created:', date, 'isNaN:', isNaN(date.getTime()));
 
     if (isNaN(date.getTime())) {
-      console.log('🔍 Invalid date, returning Invalid Date');
       return 'Invalid Date';
     }
 
@@ -415,8 +355,6 @@ const Refunds = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-
-    console.log('🔍 Formatted date:', formatted);
     return formatted;
   };
 

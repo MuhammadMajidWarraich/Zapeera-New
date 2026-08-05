@@ -165,7 +165,6 @@ const CreateInvoice = () => {
     // Show all batches for the product, even if branch is not selected
     // This allows users to see and select batches regardless of branch selection
     if (user?.role === 'OWNER' && !selectedBranchId) {
-      console.log(`[CreateInvoice] ⚠️ Branch not selected for ADMIN - fetching ALL batches for product (no branch filter)`);
       // Continue with fetch but don't send branchId in query - this is OK
     }
 
@@ -174,11 +173,9 @@ const CreateInvoice = () => {
     let shouldSkip = false;
     setLoadingBatches(prev => {
       if (prev[productId]) {
-        console.log(`[CreateInvoice] ⏳ Already loading batches for product ${productId}, skipping duplicate request`);
         shouldSkip = true;
         return prev; // Already loading, skip
       }
-      console.log(`[CreateInvoice] 🔄 Setting loading state to true for product ${productId}`);
       return { ...prev, [productId]: true };
     });
 
@@ -196,11 +193,8 @@ const CreateInvoice = () => {
     
     // CRITICAL: Skip if already fetched (even if no batches found)
     if (fetchedProducts.has(productId)) {
-      console.log(`[CreateInvoice] ⏭️ Already fetched batches for product ${productId}, skipping`);
       return;
     }
-
-    console.log(`[CreateInvoice] ✅ Proceeding with batch fetch for product ${productId}`);
     const timeoutId = window.setTimeout(() => {
       setLoadingBatches(prev => ({ ...prev, [productId]: false }));
       delete batchLoadingTimeouts.current[productId];
@@ -217,9 +211,6 @@ const CreateInvoice = () => {
       } else {
         branchIdForBatches = user?.branchId || undefined;
       }
-
-      console.log(`[CreateInvoice] Fetching batches for product ${productId}, branchId: ${branchIdForBatches}, companyId: ${selectedCompanyId}`);
-
       // CRITICAL FIX: Don't send branchId in query if it's not selected
       // This allows the server to return ALL batches for the product
       const queryParams: any = {
@@ -234,8 +225,6 @@ const CreateInvoice = () => {
       if (branchIdForBatches) {
         queryParams.branchId = branchIdForBatches;
       }
-
-      console.log(`[CreateInvoice] 🚀 Calling API with params:`, queryParams);
       const response = await apiService.getBatches({
         page: 1,
         limit: 100,
@@ -244,12 +233,6 @@ const CreateInvoice = () => {
         isReported: false,
       });
 
-      console.log(`[CreateInvoice] 📦 Batches API response for product ${productId}:`, {
-        success: response?.success,
-        hasData: !!response?.data,
-        dataKeys: response?.data ? Object.keys(response.data) : [],
-        dataLength: response?.data?.batches?.length,
-      });
 
       let batchesData: any[] = [];
 
@@ -257,12 +240,7 @@ const CreateInvoice = () => {
         if (response.data?.batches) {
           batchesData = response.data.batches;
         }
-
-        console.log(`[CreateInvoice] ✅ Processing ${batchesData.length} batches for product ${productId}`);
-
         if (batchesData.length === 0) {
-          console.warn(`[CreateInvoice] ⚠️ API returned success but empty batches array for product ${productId}`);
-          console.warn(`[CreateInvoice] Response structure:`, JSON.stringify(response, null, 2));
         }
 
         const batches: Batch[] = batchesData
@@ -323,9 +301,6 @@ const CreateInvoice = () => {
             }
             return true;
           });
-
-        console.log(`[CreateInvoice] 🔍 Mapped ${batches.length} valid batches from ${batchesData.length} raw batches`);
-
         // Sort batches by expiry date (nearest first)
         batches.sort((a, b) => {
           if (!a.expireDate && !b.expireDate) return 0;
@@ -336,17 +311,7 @@ const CreateInvoice = () => {
 
         const needsUnitsPerBox = batches.some(b => !b.unitsPerBox || b.unitsPerBox <= 1);
         if (needsUnitsPerBox) {
-          console.warn(`[CreateInvoice] ⚠️ Units per box missing/invalid for product ${productId}`);
         }
-
-        console.log(`[CreateInvoice] ✅ Setting ${batches.length} batches for product ${productId} in state`);
-        console.log(`[CreateInvoice] Batch details:`, batches.map(b => ({
-          id: b.id,
-          batchNo: b.batchNo,
-          quantity: b.quantity,
-          unitsPerBox: b.unitsPerBox,
-          sellingPrice: b.sellingPrice
-        })));
 
         const batchUnitsPerBox = batches.find(b => b.unitsPerBox && b.unitsPerBox > 1)?.unitsPerBox;
         if (batchUnitsPerBox && batchUnitsPerBox > 1) {
@@ -363,8 +328,6 @@ const CreateInvoice = () => {
 
         setProductBatches(prev => {
           const updated = { ...prev, [productId]: batches };
-          console.log(`[CreateInvoice] 📝 Updated productBatches state for ${productId}, total products with batches:`, Object.keys(updated).length);
-          console.log(`[CreateInvoice] 📝 Batches for ${productId}:`, batches.map(b => ({ id: b.id, batchNo: b.batchNo, quantity: b.quantity, price: b.sellingPrice })));
           return updated;
         });
         
@@ -388,19 +351,12 @@ const CreateInvoice = () => {
           if (batches.length > 0) {
             const availableBatch = batches.find(b => b.quantity > 0) || batches[0];
             if (availableBatch) {
-              console.log(`[CreateInvoice] Auto-selecting batch ${availableBatch.id} for product ${productId}`);
               return { ...prev, [productId]: availableBatch.id };
             }
           }
           return prev;
         });
       } else {
-        console.warn(`[CreateInvoice] ⚠️ No batches found for product ${productId}`, response);
-        console.warn(`[CreateInvoice] Response details:`, {
-          success: response?.success,
-          data: response?.data,
-          message: response?.message
-        });
         setProductBatches(prev => ({ ...prev, [productId]: [] }));
         // Mark as fetched even if no batches found
         setFetchedProducts(prev => {
@@ -410,12 +366,6 @@ const CreateInvoice = () => {
         });
       }
     } catch (error: any) {
-      console.error(`[CreateInvoice] ❌ Error fetching batches for product ${productId}:`, error);
-      console.error(`[CreateInvoice] Error details:`, {
-        message: error?.message,
-        response: error?.response,
-        stack: error?.stack
-      });
       setProductBatches(prev => ({ ...prev, [productId]: [] }));
       // Mark as fetched even on error to prevent repeated failed requests
       setFetchedProducts(prev => {
@@ -426,7 +376,6 @@ const CreateInvoice = () => {
     } finally {
       setLoadingBatches(prev => {
         const updated = { ...prev, [productId]: false };
-        console.log(`[CreateInvoice] 🔄 Setting loading state to false for product ${productId}`);
         return updated;
       });
       const existingTimeout = batchLoadingTimeouts.current[productId];
@@ -440,7 +389,6 @@ const CreateInvoice = () => {
   // CRITICAL FIX: Re-fetch batches when branch changes
   useEffect(() => {
     if (selectedBranchId && filteredProducts.length > 0) {
-      console.log(`[CreateInvoice] Branch changed to ${selectedBranchId}, re-fetching batches for all visible products`);
       // Clear existing batches and re-fetch for all visible products
       setProductBatches({});
       setSelectedBatches({});
@@ -562,7 +510,6 @@ const CreateInvoice = () => {
   // Create stable reference to product IDs to avoid infinite loops
   const productIdsString = useMemo(() => {
     const ids = filteredProducts.map(p => p.id).sort().join(',');
-    console.log(`[CreateInvoice] productIdsString updated:`, ids);
     return ids;
   }, [filteredProducts.length, filteredProducts.map(p => p.id).sort().join(',')]);
 
@@ -570,7 +517,6 @@ const CreateInvoice = () => {
   // FIX: Fetch batches immediately when products are searched, similar to product API call
   useEffect(() => {
     if (filteredProducts.length === 0) {
-      console.log(`[CreateInvoice] No filtered products - skipping batch fetch`);
       return;
     }
 
@@ -731,14 +677,11 @@ const CreateInvoice = () => {
         // Admin users use selected branch
         if (selectedBranchId) {
           branchId = selectedBranchId;
-          console.log('Admin selected specific branch for products:', selectedBranch?.name);
         } else {
-          console.log('Admin viewing all branches - loading all products');
         }
       } else {
         // Regular users use their assigned branch from membership
         branchId = user?.membership?.branchIds?.[0] || user?.branchId || undefined;
-        console.log('Regular user branch for products:', branchId);
       }
 
       const params: any = { page: 1, limit: 50, search: q, companyId: selectedCompanyId || '' };
@@ -747,8 +690,6 @@ const CreateInvoice = () => {
       }
 
       const response = await apiService.getProducts(params);
-      console.log('Products API response:', response);
-
       if (response.success && response.data && Array.isArray(response.data.products)) {
         // Transform the API response to match our Product interface
         const transformedProducts = response.data.products.map((product: any) => ({
@@ -767,13 +708,10 @@ const CreateInvoice = () => {
         }));
 
         setProducts(transformedProducts);
-        console.log('Products loaded successfully:', transformedProducts.length, 'items');
       } else {
-        console.warn('Invalid products response:', response);
         setProducts([]);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
       setProducts([]);
       toast({
         title: "Error",
@@ -822,11 +760,8 @@ const CreateInvoice = () => {
     const isBoxSale = unitType === "box" || unitType === "pack";
 
     // DEBUG: Log product data to verify unitsPerBox
-    console.log(`[CreateInvoice] Product: ${product.name}, unitsPerBox: ${unitsPerBox}, unitType selected: ${unitType}, quantity: ${quantity}`);
-
     // CRITICAL: If box is selected but unitsPerBox is 1, warn the user
     if (isBoxSale && unitsPerBox === 1) {
-      console.warn(`[CreateInvoice] WARNING: Box selected but unitsPerBox is 1 for product ${product.name}. This may cause incorrect calculations.`);
     }
 
     const finalQuantity = isBoxSale ? quantity * unitsPerBox : quantity;
@@ -839,12 +774,6 @@ const CreateInvoice = () => {
 
     // Calculate total price: unitPrice * original quantity (boxes or units)
     const totalPrice = unitPrice * quantity;
-
-    console.log(`[CreateInvoice] Adding product ${product.name}, unitType: ${unitType}, quantity: ${quantity}, unitsPerBox: ${unitsPerBox}`);
-    console.log(`[CreateInvoice] batchPrice: ${batchPrice}, unitPrice: ${unitPrice}, totalPrice: ${totalPrice}`);
-    console.log(`[CreateInvoice] Final quantity (pieces): ${finalQuantity}, Final unitType: ${finalUnitType}`);
-    console.log(`[CreateInvoice] Calculation: finalQuantity = ${isBoxSale ? `${quantity} * ${unitsPerBox}` : quantity} = ${finalQuantity}`);
-
     // Validate quantity against batch stock (use finalQuantity which is in pieces)
     if (finalQuantity > selectedBatch.quantity) {
       toast({
@@ -1134,8 +1063,6 @@ const CreateInvoice = () => {
 
     try {
       setIsLoading(true);
-      console.log('Creating invoice with items:', invoiceItems);
-
       // Create customer if details provided
       let customerId = null;
       let customerName = "Walk-in Customer";
@@ -1155,9 +1082,6 @@ const CreateInvoice = () => {
         customerName = `Walk-in-${timestamp}`;
         customerPhone = `000-${timestamp}`;
       }
-
-      console.log('Customer details:', { customerName, customerPhone });
-
       // Determine branch ID for customer creation
       let customerBranchId: string | undefined;
       if (user?.role === 'OWNER') {
@@ -1180,13 +1104,10 @@ const CreateInvoice = () => {
 
           if (customerResponse.success && customerResponse.data) {
             customerId = customerResponse.data.id;
-            console.log('✅ Customer created successfully:', customerId);
           } else {
-            console.log('⚠️ Customer creation returned but no ID, will auto-create in sale endpoint');
             // Don't set customerId - let sale endpoint auto-create
           }
         } catch (error) {
-          console.error('⚠️ Customer creation failed, will auto-create in sale endpoint:', error);
           // Continue with sale - the sale endpoint will auto-create customer if name/phone provided
           // Don't set customerId - let sale endpoint handle it
         }
@@ -1196,9 +1117,6 @@ const CreateInvoice = () => {
       const subtotal = mainSubtotal;
       const discountAmount = mainDiscountAmount;
       const totalAmount = mainTotalAmount;
-
-      console.log('Calculated totals:', { subtotal, discountAmount, totalAmount });
-
       // Validate required fields
       let branchId: string | undefined;
 
@@ -1206,7 +1124,6 @@ const CreateInvoice = () => {
         // Admin users use selected branch
         if (selectedBranchId) {
           branchId = selectedBranchId;
-          console.log('Admin selected specific branch:', selectedBranch?.name);
         } else {
           toast({
             title: "Error",
@@ -1247,13 +1164,11 @@ const CreateInvoice = () => {
               const product = products.find(p => p.name === item.name);
               if (product) {
                 productId = product.id;
-                console.warn('⚠️ Using product lookup by name for:', item.name);
               }
             }
           }
 
           if (!productId) {
-            console.error('❌ Could not determine productId for item:', item);
             throw new Error(`Product ID not found for item: ${item.name}. Please remove and re-add this item.`);
           }
 
@@ -1300,14 +1215,8 @@ const CreateInvoice = () => {
         returnedAmount: Math.max(0, (paidAmount || 0) - totalAmount), // Calculate returned amount (change)
         saleDate: new Date().toISOString()
       };
-
-      console.log('Sale data:', saleData);
-
       const saleResponse = await apiService.createSale(saleData);
-      console.log('Sale response:', saleResponse);
-
       if (!saleResponse.success) {
-        console.error('Sale creation failed:', saleResponse);
         const errorMessage = (saleResponse as any).errors ?
           (saleResponse as any).errors.join(', ') :
           saleResponse.message || "Failed to create invoice. Please try again.";
@@ -1373,7 +1282,6 @@ const CreateInvoice = () => {
       setSearchQuery("");
 
     } catch (error) {
-      console.error('Error creating invoice:', error);
       toast({
         title: "Error",
         description: `An error occurred while creating the invoice: ${error.message || 'Unknown error'}`,
@@ -1441,7 +1349,6 @@ const CreateInvoice = () => {
             customerId = customerResponse.data.id;
           }
         } catch (error) {
-          console.error('⚠️ Customer creation failed, will auto-create in sale endpoint:', error);
         }
       }
 
@@ -1603,7 +1510,6 @@ const CreateInvoice = () => {
       setModalSearchQuery("");
 
     } catch (error: any) {
-      console.error('Error creating invoice:', error);
       toast({
         title: "Error",
         description: `An error occurred while creating the invoice: ${error.message || 'Unknown error'}`,
@@ -1918,7 +1824,6 @@ const CreateInvoice = () => {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
           } catch (e) {
-            console.error('Print error:', e);
             // Fallback: Try window.print() on the main window
             const newWindow = window.open('', '_blank');
             if (newWindow) {
@@ -1984,7 +1889,6 @@ const CreateInvoice = () => {
       });
       }
     } catch (error) {
-      console.error('Error downloading receipt:', error);
       toast({
         title: "Error",
         description: "Error downloading receipt. Please try again.",
@@ -2351,7 +2255,6 @@ const CreateInvoice = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error looking up invoice:', error);
       toast({
         title: "Error",
         description: 'Error looking up invoice. Please try again.',
@@ -2387,20 +2290,14 @@ const CreateInvoice = () => {
 
     if (foundInvoice && foundInvoice.id) {
       // Use the already found invoice
-      console.log('🔍 DEBUG - Using found invoice from lookup:', foundInvoice);
       originalSale = foundInvoice;
     } else {
       // Search for the invoice if not already found
       try {
-        console.log('🔍 DEBUG - Starting refund process for invoice:', refundInvoiceNumber);
-
         const salesResponse = await apiService.getSales({
           limit: 1000,
           companyId: selectedCompanyId || '',
         });
-
-        console.log('🔍 DEBUG - Sales search response:', salesResponse);
-
         if (!salesResponse.success || !salesResponse.data?.sales?.length) {
           toast({
             title: "Error",
@@ -2432,7 +2329,6 @@ const CreateInvoice = () => {
           return;
         }
       } catch (error: any) {
-        console.error('Error searching for invoice:', error);
         toast({
           title: "Error",
           description: "Failed to search for invoice. Please try again.",
@@ -2452,8 +2348,6 @@ const CreateInvoice = () => {
     }
 
     try {
-      console.log('🔍 DEBUG - Found original sale:', originalSale);
-
       // Automatically use all items from the original sale for refund
       const itemsToRefund = originalSale.items.map((item: any) => {
         const saleType = (item.saleType || 'UNIT').toString().toUpperCase();
@@ -2483,14 +2377,8 @@ const CreateInvoice = () => {
         items: itemsToRefund,
         refundedBy: user?.id || ""
       };
-
-      console.log('🔍 DEBUG - Prepared refund data:', refundData);
-
       // Call the refund API
       const refundResponse = await apiService.createRefund(refundData);
-
-      console.log('🔍 DEBUG - Refund API response:', refundResponse);
-
       if (refundResponse.success) {
         toast({
           title: "Refund Processed Successfully",
@@ -2525,7 +2413,6 @@ const CreateInvoice = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error processing refund:', error);
       const errorMessage = error?.response?.message 
         || error?.response?.data?.message 
         || error?.message 

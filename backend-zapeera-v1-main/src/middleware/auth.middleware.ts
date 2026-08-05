@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getPrisma } from '../utils/db.util';
 import { getBusinessEntitlementsSummary, SupportedBusinessType } from '../utils/subscription-entitlements.util';
+import logger from '../utils/logger';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -63,7 +64,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     let decoded: any;
     try {
       if (!process.env.JWT_SECRET) {
-        console.error('❌ JWT_SECRET is not set');
+        logger.error('JWT_SECRET is not set');
         return res.status(500).json({ message: 'Server configuration error. JWT_SECRET not set.' });
       }
       decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -81,7 +82,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     try {
       prisma = await getPrisma();
     } catch (dbError: any) {
-      console.error('❌ Database connection failed:', dbError?.message);
+      logger.error('Database connection failed:', { message: dbError?.message });
       return res.status(503).json({
         success: false,
         message: 'Database connection failed. Please check your database configuration.'
@@ -106,7 +107,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
           }
         });
       } catch (userLookupError: any) {
-        console.error('❌ User lookup failed:', userLookupError?.message);
+        logger.error('User lookup failed:', { message: userLookupError?.message });
         return res.status(503).json({
           success: false,
           message: 'Database query failed. Please check your database connection.'
@@ -137,7 +138,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
           (req as any).adminRole = admin.role;
         }
       } catch (adminLookupError: any) {
-        console.error('❌ Admin lookup failed:', adminLookupError?.message);
+        logger.error('Admin lookup failed:', { message: adminLookupError?.message });
         return res.status(503).json({
           success: false,
           message: 'Database query failed. Please check your database connection.'
@@ -405,14 +406,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
         }
       }
     } catch (e) {
-      console.warn('[auth] Concurrent session enforcement skipped due to error:', e);
+      logger.warn('Concurrent session enforcement skipped due to error:', { error: String(e) });
     }
 
     return next();
   } catch (error: any) {
-    console.error('❌ Auth middleware error:', error);
-    console.error('❌ Error message:', error?.message);
-    console.error('❌ Error stack:', error?.stack);
+    logger.error('Auth middleware error:', { message: error?.message, stack: error?.stack });
     const bypassAuth = process.env.NODE_ENV === 'development' && String(process.env.AUTH_BYPASS || '').toLowerCase() === 'true';
     if (bypassAuth) {
       req.user = { id: 'guest', username: 'guest' };
@@ -617,7 +616,7 @@ export const validateResourceOwnership = (resourceType: string) => {
       next();
       return;
     } catch (error) {
-      console.error('Resource ownership validation error:', error);
+      logger.error('Resource ownership validation error:', { error: String(error) });
       res.status(500).json({
         success: false,
         message: 'Internal server error'

@@ -274,7 +274,7 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
       },
       {
         key: 'staff',
-        label: 'Members',
+        label: 'Staff',
         href: '/staff',
         icon: UserCog,
         module: 'business_management',

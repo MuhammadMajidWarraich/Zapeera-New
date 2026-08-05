@@ -168,7 +168,6 @@ const Invoices = () => {
   useLayoutEffect(() => {
     const cached = getCachedData(selectedCompanyId, selectedBranchId);
     if (cached && isCacheValid(cached) && cached.data.invoices) {
-      console.log('⚡ useLayoutEffect: Restoring invoices from cache IMMEDIATELY');
       const cachedData = cached.data;
       
       // Restore state synchronously
@@ -206,7 +205,6 @@ const Invoices = () => {
           setCachedData(selectedCompanyId, selectedBranchId, cacheData);
         }
       } catch (error) {
-        console.error('Error loading batches for cost calculation:', error);
       }
     };
     loadBatches();
@@ -262,7 +260,6 @@ const Invoices = () => {
     // Check cache first before loading
     const cached = getCachedData(selectedCompanyId, selectedBranchId);
     if (cached && isCacheValid(cached) && cached.data.invoices) {
-      console.log('✅ Found cached invoices on mount, skipping initial load');
       // Data already restored by useLayoutEffect
     } else {
       loadInvoices();
@@ -288,7 +285,6 @@ const Invoices = () => {
       
       // If we have valid cache and not forcing refresh, use cached data immediately
       if (cached && cacheValid && !forceRefresh && cached.data.invoices) {
-        console.log('✅ Using cached invoices data - INSTANT LOAD');
         const cachedInvoices = cached.data.invoices;
         const cachedBatches = cached.data.allBatches || [];
         
@@ -305,11 +301,9 @@ const Invoices = () => {
         // Still refresh in background if cache is older than 2 minutes (stale-while-revalidate)
         const cacheAge = Date.now() - cached.timestamp;
         if (cacheAge > 2 * 60 * 1000) {
-          console.log('🔄 Cache is stale, refreshing invoices in background...');
           // Continue to fetch fresh data in background
         } else {
           // Cache is fresh, no need to fetch
-          console.log('✅ Cache is fresh, skipping API call');
           return;
         }
       }
@@ -321,15 +315,6 @@ const Invoices = () => {
       setCacheLoading(selectedCompanyId, selectedBranchId, true);
 
       // Load from real API with date filtering and branch filtering
-      console.log('🔍 Loading invoices with date filter:', { startDate, endDate });
-      console.log('🔍 User context:', {
-        id: user?.id,
-        name: user?.name,
-        role: user?.role,
-        branchId: user?.branchId,
-        adminId: user?.adminId
-      });
-
       // Determine which invoices to load based on user role and selected branch
       const params: any = {
         limit: 200, // keep first load fast; UI paginates locally
@@ -341,18 +326,14 @@ const Invoices = () => {
         // Admin users can see invoices from selected branch or all branches
         if (selectedBranchId) {
           params.branchId = selectedBranchId;
-          console.log('Admin selected specific branch for invoices:', selectedBranch?.name);
         } else {
-          console.log('Admin viewing all branches - loading all invoices');
         }
       } else {
         // Regular users see only their branch invoices
         params.branchId = user?.membership?.branchIds?.[0] || user?.branchId;
-        console.log('Regular user branch for invoices:', user?.branchId);
       }
 
       const response = await apiService.getSales(params);
-      console.log('Invoices API response:', response);
       if (response.success && response.data?.sales) {
         // Transform sales data to match invoice format
         const transformedInvoices = response.data.sales.map((sale: any) => {
@@ -414,14 +395,11 @@ const Invoices = () => {
         cacheData.allBatches = allBatches; // Also cache batches
         
         setCachedData(selectedCompanyId, selectedBranchId, cacheData);
-        console.log('✅ Cached invoices immediately:', transformedInvoices.length);
       } else {
         // No data from API - show empty list
-        console.log('No invoices found in API response');
         setInvoices([]);
       }
     } catch (error) {
-      console.error('Error loading invoices:', error);
       // Show empty list on error instead of mock data
       setInvoices([]);
       // Don't show error toast - silent fail in background
@@ -439,7 +417,6 @@ const Invoices = () => {
     // Check cache first when branch changes
     const cached = getCachedData(selectedCompanyId, selectedBranchId);
     if (cached && isCacheValid(cached) && cached.data.invoices) {
-      console.log('✅ Found cached invoices for new branch, restoring immediately');
       const cachedData = cached.data;
       setInvoices(cachedData.invoices);
       setFilteredInvoices(cachedData.invoices);
@@ -450,7 +427,6 @@ const Invoices = () => {
       // Refresh in background if cache is stale
       const cacheAge = Date.now() - cached.timestamp;
       if (cacheAge > 2 * 60 * 1000) {
-        console.log('🔄 Cache is stale, refreshing in background...');
         loadInvoices(false).catch(console.error);
       }
     } else {
@@ -459,9 +435,6 @@ const Invoices = () => {
   }, [selectedBranchId, selectedCompanyId]);
 
   const filterInvoices = () => {
-    console.log('🔍 Filtering invoices...');
-    console.log('Total invoices before filtering:', invoices.length);
-
     let filtered = [...invoices];
 
     // Search filter
@@ -485,9 +458,6 @@ const Invoices = () => {
     if (paymentMethodFilter !== "all") {
       filtered = filtered.filter(invoice => invoice.paymentMethod === paymentMethodFilter);
     }
-
-    console.log('Filtered invoices count:', filtered.length);
-    console.log('Filtered invoices:', filtered.map(inv => ({ id: inv.id, createdBy: inv.user?.username, total: inv.totalAmount })));
 
     setFilteredInvoices(filtered);
     setCurrentPage(1);
@@ -650,7 +620,6 @@ const Invoices = () => {
         });
       }
     } catch (error) {
-      console.error('Error updating invoice:', error);
       toast({
         title: "Error",
         description: "Error updating invoice. Please try again.",
@@ -687,7 +656,6 @@ const Invoices = () => {
         printWindow.close();
       };
     } catch (error) {
-      console.error('Error printing invoice:', error);
       toast({
         title: "Print Error",
         description: "Error printing invoice. Please try again.",
@@ -716,7 +684,6 @@ const Invoices = () => {
       // Clean up the URL object
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading invoice:', error);
       toast({
         title: "Error",
         description: "Error downloading invoice. Please try again.",
@@ -930,11 +897,6 @@ const Invoices = () => {
   };
 
   const openRefundDialog = (invoice: Invoice) => {
-    console.log('Opening refund dialog for invoice:', invoice);
-    console.log('Invoice status:', invoice.status);
-    console.log('Invoice items:', invoice.items);
-    console.log('Invoice items length:', invoice.items?.length || 0);
-    console.log('Invoice items structure:', JSON.stringify(invoice.items, null, 2));
 
     // Check if invoice is already refunded
     if (invoice.status === 'REFUNDED') {
@@ -960,7 +922,6 @@ const Invoices = () => {
 
     // Check if invoice has items
     if (!invoice.items || invoice.items.length === 0) {
-      console.error('No items found in invoice:', invoice);
       toast({
         title: "No Items",
         description: "No items found in this invoice. Cannot process refund.",
@@ -971,9 +932,6 @@ const Invoices = () => {
 
     // Initialize refund items with invoice items
     const items = (invoice.items || []).map(item => {
-      console.log('Mapping item for refund:', item);
-      console.log('Item product:', item.product);
-      console.log('Item batchId:', item.batchId);
       return {
         productId: item.productId,
         productName: item.product?.name || 'Unknown Product',
@@ -985,8 +943,6 @@ const Invoices = () => {
         saleItemId: item.id || null
       };
     });
-
-    console.log('Mapped refund items:', items);
     setRefundItems(items);
     setRefundReason("Customer requested refund");
     setIsRefundDialogOpen(true);
@@ -1020,14 +976,6 @@ const Invoices = () => {
       const totalRefundAmount = itemsToRefund.reduce((total, item) => {
         return total + (item.quantity * item.unitPrice);
       }, 0);
-
-      console.log('Creating refund with data:', {
-        originalSaleId: selectedInvoice.id,
-        refundReason: refundReason,
-        totalRefundAmount: totalRefundAmount,
-        items: itemsToRefund
-      });
-
       const refundData = {
         originalSaleId: selectedInvoice.id,
         refundReason: refundReason,
@@ -1044,7 +992,6 @@ const Invoices = () => {
 
       const response = await apiService.createRefund(refundData);
       if (response.success) {
-        console.log('Refund created successfully:', response.data);
         toast({
           title: "Success",
           description: `Refund created successfully for invoice: ${selectedInvoice.invoiceNumber}. Refund Amount: PKR ${totalRefundAmount.toFixed(2)}`,
@@ -1056,7 +1003,6 @@ const Invoices = () => {
         // Reload invoices to reflect the refund
         loadInvoices();
       } else {
-        console.error('Refund creation failed:', response);
         const errorMessage = response.message || 'Failed to create refund';
         const isAlreadyRefunded = errorMessage.toLowerCase().includes('already refunded') || (response as any).error === 'ALREADY_REFUNDED';
         
@@ -1067,7 +1013,6 @@ const Invoices = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error creating refund:', error);
       const errorMessage = error?.response?.message 
         || error?.response?.data?.message 
         || error?.message 
@@ -1587,7 +1532,6 @@ const Invoices = () => {
                           size="sm"
                           onClick={() => {
                             // Try to reload the invoice data
-                            console.log('Reloading invoice data...');
                             if (selectedInvoice) {
                               openRefundDialog(selectedInvoice);
                             }

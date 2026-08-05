@@ -201,11 +201,6 @@ const Inventory = () => {
 
   // CRITICAL FIX: Reload data when branch OR company changes
   useEffect(() => {
-    console.log('🔄 Branch/Company changed - reloading inventory:', { 
-      selectedBranchId: selectedBranchId || 'All Branches', 
-      selectedCompanyId,
-      userBranchId: user?.branchId
-    });
     // Reset filters on branch/company switch to avoid stale selections
     setSelectedCategory("all");
     setSelectedProductType("all");
@@ -224,7 +219,6 @@ const Inventory = () => {
   // Also listen to custom event for immediate reload
   useEffect(() => {
     const handleReload = () => {
-      console.log('🔄 Custom event: Branch/Company changed - reloading inventory');
       loadData();
     };
     window.addEventListener('branchOrCompanyChanged', handleReload);
@@ -234,28 +228,23 @@ const Inventory = () => {
 
   // Apply filters when filter states or search query changes
   useEffect(() => {
-    console.log('🔄 Filters or search query changed, applying filters...');
     applyFilters();
   }, [selectedCategory, selectedProductType, selectedManufacturer, selectedSupplier, allProducts, searchQuery, showOutOfStock, showLowStock, showExpired]);
 
   // Reload data when showAllProducts changes
   useEffect(() => {
     if (showAllProducts !== false) {
-      console.log('ShowAllProducts changed, reloading data...');
       loadData();
     }
   }, [showAllProducts]);
 
   // Debug: Log products state changes
   useEffect(() => {
-    console.log('🔄 Products state changed:', products.length, 'products');
-    console.log('Products data:', products);
   }, [products]);
 
   // Real-time data synchronization
   useEffect(() => {
     const handleProductChanged = (event: CustomEvent) => {
-      console.log('🔄 Real-time product change received:', event.detail);
       const { action, product } = event.detail;
 
       if (action === 'created') {
@@ -271,7 +260,6 @@ const Inventory = () => {
     };
 
     const handleInventoryChanged = (event: CustomEvent) => {
-      console.log('🔄 Real-time inventory change received:', event.detail);
       const { action, data } = event.detail;
 
       if (action === 'product_added') {
@@ -291,12 +279,10 @@ const Inventory = () => {
     };
 
     const handleSaleChanged = (event: CustomEvent) => {
-      console.log('🔄 Real-time sale change received:', event.detail);
       const { action, sale } = event.detail;
 
       if (action === 'created') {
         // Reload inventory data to reflect stock changes
-        console.log('🔄 Sale created, reloading inventory data...');
         loadData();
       }
     };
@@ -331,15 +317,6 @@ const Inventory = () => {
       setLoading(true);
       setCacheLoading(selectedCompanyId, branchIdForCache, true);
       setError(null);
-
-      console.log('=== INVENTORY LOAD DATA DEBUG ===');
-      console.log('User object:', user);
-      console.log('User role:', user?.role);
-      console.log('User branchId:', user?.branchId);
-      console.log('Admin context:', { selectedBranchId, selectedBranch: selectedBranch?.name });
-      console.log('Current products count:', products.length);
-      console.log('Is user authenticated:', !!user);
-
       // Determine which branch to load products from
       // CRITICAL: When selectedBranchId is null (All Branches), don't pass branchId
       // This allows API to return products from ALL branches of the selected company
@@ -348,93 +325,34 @@ const Inventory = () => {
       if (selectedBranchId) {
         // Specific branch selected - filter by that branch ONLY
         params.branchId = selectedBranchId;
-        console.log('🔍 Selected specific branch - filtering products by branchId:', selectedBranchId, selectedBranch?.name);
       } else {
         // All Branch selected (selectedBranchId is null) - don't pass branchId
         // API will use X-Business-ID header to return all branches' products
         // CRITICAL: Do NOT set user.branchId here - we want ALL branches' data
-        console.log('🔍 All Branch selected - loading all products (no branchId filter)');
-        console.log('🔍 Selected company ID:', selectedCompanyId);
         // Explicitly don't set branchId - let API use X-Business-ID header
       }
-
-      console.log('Calling getProducts API with params:', params);
-      console.log('🔍 Branch filtering details:', {
-        selectedBranchId,
-        paramsBranchId: params.branchId,
-        userBranchId: user?.branchId,
-        selectedCompanyId
-      });
-
       const response = await apiService.getProducts({
         ...params,
         companyId: selectedCompanyId || '',
       });
-      
-      console.log('🔍 API Response check:', {
-        success: response.success,
-        productsCount: response.data?.products?.length || 0,
-        requestedBranchId: params.branchId || 'All Branches'
-      });
-
-      console.log('=== PRODUCTS API RESPONSE ===');
-      console.log('Products API response:', response);
-      console.log('Requesting products for branchId:', params.branchId || 'All Branches');
-      console.log('Response success:', response.success);
-      console.log('Response data:', response.data);
-      console.log('Response data type:', typeof response.data);
-      console.log('Response message:', response.message);
-
       if (response.success && response.data) {
         const allProducts = Array.isArray(response.data.products) ? response.data.products : [];
-        console.log('✅ Total products from API for branch:', params.branchId || 'All Branches', 'Count:', allProducts.length);
-        console.log('✅ Response data structure:', {
-          hasData: !!response.data,
-          hasProducts: !!response.data.products,
-          productsIsArray: Array.isArray(response.data.products),
-          productsLength: response.data.products?.length || 0,
-          selectedBranchId: selectedBranchId || 'All Branches',
-          branchIdForCache: branchIdForCache || 'All Branches',
-          requestedBranchId: params.branchId || 'All Branches'
-        });
         
         // Verify branch filtering - check if all products are from the requested branch
         if (params.branchId && allProducts.length > 0) {
           const uniqueBranchIds = [...new Set(allProducts.map((p: any) => p.branchId))];
-          console.log('🔍 Branch verification:', {
-            requestedBranchId: params.branchId,
-            uniqueBranchIdsInResponse: uniqueBranchIds,
-            allMatch: uniqueBranchIds.length === 1 && uniqueBranchIds[0] === params.branchId
-          });
           if (uniqueBranchIds.length > 1 || (uniqueBranchIds.length === 1 && uniqueBranchIds[0] !== params.branchId)) {
-            console.error('❌ ERROR: Products from wrong branch(s)!', {
-              requested: params.branchId,
-              received: uniqueBranchIds
-            });
           }
         }
         
         if (allProducts.length === 0) {
-          console.warn('⚠️ No products returned from API for branch:', params.branchId || 'All Branches');
         }
         // Log first few products to verify branch filtering
         if (allProducts.length > 0) {
-          console.log('✅ Sample products (first 3):', allProducts.slice(0, 3).map((p: any) => ({
-            name: p.name,
-            branchId: p.branchId,
-            branchName: p.branch?.name
-          })));
         }
 
         // Batch data is now included in the product response
-        console.log('🔄 Processing products with batch data...');
         productsWithBatchData = allProducts.map((product: any) => {
-          console.log(`🔄 Processing product ${product.name}:`, {
-            price: product.price,
-            stock: product.stock,
-            currentBatch: product.currentBatch
-          });
-
           return {
             ...product,
             price: product.price || 0, // Price now comes from batch data
@@ -442,20 +360,16 @@ const Inventory = () => {
             batches: product.batches || [] // Include batches for manufacturer filtering
           };
         });
-
-        console.log('🔄 Products with batch data:', productsWithBatchData);
         const allProductsWithBatchData = productsWithBatchData;
 
         // Filter products based on search and category
         let filteredProducts = allProductsWithBatchData;
 
         if (searchQuery) {
-          console.log('Filtering by search query:', searchQuery);
           filteredProducts = filteredProducts.filter((product: any) =>
             product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             product.barcode?.includes(searchQuery)
           );
-          console.log('Products after search filter:', filteredProducts.length);
         }
 
         // Category filtering removed - all products are shown
@@ -464,15 +378,6 @@ const Inventory = () => {
         const startIndex = 0;
         const endIndex = 10; // Show 10 products by default
         debugProducts = filteredProducts.slice(startIndex, endIndex);
-
-        console.log('Setting products in loadData:', {
-          allProducts: allProducts.length,
-          filteredProducts: filteredProducts.length,
-          paginatedProducts: debugProducts.length,
-          allProductsData: allProducts,
-          filteredProductsData: filteredProducts
-        });
-
         // Store all products for filtering - SET IMMEDIATELY
         setAllProducts(productsWithBatchData);
         setFilteredProductsForPagination(filteredProducts);
@@ -483,22 +388,15 @@ const Inventory = () => {
           total: filteredProducts.length,
           pages: Math.ceil(filteredProducts.length / 10)
         });
-
-        console.log('✅ Products set to state IMMEDIATELY:', debugProducts.length);
-        console.log('Final products data:', debugProducts);
-
         // Cache will be saved after all data is loaded (categories, suppliers, manufacturers)
       } else {
-        console.log('API call failed, trying fallback...');
         // Fallback: try to get products without any parameters
         try {
           const fallbackResponse = await apiService.getProducts({
             companyId: selectedCompanyId || '',
           });
-          console.log('Fallback API response:', fallbackResponse);
           if (fallbackResponse.success && fallbackResponse.data) {
             const fallbackProducts = fallbackResponse.data.products || [];
-            console.log('Fallback products:', fallbackProducts.length);
             setProducts(fallbackProducts);
             setPagination({
               page: 1,
@@ -516,7 +414,6 @@ const Inventory = () => {
             });
           }
         } catch (fallbackError) {
-          console.error('Fallback API call also failed:', fallbackError);
           setProducts([]);
           setPagination({
             page: 1,
@@ -563,7 +460,6 @@ const Inventory = () => {
           categoriesData.push(pc);
         }
       });
-      console.log('🔍 Final categories count:', categoriesData.length);
       setCategories(categoriesData);
 
       // 2. SUPPLIERS
@@ -584,7 +480,6 @@ const Inventory = () => {
           }
         }
       } catch (error) {
-        console.error('Error loading suppliers:', error);
       }
       // Map supplier data to include manufacturer info
       const mappedSuppliers = suppliersData.map((supplier: any) => ({
@@ -601,7 +496,6 @@ const Inventory = () => {
         } : undefined,
         isActive: supplier.isActive
       }));
-      console.log('🔍 Final suppliers count:', mappedSuppliers.length);
       setSuppliers(mappedSuppliers);
 
       // 3. MANUFACTURERS
@@ -617,46 +511,25 @@ const Inventory = () => {
           manufacturersData = manufacturersResponse.data.manufacturers || [];
         }
       } catch (error) {
-        console.error('Error loading manufacturers:', error);
       }
-      console.log('🔍 Final manufacturers count:', manufacturersData.length);
       setManufacturers(manufacturersData);
 
       // Cache saving removed - data caching disabled
-      console.log('✅ Products loaded from database:', {
-        branchId: branchIdForCache || 'All Branches',
-        productsCount: (productsWithBatchData || debugProducts).length,
-        categoriesCount: categoriesData.length,
-        suppliersCount: mappedSuppliers.length,
-        manufacturersCount: manufacturersData.length
-      });
       setLoading(false);
       setCacheLoading(selectedCompanyId, branchIdForCache, false);
 
     } catch (err) {
-      console.error('Error loading data:', err);
-      console.error('Error details:', {
-        message: err?.message,
-        stack: err?.stack,
-        name: err?.name,
-        response: err?.response,
-        status: err?.response?.status,
-        data: err?.response?.data
-      });
-
       // Check if it's a connection error - but be lenient in Electron
       const isElectron = typeof window !== 'undefined' && typeof window.electronAPI !== 'undefined';
 
       if (err.message && err.message.includes('Failed to fetch')) {
         if (isElectron) {
           // In Electron, embedded server should always work - don't show scary error
-          console.error('❌ Failed to load inventory data in Electron:', err);
           setError('Failed to load inventory data. Please refresh the page.');
         } else {
           setError('⚠️ Backend server is not running. Please start the server and refresh the page.');
         }
       } else {
-        console.error('❌ Failed to load inventory data:', err);
         setError(err.message || 'Failed to load inventory data. Please try again.');
 
         // Clear data - do NOT set fallback/demo data
@@ -763,7 +636,6 @@ const Inventory = () => {
         });
       }
     } catch (error) {
-      console.error('Error saving extracted data:', error);
       toast({
         title: "Error",
         description: "Failed to save product information",
@@ -981,9 +853,6 @@ const Inventory = () => {
         color: formData.color || '#3B82F6',
         branchId: branchId // Always include branchId
       };
-
-      console.log('🔍 Creating category with data:', categoryData);
-
       // Create category via API with timeout
       const response = await Promise.race([
         apiService.createCategory(categoryData),
@@ -991,12 +860,7 @@ const Inventory = () => {
           setTimeout(() => reject(new Error('Request timeout. Please try again.')), 30000)
         )
       ]) as any;
-
-      console.log('🔍 Category creation response:', response);
-
       if (response && response.success) {
-        console.log('✅ Category created successfully:', response.data);
-
         // Close dialog first
         setIsCreateCategoryDialogOpen(false);
 
@@ -1015,7 +879,6 @@ const Inventory = () => {
         });
       } else {
         const errorMessage = response?.message || "Failed to create category";
-        console.error('❌ Category creation failed:', errorMessage);
         toast({
           title: "Creation Failed",
           description: errorMessage,
@@ -1023,7 +886,6 @@ const Inventory = () => {
         });
       }
     } catch (error: any) {
-      console.error('❌ Error creating category:', error);
       const errorMessage = error?.message || error?.response?.message || "Failed to create category. Please try again.";
       toast({
         title: "Creation Error",
@@ -1079,7 +941,6 @@ const Inventory = () => {
             branchId = allBranches[0].id;
           }
         } catch (e) {
-          console.log('Could not fetch branches:', e);
           // If still no branch, use first from context
           if (allBranches && allBranches.length > 0) {
             branchId = allBranches[0].id;
@@ -1171,8 +1032,6 @@ const Inventory = () => {
         const response = await apiService.createProduct(productData);
 
         if (response.success && response.data) {
-          console.log('Product created successfully:', response.data);
-
           // Dispatch event to notify other components
           window.dispatchEvent(new CustomEvent('productCreated', {
             detail: { product: response.data }
@@ -1237,7 +1096,6 @@ const Inventory = () => {
                 }));
               }
             } catch (error) {
-              console.error('Error reloading data after product creation:', error);
             }
           }, 500); // Small delay to ensure backend has processed
         } else {
@@ -1255,7 +1113,6 @@ const Inventory = () => {
           });
         }
       } catch (error: any) {
-        console.error('Error adding product:', error);
         // Rollback on error - remove temp product
         setProducts(products); // Restore original list
         setPagination(prev => ({
@@ -1276,7 +1133,6 @@ const Inventory = () => {
       }
     } catch (outerError: any) {
       // Handle any errors in the outer try block (validation errors, etc.)
-      console.error('Outer error in handleAddMedicine:', outerError);
       setIsAdding(false);
     }
   };
@@ -1287,13 +1143,10 @@ const Inventory = () => {
     
     try {
       // Fetch fresh product data from API to ensure we have the latest information
-      console.log('🔍 Fetching fresh product data for edit:', product.id);
       const response = await apiService.getProduct(product.id);
       
       if (response.success && response.data) {
         const freshProduct = response.data;
-        console.log('🔍 Fresh product data:', freshProduct);
-        
         setEditingProduct(product); // Keep original product for reference
         setNewMedicine({
           name: freshProduct.name || product.name,
@@ -1307,7 +1160,6 @@ const Inventory = () => {
         setLoading(false); // Ensure loading is false when dialog opens
       } else {
         // Fallback to using product from table if API fails
-        console.warn('⚠️ Failed to fetch fresh product, using cached data');
         setEditingProduct(product);
         setNewMedicine({
           name: product.name,
@@ -1321,7 +1173,6 @@ const Inventory = () => {
         setLoading(false); // Ensure loading is false when dialog opens
       }
     } catch (error) {
-      console.error('Error fetching product for edit:', error);
       // Fallback to using product from table if API fails
       setEditingProduct(product);
       setNewMedicine({
@@ -1376,17 +1227,10 @@ const Inventory = () => {
         unitsPerPack: 1
       };
 
-      console.log('Updating product with data:', productData);
-      console.log('Editing product (source):', editingProduct);
-
       // Update product via API
-      console.log('🔍 Calling updateProduct API with:', { id: editingProduct.id, data: productData });
       const response = await apiService.updateProduct(editingProduct.id, productData);
-      console.log('🔍 Update product API response:', response);
-      
       // CRITICAL: Ensure loading is reset even if response format is unexpected
       if (!response || typeof response !== 'object') {
-        console.error('❌ Invalid API response format:', response);
         toast({
           title: "Update Error",
           description: "Invalid response from server. Please try again.",
@@ -1397,8 +1241,6 @@ const Inventory = () => {
       }
 
         if (response.success) {
-        console.log('✅ Product updated successfully:', response.data);
-
         // Dispatch event to notify other components
         window.dispatchEvent(new CustomEvent('productUpdated', {
           detail: { product: response.data }
@@ -1444,7 +1286,6 @@ const Inventory = () => {
             });
           }
         } catch (error) {
-          console.error('Error reloading data after product update:', error);
           await loadData();
         }
 
@@ -1467,8 +1308,6 @@ const Inventory = () => {
           variant: "default",
         });
       } else {
-        console.error('❌ Failed to update product:', response.message);
-        console.error('Validation errors:', (response as any).errors);
         toast({
           title: "Update Failed",
           description: `Failed to update product: ${response.message}. Errors: ${(response as any).errors?.join(', ') || 'Unknown error'}`,
@@ -1477,8 +1316,6 @@ const Inventory = () => {
         setLoading(false); // CRITICAL: Reset loading state on failure
       }
     } catch (error: any) {
-      console.error('Error updating product:', error);
-      console.error('Error details:', error.response?.data);
       toast({
         title: "Update Error",
         description: `Failed to update product: ${error.message || 'Unknown error'}`,
@@ -1511,13 +1348,7 @@ const Inventory = () => {
 
     // Delete via API first (blocking)
     try {
-      console.log('🗑️ Deleting product:', productToDelete.id, productToDelete.name);
       const response = await apiService.deleteProduct(productToDelete.id);
-      console.log('🗑️ Delete product response:', response);
-      console.log('🗑️ Response type:', typeof response);
-      console.log('🗑️ Response success:', response?.success);
-      console.log('🗑️ Response message:', response?.message);
-
       // CRITICAL FIX: Check response.success explicitly (can be true, 'true', or undefined)
       const isSuccess = response && (
         response.success === true || 
@@ -1527,7 +1358,6 @@ const Inventory = () => {
 
       if (!isSuccess) {
         // Rollback on failure
-        console.error('🗑️ Delete failed:', response?.message || 'Unknown error');
         setProducts(previousProducts);
         setPagination(prev => ({
           ...prev,
@@ -1542,8 +1372,6 @@ const Inventory = () => {
         // Keep dialog open on failure
         setLoading(false);
       } else {
-        console.log('✅ Product deleted successfully');
-        
         // OPTIMISTIC UPDATE: Remove product from list
         const updatedProducts = products.filter(p => p.id !== productToDelete.id);
         setProducts(updatedProducts);
@@ -1610,14 +1438,12 @@ const Inventory = () => {
               });
             }
           } catch (error) {
-            console.error('Error reloading data after product deletion:', error);
             // Silently reload in background
             loadData().catch(() => {});
           }
         }, 0);
       }
     } catch (error: any) {
-      console.error('Error deleting product:', error);
       // Rollback on error
       setProducts(previousProducts);
       setPagination(prev => ({
@@ -1726,12 +1552,10 @@ const Inventory = () => {
           try {
             await loadData();
           } catch (error) {
-            console.error('Error reloading data after bulk deletion:', error);
           }
         }, 0);
       }
     } catch (error) {
-      console.error('Error bulk deleting products:', error);
       // Rollback on error
       setProducts(previousProducts);
       setPagination(prev => ({
@@ -1800,7 +1624,6 @@ const Inventory = () => {
         variant: "default",
       });
     } catch (error) {
-      console.error('Error exporting inventory:', error);
       toast({
         title: "Export Error",
         description: "Error exporting inventory. Please try again.",
@@ -1857,20 +1680,13 @@ const Inventory = () => {
         const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
 
         // Parse data rows
-        console.log('Parsing CSV data...');
-        console.log('Headers:', headers);
-        console.log('Total lines:', lines.length);
-
         extractedData = lines.slice(1).map((line, index) => {
-          console.log(`Processing line ${index + 1}:`, line);
           const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          console.log(`Split values:`, values);
           const row: any = {};
 
           headers.forEach((header, headerIndex) => {
             const value = values[headerIndex] || '';
             const lowerHeader = header.toLowerCase().trim();
-            console.log(`Header "${header}" (${lowerHeader}) -> Value: "${value}"`);
 
             // More flexible header matching
             if (lowerHeader.includes('name') || lowerHeader.includes('product') || lowerHeader === 'name') {
@@ -1902,12 +1718,9 @@ const Inventory = () => {
           // Ensure stock is always a valid number (default to 0 if not provided)
           row.stock = parseInt(row.stock) || 0;
           if (!row.requiresPrescription) row.requiresPrescription = false;
-
-          console.log(`Parsed row ${index + 1}:`, row);
           return row;
         }).filter(row => {
           const hasName = !!row.name && row.name.trim() !== '';
-          console.log(`Row "${row.name}" has name: ${hasName}`);
           return hasName;
         }); // Only include rows with product names
       } else {
@@ -1919,10 +1732,6 @@ const Inventory = () => {
         });
         return;
       }
-
-      console.log('Extracted data:', extractedData);
-      console.log('Total extracted products:', extractedData.length);
-
       if (extractedData.length === 0) {
         toast({
           title: "Invalid Data",
@@ -1931,30 +1740,12 @@ const Inventory = () => {
         });
         return;
       }
-
-      console.log('=== FILE PARSING COMPLETE ===');
-      console.log('Total products extracted:', extractedData.length);
-      console.log('All extracted products:', extractedData);
-
       // Validate extracted data with more lenient validation
       const validProducts = extractedData.filter(product => {
         const hasName = product.name && product.name.trim() !== '';
         const hasPrice = product.sellingPrice && !isNaN(parseFloat(product.sellingPrice)) && parseFloat(product.sellingPrice) > 0;
-
-        console.log(`Product "${product.name}" validation:`, {
-          hasName,
-          hasPrice,
-          sellingPrice: product.sellingPrice,
-          sellingPriceType: typeof product.sellingPrice
-        });
-
         return hasName && hasPrice;
       });
-
-      console.log('Valid products after validation:', validProducts.length);
-      console.log('All extracted products:', extractedData);
-      console.log('Valid products:', validProducts);
-
       if (validProducts.length === 0) {
         toast({
           title: "No Valid Products",
@@ -1974,7 +1765,6 @@ const Inventory = () => {
       setImportedProducts(validProducts);
       setIsPreviewDialogOpen(true);
     } catch (error) {
-      console.error('Error processing file:', error);
       toast({
         title: "File Processing Error",
         description: "Error processing file. Please try again or convert Excel to CSV format.",
@@ -2090,7 +1880,6 @@ const Inventory = () => {
         variant: "default",
       });
     } catch (error) {
-      console.error('Error processing images:', error);
       toast({
         title: "Image Processing Error",
         description: error instanceof Error ? error.message : "Error processing images. Please try again.",
@@ -2123,12 +1912,6 @@ const Inventory = () => {
       const productsToImport = [];
       const createdCategories = [];
       const createdSuppliers = [];
-
-      console.log('=== PREPARING PRODUCTS FOR IMPORT ===');
-      console.log('Imported products count:', importedProducts.length);
-      console.log('Available categories:', categories);
-      console.log('Available suppliers:', suppliers);
-
       // Get branchId once for all products
       let branchId = selectedBranchId || user?.branchId || undefined;
 
@@ -2140,7 +1923,6 @@ const Inventory = () => {
             const parsedUser = JSON.parse(storedUser);
             branchId = parsedUser.branch?.id;
           } catch (e) {
-            console.error('Error parsing stored user:', e);
           }
         }
       }
@@ -2151,9 +1933,7 @@ const Inventory = () => {
           const branchesResponse = await apiService.getBranches();
           if (branchesResponse.success && branchesResponse.data?.branches?.length > 0) {
             branchId = branchesResponse.data.branches[0].id;
-            console.log('Using first available branch:', branchId);
           } else {
-            console.error('No branches available');
             toast({
               title: "No Branches",
               description: "No branches available. Please contact administrator.",
@@ -2163,7 +1943,6 @@ const Inventory = () => {
             return;
           }
         } catch (e) {
-          console.error('Error fetching branches:', e);
           toast({
             title: "Error",
             description: "Error fetching branches. Please try again.",
@@ -2173,15 +1952,7 @@ const Inventory = () => {
           return;
         }
       }
-
-      console.log('=== BRANCH ID DETERMINED ===');
-      console.log('Final branchId for all products:', branchId);
-      console.log('BranchId type:', typeof branchId);
-
       for (const productData of importedProducts) {
-        console.log(`\n--- Processing product: ${productData.name} ---`);
-        console.log('Product data:', productData);
-
         // Find category ID - try exact match first, then partial match
         let category = categories.find(cat =>
           cat.name.toLowerCase() === productData.category.toLowerCase()
@@ -2231,49 +2002,23 @@ const Inventory = () => {
             );
           }
         }
-
-        console.log('Found category:', category);
-        console.log('Available categories:', categories.map(c => ({ id: c.id, name: c.name })));
-        console.log('Final category name to use:', finalCategoryName);
-
         // Set category data for backend
         if (category) {
           // Category exists, use its ID
           productData.categoryId = category.id;
           productData.categoryName = undefined; // Not needed since category exists
-          console.log(`Using existing category: ${category.name} (ID: ${category.id})`);
         } else {
           // Category doesn't exist, let backend create it automatically
-          console.log(`Category "${finalCategoryName}" not found, will be created automatically by backend`);
           productData.categoryName = finalCategoryName;
           productData.categoryId = 'auto-create'; // Placeholder, backend will handle this
         }
 
         // Supplier is assigned at batch level, not product level
-
-        console.log('=== BULK IMPORT DEBUG ===');
-        console.log(`Using branchId for product ${productData.name}:`, branchId);
-        console.log('User object:', user);
-        console.log('Using default branchId');
-        console.log('Final branchId:', branchId);
-        console.log('BranchId type:', typeof branchId);
-        console.log('BranchId length:', branchId?.length);
-
         // Ensure all numeric fields are properly converted
         const sellingPrice = parseFloat(productData.sellingPrice) || 0;
         const costPrice = parseFloat(productData.costPrice) || (sellingPrice * 0.7); // Default to 70% of selling price
         const stock = parseInt(productData.stock) || 0;
         const minStock = parseInt(productData.minStock) || 10;
-
-        console.log(`Product ${productData.name} numeric conversion:`, {
-          originalSellingPrice: productData.sellingPrice,
-          convertedSellingPrice: sellingPrice,
-          originalCostPrice: productData.costPrice,
-          convertedCostPrice: costPrice,
-          originalStock: productData.stock,
-          convertedStock: stock
-        });
-
         const productToImport = {
           name: productData.name.trim(),
           description: (productData.description || "").trim(),
@@ -2295,21 +2040,11 @@ const Inventory = () => {
 
         // Final validation before adding to import list
         if (!productToImport.name || productToImport.sellingPrice <= 0) {
-          console.error(`Skipping invalid product: ${productData.name}`, {
-            name: productToImport.name,
-            sellingPrice: productToImport.sellingPrice
-          });
           continue;
         }
 
         productsToImport.push(productToImport);
-        console.log(`Added product to import list: ${productData.name}`);
-        console.log('Product to import:', productToImport);
       }
-
-      console.log(`Total products prepared for import: ${productsToImport.length} out of ${importedProducts.length}`);
-      console.log('Products to import:', productsToImport);
-
       if (productsToImport.length === 0) {
         toast({
           title: "No Valid Products",
@@ -2321,17 +2056,9 @@ const Inventory = () => {
       }
 
       // Call bulk import API
-      console.log('=== CALLING BULK IMPORT API ===');
-      console.log('Products to import:', productsToImport);
-      console.log('Number of products:', productsToImport.length);
-      console.log('API Base URL:', config.api.baseUrl);
-      console.log('Auth: using httpOnly cookies');
-      console.log('User from context:', user);
-
       // Validate products before sending
       const invalidProducts = productsToImport.filter(p => !p.name || p.sellingPrice <= 0 || !p.branchId);
       if (invalidProducts.length > 0) {
-        console.error('Invalid products found:', invalidProducts);
         toast({
           title: "Invalid Products",
           description: `Found ${invalidProducts.length} invalid products. Please check the data and try again.`,
@@ -2343,15 +2070,8 @@ const Inventory = () => {
 
       let response;
       try {
-        console.log('Sending request to backend...');
         response = await apiService.bulkImportProducts(productsToImport);
-        console.log('=== BULK IMPORT API RESPONSE ===');
-        console.log('Response:', response);
-        console.log('Response success:', response.success);
-        console.log('Response data:', response.data);
-
         if (!response.success) {
-          console.error('API call failed:', response.message);
           toast({
             title: "Import Failed",
             description: `Import failed: ${response.message}`,
@@ -2361,11 +2081,6 @@ const Inventory = () => {
           return;
         }
       } catch (error) {
-        console.error('=== BULK IMPORT API ERROR ===');
-        console.error('Error details:', error);
-        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-        console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
-
         // More detailed error message
         let errorMessage = 'Unknown error occurred';
         if (error instanceof Error) {
@@ -2392,55 +2107,34 @@ const Inventory = () => {
       }
 
       if (response && response.success) {
-        console.log('Bulk import successful, reloading data...');
-        console.log('Import response data:', response.data);
-        console.log('Successful products:', response.data.successful);
-        console.log('Failed products:', response.data.failed);
-
         // Reset filters to show all products
         setSelectedCategory("all");
         setSearchQuery("");
         setPagination(prev => ({ ...prev, page: 1 }));
 
         // Reload data - fetch products for the current branch to ensure imported products are visible
-        console.log('About to reload data...');
-        console.log('Using branchId for reload:', branchId);
-        console.log('BranchId type for reload:', typeof branchId);
-        console.log('BranchId length for reload:', branchId?.length);
-
         try {
           const allProductsResponse = await apiService.getProducts({
             limit: 10000,
             branchId: branchId,
             companyId: selectedCompanyId || '',
           });
-          console.log('All products response after import:', allProductsResponse);
-
           if (allProductsResponse.success && allProductsResponse.data) {
             const allProducts = allProductsResponse.data.products;
-            console.log('Total products after import:', allProducts.length);
-            console.log('All products data:', allProducts);
-
             // If no products found with branch filter, try without branch filter
             if (allProducts.length === 0) {
-              console.log('No products found with branch filter, trying without branch filter...');
               const allProductsResponseNoFilter = await apiService.getProducts({
                 limit: 10000,
                 companyId: selectedCompanyId || '',
               });
-              console.log('All products response (no filter):', allProductsResponseNoFilter);
 
               if (allProductsResponseNoFilter.success && allProductsResponseNoFilter.data) {
                 const allProductsNoFilter = allProductsResponseNoFilter.data.products;
-                console.log('Total products (no filter):', allProductsNoFilter.length);
-                console.log('All products data (no filter):', allProductsNoFilter);
 
                 // Filter products by branchId manually
                 const branchFilteredProducts = allProductsNoFilter.filter(product =>
                   product.branch?.id === branchId
                 );
-                console.log('Manually filtered products for branch:', branchFilteredProducts.length);
-                console.log('Branch IDs in products:', allProductsNoFilter.map(p => ({ name: p.name, branchId: p.branch.id })));
 
                 // Use manually filtered products
                 const filteredProducts = branchFilteredProducts;
@@ -2458,8 +2152,6 @@ const Inventory = () => {
                   pages: Math.ceil(filteredProducts.length / 50)
                 });
 
-                console.log('Products updated after import (manual filter):', paginatedProducts.length);
-                console.log('Updated products list (manual filter):', paginatedProducts);
               }
             } else {
               // Since we reset filters, show all products without any filtering
@@ -2477,18 +2169,12 @@ const Inventory = () => {
                 total: filteredProducts.length,
                 pages: Math.ceil(filteredProducts.length / 50)
               });
-
-              console.log('Products updated after import:', paginatedProducts.length);
-              console.log('Updated products list:', paginatedProducts);
             }
           }
         } catch (error) {
-          console.error('Error reloading data after import:', error);
           // Fallback to regular loadData
           await loadData();
         }
-        console.log('Data reload completed');
-
         // Close dialogs
         setIsPreviewDialogOpen(false);
         setIsImportDialogOpen(false);
@@ -2530,14 +2216,6 @@ const Inventory = () => {
           description: message,
           variant: "destructive",
         });
-
-        console.log('Import completed successfully:', {
-          total: response.data.total,
-          successful: response.data.successCount,
-          skipped: skippedCount,
-          failed: actualFailureCount,
-          successfulProducts: response.data.successful.length
-        });
       } else {
         toast({
           title: "Import Failed",
@@ -2546,7 +2224,6 @@ const Inventory = () => {
         });
       }
     } catch (error) {
-      console.error('Error importing products:', error);
       toast({
         title: "Import Error",
         description: "Error importing products. Please try again.",
@@ -2726,8 +2403,6 @@ const Inventory = () => {
                   const categoryBranchId = user?.role === 'OWNER'
                     ? (selectedBranchId || user?.branchId || "")
                     : (user?.branchId || "");
-                  
-                  console.log('🔍 Reloading categories for dialog, branchId:', categoryBranchId);
                   const categoriesResponse = await apiService.getCategories({
                     branchId: categoryBranchId,
                     limit: 1000 // Get all categories
@@ -2744,12 +2419,9 @@ const Inventory = () => {
                     } else if (responseData.data && Array.isArray(responseData.data)) {
                       categoriesData = responseData.data;
                     }
-                    
-                    console.log('🔍 Categories reloaded for dialog:', categoriesData.length);
                     setCategories(categoriesData);
                   }
                 } catch (error) {
-                  console.error('Error reloading categories for dialog:', error);
                 }
               };
               loadCategoriesForDialog();

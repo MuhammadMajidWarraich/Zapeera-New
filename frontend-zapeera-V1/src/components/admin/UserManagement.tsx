@@ -272,7 +272,6 @@ const UserManagement = () => {
       setFormErrors((prev) => ({ ...prev, [field]: '' }));
       return true;
     } catch (error) {
-      console.error(`Error checking ${field} uniqueness:`, error);
       return true;
     } finally {
       setIsCheckingUnique(false);
@@ -365,17 +364,14 @@ const UserManagement = () => {
       // CRITICAL: Skip cached data if any user has an invalid ID (prevents corruption from old cache)
       const hasInvalidIds = cached.data.users.some((u: User) => !u.id || typeof u.id !== 'string' || u.id.trim() === '');
       if (hasInvalidIds) {
-        console.warn('⚠️ useLayoutEffect: Cached data has invalid IDs, skipping cache');
         setIsLoading(true);
       } else {
-        console.log('⚡ useLayoutEffect: Restoring Staff from cache IMMEDIATELY (before render)');
         // Filter out deleted users from cache
         const filteredCachedUsers = cached.data.users.filter((u: User) => !deletedUserIds.has(u.id));
         if (filteredCachedUsers.length > 0) {
           setUsers(filteredCachedUsers);
           setIsLoading(false);
           setCacheLoading(selectedCompanyId, branchIdForCache, false);
-          console.log(`⚡ Restored ${filteredCachedUsers.length} staff members from cache - UI will show immediately`);
         }
       }
     } else {
@@ -386,10 +382,6 @@ const UserManagement = () => {
 
   // CRITICAL FIX: Reload users when selectedCompanyId or selectedBranchId changes
   useEffect(() => {
-    console.log('[UserManagement] selectedCompanyId or selectedBranchId changed - reloading users', {
-      selectedCompanyId,
-      selectedBranchId: selectedBranchId || 'All Branches'
-    });
     // DON'T clear users - useLayoutEffect will show cached data immediately
     // Then refresh in background
     void loadBranches();
@@ -431,7 +423,6 @@ const UserManagement = () => {
           setBusinessPlanName("");
         }
       } catch (error) {
-        console.error('Failed to load business user limits:', error);
         setBusinessUserLimit(undefined);
         setBusinessPlanName("");
       }
@@ -462,8 +453,6 @@ const UserManagement = () => {
         const cached = getCachedData(selectedCompanyId, branchIdForCache);
         
         if (cached && cached.data && cached.data.users && cached.data.users.length > 0) {
-          console.log('✅ Cache exists - data already shown by useLayoutEffect, refreshing in background...');
-          
           // Check if cache is fresh - if yes, skip API call
           const cacheAge = Date.now() - cached.timestamp;
           const cacheValid = isCacheValid(cached);
@@ -472,15 +461,12 @@ const UserManagement = () => {
             // CRITICAL: Skip cache if any user has an invalid ID (prevents corruption from old cache)
             const hasInvalidIds = cached.data.users.some((u: User) => !u.id || typeof u.id !== 'string' || u.id.trim() === '');
             if (hasInvalidIds) {
-              console.warn('⚠️ Cache has invalid IDs, treating as stale');
             } else {
-              console.log('✅ Cache is fresh, skipping API call');
               setIsLoading(false);
               setCacheLoading(selectedCompanyId, branchIdForCache, false);
               return; // Cache is fresh, no need to fetch
             }
           } else {
-            console.log('🔄 Cache is stale, refreshing in background (non-blocking)...');
             // Continue to fetch fresh data in background (don't show loading)
             setIsLoading(false); // Don't show loading since we have cache
           }
@@ -498,16 +484,6 @@ const UserManagement = () => {
       // API service automatically includes X-Business-ID and X-Branch-ID headers
       // When selectedBranchId is null (All Branch), X-Branch-ID header won't be sent
       // When selectedBranchId is set, X-Branch-ID header will be sent
-      console.log('📡 Fetching staff from API:', {
-        companyId: selectedCompanyId,
-        branchId: branchIdForCache || 'All Branches',
-        currentUserRole,
-        currentUserId,
-        expectedHeadersSent: {
-          'X-Business-ID': selectedCompanyId ? '(will be sent)' : '(not sent)',
-          'X-Branch-ID': branchIdForCache ? '(will be sent)' : '(not sent)'
-        }
-      });
 
       // When a specific branch is selected from the global branch switcher, we must load staff
       // via /users?branchId=... (backend resolves branch assignment via memberships->branches).
@@ -549,15 +525,6 @@ const UserManagement = () => {
       const isMembershipList = Boolean(selectedCompanyId) && !selectedBranchId && Array.isArray(response.data);
       const usersSource = isMembershipList ? response.data : (response.data as any)?.users;
 
-      console.log('📊 API Response received:', {
-        success: response.success,
-        hasData: !!response.data,
-        isMembershipList,
-        userCount: Array.isArray(usersSource) ? usersSource.length : 0,
-        pagination: (response.data as any)?.pagination,
-        responseKeys: Object.keys(response || {}),
-        firstUserPreview: Array.isArray(usersSource) && usersSource.length > 0 ? { id: usersSource[0].id || usersSource[0].userId, name: usersSource[0].user?.name || usersSource[0].name, role: usersSource[0].role || usersSource[0].user?.role } : 'none'
-      });
       
       // Check if we have cache - if yes, update silently without changing UI
       const hasCache = !forceRefresh && getCachedData(selectedCompanyId, branchIdForCache)?.data?.users;
@@ -612,18 +579,15 @@ const UserManagement = () => {
         const filteredUsers = companyFilteredUsers.filter((user: User) => {
           // CRITICAL: If user was recently created, always include them (bypass all filters)
           if (recentlyCreatedUserIds.has(user.id)) {
-            console.log(`✅ User ${user.username} recently created - always showing`);
             return true;
           }
 
           // For OWNER users, show all users returned by backend (backend already scoped by company)
           if (currentUserRole === 'OWNER') {
             if (currentUserId && user.createdBy === currentUserId) {
-              console.log(`✅ OWNER: User ${user.username} created by current user (${currentUserId}) - always showing`);
               return true;
             }
             // Show all users returned by backend for this company
-            console.log(`✅ OWNER: Showing user ${user.username} (role: ${user.role}) - backend filtered`);
             return true;
           }
 
@@ -659,7 +623,6 @@ const UserManagement = () => {
                 ...updatedUser,
                 companyId: updatedUser.companyId || undefined,
               } as any;
-              console.log('✏️ ✅ Preserved recently updated user during reload:', updatedUser.name);
             } else if (!mergedUserIds.has(updatedUser.id)) {
               // Add if not in backend response
               mergedUsers.unshift({
@@ -667,7 +630,6 @@ const UserManagement = () => {
                 companyId: updatedUser.companyId || undefined,
               } as any);
               mergedUserIds.add(updatedUser.id);
-              console.log('✏️ ✅ Added recently updated user during reload:', updatedUser.name);
             }
           });
 
@@ -715,11 +677,8 @@ const UserManagement = () => {
 
           // FINAL CHECK: Verify all recently created users are in the final list
           const finalRecentlyCreatedCount = mergedUsers.filter(u => recentlyCreatedUserIds.has(u.id)).length;
-          console.log('✅ [loadUsers] Final merged users count:', mergedUsers.length, 'Recently created in final list:', finalRecentlyCreatedCount, '/', recentlyCreatedUserIds.size);
           if (finalRecentlyCreatedCount < recentlyCreatedUserIds.size) {
-            console.error('❌ [loadUsers] WARNING: Some recently created users are missing from final list!');
             const missingIds = Array.from(recentlyCreatedUserIds).filter(id => !mergedUsers.some(u => u.id === id));
-            console.error('❌ [loadUsers] Missing IDs:', missingIds);
           }
           
           // CRITICAL: Cache the final merged users using DashboardDataContext
@@ -729,8 +688,6 @@ const UserManagement = () => {
             users: finalUsers
           };
           setCachedData(selectedCompanyId, branchIdForCache, dataToCache);
-          console.log('✅ Cached staff data:', mergedUsers.length, 'users for branch:', branchIdForCache || 'All Branches');
-          
           return finalUsers;
         });
 
@@ -738,11 +695,9 @@ const UserManagement = () => {
           setError(`Found ${usersData.length} Staff but none are MANAGER or CASHIER roles. Only ${usersData.map((u: User) => u.role).join(', ')} roles found.`);
         }
       } else {
-        console.error('API response not successful:', response);
         setError(response.message || "Failed to load staff");
       }
     } catch (error) {
-      console.error('Error loading staff:', error);
       setError(error instanceof Error ? error.message : "Failed to load staff. Please try again.");
     } finally {
       setIsLoading(false);
@@ -760,10 +715,8 @@ const UserManagement = () => {
           name: branch.name,
           companyId: branch.companyId || branch.company?.id
         })));
-        console.log('📍 Loaded branches for staff filtering:', branchesData.length, 'selectedCompanyId:', selectedCompanyId, 'selectedBranchId:', selectedBranchId);
       }
     } catch (error) {
-      console.error('Error loading branches:', error);
     }
   };
 
@@ -772,10 +725,8 @@ const UserManagement = () => {
       const response = await apiService.getCompanies();
       if (response.success && response.data) {
         setCompanies(response.data);
-        console.log('🏢 Loaded companies:', response.data.length);
       }
     } catch (error) {
-      console.error('Error loading companies:', error);
     }
   };
 
@@ -796,7 +747,6 @@ const UserManagement = () => {
       const matchesStatus = selectedStatus === "all" || 
                            (selectedStatus === "active" && user.businessAccessGranted !== false) ||
                            (selectedStatus === "inactive" && user.businessAccessGranted === false);
-      console.log(`✅ Owner user ${user.username} - bypassing all filters except search and status`);
       if (!searchTerm && matchesStatus) {
         return true; // Show owner if no search and status matches
       }
@@ -824,7 +774,6 @@ const UserManagement = () => {
       const matchesStatus = selectedStatus === "all" || 
                            (selectedStatus === "active" && user.businessAccessGranted !== false) ||
                            (selectedStatus === "inactive" && user.businessAccessGranted === false);
-      console.log(`✅ Recently created user ${user.username} - bypassing filters (no branch selected)`);
       if (!searchTerm && matchesStatus) {
         return true; // Show all recently created users if no search and status matches
       }
@@ -874,7 +823,6 @@ const UserManagement = () => {
 
     // CRITICAL FIX: For business creators, show users they created, but respect branch filter when selected
     if (getEffectiveRole() === 'OWNER' && user.createdBy === currentUser?.id) {
-      console.log(`✅ OWNER created user ${user.username} - respecting branch filter`);
       const matchesSearch = !searchTerm || user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            user.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1276,7 +1224,6 @@ const UserManagement = () => {
 
           // Reload in background to ensure consistency
           setTimeout(() => {
-            loadUsers(false).catch(err => console.error('Background reload error:', err));
           }, 500);
         } else {
           // If API call failed, remove the optimistic user
@@ -1307,8 +1254,6 @@ const UserManagement = () => {
       .catch((error: any) => {
         // If API call failed, remove the optimistic user
         setUsers(prev => prev.filter(u => u.id !== tempId));
-        
-        console.error('Error creating user:', error);
         const errBody = error?.response;
         const errorMessage =
           (errBody && typeof errBody === "object" && "message" in errBody
@@ -1445,7 +1390,6 @@ const UserManagement = () => {
       });
       return;
     }
-    console.log('✏️ Editing user:', user);
     setSelectedUser(user);
     setNewUser({
       name: user.name,
@@ -1477,7 +1421,6 @@ const UserManagement = () => {
     // Validate user ID before update
     const userId = selectedUser.id;
     if (!userId || typeof userId !== 'string' || userId.trim() === '') {
-      console.error('Invalid user ID for update:', userId);
       toast({
         title: "Error",
         description: "Cannot update user: invalid user ID. Please refresh the page and try again.",
@@ -1609,7 +1552,6 @@ const UserManagement = () => {
           
           // Reload in background to ensure consistency
           setTimeout(() => {
-            loadUsers(false).catch(err => console.error('Background reload error:', err));
           }, 500);
         } else {
           // If API call failed, revert the optimistic update
@@ -1626,8 +1568,6 @@ const UserManagement = () => {
       .catch((error: any) => {
         // If API call failed, revert the optimistic update
         setUsers(prev => prev.map(u => u.id === userId ? originalUser : u));
-        
-        console.error('Error updating user:', error);
         const errorMessage = error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to update staff';
         
         toast({
@@ -1779,7 +1719,6 @@ const UserManagement = () => {
         });
       }
     } catch (error: any) {
-      console.error("Error updating business access:", error);
       const errorMessage =
         error?.response?.data?.message || error?.message || "Failed to update business access";
       setError(errorMessage);
@@ -2845,4 +2784,3 @@ const UserManagement = () => {
 
 // Memoize the component to prevent unnecessary re-renders
 export default React.memo(UserManagement);
-

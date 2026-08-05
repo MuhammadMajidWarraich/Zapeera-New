@@ -43,7 +43,7 @@ if (process.env.NODE_ENV !== 'production') {
       });
     } catch (error: any) {
       console.error('[Test Email] Error:', error);
-      res.status(500).json({ success: false, message: error.message, stack: error.stack });
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 }

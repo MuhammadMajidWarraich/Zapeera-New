@@ -41,7 +41,6 @@ const safeFormatDate = (dateLike: string | Date | number | undefined | null, pat
   try {
     return format(d, pattern);
   } catch (error) {
-    console.warn('Error formatting date:', dateLike, error);
     return fallback;
   }
 };
@@ -69,7 +68,6 @@ const safeFormatDateForInput = (dateLike: string | Date | number | undefined | n
   try {
     return format(d, 'yyyy-MM-dd');
   } catch (error) {
-    console.warn('Error formatting date for input:', dateLike, error);
     return '';
   }
 };
@@ -237,15 +235,6 @@ const Batches = () => {
           branchId = user.branchId;
         }
       }
-      
-      console.log('🔍 Loading batches with params:', {
-        page: 1,
-        limit: 100,
-        search: searchTerm,
-        isActive: activeTab === 'active',
-        isReported: activeTab === 'reported',
-        branchId: branchId,
-      });
       // CRITICAL FIX: Explicitly set isReported based on activeTab
       // When activeTab is 'reported', set isReported to true
       // When activeTab is 'active', set isReported to false to exclude reported batches
@@ -257,24 +246,9 @@ const Batches = () => {
         isReported: activeTab === 'reported' ? true : false, // Explicitly set: true for reported, false for active
         branchId: branchId,
       });
-      
-      console.log('🔍 Batches API call - activeTab:', activeTab, 'isReported:', activeTab === 'reported' ? true : false);
-      console.log('🔍 Batches API response:', response);
-      console.log('🔍 Response success:', response.success);
-      console.log('🔍 Response data:', response.data);
-
       if (response.success) {
-        console.log('🔍 Raw batches from API:', response.data.batches);
         // Debug: Log first batch's expireDate to see what format it's in
         if (response.data.batches.length > 0) {
-          console.log('🔍 First batch expireDate raw:', response.data.batches[0].expireDate);
-          console.log('🔍 First batch expireDate type:', typeof response.data.batches[0].expireDate);
-          console.log('🔍 First batch all date fields:', {
-            expireDate: response.data.batches[0].expireDate,
-            expiryDate: (response.data.batches[0] as any).expiryDate,
-            expirationDate: (response.data.batches[0] as any).expirationDate,
-            productionDate: response.data.batches[0].productionDate,
-          });
         }
         const mappedBatches = response.data.batches.map((batch: any) => {
           // Try multiple possible field names for expiry date (some databases might use different names)
@@ -283,12 +257,6 @@ const Batches = () => {
 
           // Debug log for reported batches
           if (batch.isReported) {
-            console.log('🔍 Frontend - Reported batch received:', {
-              batchNo: batch.batchNo,
-              reportReason: batch.reportReason,
-              reportedBy: batch.reportedBy,
-              isReported: batch.isReported
-            });
           }
 
           return {
@@ -341,16 +309,11 @@ const Batches = () => {
 
         // Debug: Log first mapped batch's expireDate
         if (mappedBatches.length > 0) {
-          console.log('🔍 First mapped batch expireDate:', mappedBatches[0].expireDate);
-          console.log('🔍 First mapped batch expireDate formatted:', safeFormatDate(mappedBatches[0].expireDate, 'MMM dd, yyyy'));
         }
-
-        console.log('🔍 Mapped batches:', mappedBatches);
         setBatches(mappedBatches);
         // Cache writing disabled
       }
     } catch (error) {
-      console.error('Error loading batches:', error);
     }
   }, [searchTerm, activeTab, user?.id, selectedBranchId, user?.role, user?.branchId, user?.membership?.branchIds]);
 
@@ -370,7 +333,6 @@ const Batches = () => {
         })));
       }
     } catch (error) {
-      console.error('Error loading products:', error);
     }
   }, []);
 
@@ -393,7 +355,6 @@ const Batches = () => {
         })));
       }
     } catch (error) {
-      console.error('Error loading suppliers:', error);
     }
   }, []);
 
@@ -404,7 +365,6 @@ const Batches = () => {
         setManufacturers(response.data.manufacturers || []);
       }
     } catch (error) {
-      console.error('Error loading manufacturers:', error);
     }
   }, []);
 
@@ -415,7 +375,6 @@ const Batches = () => {
         setShelves(response.data.shelves);
       }
     } catch (error) {
-      console.error('Error loading shelves:', error);
     }
   }, []);
 
@@ -452,7 +411,6 @@ const Batches = () => {
         })));
       }
     } catch (error) {
-      console.error('Error loading near expiry batches:', error);
     }
   }, []);
 
@@ -496,7 +454,6 @@ const Batches = () => {
         // Clear URL param
         window.history.replaceState({}, '', '/batches');
       } catch (error) {
-        console.error('Error parsing prefill data:', error);
         sessionStorage.removeItem('prefillBatchProduct');
       }
     }
@@ -505,14 +462,12 @@ const Batches = () => {
   // Close filter dropdown when clicking outside
   // CRITICAL FIX: Reload batches when activeTab changes (switch between Active and Reported tabs)
   useEffect(() => {
-    console.log('🔄 activeTab changed to:', activeTab, '- reloading batches');
     loadBatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   // CRITICAL FIX: Reload batches instantly when branch OR company changes
   useEffect(() => {
-    console.log('🔄 Branch/Company changed - reloading batches instantly:', { selectedBranchId, selectedCompanyId });
     const timer = setTimeout(() => {
       loadBatches();
     }, 150);
@@ -523,7 +478,6 @@ const Batches = () => {
   // Also listen to custom event for immediate reload
   useEffect(() => {
     const handleReload = () => {
-      console.log('🔄 Custom event: Branch/Company changed - reloading batches');
       loadBatches();
     };
     window.addEventListener('branchOrCompanyChanged', handleReload);
@@ -745,7 +699,6 @@ const Batches = () => {
         });
 
         // Update in background (non-blocking)
-        console.log('🔍 Updating batch with data:', cleanedFormData);
         const response = await apiService.updateBatch(batchToUpdate.id, cleanedFormData);
         if (!response.success) {
           // Rollback on failure
@@ -833,13 +786,6 @@ const Batches = () => {
         }
       }
     } catch (error: any) {
-      console.error('Error saving batch:', error);
-      console.log('Error details:', {
-        message: error.message,
-        errors: error.errors,
-        response: error.response
-      });
-
       // Handle backend validation errors
       if (error.errors && error.errors.length > 0) {
         error.errors.forEach((err: string) => {
@@ -1002,7 +948,6 @@ const Batches = () => {
         setTimeout(() => loadBatches(), 0);
       }
     } catch (error) {
-      console.error('Error deleting batch:', error);
       // Rollback on error
       setBatches(previousBatches);
       toast({
@@ -1073,7 +1018,6 @@ const Batches = () => {
         description: `Batch history has been downloaded successfully`,
       });
     } catch (error) {
-      console.error('Error downloading batch history:', error);
       toast({
         title: "❌ Download Failed",
         description: "An error occurred while downloading the batch history",
@@ -1114,7 +1058,6 @@ const Batches = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error restoring batch:', error);
       toast({
         title: "❌ Restore Failed",
         description: error?.response?.data?.message || error?.message || "Failed to restore batch. Please try again.",
@@ -1165,7 +1108,6 @@ const Batches = () => {
         });
       }
     } catch (error) {
-      console.error('Error reporting batch:', error);
       toast({
         title: "❌ Report Failed",
         description: "An error occurred while reporting the batch",
@@ -1354,7 +1296,6 @@ const Batches = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    console.log('🔍 Clicked Medical tab');
                     setBatchType('medical');
                     // Clear taxType when switching to medical
                     setFormData(prev => ({
@@ -1376,7 +1317,6 @@ const Batches = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    console.log('🔍 Clicked Non-Medical tab');
                     setBatchType('non-medical');
                     // Clear dates when switching to non-medical
                     setFormData(prev => ({
@@ -2200,15 +2140,11 @@ const Batches = () => {
           </DialogHeader>
           <ProductForm
             onSuccess={async (product) => {
-              console.log('✅ Product created successfully:', product);
-              
               // CRITICAL FIX: Reload products list to ensure new product appears in dropdown
               // The product might have additional fields that need to be fetched
               try {
                 await loadProducts();
-                console.log('✅ Products list reloaded after product creation');
               } catch (error) {
-                console.error('Error reloading products:', error);
                 // Fallback: Add product to list manually if reload fails
                 const newProduct = {
                   id: product.id,
@@ -2311,8 +2247,6 @@ const BatchForm: React.FC<BatchFormProps> = ({
   const isNonMedical = batchType === 'non-medical';
   
   // Debug log to verify batchType
-  console.log('🔍 BatchForm - batchType:', batchType, 'isNonMedical:', isNonMedical);
-
   // Handle cost price per unit change - auto calculate box price
   const handleCostPerUnitChange = (value: number) => {
     const unitsPerBox = formData.unitsPerBox || 1;
@@ -2680,7 +2614,6 @@ const SupplierForm: React.FC<SupplierFormProps> = ({ onSuccess, onCancel }) => {
         onSuccess(response.data);
       }
     } catch (error) {
-      console.error('Error creating supplier:', error);
     }
   };
 
@@ -2754,27 +2687,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     const loadCategories = async () => {
       try {
         setLoadingCategories(true);
-        console.log('🔍 Loading categories for ProductForm...');
-
         // Get branchId from user context (Batches component should have access to this)
         // For now, we'll let the backend determine branchId from user context
         const response = await apiService.getCategories({
           limit: 1000 // Get all categories
         });
-        console.log('🔍 Categories API response:', response);
-
         if (response.success && response.data) {
           // Handle both array and object response formats
           const categoriesData = Array.isArray(response.data) ? response.data : (response.data?.categories || []);
-          console.log('🔍 Categories data:', categoriesData);
           setCategories(categoriesData);
         } else {
-          console.log('🔍 No categories found or API failed:', response.message);
           // If no categories exist, we'll show an empty state
           setCategories([]);
         }
       } catch (error) {
-        console.error('Error loading categories:', error);
         setCategories([]);
       } finally {
         setLoadingCategories(false);
@@ -2832,16 +2758,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         maxStock: 1000,
         unitsPerPack: 1
       });
-      
-      console.log('✅ Product creation response:', response);
-      
       if (response.success && response.data) {
         const productData = {
           id: response.data.id,
           name: response.data.name,
           sku: (response.data as any).sku || (response.data as any).SKU || ''
         };
-        console.log('✅ Calling onSuccess with product:', productData);
         onSuccess(productData);
       } else {
         toast({
@@ -2851,7 +2773,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         });
       }
     } catch (error) {
-      console.error('Error creating product:', error);
       toast({
         title: "Creation Error",
         description: 'Error creating product: ' + (error instanceof Error ? error.message : 'Unknown error'),
@@ -2975,7 +2896,6 @@ const ShelfForm: React.FC<ShelfFormProps> = ({ onSuccess, onCancel }) => {
         onSuccess(response.data);
       }
     } catch (error) {
-      console.error('Error creating shelf:', error);
     }
   };
 

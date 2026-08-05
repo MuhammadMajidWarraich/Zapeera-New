@@ -93,7 +93,6 @@ const Reports = () => {
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error exporting reports:', error);
     }
   };
 
@@ -103,9 +102,7 @@ const Reports = () => {
     try {
       await loadBranchesAndRealData();
       await loadReportData();
-      console.log('All data refreshed successfully');
     } catch (error) {
-      console.error('Error refreshing data:', error);
     } finally {
       setLoading(false);
     }
@@ -213,9 +210,7 @@ const Reports = () => {
         // Admin/Owner users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
-          console.log('Admin selected specific branch for reports:', selectedBranch?.name);
         } else {
-          console.log('Admin viewing all branches - loading all reports');
         }
       } else if (role === 'MANAGER') {
         // Manager users can only see reports from their assigned branch
@@ -233,11 +228,9 @@ const Reports = () => {
         }
         
         if (!branchId) {
-          console.error('❌ Manager has no assigned branch');
           setError('No branch assigned to this manager');
           return;
         }
-        console.log('Manager viewing their assigned branch for reports:', branchId);
       } else {
         // Regular users see only their branch reports
         branchId = user?.membership?.branchIds?.[0] || user?.branchId;
@@ -247,7 +240,6 @@ const Reports = () => {
             branchId = branchesResponse.data.branches[0].id;
           }
         }
-        console.log('Regular user branch for reports:', branchId);
       }
 
       // CRITICAL: Determine the actual branchId to pass to API
@@ -263,14 +255,6 @@ const Reports = () => {
       }
       
       // CRITICAL: Log what we're loading
-      console.log('📡 Loading data from API:', { 
-        userRole: user?.role,
-        roleBasedBranchId: branchId || 'ALL BRANCHES',
-        selectedBranchId: selectedBranchId || 'ALL BRANCHES',
-        apiBranchId: apiBranchId || 'ALL BRANCHES (will fetch all)',
-        period: selectedPeriod,
-        report: selectedReport
-      });
       
       // Load all branches, sales, products, and users data in parallel
       // CRITICAL: Use apiBranchId which respects user's branch selection (selectedBranchId takes priority)
@@ -291,19 +275,7 @@ const Reports = () => {
         apiService.getExpenses({ branchId: apiBranchId, companyId: selectedCompanyId || '' }) // Fetch expenses data
       ]);
       
-      console.log('📡 API Response received:', {
-        branches: branchesResponse.success ? 'success' : 'failed',
-        sales: salesResponse.success ? `success (${salesResponse.data?.sales?.length || 0} items)` : 'failed',
-        products: productsResponse.success ? `success (${productsResponse.data?.products?.length || 0} items)` : 'failed',
-        users: usersResponse.success ? `success (${usersResponse.data?.users?.length || 0} items, branchId param: ${usersApiParams.branchId || 'none'})` : 'failed'
-      });
       
-      console.log('📡 API Response received:', {
-        branches: branchesResponse.success ? 'success' : 'failed',
-        sales: salesResponse.success ? `success (${salesResponse.data?.sales?.length || 0} items)` : 'failed',
-        products: productsResponse.success ? `success (${productsResponse.data?.products?.length || 0} items)` : 'failed',
-        users: usersResponse.success ? `success (${usersResponse.data?.users?.length || 0} items)` : 'failed'
-      });
 
       // Process branches data
       if (branchesResponse.success && branchesResponse.data) {
@@ -313,7 +285,6 @@ const Reports = () => {
         if (user?.role === 'MANAGER' && user?.branchId) {
           const managerBranch = branchesData.find((branch: any) => branch.id === user.branchId);
           setAllBranches(managerBranch ? [managerBranch] : []);
-          console.log('🏢 Manager can only see their assigned branch:', managerBranch?.name);
         } else {
           setAllBranches(branchesData);
         }
@@ -329,19 +300,15 @@ const Reports = () => {
           // Specific branch selected - filter to show ONLY this branch's sales
           const beforeFilter = sales.length;
           sales = sales.filter((sale: any) => sale.branchId === selectedBranchId);
-          console.log(`📊 Filtered sales by selectedBranchId ${selectedBranchId}:`, sales.length, 'sales (from API: ${beforeFilter} total)');
         } else {
           // "All Branches" selected - show all sales from all branches
           const uniqueBranches = new Set(sales.map((s: any) => s.branchId).filter(Boolean));
-          console.log(`📊 Loading ALL branches sales data:`, sales.length, 'sales from', uniqueBranches.size, 'branches');
         }
         
         // CRITICAL: Always set the filtered data
         setRealSalesData(sales);
-        console.log('✅ Set realSalesData:', sales.length, 'sales for branch:', selectedBranchId || 'All Branches');
       } else {
         // If API call failed, clear data to prevent showing stale data
-        console.warn('⚠️ Sales API call failed, clearing sales data');
         setRealSalesData([]);
       }
 
@@ -355,18 +322,14 @@ const Reports = () => {
           // Specific branch selected - filter to show ONLY this branch's products
           const beforeFilter = products.length;
           products = products.filter((product: any) => product.branchId === selectedBranchId);
-          console.log(`📦 Filtered products by selectedBranchId ${selectedBranchId}:`, products.length, 'products (from API: ${beforeFilter} total)');
         } else {
           // "All Branches" selected - show all products from all branches
           const uniqueBranches = new Set(products.map((p: any) => p.branchId).filter(Boolean));
-          console.log(`📦 Loading ALL branches products data:`, products.length, 'products from', uniqueBranches.size, 'branches');
         }
         
         // CRITICAL: Always set the filtered data
         setRealProductsData(products);
-        console.log('✅ Set realProductsData:', products.length, 'products for branch:', selectedBranchId || 'All Branches');
       } else {
-        console.warn('⚠️ Products API call failed, clearing products data');
         setRealProductsData([]);
       }
 
@@ -374,16 +337,6 @@ const Reports = () => {
       if (usersResponse.success && usersResponse.data) {
         let users = usersResponse.data.users || [];
         
-        console.log(`👥 Raw API users response:`, {
-          totalUsers: users.length,
-          selectedBranchId: selectedBranchId || 'All Branches',
-          apiBranchId: apiBranchId || 'undefined (all)',
-          usersByBranch: users.reduce((acc: any, u: any) => {
-            const branchId = u.branchId || 'no-branch';
-            acc[branchId] = (acc[branchId] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>)
-        });
         
         // CRITICAL: Always filter based on selectedBranchId (user's current selection)
         // This ensures data matches what user selected, not what API returned
@@ -392,14 +345,6 @@ const Reports = () => {
           const beforeFilter = users.length;
           const usersWithBranch = users.filter((u: any) => u.branchId);
           const usersWithoutBranch = users.filter((u: any) => !u.branchId);
-          
-          console.log(`👥 Before filtering:`, {
-            total: beforeFilter,
-            withBranch: usersWithBranch.length,
-            withoutBranch: usersWithoutBranch.length,
-            selectedBranchId
-          });
-          
           // CRITICAL: Filter users by selectedBranchId - use strict string comparison to handle type mismatches
           users = users.filter((u: any) => {
             // Convert both to strings and trim to handle any type mismatches or whitespace
@@ -409,23 +354,6 @@ const Reports = () => {
             return matches;
           });
           
-          console.log(`👥 After filtering by selectedBranchId ${selectedBranchId}:`, {
-            filteredCount: users.length,
-            fromTotal: beforeFilter,
-            selectedBranchIdType: typeof selectedBranchId,
-            selectedBranchIdValue: selectedBranchId,
-            users: users.map((u: any) => ({ 
-              id: u.id, 
-              name: u.name, 
-              branchId: u.branchId,
-              branchIdType: typeof u.branchId 
-            })),
-            // Show sample of users that were filtered out (for debugging)
-            filteredOutSample: usersWithBranch
-              .filter((u: any) => String(u.branchId || '').trim() !== String(selectedBranchId || '').trim())
-              .slice(0, 3)
-              .map((u: any) => ({ id: u.id, name: u.name, branchId: u.branchId, branchIdType: typeof u.branchId }))
-          });
           
           // Verify filtering worked
           const wrongBranchUsers = users.filter((u: any) => {
@@ -434,50 +362,24 @@ const Reports = () => {
             return userBranchId !== selectedBranchIdStr;
           });
           if (wrongBranchUsers.length > 0) {
-            console.error('❌ ERROR: Found users from wrong branch after filtering!', wrongBranchUsers.length);
           }
           
           // If no users found, log detailed info for debugging
           if (users.length === 0 && beforeFilter > 0) {
-            console.warn('⚠️ WARNING: No users found for branch', selectedBranchId, 'but API returned', beforeFilter, 'users');
-            console.warn('   Selected branchId:', selectedBranchId, '(type:', typeof selectedBranchId, ')');
-            console.warn('   API was called with branchId:', apiBranchId, '(type:', typeof apiBranchId, ')');
-            console.warn('   Users branchIds breakdown:', usersWithBranch.map((u: any) => ({ 
-              id: u.id,
-              name: u.name,
-              branchId: u.branchId, 
-              branchIdType: typeof u.branchId,
-              branchIdString: String(u.branchId || '').trim(),
-              matches: String(u.branchId || '').trim() === String(selectedBranchId || '').trim()
-            })));
-            console.warn('   This might indicate API did not filter correctly or users have wrong branchId');
           }
         } else {
           // "All Branches" selected - show all users from all branches
           // Verify that we have users from multiple branches (not just one)
           const uniqueBranches = new Set(users.map((u: any) => u.branchId).filter(Boolean));
-          console.log(`👥 Loading ALL branches users data:`, {
-            totalUsers: users.length,
-            uniqueBranches: uniqueBranches.size,
-            branchIds: Array.from(uniqueBranches),
-            usersByBranch: users.reduce((acc: any, u: any) => {
-              const branchId = u.branchId || 'no-branch';
-              acc[branchId] = (acc[branchId] || 0) + 1;
-              return acc;
-            }, {} as Record<string, number>)
-          });
           
           // If we only have users from one branch, log a warning
           if (uniqueBranches.size === 1 && users.length > 0) {
-            console.warn('⚠️ WARNING: "All Branches" selected but only found users from one branch:', Array.from(uniqueBranches)[0]);
           }
         }
         
         // CRITICAL: Always set the filtered data, even if empty
         setRealUsersData(users);
-        console.log('✅ Set realUsersData:', users.length, 'users for branch:', selectedBranchId || 'All Branches');
       } else {
-        console.warn('⚠️ Users API call failed, clearing users data');
         setRealUsersData([]);
       }
 
@@ -485,14 +387,11 @@ const Reports = () => {
       if (expensesResponse.success && expensesResponse.data) {
         const expenses = expensesResponse.data.expenses || [];
         setRealExpensesData(expenses);
-        console.log('✅ Set realExpensesData:', expenses.length, 'expenses');
       } else {
-        console.warn('⚠️ Expenses API call failed, clearing expenses data');
         setRealExpensesData([]);
       }
 
     } catch (err) {
-      console.error('Error loading branches and real data:', err);
       setError('Failed to load branches and real data');
     }
   }, [user, selectedBranchId, selectedBranch, selectedCompanyId, selectedPeriod, selectedReport]);
@@ -508,19 +407,12 @@ const Reports = () => {
     prevSelectedBranchIdRef.current = currentBranch;
 
     // CRITICAL: ALWAYS clear old data FIRST to prevent showing wrong branch data
-    console.log('🔄 Branch selection:', { 
-      previous: prevBranch || 'All Branches', 
-      current: currentBranch || 'All Branches',
-      isSameBranch: isSameBranch 
-    });
-    
     // Clear all data immediately to prevent showing wrong branch data
     setRealSalesData([]);
     setRealProductsData([]);
     setRealUsersData([]);
     
     // Always load fresh data
-    console.log('🔄 Loading fresh data for branch:', selectedBranchId || 'All Branches');
     loadBranchesAndRealData();
   }, [loadBranchesAndRealData, selectedBranchId]);
 
@@ -541,9 +433,7 @@ const Reports = () => {
         // Admin/Owner users can see reports from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
-          console.log('Admin selected specific branch for reports:', selectedBranch?.name);
         } else {
-          console.log('Admin viewing all branches - loading all reports');
         }
       } else if (role === 'MANAGER') {
         // Manager users can only see reports from their assigned branch
@@ -561,11 +451,9 @@ const Reports = () => {
         }
         
         if (!branchId) {
-          console.error('❌ Manager has no assigned branch');
           setError('No branch assigned to this manager');
           return;
         }
-        console.log('Manager viewing their assigned branch for reports:', branchId);
       } else {
         // Regular users see only their branch reports
         branchId = user?.membership?.branchIds?.[0] || user?.branchId;
@@ -575,7 +463,6 @@ const Reports = () => {
             branchId = branchesResponse.data.branches[0].id;
           }
         }
-        console.log('Regular user branch for reports:', branchId);
       }
 
       // Calculate date range based on selected period
@@ -602,7 +489,6 @@ const Reports = () => {
           previousStartDate = formatLocalYmd(yesterdayStart);
           previousEndDate = formatLocalYmd(yesterdayEnd);
           
-          console.log('📅 Today date range:', { startDate, endDate, now: now.toISOString() });
           break;
         case 'week':
           // Show from beginning of current week to today
@@ -645,21 +531,6 @@ const Reports = () => {
           previousEndDate = `${now.getFullYear() - 1}-12-31`;
           break;
       }
-
-      console.log('📅 Date range calculation:', {
-        selectedPeriod,
-        startDate,
-        endDate,
-        previousStartDate,
-        previousEndDate
-      });
-
-      console.log('🔍 API call parameters:', {
-        selectedReport,
-        startDate,
-        endDate,
-        branchId,
-        groupBy: (selectedPeriod === 'week' ? 'week' : selectedPeriod === 'month' ? 'month' : selectedPeriod === 'year' ? 'year' : 'day')
       });
 
       // Load current period data
@@ -727,14 +598,10 @@ const Reports = () => {
             });
           }
         } catch (err) {
-          console.warn('Could not load previous period data:', err);
         }
       }
 
       if (response.success && response.data) {
-        console.log('🔍 API Response received:', response.data);
-        console.log('🔍 Summary data:', response.data.summary);
-        console.log('🔍 Sales trend data:', response.data.salesTrend);
         setReportData(response.data);
         if (previousResponse?.success && previousResponse.data) {
           setPreviousPeriodData(previousResponse.data);
@@ -749,7 +616,6 @@ const Reports = () => {
               setTopProducts(topProductsResponse.data);
             }
           } catch (err) {
-            console.error('Error loading top products:', err);
           }
 
           // Load sales by payment method
@@ -759,27 +625,19 @@ const Reports = () => {
               setSalesByPaymentMethod(paymentMethodResponse.data);
             }
           } catch (err) {
-            console.error('Error loading sales by payment method:', err);
           }
 
           // Process all chart data from API response
           if (response.data?.salesTrend && response.data.salesTrend.length > 0) {
-            console.log('📊 Processing salesTrend data:', response.data.salesTrend.length, 'items');
-            console.log('📊 Sample salesTrend item:', response.data.salesTrend[0]);
-            console.log('📊 Branch filter applied:', branchId || 'All branches');
-
             // CRITICAL: Filter salesTrend by branch if branchId is specified
             const filteredSalesTrend = response.data.salesTrend;
             if (branchId) {
               // Note: salesTrend might already be filtered by backend, but ensure frontend filtering too
-              console.log('📊 Filtering salesTrend by branch:', branchId);
             }
 
             const processedSalesData = processSalesTrendData(filteredSalesTrend, selectedPeriod);
-            console.log('📊 Setting chart data:', processedSalesData.length, 'items');
             setChartData(processedSalesData);
           } else {
-            console.log('⚠️ No salesTrend data in response or empty array');
             setChartData([]);
           }
 
@@ -790,7 +648,6 @@ const Reports = () => {
               setTopProductsData(topProductsResponse.data);
             }
           } catch (err) {
-            console.error('Error loading top products:', err);
           }
         }
 
@@ -807,14 +664,11 @@ const Reports = () => {
             setCategoryData(processedCategory);
           }
         } catch (err) {
-          console.error('Error loading product performance report:', err);
         }
       } else {
-        console.error('Report API failed:', response);
         setError('Failed to load report data: ' + (response.message || 'Unknown error'));
       }
     } catch (err) {
-      console.error('Error loading report data:', err);
       setError('Failed to load report data');
       // Don't set loading - silent fail in background
     }
@@ -826,8 +680,6 @@ const Reports = () => {
   // OPTIMIZED: Check cache first, then load fresh data in background
   useEffect(() => {
     // CRITICAL: ALWAYS clear old report data FIRST when branch changes to prevent showing wrong branch data
-    console.log('🔄 Branch/Period/Report changed - Clearing ALL old report data for branch:', selectedBranchId || 'All Branches');
-    
     // Clear ALL report-specific data immediately to prevent showing wrong branch
     setReportData(null);
     setPreviousPeriodData(null);

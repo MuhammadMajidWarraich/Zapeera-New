@@ -124,7 +124,6 @@ const BranchManagement = () => {
   // CRITICAL FIX: Sync local selectedCompanyId with global selectedCompanyId from AdminContext
   useEffect(() => {
     if (globalSelectedCompanyId) {
-      console.log('🔄 Syncing local selectedCompanyId with global:', globalSelectedCompanyId);
       setSelectedCompanyId(globalSelectedCompanyId);
     } else {
       setSelectedCompanyId("all");
@@ -133,8 +132,6 @@ const BranchManagement = () => {
 
   // Load branches on mount
   useEffect(() => {
-    console.log('BranchManagement component mounted, loading data...');
-
     // Load fresh data
     setTimeout(() => {
       loadBranches();
@@ -152,7 +149,6 @@ const BranchManagement = () => {
 
   // CRITICAL FIX: Reload branches instantly when global company selection changes
   useEffect(() => {
-    console.log('🔄 Global company changed in BranchManagement - reloading branches:', globalSelectedCompanyId);
     const timer = setTimeout(() => {
       loadBranches();
     }, 150);
@@ -163,7 +159,6 @@ const BranchManagement = () => {
   // Also listen to custom event for immediate reload
   useEffect(() => {
     const handleReload = () => {
-      console.log('🔄 Custom event: Company changed in BranchManagement - reloading branches');
       loadBranches();
     };
     window.addEventListener('branchOrCompanyChanged', handleReload);
@@ -174,14 +169,9 @@ const BranchManagement = () => {
   const loadBranches = useCallback(async () => {
     try {
       const response = await apiService.getBranches();
-
-      console.log('🏢 Branches API Response:', response);
-
       if (response.success && response.data) {
         const branchesData = Array.isArray(response.data) ? response.data : response.data.branches;
-        console.log('🏢 Branches Data:', branchesData);
         branchesData.forEach((branch: any) => {
-          console.log(`Branch: ${branch.name}, Manager:`, branch.manager);
         });
 
         setBranches(prevBranches => {
@@ -202,16 +192,12 @@ const BranchManagement = () => {
             }
             return acc;
           }, [] as Branch[]);
-
-          console.log('✅ [BranchManagement] Updated branches state with fresh API data:', uniqueBranches.length, 'branches');
-
           return uniqueBranches;
         });
       } else {
         setError('Failed to load branches');
       }
     } catch (error) {
-      console.error('Error loading branches:', error);
       setError('Failed to load branches');
     }
   }, [recentlyCreatedBranchIds]);
@@ -224,7 +210,6 @@ const BranchManagement = () => {
         setUsers(usersData);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
     }
   };
 
@@ -235,7 +220,6 @@ const BranchManagement = () => {
         setCompanies(response.data);
       }
     } catch (error) {
-      console.error('Error loading companies:', error);
     }
   };
 
@@ -335,7 +319,6 @@ const BranchManagement = () => {
           await loadBranches();
           // Refresh global branches to update dropdown instantly
           await refreshGlobalBranches();
-          console.log('✅ Branch created and global dropdown updated');
         }, 500);
 
         setError("");
@@ -350,7 +333,6 @@ const BranchManagement = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error creating branch:', error);
       const errorMessage = error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to create branch';
       setError(errorMessage);
       setCreateDialogError(errorMessage);
@@ -397,13 +379,7 @@ const BranchManagement = () => {
         managerId: editBranch.managerId || undefined,
         isActive: editBranch.isActive
       };
-
-      console.log('📝 Updating branch:', editingBranch.id, 'with data:', updateData);
-
       const response = await apiService.updateBranch(editingBranch.id, updateData);
-
-      console.log('📝 Update response:', response);
-
       if (response && response.success) {
         // Update branch in local state
         if (response.data) {
@@ -430,12 +406,9 @@ const BranchManagement = () => {
         // The optimistic update + cache update is sufficient for instant UI update
         // Fresh data will load automatically when component remounts or user navigates
         await refreshGlobalBranches();
-        console.log('✅ Branch updated and global dropdown updated');
-
         // OPTIONAL: Load fresh data in background after a delay (to allow server to process)
         // This ensures eventual consistency without blocking the UI
         setTimeout(async () => {
-          console.log('🔄 [BranchManagement] Background refresh after branch update...');
           await loadBranches();
         }, 2000); // 2 second delay to ensure server has processed the update
         setError("");
@@ -449,7 +422,6 @@ const BranchManagement = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error updating branch:', error);
       const errorMessage = error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to update branch';
       setError(errorMessage);
       toast({
@@ -475,11 +447,7 @@ const BranchManagement = () => {
     try {
       setIsLoading(true);
       setError("");
-
-      console.log('🗑️ Deleting branch:', deletingBranch.id, deletingBranch.name);
       const response = await apiService.deleteBranch(deletingBranch.id);
-      console.log('🗑️ Delete branch response:', response);
-
       if (response && response.success) {
         toast({
           title: "Success",
@@ -490,7 +458,6 @@ const BranchManagement = () => {
         await loadBranches();
         // Refresh global branches to update dropdown instantly
         await refreshGlobalBranches();
-        console.log('✅ Branch deleted and global dropdown updated');
         setError("");
       } else {
         const errorMessage = response?.message || 'Failed to delete branch';
@@ -502,7 +469,6 @@ const BranchManagement = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error deleting branch:', error);
       const errorMessage = error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to delete branch';
       setError(errorMessage);
       toast({

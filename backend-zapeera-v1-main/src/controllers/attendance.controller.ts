@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
+import logger from '../utils/logger';
 
 // Validation schemas
 const checkInSchema = Joi.object({
@@ -108,7 +109,7 @@ export const checkIn = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('attendance', 'create', attendance).catch(err => {
-      console.error('[Sync] Attendance check-in sync failed:', err.message);
+      logger.error('[Sync] Attendance check-in sync failed:', { message: err.message });
     });
 
     return res.status(201).json({
@@ -117,7 +118,7 @@ export const checkIn = async (req: Request, res: Response) => {
       message: 'Check-in successful'
     });
   } catch (error) {
-    console.error('Error checking in staff:', error);
+    logger.error('Error checking in staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -212,7 +213,7 @@ export const checkOut = async (req: Request, res: Response) => {
       message: 'Check-out successful'
     });
   } catch (error) {
-    console.error('Error checking out staff:', error);
+    logger.error('Error checking out staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -302,7 +303,7 @@ export const getAttendance = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    logger.error('Error fetching attendance:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -352,7 +353,7 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
       data: attendance
     });
   } catch (error) {
-    console.error('Error fetching today\'s attendance:', error);
+    logger.error('Error fetching today\'s attendance:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -413,7 +414,7 @@ export const updateAttendance = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('attendance', 'update', attendance).catch(err => {
-      console.error('[Sync] Attendance update sync failed:', err.message);
+      logger.error('[Sync] Attendance update sync failed:', { message: err.message });
     });
 
     return res.json({
@@ -422,7 +423,7 @@ export const updateAttendance = async (req: Request, res: Response) => {
       message: 'Attendance updated successfully'
     });
   } catch (error) {
-    console.error('Error updating attendance:', error);
+    logger.error('Error updating attendance:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -481,7 +482,7 @@ export const getAttendanceStats = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching attendance stats:', error);
+    logger.error('Error fetching attendance stats:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

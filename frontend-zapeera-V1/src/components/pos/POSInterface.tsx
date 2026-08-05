@@ -260,7 +260,6 @@ const POSInterface = () => {
         setSelectedCustomer(customer);
         localStorage.removeItem('selectedCustomer'); // Clear after loading
       } catch (error) {
-        console.error('Error loading customer:', error);
       }
     }
   }, []);
@@ -297,7 +296,6 @@ const POSInterface = () => {
             // Regular users see only their branch products
             branchId = user?.membership?.branchIds?.[0] || user?.branchId || null;
             if (!branchId) {
-              console.error('⚠️ No branch ID available for user');
             }
             // console.log('🔄 Regular user branch (immediate):', branchId);
           }
@@ -313,8 +311,6 @@ const POSInterface = () => {
             }
           });
           const data = await response.json();
-          console.log('🔄 Immediate products response:', data);
-
           if (data.success && data.data && data.data.products) {
           const transformedProducts = data.data.products.map((product: any) => ({
             id: product.id,
@@ -332,11 +328,9 @@ const POSInterface = () => {
             currentBatch: product.currentBatch || null,
             batches: product.batches || []
           }));
-            console.log('🔄 Setting products immediately:', transformedProducts);
             setProducts(transformedProducts);
           }
       } catch (error) {
-        console.error('🔄 Error loading products immediately:', error);
       }
     };
 
@@ -344,10 +338,8 @@ const POSInterface = () => {
 
     // Also load products when user is available
     if (user) {
-      console.log('🔄 User available, calling loadProducts');
       loadProducts();
     } else {
-      console.log('🔄 User not available yet');
     }
 
     // Load categories - only show categories that have products in current branch
@@ -368,14 +360,11 @@ const POSInterface = () => {
             // Owner users can see categories from selected branch or all branches
             if (selectedBranchId) {
               branchId = selectedBranchId;
-              console.log('🔄 Admin selected specific branch for categories (simple):', selectedBranch?.name);
             } else {
-              console.log('🔄 Admin viewing all branches - loading all categories (simple)');
             }
           } else {
             // Regular users see only their branch categories
             branchId = user?.membership?.branchIds?.[0] || user?.branchId || null;
-            console.log('🔄 Regular user branch for categories (simple):', branchId);
           }
 
           // Get all products for current branch to filter categories
@@ -411,7 +400,6 @@ const POSInterface = () => {
           }
         }
       } catch (error) {
-        console.error('Error loading categories:', error);
         setCategories(['all']);
       }
     };
@@ -425,7 +413,6 @@ const POSInterface = () => {
 
     // Real-time data synchronization
     const handleProductChanged = (event: CustomEvent) => {
-      console.log('🔄 POS Real-time product change received:', event.detail);
       const { action, product } = event.detail;
 
       if (action === 'created') {
@@ -441,7 +428,6 @@ const POSInterface = () => {
     };
 
     const handleInventoryChanged = (event: CustomEvent) => {
-      console.log('🔄 POS Real-time inventory change received:', event.detail);
       const { action, data } = event.detail;
 
       if (action === 'product_added') {
@@ -480,15 +466,12 @@ const POSInterface = () => {
         // Owner users can see products from selected branch or all branches
         if (selectedBranchId) {
           branchId = selectedBranchId;
-          console.log('🔄 Admin selected specific branch:', selectedBranch?.name);
         } else {
           // Admin viewing all branches - don't filter by branch
-          console.log('🔄 Admin viewing all branches - loading all products');
         }
       } else {
         // Regular users see only their branch products
         branchId = user?.membership?.branchIds?.[0] || user?.branchId || null;
-        console.log('🔄 Regular user branch:', branchId);
       }
 
       const params: any = { page: 1, limit: 200 };
@@ -503,12 +486,6 @@ const POSInterface = () => {
           // Transform API data to match Product interface
           // Batch data is now included in the product response
           const transformedProducts = productsArray.map((product) => {
-            console.log(`🔄 Processing product ${product.name}:`, {
-              price: product.price,
-              stock: product.stock,
-              currentBatch: product.currentBatch
-            });
-
             return {
               id: product.id,
               name: product.name,
@@ -527,7 +504,6 @@ const POSInterface = () => {
               batches: product.batches || []
             };
           });
-          console.log('🔄 Transformed products:', transformedProducts);
           setProducts(transformedProducts);
         } else {
           setProducts([]);
@@ -536,7 +512,6 @@ const POSInterface = () => {
         setProducts([]);
       }
     } catch (error) {
-      console.error('Error loading products:', error);
     } finally {
       setLoading(false);
     }
@@ -566,7 +541,6 @@ const POSInterface = () => {
         setCategories(["all"]);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
       setCategories(["all"]);
     }
   };
@@ -607,7 +581,6 @@ const POSInterface = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading customers:', error);
     } finally {
       setCustomersLoading(false);
     }
@@ -633,7 +606,6 @@ const POSInterface = () => {
   // Listen for POS settings updates to refresh tax calculation
   React.useEffect(() => {
     const handleSettingsUpdate = (event: CustomEvent) => {
-      console.log('POS settings updated:', event.detail);
       // Force re-render by updating the trigger state
       setSettingsUpdateTrigger(prev => prev + 1);
     };
@@ -827,7 +799,6 @@ const POSInterface = () => {
         });
       }
     } catch (error) {
-      console.error(`[POS] Error fetching batches for product ${productId}:`, error);
       // On error, set empty batches and mark as fetched immediately
       setProductBatches(prev => ({ ...prev, [productId]: [] }));
       setFetchedProducts(prev => {
@@ -956,7 +927,6 @@ const POSInterface = () => {
       ) {
         // Mark as processed immediately to prevent duplicate fetches
         processedProductIds.current.add(product.id);
-        console.log(`[POS] Auto-fetching batches for product ${product.id} (${product.name})`);
         fetchProductBatches(product.id);
       } else {
         // Mark as processed even if we're not fetching (already has batches or fetched)
@@ -1138,7 +1108,6 @@ const POSInterface = () => {
   const total = subtotalAfterDiscount;
 
   // Debug log for totals
-  console.log('🧾 Subtotal:', subtotal.toFixed(2), 'Total:', total.toFixed(2));
 
   const paymentMethods = [
     { id: 'cash', label: 'Cash', icon: Banknote },
@@ -1182,7 +1151,6 @@ const POSInterface = () => {
         await searchProductByBarcode(barcode);
       }
     } catch (error) {
-      console.error('Barcode scanning error:', error);
       toast({
         title: "Camera Error",
         description: "Error accessing camera for barcode scanning",
@@ -1433,12 +1401,9 @@ const POSInterface = () => {
 
           if (customerResponse.success) {
             customerId = customerResponse.data.id;
-            console.log('Customer created successfully:', customerResponse.data);
           } else {
-            console.warn('Customer creation failed:', customerResponse.message);
           }
         } catch (error) {
-          console.error('Customer creation error:', error);
         }
       }
 
@@ -1463,9 +1428,6 @@ const POSInterface = () => {
         discountPercentage: discountPercentage,
         saleDate: useManualDate && manualDate ? manualDate : undefined
       };
-
-      console.log('Creating sale with data:', saleData);
-
       // Create sale via API (this will reduce stock in database)
       const saleResponse = await apiService.createSale(saleData);
 
@@ -1479,8 +1441,6 @@ const POSInterface = () => {
       }
 
       const sale = saleResponse.data;
-      console.log('Sale created successfully:', sale);
-
       // Create receipt for display using the actual sale data from API
       const now = new Date();
 
@@ -1553,7 +1513,6 @@ const POSInterface = () => {
       });
 
     } catch (error) {
-      console.error('Error creating sale:', error);
       toast({
         title: "Error",
         description: "Error creating sale. Please try again.",
@@ -1603,10 +1562,6 @@ const POSInterface = () => {
   };
 
   const addToInvoiceCart = (product: Product, quantity: number, unitType: string) => {
-    console.log('🔍 DEBUG - Adding product to invoice cart:', product);
-    console.log('🔍 DEBUG - Quantity received:', quantity);
-    console.log('🔍 DEBUG - Unit type:', unitType);
-
     // Validate quantity
     if (quantity <= 0) {
       toast({
@@ -1697,14 +1652,11 @@ const POSInterface = () => {
           ? `Take ${quantity} box(es) as directed`
           : `Take ${quantity} unit(s) as directed`
       };
-      console.log('New invoice item:', newItem);
       setInvoiceItems([...invoiceItems, newItem]);
     }
   };
 
   const updateInvoiceQuantity = (id: string, newQuantity: number) => {
-    console.log('🔍 DEBUG - updateInvoiceQuantity called with:', { id, newQuantity });
-
     if (newQuantity <= 0) {
       setInvoiceItems(invoiceItems.filter(item => item.id !== id));
     } else {
@@ -1768,10 +1720,8 @@ const POSInterface = () => {
     }
 
     // Validate all items before creating invoice
-    console.log('🔍 DEBUG - Validating invoice items before creation:');
     for (const item of invoiceItems) {
       const originalProduct = products.find(p => p.id === item.id);
-      console.log(`🔍 DEBUG - Item: ${item.name}, Quantity: ${item.quantity}, Available Stock: ${originalProduct?.stock}`);
       if (originalProduct && item.quantity > originalProduct.stock) {
         toast({
           title: "Insufficient Stock",
@@ -1818,8 +1768,6 @@ const POSInterface = () => {
 
         if (customerResponse.success) {
           customerId = customerResponse.data.id;
-          console.log('Customer created successfully:', customerResponse.data);
-
           // Dispatch event to refresh customer list
           window.dispatchEvent(new CustomEvent('customerCreated', {
             detail: customerResponse.data
@@ -1827,14 +1775,11 @@ const POSInterface = () => {
 
           // Show success message for new customers
           if (customerResponse.message !== 'Customer already exists') {
-            console.log(`✅ Customer "${customerName}" added to customer records`);
           }
         } else {
-          console.warn('Customer creation failed:', customerResponse.message);
           // Continue with sale even if customer creation fails
         }
       } catch (error) {
-        console.error('Customer creation error:', error);
         // Continue with sale even if customer creation fails
       }
 
@@ -1876,9 +1821,6 @@ const POSInterface = () => {
         discountPercentage: discountPercentage,
         saleDate: useManualDate && manualDate ? manualDate : undefined
       };
-
-      console.log('Creating sale with data:', saleData);
-
       // Create sale via API (this will reduce stock in database)
       const saleResponse = await apiService.createSale(saleData);
 
@@ -1892,8 +1834,6 @@ const POSInterface = () => {
       }
 
       const sale = saleResponse.data;
-      console.log('Sale created successfully:', sale);
-
       // Dispatch sale change event to notify inventory system
       window.dispatchEvent(new CustomEvent('saleChanged', {
         detail: {
@@ -1969,7 +1909,6 @@ const POSInterface = () => {
       });
 
     } catch (error) {
-      console.error('Error creating invoice:', error);
       toast({
         title: "Error Creating Invoice",
         description: "Error creating invoice. Please try again.",
@@ -2197,7 +2136,6 @@ const POSInterface = () => {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
           } catch (e) {
-            console.error('Print error:', e);
             // Fallback: Try window.open
             const newWindow = window.open('', '_blank');
             if (newWindow) {
@@ -2260,7 +2198,6 @@ const POSInterface = () => {
       URL.revokeObjectURL(url);
       }
     } catch (error) {
-      console.error('Error downloading receipt:', error);
       alert('Error downloading receipt. Please try again.');
       toast({
         title: "Download Error",
@@ -2514,7 +2451,6 @@ Thank you for choosing us!`;
         }
       }
     } catch (error) {
-      console.error('Error sending SMS:', error);
       alert('Error preparing SMS receipt. Please try again.');
     }
   };
@@ -2614,7 +2550,6 @@ Zapeera Staff
         }
       }
     } catch (error) {
-      console.error('Error sending email:', error);
       alert('Error preparing email receipt. Please try again.');
     }
   };
@@ -2691,7 +2626,6 @@ Zapeera Staff
         alert('Failed to load invoices. Please try again.');
       }
     } catch (error: any) {
-      console.error('Error looking up invoice:', error);
       alert('Error looking up invoice. Please try again.');
     } finally {
       setInvoiceLookupLoading(false);
@@ -2707,16 +2641,11 @@ Zapeera Staff
     }
 
     try {
-      console.log('🔍 DEBUG - Starting refund process for receipt:', refundReceiptNumber);
-
       // Find the original sale by receipt number
       const salesResponse = await apiService.getSales({
         limit: 1000,
         companyId: selectedCompanyId || '',
       });
-
-      console.log('🔍 DEBUG - Sales search response:', salesResponse);
-
       if (!salesResponse.success || !salesResponse.data?.sales?.length) {
         alert("Sale not found with the given receipt number");
         return;
@@ -2734,9 +2663,6 @@ Zapeera Staff
         alert(`Receipt number ${refundReceiptNumber} not found`);
         return;
       }
-
-      console.log('🔍 DEBUG - Found original sale:', originalSale);
-
       // Automatically use all items from the original sale for refund
       const itemsToRefund = originalSale.items.map((item: any) => ({
         productId: item.productId,
@@ -2759,14 +2685,8 @@ Zapeera Staff
         items: itemsToRefund,
         refundedBy: user?.id || ""
       };
-
-      console.log('🔍 DEBUG - Prepared refund data:', refundData);
-
       // Call the refund API
       const refundResponse = await apiService.createRefund(refundData);
-
-      console.log('🔍 DEBUG - Refund API response:', refundResponse);
-
       if (refundResponse.success) {
         alert(`Refund processed successfully!
 
@@ -2803,7 +2723,6 @@ Sale amount has been deducted from reports.`);
         );
       }
     } catch (error) {
-      console.error('Error processing refund:', error);
       const errorMessage = error?.response?.message 
         || error?.response?.data?.message 
         || error?.message 
@@ -2959,7 +2878,6 @@ Sale amount has been deducted from reports.`);
         alert("Error searching for receipt");
       }
     } catch (error) {
-      console.error('Error searching receipt:', error);
       alert('Error searching for receipt. Please try again.');
     }
   };
@@ -3043,7 +2961,6 @@ Sale amount has been deducted from reports.`);
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  console.log('🔄 Manual refresh clicked');
                   loadProducts();
                 }}
                 disabled={loading}
@@ -3056,7 +2973,6 @@ Sale amount has been deducted from reports.`);
                 variant="outline"
                 size="sm"
                 onClick={async () => {
-                  console.log('🚀 Loading products directly...');
                   try {
                     const response = await fetch(`${config.api.baseUrl}/products?limit=1000&branchId=${user?.branchId || ''}`, {
                       credentials: 'include',
@@ -3065,8 +2981,6 @@ Sale amount has been deducted from reports.`);
                       }
                     });
                     const data = await response.json();
-                    console.log('🚀 Direct response:', data);
-
                     if (data.success && data.data && data.data.products) {
                       const products = data.data.products.map((product: any) => ({
                         id: product.id,
@@ -3078,11 +2992,9 @@ Sale amount has been deducted from reports.`);
                         requiresPrescription: product.requiresPrescription,
                         barcode: product.barcode
                       }));
-                      console.log('🚀 Setting products:', products.length);
                       setProducts(products);
                     }
                   } catch (error) {
-                    console.error('🚀 Error:', error);
                   }
                 }}
                 className="h-12 px-3 text-white bg-transparent text-[#0c2c8a] border-[1px] border-[#0c2c8a]"
@@ -3844,7 +3756,6 @@ Sale amount has been deducted from reports.`);
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            console.log('🔍 DEBUG - Decreasing quantity for:', item.name, 'from', item.quantity, 'to', item.quantity - 1);
                             updateInvoiceQuantity(item.id, item.quantity - 1);
                           }}
                           className="w-8 h-8 p-0"
@@ -3856,7 +3767,6 @@ Sale amount has been deducted from reports.`);
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            console.log('🔍 DEBUG - Increasing quantity for:', item.name, 'from', item.quantity, 'to', item.quantity + 1);
                             updateInvoiceQuantity(item.id, item.quantity + 1);
                           }}
                           className="w-8 h-8 p-0"

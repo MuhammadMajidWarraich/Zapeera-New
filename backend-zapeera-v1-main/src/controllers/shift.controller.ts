@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
+import logger from '../utils/logger';
 
 // Validation schemas
 const startShiftSchema = Joi.object({
@@ -106,7 +107,7 @@ export const startShift = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('shift', 'create', shift).catch(err => {
-      console.error('[Sync] Shift create sync failed:', err.message);
+      logger.error('[Sync] Shift create sync failed:', { message: err.message });
     });
 
     return res.status(201).json({
@@ -115,7 +116,7 @@ export const startShift = async (req: Request, res: Response) => {
       message: 'Shift started successfully'
     });
   } catch (error) {
-    console.error('Error starting shift:', error);
+    logger.error('Error starting shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -212,7 +213,7 @@ export const endShift = async (req: Request, res: Response) => {
       message: 'Shift ended successfully'
     });
   } catch (error) {
-    console.error('Error ending shift:', error);
+    logger.error('Error ending shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -302,7 +303,7 @@ export const getShifts = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching shifts:', error);
+    logger.error('Error fetching shifts:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

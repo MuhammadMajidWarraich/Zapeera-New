@@ -8,7 +8,7 @@
  * Rendering: hierarchy → filter by module → filter by role
  */
 import React, { useMemo, useState, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Globe, Zap, Lock, Circle, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +77,7 @@ function ActiveIndicator({ active }: { active: boolean }) {
 const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boolean; isModuleLocked: (name: string) => boolean; isSubModuleLocked: (mod: string, sub: string) => boolean }> = React.memo(
   ({ group, slug, isCollapsed, isModuleLocked, isSubModuleLocked }) => {
     const location = useLocation();
+    const navigate = useNavigate();
 
     const resolvedPages = useMemo(
       () => group.pages.map((p) => ({ ...p, href: withBusinessSlug(slug, p.href) })),
@@ -103,7 +104,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
           description: `${group.label} isn't available in your current plan. Upgrade your subscription to access this feature.`,
           action: {
             label: 'Upgrade',
-            onClick: () => { window.location.href = `/business/${encodeURIComponent(slug)}/subscription`; },
+            onClick: () => { navigate(`/business/${encodeURIComponent(slug)}/subscription`); },
           },
           duration: 6000,
         });
@@ -115,7 +116,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
           description: `${group.pages.find((p) => p.key === subModuleKey)?.label || subModuleKey} isn't included in your current plan. Upgrade your subscription to access this feature.`,
           action: {
             label: 'Upgrade',
-            onClick: () => { window.location.href = `/business/${encodeURIComponent(slug)}/subscription`; },
+            onClick: () => { navigate(`/business/${encodeURIComponent(slug)}/subscription`); },
           },
           duration: 6000,
         });

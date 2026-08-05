@@ -188,7 +188,7 @@ router.post('/users/:id/resend-verification', adminAuthenticate, adminRoleGuard(
  * Protected by admin authentication
  */
 router.post('/impersonate', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), generateImpersonationToken);
-router.post('/impersonate/validate', validateImpersonationToken);
+router.post('/impersonate/validate', adminAuthenticate, validateImpersonationToken);
 
 /**
  * Admin Logs Routes

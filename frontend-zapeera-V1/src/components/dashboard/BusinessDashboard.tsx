@@ -170,7 +170,6 @@ const BusinessDashboard = () => {
   // Load expiry alerts data - CRITICAL: Define BEFORE loadDashboardData to avoid circular dependency
   const loadExpiryAlerts = useCallback(async () => {
     try {
-      console.log('Loading expiry alerts (Admin)...', { selectedBranchId, selectedCompanyId, allBatchesCount: allBatches.length });
 
       // CRITICAL: Use batches from allBatches state (loaded in loadDashboardData)
       // Filter by selected branch if branch is selected
@@ -179,7 +178,6 @@ const BusinessDashboard = () => {
       if (selectedBranchId) {
         // Specific branch selected - filter by branchId
         batchesToCheck = allBatches.filter((batch: any) => batch.branchId === selectedBranchId);
-        console.log(`📦 Filtered batches for expiry alerts (specific branch): ${allBatches.length} -> ${batchesToCheck.length}`);
       } else if (selectedCompanyId && allBranches.length > 0) {
         // All Branches selected - ensure batches belong to selected company's branches
         const companyBranchIds = allBranches
@@ -189,15 +187,12 @@ const BusinessDashboard = () => {
           batchesToCheck = allBatches.filter((batch: any) =>
             companyBranchIds.includes(batch.branchId)
           );
-          console.log(`📦 Filtered batches for expiry alerts (All Branches): ${allBatches.length} -> ${batchesToCheck.length} (company: ${selectedCompanyId}, branches: ${companyBranchIds.length})`);
         } else {
           // If no branches found, use all batches (already filtered by companyId from API)
-          console.log(`📦 No branches found for company, using all batches: ${allBatches.length}`);
           batchesToCheck = allBatches;
         }
       } else if (selectedCompanyId) {
         // Company selected but branches not loaded yet - use all batches (already filtered by companyId from API)
-        console.log(`📦 Branches not loaded yet, using all batches: ${allBatches.length}`);
         batchesToCheck = allBatches;
       }
 
@@ -222,14 +217,7 @@ const BusinessDashboard = () => {
 
       setExpiredBatches(expired);
       setNearExpiryBatches(nearExpiry);
-
-      console.log('📦 Expiry alerts loaded:', {
-        expired: expired.length,
-        nearExpiry: nearExpiry.length,
-        totalBatches: batchesToCheck.length
-      });
     } catch (error) {
-      console.error('Error loading expiry alerts (Admin):', error);
       // Set empty arrays on error to prevent UI issues
       setNearExpiryBatches([]);
       setExpiredBatches([]);
@@ -255,7 +243,6 @@ const BusinessDashboard = () => {
       // CRITICAL FIX: Ensure selectedCompanyId is available before making any API calls
       // Without selectedCompanyId, API calls won't have X-Business-ID header, causing 404s
       if (!effectiveCompanyId) {
-        console.warn('⚠️ loadDashboardData called without effectiveCompanyId - aborting to prevent 404s');
         setError('Please select a company first');
         setLoading(false);
         return;
@@ -276,31 +263,11 @@ const BusinessDashboard = () => {
       // When specific branch is selected, pass branchId to filter by that branch
       const requestBranchId = effectiveBranchId || undefined;
       const requestCompanyId = effectiveCompanyId;
-
-      console.log('🔍 Loading dashboard data:', {
-        selectedCompanyId,
-        selectedBranchId,
-        effectiveCompanyId,
-        effectiveBranchId,
-        requestCompanyId,
-        currentUserBranchId,
-        userCompanyId: currentUserData.companyId,
-        isAllBranches: !effectiveBranchId && requestCompanyId ? 'YES - Collecting all branches data' : 'NO'
-      });
-
       // CRITICAL FIX: Load ALL data in parallel - sab ek saath load ho
       // This ensures all widgets get data at the same time, not sequentially
       // CRITICAL FIX: Only call APIs for modules that are actually enabled
       // This prevents 403 'Module X is disabled' errors from flooding the console
       const dashboardBranchId = effectiveBranchId || undefined;
-      console.log('🔍 Admin Dashboard - Loading data (module-aware):', {
-        selectedCompanyId,
-        selectedBranchId,
-        effectiveBranchId,
-        dashboardBranchId: dashboardBranchId || 'All Branches',
-        isAllBranches: !effectiveBranchId && selectedCompanyId,
-        modules: { reports: hasModule('reports'), sales: hasModule('sales'), inventory: hasModule('inventory'), business_management: hasModule('business_management') }
-      });
       
       // Empty/default response for disabled modules
       const emptyResponse = { success: true, data: null };
@@ -325,14 +292,10 @@ const BusinessDashboard = () => {
           };
         }
       } catch (e) {
-        console.warn('AdminDashboard: Failed to fetch enabled modules reliably', e);
         // Fall back to false to be safe and avoid 403s
       }
 
       const isTrulyEnabled = (name: string) => Boolean(trulyEnabledModules[name.toLowerCase()]);
-
-      console.log('🔍 Verified Modules before API calls:', trulyEnabledModules);
-
       // Load ALL APIs in parallel - only call enabled modules
       // Type assertion needed because TypeScript has trouble inferring large class types
       const api = apiService as any;
@@ -341,7 +304,6 @@ const BusinessDashboard = () => {
         ? api.getDashboardData(dashboardBranchId).catch((e: any) => {
             // Suppress 500 errors from console, they're expected when backend has issues
             if (e?.response?.status === 500 || e?.status === 500) {
-              console.log('Dashboard API returned 500 (backend error, using fallback)');
               return { success: false, data: null };
             }
             return { success: false, message: e.message || 'Dashboard failed', data: null };
@@ -388,7 +350,6 @@ const BusinessDashboard = () => {
         batchesPromise
       ]);
       
-      console.log('✅ All APIs loaded in parallel (module-aware)');
 
       // Process dashboard data from getDashboardData API FIRST
       // This ensures we have proper aggregated data from the start
@@ -398,9 +359,6 @@ const BusinessDashboard = () => {
 
       if (dashboardResponse.success && dashboardResponse.data) {
         const dashboardData = dashboardResponse.data;
-        console.log('📊 Dashboard data from API:', dashboardData);
-        console.log('[Dashboard] Inventory data:', dashboardData.inventory);
-
         // CRITICAL FIX: Use API aggregated data for proper business stats
         apiRevenue = dashboardData.month?.revenue || 0;
         apiTotalSales = dashboardData.month?.transactions || 0;
@@ -446,14 +404,12 @@ const BusinessDashboard = () => {
         }
         // Use lowStockProductsList from dashboard API if available (new field)
         if (dashboardData.inventory?.lowStockProductsList) {
-          console.log('[Dashboard] Using lowStockProductsList from dashboard API:', dashboardData.inventory.lowStockProductsList.length);
           setLowStockProducts(dashboardData.inventory.lowStockProductsList);
         } else if (dashboardData.lowStockProducts) {
           // Fallback to old field (just a count number)
           setLowStockProducts(dashboardData.lowStockProducts);
         }
       } else {
-        console.warn('Dashboard API failed or returned no data:', dashboardResponse.message || 'Unknown error');
         setRealRevenue(0);
         setRealTotalSales(0);
       }
@@ -468,7 +424,6 @@ const BusinessDashboard = () => {
         // If specific branch is selected, ensure we only show that branch's data
         if (effectiveBranchId) {
           sales = sales.filter((sale: any) => sale.branchId === effectiveBranchId);
-          console.log(`🔍 Filtered sales by branch ${effectiveBranchId}: ${salesResponse.data.sales?.length || 0} -> ${sales.length}`);
         } else if (effectiveCompanyId) {
           // All Branches selected - ensure sales belong to selected company's branches
           const companyBranchIds = allBranches
@@ -476,7 +431,6 @@ const BusinessDashboard = () => {
             .map(b => b.id);
           if (companyBranchIds.length > 0) {
             sales = sales.filter((sale: any) => companyBranchIds.includes(sale.branchId));
-            console.log(`🔍 Filtered sales by company ${effectiveCompanyId}: ${salesResponse.data.sales?.length || 0} -> ${sales.length} (branches: ${companyBranchIds.length})`);
           }
         }
         
@@ -568,22 +522,17 @@ const BusinessDashboard = () => {
       } else {
         const msg = (salesResponse as any).message || 'Failed to load sales data';
         setError(msg);
-        console.error('Sales load failure:', salesResponse);
       }
 
       let filteredProductsForMetrics: any[] = [];
 
       // Process real products data
-      console.log('[Dashboard] productsResponse:', { success: productsResponse.success, hasData: !!productsResponse.data, productCount: productsResponse.data?.products?.length, message: (productsResponse as any).message, effectiveBranchId, effectiveCompanyId });
       if (productsResponse.success && productsResponse.data) {
         let products = productsResponse.data.products || [];
-        console.log('[Dashboard] Raw products count:', products.length);
-        
         // CRITICAL FIX: Double-check branch filtering on frontend
         // If specific branch is selected, ensure we only show that branch's data
         if (effectiveBranchId) {
           products = products.filter((product: any) => product.branchId === effectiveBranchId);
-          console.log(`🔍 Filtered products by branch ${effectiveBranchId}: ${productsResponse.data.products?.length || 0} -> ${products.length}`);
         } else if (effectiveCompanyId) {
           // All Branches selected - ensure products belong to selected company's branches
           const companyBranchIds = allBranches
@@ -591,14 +540,12 @@ const BusinessDashboard = () => {
             .map(b => b.id);
           if (companyBranchIds.length > 0) {
             products = products.filter((product: any) => companyBranchIds.includes(product.branchId));
-            console.log(`🔍 Filtered products by company ${effectiveCompanyId}: ${productsResponse.data.products?.length || 0} -> ${products.length} (branches: ${companyBranchIds.length})`);
           }
         }
         filteredProductsForMetrics = products;
         setRealProductsData(products);
 
         const lowStockProductsList = calculateLowStockProducts(products);
-        console.log('[Dashboard] Low stock calculation:', { inputCount: products.length, lowStockCount: lowStockProductsList.length, firstLowStock: lowStockProductsList[0]?.name });
         setLowStockProducts(lowStockProductsList);
 
         setDashboardData((prev: any) => ({
@@ -611,7 +558,6 @@ const BusinessDashboard = () => {
       } else {
         const msg = (productsResponse as any).message || 'Failed to load products data';
         setError(msg);
-        console.error('Products load failure:', productsResponse);
         setLowStockProducts([]);
       }
 
@@ -626,7 +572,6 @@ const BusinessDashboard = () => {
         if (effectiveBranchId) {
           // Specific branch selected - filter by branchId
           filteredBatches = batches.filter((batch: any) => batch.branchId === effectiveBranchId);
-          console.log(`📦 Filtered batches for specific branch: ${batches.length} -> ${filteredBatches.length}`);
         } else if (effectiveCompanyId && allBranches.length > 0) {
           // All Branches selected - filter by companyId (batches should already be filtered by API headers)
           // Double-check: ensure batches belong to selected company's branches
@@ -637,15 +582,12 @@ const BusinessDashboard = () => {
             filteredBatches = batches.filter((batch: any) =>
               companyBranchIds.includes(batch.branchId)
             );
-            console.log(`📦 Filtered batches for All Branches: ${batches.length} -> ${filteredBatches.length} (company: ${effectiveCompanyId}, branches: ${companyBranchIds.length})`);
           } else {
             // If no branches found for company, use all batches (API already filtered by companyId)
-            console.log(`📦 No branches found for company ${effectiveCompanyId}, using all batches from API: ${batches.length}`);
             filteredBatches = batches;
           }
         } else if (effectiveCompanyId) {
           // Company selected but branches not loaded yet - use all batches (API already filtered by companyId)
-          console.log(`📦 Branches not loaded yet, using all batches from API: ${batches.length}`);
           filteredBatches = batches;
         }
 
@@ -681,18 +623,6 @@ const BusinessDashboard = () => {
             
             // Debug first few batches to verify calculation
             if (totalBatches <= 3) {
-              console.log(`💰 Batch ${totalBatches} cost:`, {
-                batchNo: batch.batchNo,
-                quantity,
-                purchasePrice,
-                batchCost,
-                availableFields: {
-                  purchasePrice: batch.purchasePrice,
-                  costPrice: batch.costPrice,
-                  stockPurchasePrice: batch.stockPurchasePrice,
-                  costPricePerUnit: batch.costPricePerUnit
-                }
-              });
             }
           }
 
@@ -717,21 +647,7 @@ const BusinessDashboard = () => {
           outOfStock: outOfStockBatchesCount
         });
         setTotalCost(totalBusinessCost);
-
-        console.log('📦 Batches loaded:', {
-          total: totalBatches,
-          expired: expiredBatchesCount,
-          outOfStock: outOfStockBatchesCount,
-          totalCost: totalBusinessCost,
-          sampleBatch: filteredBatches.length > 0 ? {
-            quantity: filteredBatches[0].quantity,
-            purchasePrice: filteredBatches[0].purchasePrice,
-            costPrice: filteredBatches[0].costPrice,
-            stockPurchasePrice: filteredBatches[0].stockPurchasePrice
-          } : null
-        });
       } else {
-        console.warn('Failed to load batches data');
         setAllBatches([]);
         setBatchesOverview({ total: 0, expired: 0, outOfStock: 0 });
         setTotalCost(0); // CRITICAL: Reset total cost if batches fail to load
@@ -749,7 +665,6 @@ const BusinessDashboard = () => {
           sales = sales.filter((sale: any) => sale.branchId === effectiveBranchId);
         }
 
-        console.log(`📊 Calculating most/slow selling products from ${sales.length} local sales (fallback)`);
 
         // Count product sales
         const productSalesCount: { [key: string]: { product: any, count: number, revenue: number } } = {};
@@ -806,7 +721,6 @@ const BusinessDashboard = () => {
         // If specific branch is selected, ensure we only show that branch's data
         if (effectiveBranchId) {
           usersData = usersData.filter((user: any) => user.branchId === effectiveBranchId);
-          console.log(`🔍 Pre-filtered users by branch ${effectiveBranchId}: ${usersResponse.data.users?.length || 0} -> ${usersData.length}`);
         } else if (effectiveCompanyId) {
           // All Branches selected - ensure users belong to selected company's branches
           const companyBranchIds = allBranches
@@ -814,18 +728,9 @@ const BusinessDashboard = () => {
             .map(b => b.id);
           if (companyBranchIds.length > 0) {
             usersData = usersData.filter((user: any) => companyBranchIds.includes(user.branchId));
-            console.log(`🔍 Pre-filtered users by company ${effectiveCompanyId}: ${usersResponse.data.users?.length || 0} -> ${usersData.length} (branches: ${companyBranchIds.length})`);
           }
         }
 
-        console.log('👥 Raw users from API:', usersData.length, usersData.map((u: any) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          companyId: u.companyId,
-          branchId: u.branchId
-        })));
 
         // CRITICAL FIX: Filter users by company first, then by role
         let filteredUsers = usersData;
@@ -848,18 +753,10 @@ const BusinessDashboard = () => {
             }
 
             if (!matchesCompany) {
-              console.log('❌ User filtered out (wrong company):', {
-                userId: user.id,
-                userName: user.name,
-                userCompanyId,
-                branchCompanyId,
-                effectiveCompanyId
-              });
             }
 
             return matchesCompany;
           });
-          console.log('👥 After company filter:', filteredUsers.length);
         } else if (currentUserData.companyId) {
           // If no company selected but user has companyId, filter by user's company
           filteredUsers = filteredUsers.filter((user: any) => {
@@ -869,7 +766,6 @@ const BusinessDashboard = () => {
 
             return userCompanyId === currentUserData.companyId || branchCompanyId === currentUserData.companyId;
           });
-          console.log('👥 After user company filter:', filteredUsers.length);
         }
 
         // Step 2: Filter by branch if selectedBranchId is set
@@ -877,11 +773,9 @@ const BusinessDashboard = () => {
           filteredUsers = filteredUsers.filter((user: any) => {
             const matchesBranch = user.branchId === selectedBranchId;
             if (!matchesBranch) {
-              console.log(`👥 User ${user.username} (${user.id}) filtered out by branch. User branch: ${user.branchId}, Selected branch: ${selectedBranchId}`);
             }
             return matchesBranch;
           });
-          console.log('👥 After branch filter:', filteredUsers.length);
         }
 
         // Step 3: Filter by role
@@ -893,12 +787,6 @@ const BusinessDashboard = () => {
           );
         }
 
-        console.log('👥 Final filtered users:', filteredUsers.length, filteredUsers.map((u: any) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role
-        })));
 
         setAllUsers(filteredUsers);
 
@@ -965,7 +853,6 @@ const BusinessDashboard = () => {
       };
       
     } catch (err) {
-      console.error('Error loading dashboard data:', err);
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -976,7 +863,6 @@ const BusinessDashboard = () => {
   useEffect(() => {
     // Only load once on initial mount or when effective company context is ready
     if (!hasInitialLoad && effectiveCompanyId) {
-      console.log('🔍 AdminContext initialized, loading fresh data...');
       setHasInitialLoad(true);
       loadDashboardData();
       loadExpiryAlerts();
@@ -994,12 +880,6 @@ const BusinessDashboard = () => {
       return; // Already loaded for this context, skip
     }
     lastLoadedContextRef.current = contextKey;
-    
-    console.log('🔄 Branch/Company changed - Loading FRESH data:', { 
-      selectedBranchId: selectedBranchId || 'all', 
-      selectedCompanyId: selectedCompanyId || 'all' 
-    });
-    
     // CRITICAL: When branch changes, always load fresh data to ensure correct filtering
     // Don't rely on cache - branch-specific data must be loaded fresh
     setLoading(true);
@@ -1059,7 +939,6 @@ const BusinessDashboard = () => {
     if (selectedBranchId) {
       // Specific branch selected - filter by branchId
       filteredBatches = allBatches.filter((batch: any) => batch.branchId === selectedBranchId);
-      console.log(`💰 Total Cost: Filtering batches for branch ${selectedBranchId}: ${allBatches.length} -> ${filteredBatches.length}`);
     } else if (selectedCompanyId && allBranches.length > 0) {
       // "All Branches" selected - filter by company branches
       // Use allBranches directly (availableBranches is defined later, so use allBranches here)
@@ -1070,14 +949,11 @@ const BusinessDashboard = () => {
         filteredBatches = allBatches.filter((batch: any) =>
           companyBranchIds.includes(batch.branchId)
         );
-        console.log(`💰 Total Cost: Filtering batches for company ${selectedCompanyId} (${companyBranchIds.length} branches): ${allBatches.length} -> ${filteredBatches.length}`);
       } else {
         // No branches found for company, use all batches (might be from API filtering)
-        console.log(`💰 Total Cost: No branches found for company, using all batches: ${allBatches.length}`);
       }
     } else {
       // No company selected or branches not loaded yet, use all batches
-      console.log(`💰 Total Cost: No company/branches, using all batches: ${allBatches.length}`);
     }
     
     // Calculate total cost from filtered batches
@@ -1094,7 +970,6 @@ const BusinessDashboard = () => {
       }
     });
     
-    console.log(`💰 Total Cost calculated: Rs ${totalBusinessCost} (from ${filteredBatches.length} batches)`);
     return totalBusinessCost;
   }, [allBatches, selectedBranchId, selectedCompanyId, allBranches]);
 
@@ -1154,14 +1029,6 @@ const BusinessDashboard = () => {
           ? dashboardData.totalSales
           : activeSales.length;
         
-        console.log(`🔍 Filtered data for "All Branches" (company: ${effectiveCompanyId}):`, {
-          sales: filteredSales.length,
-          products: filteredProducts.length,
-          users: filteredUsers.length,
-          revenue: filteredRevenue,
-          totalSales: filteredTotalSales,
-          companyBranches: companyBranchIds.length
-        });
         
         return {
           sales: filteredSales,
@@ -1187,7 +1054,6 @@ const BusinessDashboard = () => {
     const filteredSales = realSalesData.filter(sale => {
       const matches = sale.branchId === selectedBranchId;
       if (!matches && sale.branchId) {
-        console.warn(`⚠️ Sale ${sale.id} filtered out - branch mismatch: ${sale.branchId} !== ${selectedBranchId}`);
       }
       return matches;
     });
@@ -1195,31 +1061,17 @@ const BusinessDashboard = () => {
     const filteredProducts = realProductsData.filter(product => {
       const matches = product.branchId === selectedBranchId;
       if (!matches && product.branchId) {
-        console.warn(`⚠️ Product ${product.id} filtered out - branch mismatch: ${product.branchId} !== ${selectedBranchId}`);
       }
       return matches;
     });
     const filteredUsers = allUsers.filter(user => {
       const matches = user.branchId === selectedBranchId;
       if (!matches && user.branchId) {
-        console.warn(`⚠️ User ${user.id} filtered out - branch mismatch: ${user.branchId} !== ${selectedBranchId}`);
       }
       return matches;
     });
     const filteredRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const filteredTotalSales = activeSales.length;
-
-    console.log(`🔍 Filtered data for branch ${selectedBranchId}:`, {
-      sales: filteredSales.length,
-      products: filteredProducts.length,
-      users: filteredUsers.length,
-      revenue: filteredRevenue,
-      totalSales: filteredTotalSales,
-      originalSalesCount: realSalesData.length,
-      originalProductsCount: realProductsData.length,
-      originalUsersCount: allUsers.length
-    });
-
     return {
       sales: filteredSales,
       products: filteredProducts,
@@ -1287,7 +1139,6 @@ const BusinessDashboard = () => {
 
     // Validate branch has an ID
     if (!branch || !branch.id) {
-      console.error('Invalid branch data:', branch);
       setError('Invalid branch data');
       return;
     }
@@ -1315,7 +1166,6 @@ const BusinessDashboard = () => {
         setShowBranchDetails(true);
       }
     } catch (err) {
-      console.error('Error loading branch details:', err);
       setError('Failed to load branch details');
       // Don't show branch details if there's an error
       setShowBranchDetails(false);
@@ -1514,11 +1364,6 @@ const BusinessDashboard = () => {
   const handleStatCardClick = useCallback((stat: any) => {
     // Check if stat has module requirement and if module is enabled
     if (stat.requiredModule && !hasModule(stat.requiredModule)) {
-      console.log('🚫 Module check failed:', {
-        requiredModule: stat.requiredModule,
-        hasModule: hasModule(stat.requiredModule),
-        stat: stat
-      });
       // Module not enabled - show upgrade toast with action
       const moduleNames: Record<string, string> = {
         inventory: 'Inventory Management',
@@ -1546,11 +1391,6 @@ const BusinessDashboard = () => {
       return;
     }
 
-    console.log('✅ Module check passed:', {
-      requiredModule: stat.requiredModule,
-      hasModule: stat.requiredModule ? hasModule(stat.requiredModule) : 'N/A',
-      stat: stat
-    });
 
     if (stat.clickable && stat.navigateTo) {
       const targetPath = String(stat.navigateTo);
@@ -1729,7 +1569,7 @@ const BusinessDashboard = () => {
                 type="button"
                 variant="outline"
                 className="rounded-[10px] border-[#1a52c5]/20 font-semibold text-[#1a52c5] h-9 px-3 text-xs hover:bg-[#1a52c5]/10"
-                onClick={() => window.location.href = "http://127.0.0.1:50862/business/gohar-pharma/invoices"}
+                onClick={() => navigate('/invoices')}
               >
                 View All Sales ({filteredData.sales.length})
               </Button>
@@ -2260,4 +2100,3 @@ const BusinessDashboard = () => {
 
 // Memoize the component to prevent unnecessary re-renders
 export default React.memo(BusinessDashboard);
-
