@@ -43,11 +43,9 @@ export async function createNotification(params: {
     });
     if (pref && !pref.enabled) return null;
 
-    // Create notification
-    const id = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    // Create notification (let Prisma generate the cuid)
     const notification = await prisma.notification.create({
       data: {
-        id,
         userId: params.userId,
         businessId: params.businessId || null,
         type: params.type,
@@ -402,6 +400,30 @@ export const deleteNotification = async (req: AuthRequest, res: Response): Promi
     res.json({ success: true, message: 'Notification deleted' });
   } catch (error) {
     console.error('Delete notification error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Delete all notifications for the authenticated user.
+ * DELETE /api/notifications/clear-all
+ */
+export const clearAllNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Authentication required' });
+      return;
+    }
+
+    const prisma = await getPrisma();
+    const result = await prisma.notification.deleteMany({
+      where: { userId },
+    });
+
+    res.json({ success: true, message: `Cleared ${result.count} notifications` });
+  } catch (error) {
+    console.error('Clear all notifications error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

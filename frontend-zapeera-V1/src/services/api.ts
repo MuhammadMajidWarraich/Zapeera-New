@@ -2038,6 +2038,10 @@ export class ApiService {
     return this.request<any>(`/notifications/${id}`, { method: 'DELETE' });
   }
 
+  async clearAllNotifications() {
+    return this.request<any>('/notifications/clear-all', { method: 'DELETE' });
+  }
+
   // ─── Companies ─────────────────────────────────────────────────────────────
 
   async getCompany(companyId: string) {

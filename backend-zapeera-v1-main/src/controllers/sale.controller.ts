@@ -1099,11 +1099,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // Create notification for the sale
     createNotification({
       userId: createdBy || userId,
-      businessId: createdBy || userId,
+      businessId: req.membership?.business_id || req.headers['x-company-id'] as string || undefined,
       type: 'sale_created',
       title: 'New Sale Recorded',
       body: `Sale #${completeSale.invoiceNumber || completeSale.id?.slice(-8)} recorded for Rs. ${completeSale.totalAmount || 0}`,
-      actionUrl: `/business/${createdBy}/sales`,
+      actionUrl: `/invoices`,
       metadata: { saleId: completeSale.id, amount: completeSale.totalAmount },
     }).catch(() => {});
 

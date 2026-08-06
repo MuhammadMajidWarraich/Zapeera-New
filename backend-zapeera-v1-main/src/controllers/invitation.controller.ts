@@ -276,6 +276,24 @@ export const acceptInvitationHandler = async (req: AuthRequest, res: Response): 
       console.warn(`⚠️ Confirmation email failed for ${req.user!.email}`);
     }
 
+    // Notify business owner that invitation was accepted
+    try {
+      const invitation = await prisma.businessInvitation.findFirst({
+        where: { token },
+        select: { businessId: true, invitedBy: true, email: true }
+      });
+      if (invitation?.invitedBy && invitation.businessId) {
+        createNotification({
+          userId: invitation.invitedBy,
+          businessId: invitation.businessId,
+          type: 'invitation_accepted',
+          title: 'Invitation Accepted',
+          body: `${recipientName || invitation.email} has accepted your invitation and joined the business.`,
+          actionUrl: `/staff`,
+        }).catch(() => {});
+      }
+    } catch { /* notification failure is non-blocking */ }
+
     res.json({
       success: true,
       data: {

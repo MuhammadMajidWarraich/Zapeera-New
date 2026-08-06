@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { createNotification } from './notification.controller';
 import Joi from 'joi';
 import logger from '../utils/logger';
 
@@ -72,6 +73,22 @@ export const startShift = async (req: Request, res: Response) => {
     syncAfterOperation('shift', 'create', shift).catch((err: any) => {
       logger.error('[Sync] Shift create sync failed:', { message: err.message });
     });
+
+    // Notify the staff member about assigned shift
+    const staffUserId = staffProfile.membershipId;
+    if (staffUserId) {
+      const membership = await prisma.membership.findUnique({ where: { id: staffUserId }, select: { userId: true, businessId: true } });
+      if (membership?.userId && membership.businessId) {
+        createNotification({
+          userId: membership.userId,
+          businessId: membership.businessId,
+          type: 'shift_assigned',
+          title: 'Shift Assigned',
+          body: `You have a shift on ${new Date(shiftDate).toLocaleDateString()} starting at ${new Date(startTime).toLocaleTimeString()}`,
+          actionUrl: `/employee-portal`,
+        }).catch(() => {});
+      }
+    }
 
     return res.status(201).json({ success: true, data: shift, message: 'Shift started successfully' });
   } catch (error) {

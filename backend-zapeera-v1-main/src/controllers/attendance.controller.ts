@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { createNotification } from './notification.controller';
 import Joi from 'joi';
 import logger from '../utils/logger';
 
@@ -122,6 +123,21 @@ export const checkIn = async (req: Request, res: Response) => {
       logger.error('[Sync] Attendance check-in sync failed:', { message: err.message });
     });
 
+    // Notify business owner/manager about check-in
+    const staffName = staffProfile.membership?.user?.name || 'Staff member';
+    const businessId = staffProfile.membership?.businessId;
+    const ownerId = businessId ? (await prisma.business.findUnique({ where: { id: businessId }, select: { createdBy: true } }))?.createdBy : null;
+    if (ownerId && businessId) {
+      createNotification({
+        userId: ownerId,
+        businessId,
+        type: 'staff_checkin',
+        title: 'Staff Checked In',
+        body: `${staffName} checked in at ${new Date().toLocaleTimeString()}`,
+        actionUrl: `/staff`,
+      }).catch(() => {});
+    }
+
     return res.status(201).json({
       success: true,
       data: attendance,
@@ -226,6 +242,21 @@ export const checkOut = async (req: Request, res: Response) => {
         }
       }
     });
+
+    // Notify business owner/manager about check-out
+    const staffName = attendance.staffProfile?.membership?.user?.name || 'Staff member';
+    const businessId = attendance.staffProfile?.membership?.businessId;
+    const ownerId = businessId ? (await prisma.business.findUnique({ where: { id: businessId }, select: { createdBy: true } }))?.createdBy : null;
+    if (ownerId && businessId) {
+      createNotification({
+        userId: ownerId,
+        businessId,
+        type: 'staff_checkout',
+        title: 'Staff Checked Out',
+        body: `${staffName} checked out at ${new Date().toLocaleTimeString()} (${totalHours.toFixed(1)} hours worked)`,
+        actionUrl: `/staff`,
+      }).catch(() => {});
+    }
 
     return res.json({
       success: true,

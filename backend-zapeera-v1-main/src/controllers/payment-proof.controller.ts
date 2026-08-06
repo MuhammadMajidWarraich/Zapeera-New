@@ -472,7 +472,7 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
       createNotification({
         userId: ownerUser.createdBy,
         businessId: proof.businessId,
-        type: 'subscription_activated',
+        type: 'billing_payment_approved',
         title: 'Payment Approved',
         body: `Your payment proof has been approved. Subscription activated.`,
         actionUrl: `/business/${proof.businessId}/subscription`,
