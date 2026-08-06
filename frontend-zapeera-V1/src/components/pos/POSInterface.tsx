@@ -212,8 +212,6 @@ const POSInterface = () => {
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
-  const barcodeBufferRef = useRef('');
-  const lastKeyTimeRef = useRef(0);
   const [settingsUpdateTrigger, setSettingsUpdateTrigger] = useState(0);
   const [refundReceiptNumber, setRefundReceiptNumber] = useState("");
   const [refundReason, setRefundReason] = useState("");
@@ -1179,24 +1177,11 @@ const POSInterface = () => {
   };
 
   // Handle barcode lookup on Enter key in search input
-  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const now = Date.now();
-    const timeSinceLastKey = now - lastKeyTimeRef.current;
-    lastKeyTimeRef.current = now;
-
-    // Accumulate characters for rapid scanner input
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (timeSinceLastKey > 200) {
-        barcodeBufferRef.current = '';
-      }
-      barcodeBufferRef.current += e.key;
-    }
-
+  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>, value: string) => {
     // Enter key = submit barcode scan
     if (e.key === 'Enter') {
       e.preventDefault();
-      const barcode = barcodeBufferRef.current.trim();
-      barcodeBufferRef.current = '';
+      const barcode = value.trim();
 
       if (!barcode) return;
 
@@ -1204,12 +1189,11 @@ const POSInterface = () => {
       const isBarcodeLike = /^\d{8,14}$/.test(barcode) || /^[A-Z]{2,4}\d{4,}$/i.test(barcode);
 
       if (isBarcodeLike || barcode.length > 6) {
-        // Barcode-like input - do API lookup
+        // Barcode-like input - do API lookup and auto-add to cart
         try {
           const response = await apiService.lookupBarcode(barcode);
           if (response.success && response.data?.product) {
             const p = response.data.product;
-            const batch = response.data.batch;
             // Convert to POS Product type and add to cart
             const product: Product = {
               id: p.id,
@@ -3018,7 +3002,7 @@ Sale amount has been deducted from reports.`);
                   placeholder="Scan barcode or search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
+                  onKeyDown={(e) => handleSearchKeyDown(e, searchQuery)}
                   className="pl-10 h-12"
                 />
               </div>
@@ -3626,7 +3610,7 @@ Sale amount has been deducted from reports.`);
                     placeholder="Scan barcode or search products..."
                     value={invoiceSearchQuery}
                     onChange={(e) => setInvoiceSearchQuery(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
+                    onKeyDown={(e) => handleSearchKeyDown(e, invoiceSearchQuery)}
                     className="pl-10 h-12 text-base"
                   />
                 </div>

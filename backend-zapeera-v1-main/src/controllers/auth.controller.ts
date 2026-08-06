@@ -444,8 +444,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Set JWT token in httpOnly cookie for enhanced security
     res.cookie('auth-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/'
     });
@@ -453,8 +453,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Set CSRF token in cookie (accessible to frontend)
     res.cookie('csrf-token', csrfToken, {
       httpOnly: false, // Client needs to read this
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
       maxAge: 60 * 60 * 1000, // 1 hour
       path: '/'
     });

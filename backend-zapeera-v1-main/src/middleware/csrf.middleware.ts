@@ -77,6 +77,15 @@ const CSRF_EXEMPT_PATHS = [
   '/api/v1/backoffice/auth/logout',
   '/api/sse',
   '/api/v1/sse',
+  // Barcode lookup is read-only (no state mutation)
+  '/api/barcodes/lookup',
+  '/api/v1/barcodes/lookup',
+  '/api/barcodes/validate',
+  '/api/v1/barcodes/validate',
+  '/api/barcodes/stats',
+  '/api/v1/barcodes/stats',
+  '/api/barcodes/product/',
+  '/api/v1/barcodes/product/',
 ];
 
 /**
