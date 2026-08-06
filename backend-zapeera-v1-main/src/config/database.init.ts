@@ -39,11 +39,20 @@ try {
 }
 
 // Check if we should use PostgreSQL directly (for website)
-// CRITICAL FIX: If schema is SQLite, force SQLite mode regardless of USE_POSTGRESQL
-const usePostgreSQL = schemaProvider === 'postgresql' && process.env.USE_POSTGRESQL === 'true';
+// Auto-detect: if DATABASE_URL already starts with postgresql://, use it
+const existingDbUrl = process.env.DATABASE_URL || '';
+const isExistingPostgresUrl = existingDbUrl.startsWith('postgresql://') || existingDbUrl.startsWith('postgres://');
+
+const usePostgreSQL = schemaProvider === 'postgresql' && (
+  process.env.USE_POSTGRESQL === 'true' || isExistingPostgresUrl
+);
 
 if (schemaProvider === 'sqlite' && process.env.USE_POSTGRESQL === 'true') {
   console.warn('[DB Init] ⚠️ Schema is SQLite but USE_POSTGRESQL=true - forcing SQLite mode');
+}
+
+if (isExistingPostgresUrl && !usePostgreSQL) {
+  console.log('[DB Init] 🔍 DATABASE_URL is already a PostgreSQL URL - auto-enabling PostgreSQL mode');
 }
 
 function withPostgresConnectionLimit(databaseUrl: string): string {
@@ -77,13 +86,14 @@ function withPostgresConnectionLimit(databaseUrl: string): string {
   }
 }
 
-// PostgreSQL URL (optional in SQLite mode, required in PostgreSQL mode)
-const postgresUrl = process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL;
+// PostgreSQL URL - use DATABASE_URL if already a valid postgres URL, otherwise check other env vars
+const postgresUrl = isExistingPostgresUrl
+  ? existingDbUrl
+  : (process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL || '');
 const POSTGRESQL_URL = postgresUrl ? withPostgresConnectionLimit(postgresUrl) : '';
 
 if (usePostgreSQL && !POSTGRESQL_URL) {
-  console.error('[DB Init] ❌ ERROR: REMOTE_DATABASE_URL or POSTGRESQL_URL is required in PostgreSQL mode.');
-  console.error('[DB Init] Please set REMOTE_DATABASE_URL in your .env file');
+  console.error('[DB Init] ❌ ERROR: No PostgreSQL URL found. Set DATABASE_URL, REMOTE_DATABASE_URL, or POSTGRESQL_URL.');
   process.exit(1);
 }
 
@@ -112,34 +122,19 @@ if (POSTGRESQL_URL) {
   process.env.REMOTE_DATABASE_URL = POSTGRESQL_URL;
 }
 
-if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('file:')) {
-  console.log('[DB Init] 🔒 DATABASE_URL already set externally:', process.env.DATABASE_URL);
-} else if (usePostgreSQL) {
-  // Website mode - use PostgreSQL directly
-  console.log('[DB Init] 🌐 WEBSITE MODE - Using PostgreSQL directly');
-  console.log('[DB Init] ⚠️  Note: For website, deploy with postgresql schema');
+// Determine DATABASE_URL based on mode
+if (usePostgreSQL && POSTGRESQL_URL) {
+  // PostgreSQL mode
+  console.log('[DB Init] 🌐 POSTGRESQL MODE');
   process.env.DATABASE_URL = POSTGRESQL_URL;
-} else {
-  // Electron/Software mode - use SQLite for offline support
-  console.log('[DB Init] 💻 ELECTRON MODE - Using SQLite for offline support');
+} else if (!usePostgreSQL) {
+  // Electron mode - SQLite
+  console.log('[DB Init] 💻 ELECTRON MODE - SQLite');
   console.log('[DB Init] 📁 SQLite path:', sqlitePath);
   console.log('[DB Init] 🔗 SQLite URL:', SQLITE_URL);
-  if (POSTGRESQL_URL) {
-    console.log('[DB Init] 🔗 PostgreSQL URL available for sync');
-  } else {
-    console.log('[DB Init] ⚠️ PostgreSQL sync disabled (no URL configured)');
-  }
-  // CRITICAL FIX: Force set DATABASE_URL to ensure it starts with 'file:'
   process.env.DATABASE_URL = SQLITE_URL;
-  
-  // Verify it's set correctly
-  if (!process.env.DATABASE_URL.startsWith('file:')) {
-    console.error('[DB Init] ❌ ERROR: DATABASE_URL does not start with file: protocol!');
-    console.error('[DB Init] Current DATABASE_URL:', process.env.DATABASE_URL);
-    process.env.DATABASE_URL = `file:${sqlitePath}`;
-    console.log('[DB Init] ✅ Fixed DATABASE_URL:', process.env.DATABASE_URL);
-  }
 }
+// If usePostgreSQL but no URL somehow, keep whatever is already set
 
 // Export for reference
 export const DATABASE_INITIALIZED = true;
