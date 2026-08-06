@@ -212,6 +212,8 @@ const POSInterface = () => {
   const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+  const barcodeBufferRef = useRef('');
+  const lastKeyTimeRef = useRef(0);
   const [settingsUpdateTrigger, setSettingsUpdateTrigger] = useState(0);
   const [refundReceiptNumber, setRefundReceiptNumber] = useState("");
   const [refundReason, setRefundReason] = useState("");
@@ -1173,6 +1175,68 @@ const POSInterface = () => {
         description: `Product with barcode ${barcode} not found`,
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle barcode lookup on Enter key in search input
+  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const now = Date.now();
+    const timeSinceLastKey = now - lastKeyTimeRef.current;
+    lastKeyTimeRef.current = now;
+
+    // Accumulate characters for rapid scanner input
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (timeSinceLastKey > 200) {
+        barcodeBufferRef.current = '';
+      }
+      barcodeBufferRef.current += e.key;
+    }
+
+    // Enter key = submit barcode scan
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const barcode = barcodeBufferRef.current.trim();
+      barcodeBufferRef.current = '';
+
+      if (!barcode) return;
+
+      // Check if it looks like a barcode (mostly digits, or starts with letters)
+      const isBarcodeLike = /^\d{8,14}$/.test(barcode) || /^[A-Z]{2,4}\d{4,}$/i.test(barcode);
+
+      if (isBarcodeLike || barcode.length > 6) {
+        // Barcode-like input - do API lookup
+        try {
+          const response = await apiService.lookupBarcode(barcode);
+          if (response.success && response.data?.product) {
+            const p = response.data.product;
+            const batch = response.data.batch;
+            // Convert to POS Product type and add to cart
+            const product: Product = {
+              id: p.id,
+              name: p.name,
+              price: p.sellingPrice || p.mrp || 0,
+              costPrice: p.costPrice || 0,
+              mrp: p.mrp || 0,
+              stock: p.totalStock || p.stock || 0,
+              unitType: p.unitType || 'strip',
+              category: p.category?.name || 'General',
+              requiresPrescription: p.requiresPrescription || false,
+              barcode: p.barcode || barcode,
+              formula: p.formula || '',
+              unitsPerPack: p.unitsPerPack || 1,
+              unitsPerBox: p.unitsPerBox || 1,
+            };
+            addToCart(product, 1, 'unit');
+            setSearchQuery('');
+            toast({ title: 'Product found', description: `${p.name} added to cart` });
+          } else {
+            toast({ title: 'Unknown Barcode', description: `No product found for barcode: ${barcode}`, variant: 'destructive' });
+          }
+        } catch {
+          toast({ title: 'Lookup failed', description: `Could not find product for barcode: ${barcode}`, variant: 'destructive' });
+        }
+      }
+      // If not barcode-like, let normal text search continue
     }
   };
 
@@ -2951,9 +3015,10 @@ Sale amount has been deducted from reports.`);
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name, formula, or barcode..."
+                  placeholder="Scan barcode or search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   className="pl-10 h-12"
                 />
               </div>
@@ -3558,9 +3623,10 @@ Sale amount has been deducted from reports.`);
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by name, formula, or barcode..."
+                    placeholder="Scan barcode or search products..."
                     value={invoiceSearchQuery}
                     onChange={(e) => setInvoiceSearchQuery(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
                     className="pl-10 h-12 text-base"
                   />
                 </div>
