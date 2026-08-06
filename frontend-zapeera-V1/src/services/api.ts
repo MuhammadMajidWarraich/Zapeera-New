@@ -3407,27 +3407,27 @@ export class ApiService {
     return this.request<{
       staff: Array<{
         id: string;
-        staffId: string;
-        name: string;
-        email: string;
-        phone?: string;
-        address?: string;
-        position: string;
+        employeeId: string;
+        designation: string;
         department?: string;
         salary?: number;
-        hireDate: string;
+        joiningDate: string;
         status: string;
-        branchId: string;
-        branch: {
-          id: string;
-          name: string;
-        };
-        emergencyContactName?: string;
-        emergencyContactPhone?: string;
-        emergencyContactRelation?: string;
         isActive: boolean;
         createdAt: string;
         updatedAt: string;
+        membership: {
+          id: string;
+          role: { id: string; name: string } | null;
+          user: {
+            id: string;
+            name: string;
+            email: string;
+            phone?: string;
+            profileImage?: string;
+          };
+          branches: Array<{ id: string; name: string }>;
+        };
       }>;
       pagination: {
         page: number;
@@ -3441,68 +3441,64 @@ export class ApiService {
   async getStaffMember(id: string) {
     return this.request<{
       id: string;
-      staffId: string;
-      name: string;
-      email: string;
-      phone?: string;
-      address?: string;
-      position: string;
+      employeeId: string;
+      designation: string;
       department?: string;
       salary?: number;
-      hireDate: string;
+      joiningDate: string;
       status: string;
-      branchId: string;
-      branch: {
-        id: string;
-        name: string;
-      };
-      emergencyContactName?: string;
-      emergencyContactPhone?: string;
-      emergencyContactRelation?: string;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
+      membership: {
+        id: string;
+        role: { id: string; name: string } | null;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone?: string;
+          profileImage?: string;
+        };
+        branches: Array<{ id: string; name: string }>;
+      };
     }>(`/staff/${id}`);
   }
 
   async createStaff(staffData: {
-    name: string;
-    email: string;
-    phone?: string;
-    address?: string;
-    position: string;
+    userId: string;
+    role: string;
+    branchId: string;
+    employeeId?: string;
+    designation: string;
     department?: string;
     salary?: number;
-    hireDate: string;
+    joiningDate?: string;
     status?: string;
-    branchId: string;
-    emergencyContactName?: string;
-    emergencyContactPhone?: string;
-    emergencyContactRelation?: string;
   }) {
     return this.request<{
       id: string;
-      staffId: string;
-      name: string;
-      email: string;
-      phone?: string;
-      address?: string;
-      position: string;
+      employeeId: string;
+      designation: string;
       department?: string;
       salary?: number;
-      hireDate: string;
+      joiningDate: string;
       status: string;
-      branchId: string;
-      branch: {
-        id: string;
-        name: string;
-      };
-      emergencyContactName?: string;
-      emergencyContactPhone?: string;
-      emergencyContactRelation?: string;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
+      membership: {
+        id: string;
+        role: { id: string; name: string } | null;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone?: string;
+          profileImage?: string;
+        };
+        branches: Array<{ id: string; name: string }>;
+      };
     }>('/staff', {
       method: 'POST',
       body: JSON.stringify(staffData)
@@ -3510,44 +3506,36 @@ export class ApiService {
   }
 
   async updateStaff(id: string, staffData: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    position?: string;
+    designation?: string;
     department?: string;
     salary?: number;
-    hireDate?: string;
+    joiningDate?: string;
     status?: string;
-    branchId?: string;
-    emergencyContactName?: string;
-    emergencyContactPhone?: string;
-    emergencyContactRelation?: string;
     isActive?: boolean;
   }) {
     return this.request<{
       id: string;
-      staffId: string;
-      name: string;
-      email: string;
-      phone?: string;
-      address?: string;
-      position: string;
+      employeeId: string;
+      designation: string;
       department?: string;
       salary?: number;
-      hireDate: string;
+      joiningDate: string;
       status: string;
-      branchId: string;
-      branch: {
-        id: string;
-        name: string;
-      };
-      emergencyContactName?: string;
-      emergencyContactPhone?: string;
-      emergencyContactRelation?: string;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
+      membership: {
+        id: string;
+        role: { id: string; name: string } | null;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone?: string;
+          profileImage?: string;
+        };
+        branches: Array<{ id: string; name: string }>;
+      };
     }>(`/staff/${id}`, {
       method: 'PUT',
       body: JSON.stringify(staffData)
@@ -3576,24 +3564,29 @@ export class ApiService {
 
   // Attendance Management
   async checkIn(attendanceData: {
-    staffId: string;
+    staffProfileId: string;
     branchId: string;
     notes?: string;
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       checkIn: string;
       checkOut?: string;
       totalHours?: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -3612,18 +3605,23 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       checkIn: string;
       checkOut: string;
       totalHours: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -3639,7 +3637,7 @@ export class ApiService {
   async getAttendance(params?: {
     page?: number;
     limit?: number;
-    staffId?: string;
+    staffProfileId?: string;
     branchId?: string;
     startDate?: string;
     endDate?: string;
@@ -3657,18 +3655,23 @@ export class ApiService {
     return this.request<{
       attendance: Array<{
         id: string;
-        staffId: string;
+        staffProfileId: string;
         branchId: string;
         checkIn: string;
         checkOut?: string;
         totalHours?: number;
         status: string;
         notes?: string;
-        staff: {
+        staffProfile: {
           id: string;
-          name: string;
-          staffId: string;
-          position: string;
+          employeeId: string;
+          designation: string;
+          membership: {
+            user: {
+              id: string;
+              name: string;
+            };
+          };
         };
         branch: {
           id: string;
@@ -3685,28 +3688,33 @@ export class ApiService {
     }>(`/attendance?${queryParams.toString()}`);
   }
 
-  async getTodayAttendance(staffId: string) {
+  async getTodayAttendance(staffProfileId: string) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       checkIn: string;
       checkOut?: string;
       totalHours?: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
         name: string;
       };
       createdAt: string;
-    }>(`/attendance/today/${staffId}`);
+    }>(`/attendance/today/${staffProfileId}`);
   }
 
   async getAttendanceStats(params?: {
@@ -3735,7 +3743,7 @@ export class ApiService {
 
   // Shift Management
   async startShift(shiftData: {
-    staffId: string;
+    staffProfileId: string;
     branchId: string;
     shiftDate: string;
     startTime: string;
@@ -3744,7 +3752,7 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       shiftDate: string;
       startTime: string;
@@ -3757,11 +3765,16 @@ export class ApiService {
       difference?: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -3782,7 +3795,7 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       shiftDate: string;
       startTime: string;
@@ -3795,11 +3808,16 @@ export class ApiService {
       difference: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -3815,7 +3833,7 @@ export class ApiService {
   async getShifts(params?: {
     page?: number;
     limit?: number;
-    staffId?: string;
+    staffProfileId?: string;
     branchId?: string;
     status?: string;
     startDate?: string;
@@ -3833,7 +3851,7 @@ export class ApiService {
     return this.request<{
       shifts: Array<{
         id: string;
-        staffId: string;
+        staffProfileId: string;
         branchId: string;
         shiftDate: string;
         startTime: string;
@@ -3846,11 +3864,16 @@ export class ApiService {
         difference?: number;
         status: string;
         notes?: string;
-        staff: {
+        staffProfile: {
           id: string;
-          name: string;
-          staffId: string;
-          position: string;
+          employeeId: string;
+          designation: string;
+          membership: {
+            user: {
+              id: string;
+              name: string;
+            };
+          };
         };
         branch: {
           id: string;
@@ -3867,10 +3890,10 @@ export class ApiService {
     }>(`/shifts?${queryParams.toString()}`);
   }
 
-  async getActiveShift(staffId: string) {
+  async getActiveShift(staffProfileId: string) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       shiftDate: string;
       startTime: string;
@@ -3883,18 +3906,23 @@ export class ApiService {
       difference?: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
         name: string;
       };
       createdAt: string;
-    }>(`/shifts/active/${staffId}`);
+    }>(`/shifts/active/${staffProfileId}`);
   }
 
   async updateCashierShift(shiftId: string, shiftData: {
@@ -3904,7 +3932,7 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       shiftDate: string;
       startTime: string;
@@ -3917,11 +3945,16 @@ export class ApiService {
       difference?: number;
       status: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -3961,7 +3994,7 @@ export class ApiService {
 
   // Commission Management
   async calculateCommission(commissionData: {
-    staffId: string;
+    staffProfileId: string;
     branchId: string;
     period: string;
     periodType?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -3971,7 +4004,7 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       period: string;
       periodType: string;
@@ -3986,11 +4019,16 @@ export class ApiService {
       status: string;
       paidAt?: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -4006,7 +4044,7 @@ export class ApiService {
   async getCommissions(params?: {
     page?: number;
     limit?: number;
-    staffId?: string;
+    staffProfileId?: string;
     branchId?: string;
     status?: string;
     periodType?: string;
@@ -4025,7 +4063,7 @@ export class ApiService {
     return this.request<{
       commissions: Array<{
         id: string;
-        staffId: string;
+        staffProfileId: string;
         branchId: string;
         period: string;
         periodType: string;
@@ -4040,11 +4078,16 @@ export class ApiService {
         status: string;
         paidAt?: string;
         notes?: string;
-        staff: {
+        staffProfile: {
           id: string;
-          name: string;
-          staffId: string;
-          position: string;
+          employeeId: string;
+          designation: string;
+          membership: {
+            user: {
+              id: string;
+              name: string;
+            };
+          };
         };
         branch: {
           id: string;
@@ -4064,7 +4107,7 @@ export class ApiService {
   async getCommission(commissionId: string) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       period: string;
       periodType: string;
@@ -4079,11 +4122,16 @@ export class ApiService {
       status: string;
       paidAt?: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -4099,7 +4147,7 @@ export class ApiService {
   }) {
     return this.request<{
       id: string;
-      staffId: string;
+      staffProfileId: string;
       branchId: string;
       period: string;
       periodType: string;
@@ -4114,11 +4162,16 @@ export class ApiService {
       status: string;
       paidAt?: string;
       notes?: string;
-      staff: {
+      staffProfile: {
         id: string;
-        name: string;
-        staffId: string;
-        position: string;
+        employeeId: string;
+        designation: string;
+        membership: {
+          user: {
+            id: string;
+            name: string;
+          };
+        };
       };
       branch: {
         id: string;
@@ -4156,7 +4209,7 @@ export class ApiService {
     }>(`/commissions/stats?${queryParams.toString()}`);
   }
 
-  async getStaffPerformance(staffId: string, params?: {
+  async getStaffPerformance(staffProfileId: string, params?: {
     startDate?: string;
     endDate?: string;
   }) {
@@ -4193,7 +4246,7 @@ export class ApiService {
           name: string;
         };
       }>;
-    }>(`/commissions/performance/${staffId}?${queryParams.toString()}`);
+    }>(`/commissions/performance/${staffProfileId}?${queryParams.toString()}`);
   }
 
   // Branch Management

@@ -1042,7 +1042,7 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
           } : {})
         }
       }) : Promise.resolve(0),
-      prisma.staff.count({
+      prisma.staffProfile.count({
         where: {
           ...where,
           isActive: true

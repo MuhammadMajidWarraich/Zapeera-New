@@ -28,17 +28,23 @@ import { apiService } from "@/services/api";
 
 interface AttendanceRecord {
   id: string;
+  staffProfileId: string;
   checkIn: string;
   checkOut?: string;
   totalHours?: number;
   status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE';
   notes?: string;
   createdAt: string;
-  staff?: {
+  staffProfile?: {
     id: string;
-    name: string;
-    staffId: string;
-    position: string;
+    employeeId: string;
+    designation: string;
+    membership: {
+      user: {
+        id: string;
+        name: string;
+      };
+    };
   };
   branch?: {
     id: string;
@@ -59,13 +65,25 @@ interface SalesData {
 
 interface StaffMember {
   id: string;
-  name: string;
-  staffId: string;
-  position: string;
-  email: string;
-  phone?: string;
+  employeeId: string;
+  designation: string;
+  department?: string;
+  salary?: number;
+  joiningDate: string;
   status: string;
-  branchId: string;
+  isActive: boolean;
+  membership: {
+    id: string;
+    role: { id: string; name: string } | null;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone?: string;
+      profileImage?: string;
+    };
+    branches: Array<{ id: string; name: string }>;
+  };
 }
 
 const StaffCheckIn = () => {
@@ -188,9 +206,9 @@ const StaffCheckIn = () => {
     }
   };
 
-  const handleCheckIn = async (staffId?: string) => {
-    const targetStaffId = staffId || user?.id;
-    if (!targetStaffId || !user?.branchId) {
+  const handleCheckIn = async (staffProfileId?: string) => {
+    const targetStaffProfileId = staffProfileId || user?.id;
+    if (!targetStaffProfileId || !user?.branchId) {
       setError("Staff or branch information not found");
       return;
     }
@@ -200,7 +218,7 @@ const StaffCheckIn = () => {
       setError("");
 
       const response = await apiService.checkIn({
-        staffId: targetStaffId,
+        staffProfileId: targetStaffProfileId,
         branchId: user?.membership?.branchIds?.[0] || user?.branchId || undefined,
         notes: notes.trim() || undefined
       });
@@ -212,7 +230,7 @@ const StaffCheckIn = () => {
         setNotes("");
 
         // Load previous shift sales when checking in
-        await loadPreviousShiftSales(targetStaffId);
+        await loadPreviousShiftSales(targetStaffProfileId);
 
         toast.success("Check-in Successful", {
           description: "Check-in successful!",
@@ -239,8 +257,8 @@ const StaffCheckIn = () => {
       setError("");
 
       // Load current shift sales before checkout
-      if (currentAttendance.staff?.id) {
-        await loadCurrentShiftSales(currentAttendance.staff.id);
+      if (currentAttendance.staffProfile?.id) {
+        await loadCurrentShiftSales(currentAttendance.staffProfile.id);
         setShowSalesSummary(true);
       }
 

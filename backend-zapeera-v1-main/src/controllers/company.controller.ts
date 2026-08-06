@@ -88,14 +88,13 @@ const companyInclude = {
       email: true,
     }
   },
-  _count: {
-    select: {
-      branches: true,
-      memberships: true,
-      staff: true,
-      products: true
-    }
-  }
+        _count: {
+          select: {
+        branches: true,
+        memberships: true,
+        products: true
+          }
+        }
 };
 
 const listUserSharedMembershipsV2 = async (
@@ -442,7 +441,6 @@ export const getCompany = async (req: Request, res: Response): Promise<void> => 
             _count: {
               select: {
                 membershipBranches: true,
-                staff: true,
                 products: true
               }
             }
@@ -452,7 +450,6 @@ export const getCompany = async (req: Request, res: Response): Promise<void> => 
           select: {
             branches: true,
             memberships: true,
-            staff: true,
             products: true
           }
         }
@@ -745,7 +742,6 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
         _count: {
           select: {
             memberships: true,
-            staff: true,
             products: true
           }
         }
@@ -1018,7 +1014,6 @@ export const updateCompany = async (req: Request, res: Response): Promise<void> 
         _count: {
           select: {
             memberships: true,
-            staff: true,
             products: true
           }
         }
@@ -1062,7 +1057,6 @@ export const deleteCompany = async (req: Request, res: Response): Promise<void> 
           select: {
             branches: true,
             memberships: true,
-            staff: true,
             products: true
           }
         }
@@ -1080,7 +1074,6 @@ export const deleteCompany = async (req: Request, res: Response): Promise<void> 
     // Check if company has associated data
     const hasData = existingCompany._count.branches > 0 ||
                    existingCompany._count.memberships > 0 ||
-                   existingCompany._count.staff > 0 ||
                    existingCompany._count.products > 0;
 
     if (hasData) {
@@ -1178,7 +1171,6 @@ export const updateCompanyBusinessType = async (req: Request, res: Response): Pr
         _count: {
           select: {
             memberships: true,
-            staff: true,
             products: true
           }
         }
@@ -1557,7 +1549,6 @@ export const getCompanyStats = async (req: Request, res: Response): Promise<void
           select: {
             branches: true,
             memberships: true,
-            staff: true,
             products: true,
             customers: true,
             sales: true

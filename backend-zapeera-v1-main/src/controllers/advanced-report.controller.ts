@@ -215,9 +215,9 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
     }
 
     const [totalStaff, attendanceCount, shifts, commissions, salesByUser] = await Promise.all([
-      prisma.staff.count({ where: staffWhere }),
+      prisma.staffProfile.count({ where: staffWhere }),
       prisma.attendance.count({ where: { checkIn: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined } }),
-      prisma.shift.findMany({ where: { shiftDate: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined }, select: { staffId: true, status: true } }),
+      prisma.shift.findMany({ where: { shiftDate: { gte: dateFilter.gte, lte: dateFilter.lte }, branchId: branchId || undefined }, select: { staffProfileId: true, status: true } }),
       prisma.commission.aggregate({ where: { createdAt: dateFilter, branchId: branchId || undefined }, _sum: { totalAmount: true }, _count: { id: true } }),
       prisma.sale.groupBy({ by: ['userId'], where: { ...saleWhere, createdAt: dateFilter, status: { not: 'REFUNDED' } }, _sum: { totalAmount: true }, _count: { id: true } }),
     ]);
@@ -228,8 +228,9 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
 
     const shiftMap: Record<string, { present: number; absent: number; late: number }> = {};
     shifts.forEach((s: any) => {
-      if (!shiftMap[s.staffId]) shiftMap[s.staffId] = { present: 0, absent: 0, late: 0 };
-      shiftMap[s.staffId][s.status as 'present' | 'absent' | 'late']++;
+      const key = s.staffProfileId;
+      if (!shiftMap[key]) shiftMap[key] = { present: 0, absent: 0, late: 0 };
+      shiftMap[key][s.status.toLowerCase() as 'present' | 'absent' | 'late'] = (shiftMap[key][s.status.toLowerCase() as 'present' | 'absent' | 'late'] || 0) + 1;
     });
 
     return res.json({
@@ -237,7 +238,7 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
       data: {
         summary: { totalStaff, attendanceRecords: attendanceCount, totalCommissions: commissions._sum.totalAmount || 0, commissionCount: commissions._count.id },
         salesByStaff: salesByUser.map((s: any) => ({ ...s, staffName: userMap.get(s.userId)?.name || 'Unknown' })),
-        shiftSummary: Object.entries(shiftMap).map(([staffId, stats]) => ({ staffId, ...stats })),
+        shiftSummary: Object.entries(shiftMap).map(([staffProfileId, stats]) => ({ staffProfileId, ...stats })),
       },
     });
   } catch (error: any) {

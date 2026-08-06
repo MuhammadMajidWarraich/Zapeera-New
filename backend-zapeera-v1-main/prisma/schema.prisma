@@ -54,36 +54,54 @@ model ZapeeraUser {
   @@map("zapeera_users")
 }
 
-model Staff {
+model StaffProfile {
   id                       String       @id @default(cuid())
-  staffId                  String       @unique
-  name                     String
-  email                    String       @unique
-  phone                    String?
-  address                  String?
-  position                 String
+  membershipId             String       @unique
+  employeeId               String       @unique
+  designation              String?
   department               String?
+  employmentType           String       @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERN
   salary                   Float?
-  hireDate                 DateTime
-  status                   String       @default("ACTIVE")
-  branchId                 String
-  companyId                String
+  salaryType               String       @default("MONTHLY") // MONTHLY, WEEKLY, DAILY, HOURLY
+  joiningDate              DateTime     @default(now())
+  probationEndDate         DateTime?
+  confirmationDate         DateTime?
+  resignationDate          DateTime?
+  terminationDate          DateTime?
+  terminationReason        String?
+  bankName                 String?
+  bankAccountNumber        String?
+  bankBranchName           String?
+  cnicNumber               String?
+  cnicExpiry               DateTime?
+  passportNumber           String?
   emergencyContactName     String?
   emergencyContactPhone    String?
   emergencyContactRelation String?
+  reportingManagerId       String?
+  shiftPreference          String?
+  weeklyOffDays            String?      // JSON array: ["MON","WED"]
+  annualLeaveBalance       Int          @default(0)
+  sickLeaveBalance         Int          @default(0)
+  casualLeaveBalance       Int          @default(0)
+  documents                String?      // JSON array of document URLs
+  notes                    String?
+  performanceRating        Float?
+  lastReviewDate           DateTime?
   isActive                 Boolean      @default(true)
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
-  attendance               Attendance[]
-  commissions              Commission[]
-  branch                   Branch       @relation(fields: [branchId], references: [id])
-  company                  Business     @relation(fields: [companyId], references: [id])
-  shifts                   Shift[]
 
-  @@index([companyId], name: "idx_staff_company")
-  @@index([branchId], name: "idx_staff_branch")
-  @@index([status], name: "idx_staff_status")
-  @@map("staff")
+  membership   Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  attendance   Attendance[]
+  commissions  Commission[]
+  shifts       Shift[]
+
+  @@index([membershipId], name: "idx_staff_profile_membership")
+  @@index([department], name: "idx_staff_profile_department")
+  @@index([designation], name: "idx_staff_profile_designation")
+  @@index([isActive], name: "idx_staff_profile_active")
+  @@map("staff_profiles")
 }
 
 model Business {
@@ -105,7 +123,6 @@ model Business {
 
   deviceActivations         DeviceActivation[]
   branches                  Branch[]
-  staff                     Staff[]
   products                  Product[]
   customers                 Customer[]
   sales                     Sale[]
@@ -147,7 +164,6 @@ model Branch {
   attendance         Attendance[]
   commissions        Commission[]
   customers          Customer[]
-  staff              Staff[]
   products           Product[]
   receipts           Receipt[]
   sales              Sale[]
@@ -550,20 +566,23 @@ model RefundItem {
 }
 
 model Attendance {
-  id        String    @id @default(cuid())
-  staffId   String
-  branchId  String
-  checkIn   DateTime
-  checkOut  DateTime?
-  totalHours Float?
-  status    String    @default("PRESENT")
-  notes     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  branch    Branch    @relation(fields: [branchId], references: [id])
-  staff     Staff     @relation(fields: [staffId], references: [id])
+  id              String    @id @default(cuid())
+  staffProfileId  String
+  membershipId    String
+  branchId        String
+  checkIn         DateTime
+  checkOut        DateTime?
+  totalHours      Float?
+  status          String    @default("PRESENT")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  staffProfile    StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership      Membership  @relation(fields: [membershipId], references: [id])
 
-  @@index([staffId], name: "idx_attendance_staff")
+  @@index([staffProfileId], name: "idx_attendance_staff_profile")
+  @@index([membershipId], name: "idx_attendance_membership")
   @@index([branchId], name: "idx_attendance_branch")
   @@index([checkIn], name: "idx_attendance_checkIn")
   @@index([status], name: "idx_attendance_status")
@@ -572,7 +591,8 @@ model Attendance {
 
 model Shift {
   id              String    @id @default(cuid())
-  staffId         String
+  staffProfileId  String
+  membershipId    String
   branchId        String
   shiftDate       DateTime
   startTime       DateTime
@@ -587,10 +607,12 @@ model Shift {
   notes           String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  branch          Branch    @relation(fields: [branchId], references: [id])
-  staff           Staff     @relation(fields: [staffId], references: [id])
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  staffProfile    StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership      Membership  @relation(fields: [membershipId], references: [id])
 
-  @@index([staffId], name: "idx_shift_staff")
+  @@index([staffProfileId], name: "idx_shift_staff_profile")
+  @@index([membershipId], name: "idx_shift_membership")
   @@index([branchId], name: "idx_shift_branch")
   @@index([shiftDate], name: "idx_shift_date")
   @@index([status], name: "idx_shift_status")
@@ -599,7 +621,8 @@ model Shift {
 
 model Commission {
   id                String    @id @default(cuid())
-  staffId           String
+  staffProfileId    String
+  membershipId      String
   branchId          String
   period            String
   periodType        String    @default("MONTHLY")
@@ -616,10 +639,12 @@ model Commission {
   notes             String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  branch            Branch    @relation(fields: [branchId], references: [id])
-  staff             Staff     @relation(fields: [staffId], references: [id])
+  branch            Branch      @relation(fields: [branchId], references: [id])
+  staffProfile      StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership        Membership  @relation(fields: [membershipId], references: [id])
 
-  @@index([staffId], name: "idx_commission_staff")
+  @@index([staffProfileId], name: "idx_commission_staff_profile")
+  @@index([membershipId], name: "idx_commission_membership")
   @@index([branchId], name: "idx_commission_branch")
   @@index([period], name: "idx_commission_period")
   @@index([status], name: "idx_commission_status")
@@ -731,10 +756,14 @@ model Membership {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  user     ZapeeraUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business Business           @relation("memberships", fields: [businessId], references: [id], onDelete: Cascade)
-  role     Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  branches MembershipBranch[]
+  user            ZapeeraUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business        Business           @relation("memberships", fields: [businessId], references: [id], onDelete: Cascade)
+  role            Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  branches        MembershipBranch[]
+  staffProfile    StaffProfile?
+  attendance      Attendance[]
+  shifts          Shift[]
+  commissions     Commission[]
 
   @@unique([userId, businessId], name: "unique_user_business")
   @@index([userId], name: "idx_membership_user")

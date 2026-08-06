@@ -4,9 +4,8 @@ import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
 import logger from '../utils/logger';
 
-// Validation schemas
 const checkInSchema = Joi.object({
-  staffId: Joi.string().required(),
+  staffProfileId: Joi.string().required(),
   branchId: Joi.string().required(),
   notes: Joi.string().optional()
 });
@@ -21,7 +20,6 @@ const updateAttendanceSchema = Joi.object({
   notes: Joi.string().optional()
 });
 
-// Check in staff
 export const checkIn = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -34,29 +32,35 @@ export const checkIn = async (req: Request, res: Response) => {
       });
     }
 
-    const { staffId, branchId, notes } = req.body;
+    const { staffProfileId, branchId, notes } = req.body;
 
-    // Check if staff exists and is active
-    const staff = await prisma.staff.findUnique({
-      where: { id: staffId },
-      include: { branch: true }
+    const staffProfile = await prisma.staffProfile.findUnique({
+      where: { id: staffProfileId },
+      include: {
+        membership: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true }
+            }
+          }
+        }
+      }
     });
 
-    if (!staff) {
+    if (!staffProfile) {
       return res.status(404).json({
         success: false,
         message: 'Staff not found'
       });
     }
 
-    if (!staff.isActive) {
+    if (!staffProfile.isActive) {
       return res.status(400).json({
         success: false,
         message: 'Staff is not active'
       });
     }
 
-    // Check if staff is already checked in today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -64,7 +68,7 @@ export const checkIn = async (req: Request, res: Response) => {
 
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
-        staffId,
+        staffProfileId,
         checkIn: {
           gte: today,
           lt: tomorrow
@@ -80,22 +84,29 @@ export const checkIn = async (req: Request, res: Response) => {
       });
     }
 
-    // Create attendance record
     const attendance = await prisma.attendance.create({
       data: {
-        staffId,
+        staffProfileId,
+        membershipId: staffProfile.membershipId,
         branchId,
         checkIn: new Date(),
         status: 'PRESENT',
         notes
       },
       include: {
-        staff: {
-          select: {
-            id: true,
-            name: true,
-            staffId: true,
-            position: true
+        staffProfile: {
+          include: {
+            membership: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         },
         branch: {
@@ -107,8 +118,7 @@ export const checkIn = async (req: Request, res: Response) => {
       }
     });
 
-    // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
-    syncAfterOperation('attendance', 'create', attendance).catch(err => {
+    syncAfterOperation('attendance', 'create', attendance).catch((err: any) => {
       logger.error('[Sync] Attendance check-in sync failed:', { message: err.message });
     });
 
@@ -126,7 +136,6 @@ export const checkIn = async (req: Request, res: Response) => {
   }
 };
 
-// Check out staff
 export const checkOut = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -141,16 +150,22 @@ export const checkOut = async (req: Request, res: Response) => {
 
     const { attendanceId, notes } = req.body;
 
-    // Find attendance record
     const attendance = await prisma.attendance.findUnique({
       where: { id: attendanceId },
       include: {
-        staff: {
-          select: {
-            id: true,
-            name: true,
-            staffId: true,
-            position: true
+        staffProfile: {
+          include: {
+            membership: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         },
         branch: {
@@ -176,26 +191,31 @@ export const checkOut = async (req: Request, res: Response) => {
       });
     }
 
-    // Calculate total hours
     const checkOutTime = new Date();
     const checkInTime = new Date(attendance.checkIn);
     const totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-    // Update attendance record
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendanceId },
       data: {
         checkOut: checkOutTime,
-        totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
+        totalHours: Math.round(totalHours * 100) / 100,
         notes: notes || attendance.notes
       },
       include: {
-        staff: {
-          select: {
-            id: true,
-            name: true,
-            staffId: true,
-            position: true
+        staffProfile: {
+          include: {
+            membership: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         },
         branch: {
@@ -221,14 +241,13 @@ export const checkOut = async (req: Request, res: Response) => {
   }
 };
 
-// Get attendance records
 export const getAttendance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
     const {
       page = 1,
       limit = 10,
-      staffId = '',
+      staffProfileId = '',
       branchId = '',
       startDate = '',
       endDate = '',
@@ -240,8 +259,8 @@ export const getAttendance = async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    if (staffId) {
-      where.staffId = staffId;
+    if (staffProfileId) {
+      where.staffProfileId = staffProfileId;
     }
 
     if (branchId) {
@@ -270,12 +289,19 @@ export const getAttendance = async (req: Request, res: Response) => {
         skip,
         take,
         include: {
-          staff: {
-            select: {
-              id: true,
-              name: true,
-              staffId: true,
-              position: true
+          staffProfile: {
+            include: {
+              membership: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true
+                    }
+                  }
+                }
+              }
             }
           },
           branch: {
@@ -311,11 +337,10 @@ export const getAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// Get today's attendance for a staff member
 export const getTodayAttendance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { staffId } = req.params;
+    const { staffProfileId } = req.params;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -324,19 +349,26 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
 
     const attendance = await prisma.attendance.findFirst({
       where: {
-        staffId,
+        staffProfileId,
         checkIn: {
           gte: today,
           lt: tomorrow
         }
       },
       include: {
-        staff: {
-          select: {
-            id: true,
-            name: true,
-            staffId: true,
-            position: true
+        staffProfile: {
+          include: {
+            membership: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         },
         branch: {
@@ -361,7 +393,6 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// Update attendance record
 export const updateAttendance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -376,9 +407,6 @@ export const updateAttendance = async (req: Request, res: Response) => {
       });
     }
 
-    const updateData = req.body;
-
-    // Check if attendance record exists
     const existingAttendance = await prisma.attendance.findUnique({
       where: { id }
     });
@@ -390,17 +418,23 @@ export const updateAttendance = async (req: Request, res: Response) => {
       });
     }
 
-    // Update attendance record
     const attendance = await prisma.attendance.update({
       where: { id },
-      data: updateData,
+      data: req.body,
       include: {
-        staff: {
-          select: {
-            id: true,
-            name: true,
-            staffId: true,
-            position: true
+        staffProfile: {
+          include: {
+            membership: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         },
         branch: {
@@ -412,8 +446,7 @@ export const updateAttendance = async (req: Request, res: Response) => {
       }
     });
 
-    // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
-    syncAfterOperation('attendance', 'update', attendance).catch(err => {
+    syncAfterOperation('attendance', 'update', attendance).catch((err: any) => {
       logger.error('[Sync] Attendance update sync failed:', { message: err.message });
     });
 
@@ -431,7 +464,6 @@ export const updateAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// Get attendance statistics
 export const getAttendanceStats = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
