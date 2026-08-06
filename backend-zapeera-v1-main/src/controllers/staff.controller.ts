@@ -615,6 +615,50 @@ export const deleteStaff = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const searchUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const { query } = req.body;
+
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+
+    const searchTerm = query.trim();
+
+    const user = await prisma.zapeeraUser.findFirst({
+      where: {
+        OR: [
+          { email: searchTerm },
+          { phone: searchTerm }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        profileImage: true,
+        isActive: true
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: user || null
+    });
+  } catch (error) {
+    console.error('Error searching user:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 export const getStaffStats = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();

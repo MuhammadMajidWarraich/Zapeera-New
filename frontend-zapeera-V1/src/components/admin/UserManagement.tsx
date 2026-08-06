@@ -45,6 +45,7 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { toast } from "@/hooks/use-toast";
 import { getMissingRequiredFields } from "@/lib/required-fields";
 import { PaginationPills } from "@/components/ui/pagination-pills";
+import AddStaffModal from "@/components/staff/AddStaffModal";
 
 interface User {
   id: string;
@@ -148,6 +149,7 @@ const UserManagement = () => {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [businessUserLimit, setBusinessUserLimit] = useState<number | null | undefined>(undefined);
   const [businessPlanName, setBusinessPlanName] = useState<string>("");
+  const [showAddStaff, setShowAddStaff] = useState(false);
 
   // Password validation state
   const [passwordStrength, setPasswordStrength] = useState({
@@ -1799,42 +1801,15 @@ const UserManagement = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-            setIsCreateDialogOpen(open);
-            if (open) {
-              setExistingUserMatch(null);
-              // Auto-set branchId from selectedBranchId (if available) or manager's branch
-              let autoBranchId = "";
-              if (selectedBranchId) {
-                // If branch is selected from context, use it
-                autoBranchId = selectedBranchId;
-              } else if (getEffectiveRole() === 'MANAGER' && currentUser?.branchId) {
-                // For managers, use their own branch
-                autoBranchId = currentUser.branchId;
-              }
-              
-              setNewUser(prev => ({ 
-                ...prev, 
-                branchId: autoBranchId,
-                role: getEffectiveRole() === 'MANAGER' ? "CASHIER" : prev.role || "" // Managers can only create cashiers
-              }));
-            } else {
-              // Reset form when dialog closes
-              setNewUser({ name: "", email: "", username: "", branchId: "", role: "", password: "", isActive: true });
-              setFormErrors({ name: '', email: '', username: '', password: '', phone: '' });
-              setExistingUserMatch(null);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <button
-                type="button"
-                disabled={isAddStaffDisabled}
-                className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
-              >
-                <UserPlus className="h-[18px] w-[18px] stroke-[2]" strokeLinecap="round" />
-                Add New Staff
-              </button>
-            </DialogTrigger>
+          <button
+            type="button"
+            disabled={isAddStaffDisabled}
+            onClick={() => setShowAddStaff(true)}
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+          >
+            <UserPlus className="h-[18px] w-[18px] stroke-[2]" strokeLinecap="round" />
+            Add New Staff
+          </button>
 
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
@@ -2534,6 +2509,15 @@ const UserManagement = () => {
         </div>
       </div>
       </div>
+
+      {/* Add Staff Modal */}
+      <AddStaffModal
+        open={showAddStaff}
+        onClose={() => setShowAddStaff(false)}
+        onSuccess={() => { setShowAddStaff(false); loadUsers(); }}
+        businessId={selectedCompanyId || ''}
+        branches={branches}
+      />
 
       {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

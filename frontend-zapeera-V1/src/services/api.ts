@@ -3394,6 +3394,24 @@ export class ApiService {
   }
 
   // Staff Management
+  async searchUser(query: string) {
+    return this.request<{
+      found: boolean;
+      user?: {
+        id: string;
+        name: string;
+        email: string;
+        phone?: string;
+        profileImage?: string;
+        isVerified?: boolean;
+        createdAt?: string;
+      };
+    }>('/staff/search-user', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+  }
+
   async getStaff(params?: { page?: number; limit?: number; search?: string; status?: string; branchId?: string; companyId?: string; isActive?: boolean }) {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
@@ -3466,15 +3484,29 @@ export class ApiService {
   }
 
   async createStaff(staffData: {
-    userId: string;
+    userId?: string;
     role: string;
     branchId: string;
     employeeId?: string;
     designation: string;
     department?: string;
     salary?: number;
+    salaryType?: string;
+    employmentType?: string;
     joiningDate?: string;
     status?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    cnicNumber?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    isNewUser?: boolean;
+    newUserData?: {
+      name: string;
+      email: string;
+      phone?: string;
+      password?: string;
+    };
   }) {
     return this.request<{
       id: string;

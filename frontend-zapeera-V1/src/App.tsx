@@ -68,6 +68,7 @@ import NotificationPreferencesPage from "./components/user-dashboard/Notificatio
 import { NotificationProvider } from "./contexts/NotificationContext";
 import SupportPage from "./components/user-dashboard/SupportPage";
 import DownloadsPage from "./components/user-dashboard/DownloadsPage";
+import EmployeePortal from "./components/staff/EmployeePortal";
 
 // Build target: web, desktop, backoffice - replaced at compile time by Vite define
 declare const __VITE_APP_TARGET__: string;
@@ -185,6 +186,19 @@ const LoginRoute = () => {
   }
 
   return <AuthContainer />;
+};
+
+// Wrapper to pass required props to EmployeePortal
+const EmployeePortalWrapper = () => {
+  const { user } = useAuth();
+  const { selectedCompany, selectedCompanyId } = useAdmin();
+  return (
+    <EmployeePortal
+      businessId={selectedCompanyId || ''}
+      businessName={selectedCompany?.name || 'My Business'}
+      membershipId={(user as any)?.membership?.id || ''}
+    />
+  );
 };
 
 // Main App Routes Component
@@ -505,6 +519,14 @@ const AppRoutes = () => {
                   <ProfileSecurityPage />
                 </ZapeeraLayout>
               </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/employee-portal" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <EmployeePortalWrapper />
             </BusinessTypeGuard>
           </AuthStatus>
         } />
