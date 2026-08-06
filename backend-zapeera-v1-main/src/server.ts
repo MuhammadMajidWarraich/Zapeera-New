@@ -15,22 +15,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set! This should have been set by database-url-init.ts');
 }
 
-// Auto-detect PostgreSQL from DATABASE_URL (e.g. Railway, Heroku, Neon set this automatically)
-const isPostgresUrl = process.env.DATABASE_URL.startsWith('postgresql://') || process.env.DATABASE_URL.startsWith('postgres://');
-if (!isPostgresUrl && process.env.USE_POSTGRESQL !== 'true' && !process.env.DATABASE_URL.startsWith('file:')) {
-  const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
-  console.warn('[Server] ⚠️ DATABASE_URL is not a valid postgres or file: URL, falling back to SQLite...');
-  process.env.DATABASE_URL = `file:${sqlitePath}`;
-}
-
-// Auto-set USE_POSTGRESQL if DATABASE_URL is already postgres
-if (isPostgresUrl && process.env.USE_POSTGRESQL !== 'true') {
-  process.env.USE_POSTGRESQL = 'true';
-  console.log('[Server] 🔍 Auto-detected PostgreSQL DATABASE_URL, enabling PostgreSQL mode');
-}
-
-console.log('[Server] ✅ Database mode:', process.env.USE_POSTGRESQL === 'true' ? 'PostgreSQL (Web)' : 'SQLite (Electron)');
-console.log('[Server] ✅ DATABASE_URL:', process.env.DATABASE_URL ? (process.env.DATABASE_URL.startsWith('file:') ? 'file:...' : 'postgresql://...') : 'NOT SET');
+console.log('[Server] Database mode:', (process.env.DATABASE_URL || '').startsWith('postgresql://') ? 'PostgreSQL (Web)' : 'SQLite (Electron)');
 
 // Ensure JWT_SECRET is set (required for authentication)
 if (!process.env.JWT_SECRET) {

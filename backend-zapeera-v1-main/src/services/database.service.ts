@@ -52,15 +52,18 @@ class DatabaseService {
   private lastSyncTime: Date | null = null;
 
   constructor() {
-    this.isPostgreSQLMode = process.env.USE_POSTGRESQL === 'true';
+    const currentUrl = process.env.DATABASE_URL || '';
+    const isPostgresUrl = currentUrl.startsWith('postgresql://') || currentUrl.startsWith('postgres://');
+    this.isPostgreSQLMode = isPostgresUrl || process.env.USE_POSTGRESQL === 'true';
 
-    // PostgreSQL URL (optional in SQLite mode, required in PostgreSQL mode)
-    const postgresUrl = process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL;
+    // PostgreSQL URL - use DATABASE_URL if it's already postgres, otherwise check other env vars
+    const postgresUrl = isPostgresUrl
+      ? currentUrl
+      : (process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL);
 
     if (!postgresUrl && this.isPostgreSQLMode) {
-      console.error('[Database] ❌ ERROR: REMOTE_DATABASE_URL or POSTGRESQL_URL is required in PostgreSQL mode.');
-      console.error('[Database] Please set REMOTE_DATABASE_URL in your .env file');
-      throw new Error('REMOTE_DATABASE_URL environment variable is required in PostgreSQL mode');
+      console.error('[Database] ❌ ERROR: No PostgreSQL URL found. Set DATABASE_URL, REMOTE_DATABASE_URL, or POSTGRESQL_URL.');
+      throw new Error('No PostgreSQL URL available in PostgreSQL mode');
     }
 
     this.postgresUrl = postgresUrl ? withPostgresConnectionLimit(postgresUrl) : null;
