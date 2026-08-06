@@ -20,15 +20,17 @@ if (process.env.NODE_ENV === 'production' && fs.existsSync('.env.production')) {
 // Always load .env as base/fallback (won't override existing vars)
 require('dotenv').config({ override: false });
 
-// Check mode
-const usePostgreSQL = process.env.USE_POSTGRESQL === 'true';
+// Check mode - auto-detect if DATABASE_URL is already a postgres URL
+const isExistingPostgresUrl = (process.env.DATABASE_URL || '').startsWith('postgresql://') || (process.env.DATABASE_URL || '').startsWith('postgres://');
+const usePostgreSQL = process.env.USE_POSTGRESQL === 'true' || isExistingPostgresUrl;
 
-// PostgreSQL URL - MUST be set via environment variable
-const postgresUrl = process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL;
+// PostgreSQL URL - use DATABASE_URL if already postgres, otherwise check other env vars
+const postgresUrl = isExistingPostgresUrl
+  ? process.env.DATABASE_URL
+  : (process.env.REMOTE_DATABASE_URL || process.env.POSTGRESQL_URL);
 
-if (!postgresUrl) {
-  console.error('[Startup] ❌ ERROR: REMOTE_DATABASE_URL or POSTGRESQL_URL environment variable is required!');
-  console.error('[Startup] Please set REMOTE_DATABASE_URL in your .env file');
+if (!postgresUrl && !isExistingPostgresUrl) {
+  console.error('[Startup] ❌ ERROR: No PostgreSQL URL found. Set DATABASE_URL, REMOTE_DATABASE_URL, or POSTGRESQL_URL.');
   process.exit(1);
 }
 

@@ -12,16 +12,21 @@ import * as fs from 'fs';
 
 // Verify DATABASE_URL is set before importing PrismaClient
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set! This should have been set by database.init.ts');
+  throw new Error('DATABASE_URL is not set! This should have been set by database-url-init.ts');
 }
 
-// CRITICAL FIX: Ensure DATABASE_URL starts with 'file:' for SQLite
-if (process.env.USE_POSTGRESQL !== 'true' && !process.env.DATABASE_URL.startsWith('file:')) {
+// Auto-detect PostgreSQL from DATABASE_URL (e.g. Railway, Heroku, Neon set this automatically)
+const isPostgresUrl = process.env.DATABASE_URL.startsWith('postgresql://') || process.env.DATABASE_URL.startsWith('postgres://');
+if (!isPostgresUrl && process.env.USE_POSTGRESQL !== 'true' && !process.env.DATABASE_URL.startsWith('file:')) {
   const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
-  console.warn('[Server] ⚠️ DATABASE_URL does not start with file: protocol, fixing...');
-  console.warn('[Server] Current DATABASE_URL:', process.env.DATABASE_URL);
+  console.warn('[Server] ⚠️ DATABASE_URL is not a valid postgres or file: URL, falling back to SQLite...');
   process.env.DATABASE_URL = `file:${sqlitePath}`;
-  console.log('[Server] ✅ Fixed DATABASE_URL:', process.env.DATABASE_URL);
+}
+
+// Auto-set USE_POSTGRESQL if DATABASE_URL is already postgres
+if (isPostgresUrl && process.env.USE_POSTGRESQL !== 'true') {
+  process.env.USE_POSTGRESQL = 'true';
+  console.log('[Server] 🔍 Auto-detected PostgreSQL DATABASE_URL, enabling PostgreSQL mode');
 }
 
 console.log('[Server] ✅ Database mode:', process.env.USE_POSTGRESQL === 'true' ? 'PostgreSQL (Web)' : 'SQLite (Electron)');
