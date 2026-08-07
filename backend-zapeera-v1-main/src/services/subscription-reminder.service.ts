@@ -10,6 +10,8 @@
 
 import { getPrisma } from '../utils/db.util';
 import { emailService } from './email.service';
+import { createNotification } from '../controllers/notification.controller';
+import logger from '../utils/logger';
 
 // Reminder schedule configuration
 const REMINDER_DAYS = [7, 1]; // Send reminders at 7 days and 1 day before expiry
@@ -31,7 +33,7 @@ export async function sendSubscriptionExpiryReminders(): Promise<{
   };
 
   try {
-    console.log('[Subscription Reminder] Starting daily reminder check...');
+    logger.info('[Subscription Reminder] Starting daily reminder check...');
     const now = new Date();
     
     // Find all active subscriptions with expiry dates
@@ -56,7 +58,7 @@ export async function sendSubscriptionExpiryReminders(): Promise<{
     `;
 
     result.checked = subscriptions.length;
-    console.log(`[Subscription Reminder] Checking ${subscriptions.length} subscriptions...`);
+    logger.info('Subscription reminder check started', { count: subscriptions.length });
 
     for (const sub of subscriptions) {
       try {
@@ -88,7 +90,10 @@ export async function sendSubscriptionExpiryReminders(): Promise<{
         `;
 
         if (existingReminder && existingReminder.length > 0) {
-          console.log(`[Subscription Reminder] Already sent ${daysRemaining}-day reminder for ${sub.businessName}`);
+          logger.debug('Subscription expiry reminder already sent', {
+            businessName: sub.businessName,
+            daysRemaining,
+          });
           continue;
         }
 
@@ -111,22 +116,58 @@ export async function sendSubscriptionExpiryReminders(): Promise<{
             `;
             
             result.remindersSent++;
-            console.log(`✅ Sent ${daysRemaining}-day expiry reminder to ${sub.ownerEmail} for ${sub.businessName}`);
+            logger.info('Subscription expiry reminder email sent', {
+              email: sub.ownerEmail,
+              businessName: sub.businessName,
+              daysRemaining,
+            });
           } else {
             result.errors++;
-            console.error(`❌ Failed to send reminder to ${sub.ownerEmail}`);
+            logger.error('Failed to send subscription expiry reminder email', {
+              email: sub.ownerEmail,
+              businessName: sub.businessName,
+            });
           }
+        }
+
+        // Create in-app notification for the business owner
+        const inApp = await createNotification({
+          userId: sub.createdBy,
+          businessId: sub.businessId,
+          type: 'subscription_expiry_reminder',
+          title: `Subscription expiring in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`,
+          body: `${sub.businessName}'s subscription ends on ${expiryDate.toISOString().split('T')[0]}. Renew to avoid service interruption.`,
+          actionUrl: '/zapeera/subscriptions',
+          metadata: {
+            businessId: sub.businessId,
+            businessName: sub.businessName,
+            daysRemaining,
+            expiresAt: expiryDate.toISOString(),
+          },
+        });
+        if (inApp) {
+          logger.debug('Created in-app subscription expiry reminder', {
+            businessName: sub.businessName,
+            daysRemaining,
+          });
         }
       } catch (error: any) {
         result.errors++;
-        console.error(`[Subscription Reminder] Error processing subscription ${sub.id}:`, error.message);
+        logger.error('Error processing subscription reminder', {
+          subscriptionId: sub.id,
+          message: error.message,
+        });
       }
     }
 
-    console.log(`[Subscription Reminder] Complete. Checked: ${result.checked}, Sent: ${result.remindersSent}, Errors: ${result.errors}`);
+    logger.info('[Subscription Reminder] Reminder check complete', {
+      checked: result.checked,
+      sent: result.remindersSent,
+      errors: result.errors,
+    });
     return result;
   } catch (error: any) {
-    console.error('[Subscription Reminder] Fatal error:', error.message);
+    logger.error('[Subscription Reminder] Fatal error:', { message: error.message });
     return result;
   }
 }
@@ -141,9 +182,9 @@ export function initializeReminderScheduler(): void {
   
   // Run immediately on startup (with 5 second delay to let server initialize)
   setTimeout(() => {
-    console.log('[Subscription Reminder] Running initial check...');
+    logger.info('[Subscription Reminder] Running initial check...');
     sendSubscriptionExpiryReminders().catch(err => {
-      console.error('[Subscription Reminder] Initial check failed:', err);
+      logger.error('[Subscription Reminder] Initial check failed:', { message: err.message });
     });
   }, 5000);
 
@@ -159,11 +200,11 @@ export function initializeReminderScheduler(): void {
     
     const delay = nextRun.getTime() - now.getTime();
     
-    console.log(`[Subscription Reminder] Next run scheduled for ${nextRun.toISOString()}`);
+    logger.info('[Subscription Reminder] Next run scheduled', { nextRun: nextRun.toISOString() });
     
     setTimeout(() => {
       sendSubscriptionExpiryReminders().catch(err => {
-        console.error('[Subscription Reminder] Scheduled run failed:', err);
+        logger.error('[Subscription Reminder] Scheduled run failed:', { message: err.message });
       });
       scheduleNextRun(); // Schedule next run
     }, delay);
@@ -172,7 +213,7 @@ export function initializeReminderScheduler(): void {
   // Start the scheduling loop
   scheduleNextRun();
   
-  console.log('[Subscription Reminder] Scheduler initialized. Will run daily at 9:00 AM.');
+  logger.info('[Subscription Reminder] Scheduler initialized. Will run daily at 9:00 AM.');
 }
 
 // Import crypto for UUID generation

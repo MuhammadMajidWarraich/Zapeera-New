@@ -22,7 +22,7 @@ router.use(resolveBranch({ required: false }));
 router.post('/check-in', checkIn);
 router.post('/check-out', checkOut);
 router.get('/', getAttendance);
-router.get('/today/:staffId', getTodayAttendance);
+router.get('/today/:staffProfileId', getTodayAttendance);
 router.get('/stats', getAttendanceStats);
 router.put('/:id', updateAttendance);
 

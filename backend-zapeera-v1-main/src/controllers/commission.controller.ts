@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
+import logger from '../utils/logger';
 
 const calculateCommissionSchema = Joi.object({
   staffProfileId: Joi.string().required(),
@@ -99,12 +100,12 @@ export const calculateCommission = async (req: Request, res: Response) => {
     });
 
     syncAfterOperation('commission', 'create', commission).catch((err: any) => {
-      console.error('[Sync] Commission create sync failed:', err.message);
+      logger.error('[Sync] Commission create sync failed:', { message: err.message });
     });
 
     return res.status(201).json({ success: true, data: commission, message: 'Commission calculated successfully' });
   } catch (error) {
-    console.error('Error calculating commission:', error);
+    logger.error('Error calculating commission:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -139,7 +140,7 @@ export const getCommissions = async (req: Request, res: Response) => {
 
     return res.json({ success: true, data: { commissions, pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) } } });
   } catch (error) {
-    console.error('Error fetching commissions:', error);
+    logger.error('Error fetching commissions:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -152,7 +153,7 @@ export const getCommission = async (req: Request, res: Response) => {
     if (!commission) return res.status(404).json({ success: false, message: 'Commission not found' });
     return res.json({ success: true, data: commission });
   } catch (error) {
-    console.error('Error fetching commission:', error);
+    logger.error('Error fetching commission:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -177,12 +178,12 @@ export const updateCommission = async (req: Request, res: Response) => {
     const commission = await prisma.commission.update({ where: { id }, data: updateData, include: commissionStaffInclude });
 
     syncAfterOperation('commission', 'update', commission).catch((err: any) => {
-      console.error('[Sync] Commission update sync failed:', err.message);
+      logger.error('[Sync] Commission update sync failed:', { message: err.message });
     });
 
     return res.json({ success: true, data: commission, message: 'Commission updated successfully' });
   } catch (error) {
-    console.error('Error updating commission:', error);
+    logger.error('Error updating commission:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -218,7 +219,7 @@ export const getCommissionStats = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching commission stats:', error);
+    logger.error('Error fetching commission stats:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -284,7 +285,7 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching staff performance:', error);
+    logger.error('Error fetching staff performance:', { error: String(error) });
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

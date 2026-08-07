@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
+import logger from '../utils/logger';
 
 // Validation schemas
 const createScheduledShiftSchema = Joi.object({
@@ -30,24 +31,9 @@ const updateScheduledShiftSchema = Joi.object({
 export const createScheduledShift = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    console.log('Creating scheduled shift with data:', req.body);
-
-    // Test database connection
-    try {
-      await prisma.$connect();
-      console.log('Database connection successful');
-    } catch (dbError) {
-      console.error('Database connection failed:', dbError);
-      return res.status(500).json({
-        success: false,
-        message: 'Database connection failed',
-        error: dbError instanceof Error ? dbError.message : 'Unknown database error'
-      });
-    }
 
     const { error } = createScheduledShiftSchema.validate(req.body);
     if (error) {
-      console.log('Validation error:', error.details);
       return res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -63,26 +49,9 @@ export const createScheduledShift = async (req: Request, res: Response) => {
     });
 
     if (!branch) {
-      console.log('Branch not found for ID:', branchId);
       return res.status(404).json({
         success: false,
         message: 'Branch not found'
-      });
-    }
-
-    console.log('Branch found:', branch.name);
-    console.log('Creating scheduled shift with data:', { name, startTime, endTime, date, branchId, notes });
-
-    // Test if we can query the scheduled shifts table
-    try {
-      const existingShifts = await prisma.scheduledShift.findMany({ take: 1 });
-      console.log('Database table accessible, existing shifts count:', existingShifts.length);
-    } catch (tableError) {
-      console.error('Database table access failed:', tableError);
-      return res.status(500).json({
-        success: false,
-        message: 'Database table access failed',
-        error: tableError instanceof Error ? tableError.message : 'Unknown table error'
       });
     }
 
@@ -125,28 +94,6 @@ export const createScheduledShift = async (req: Request, res: Response) => {
       }
     });
 
-    console.log('Scheduled shift created successfully:', scheduledShift.id);
-    console.log('Scheduled shift data:', JSON.stringify(scheduledShift, null, 2));
-
-    // Verify the shift was actually stored in the database
-    try {
-      const verifyShift = await prisma.scheduledShift.findUnique({
-        where: { id: scheduledShift.id },
-        include: { branch: true }
-      });
-      console.log('Verification - Shift found in database:', verifyShift ? 'YES' : 'NO');
-      if (verifyShift) {
-        console.log('Verification - Shift details:', {
-          id: verifyShift.id,
-          name: verifyShift.name,
-          date: verifyShift.date,
-          branchName: verifyShift.branch?.name
-        });
-      }
-    } catch (verifyError) {
-      console.error('Verification failed:', verifyError);
-    }
-
     // Transform the data to match frontend expectations
     const transformedShift = {
       id: scheduledShift.id,
@@ -169,7 +116,7 @@ export const createScheduledShift = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('scheduledShift', 'create', scheduledShift).catch(err => {
-      console.error('[Sync] ScheduledShift create sync failed:', err.message);
+      logger.error('[Sync] ScheduledShift create sync failed:', { message: err.message });
     });
 
     return res.status(201).json({
@@ -178,17 +125,10 @@ export const createScheduledShift = async (req: Request, res: Response) => {
       message: 'Scheduled shift created successfully'
     });
   } catch (error) {
-    console.error('Error creating scheduled shift:', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : 'Unknown'
-    });
-
+    logger.error('Error creating scheduled shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      message: 'Internal server error'
     });
   }
 };
@@ -290,7 +230,7 @@ export const getScheduledShifts = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching scheduled shifts:', error);
+    logger.error('Error fetching scheduled shifts:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -358,7 +298,7 @@ export const getScheduledShift = async (req: Request, res: Response) => {
       data: transformedShift
     });
   } catch (error) {
-    console.error('Error fetching scheduled shift:', error);
+    logger.error('Error fetching scheduled shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -453,7 +393,7 @@ export const updateScheduledShift = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('scheduledShift', 'update', updatedShift).catch(err => {
-      console.error('[Sync] ScheduledShift update sync failed:', err.message);
+      logger.error('[Sync] ScheduledShift update sync failed:', { message: err.message });
     });
 
     return res.json({
@@ -462,7 +402,7 @@ export const updateScheduledShift = async (req: Request, res: Response) => {
       message: 'Scheduled shift updated successfully'
     });
   } catch (error) {
-    console.error('Error updating scheduled shift:', error);
+    logger.error('Error updating scheduled shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -495,7 +435,7 @@ export const deleteScheduledShift = async (req: Request, res: Response) => {
 
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('scheduledShift', 'delete', { id }).catch(err => {
-      console.error('[Sync] ScheduledShift delete sync failed:', err.message);
+      logger.error('[Sync] ScheduledShift delete sync failed:', { message: err.message });
     });
 
     return res.json({
@@ -503,7 +443,7 @@ export const deleteScheduledShift = async (req: Request, res: Response) => {
       message: 'Scheduled shift deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting scheduled shift:', error);
+    logger.error('Error deleting scheduled shift:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

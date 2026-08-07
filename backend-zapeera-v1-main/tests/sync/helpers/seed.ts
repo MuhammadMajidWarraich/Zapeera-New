@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
+export const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || 'test@zapeera.test';
+export const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || 'testpassword123';
+
 export interface SeedData {
   userId: string;
   businessId: string;
@@ -12,13 +15,13 @@ export interface SeedData {
 }
 
 export async function seedTestData(prisma: PrismaClient): Promise<SeedData> {
-  const password = await bcrypt.hash('testpassword123', 10);
+  const password = await bcrypt.hash(TEST_USER_PASSWORD, 10);
 
   const user = await prisma.zapeeraUser.create({
     data: {
       id: 'test-user-001',
       username: 'testuser',
-      email: 'test@zapeera.test',
+      email: TEST_USER_EMAIL,
       password,
       name: 'Test User',
       isActive: true,

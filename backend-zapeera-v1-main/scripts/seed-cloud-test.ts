@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { seedTestData } from '../tests/sync/helpers/seed';
+import { seedTestData, TEST_USER_EMAIL, TEST_USER_PASSWORD } from '../tests/sync/helpers/seed';
 
 async function main() {
   const dbPath = process.env.DATABASE_URL || 'file:./tests/cloud-test.db';
@@ -30,7 +30,7 @@ async function main() {
 
   const seed = await seedTestData(prisma);
   console.log(`[Seed] ✅ Created:`);
-  console.log(`       User:      ${seed.userId} (test@zapeera.test / testpassword123)`);
+  console.log(`       User:      ${seed.userId} (${TEST_USER_EMAIL} / ${TEST_USER_PASSWORD})`);
   console.log(`       Business:  ${seed.businessId} (Test Business A)`);
   console.log(`       Branch:    ${seed.branchId}`);
   console.log(`       Product:   ${seed.productId}`);

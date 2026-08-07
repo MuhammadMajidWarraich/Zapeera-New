@@ -2,7 +2,7 @@
  * Test Script: Staff Creation & Retrieval Flow
  * 
  * This script tests the complete flow:
- * 1. Login with tayyab1@gmail.com / Umair@143
+ * 1. Login with an admin account (TEST_EMAIL / TEST_PASSWORD env vars)
  * 2. Create a new staff member
  * 3. Retrieve staff list
  * 4. Verify the created staff appears in the list
@@ -63,7 +63,7 @@ const httpRequest = async (url: string, options: any) => {
 
 const BASE_URL = process.env.API_URL || 'http://localhost:5000';
 const TEST_EMAIL = process.env.TEST_EMAIL || 'admin';  // username or email
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'admin123';
+const TEST_PASSWORD = process.env.TEST_PASSWORD || ''; // set TEST_PASSWORD in env for real logins
 
 interface LoginResponse {
   success: boolean;

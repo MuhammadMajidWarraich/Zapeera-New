@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
 import Joi from 'joi';
+import logger from '../utils/logger';
 
 const createStaffSchema = Joi.object({
   name: Joi.string().required(),
@@ -187,7 +188,7 @@ export const getStaff = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching staff:', error);
+    logger.error('Error fetching staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -262,7 +263,7 @@ export const getStaffMember = async (req: AuthRequest, res: Response) => {
       data: flatData
     });
   } catch (error) {
-    console.error('Error fetching staff:', error);
+    logger.error('Error fetching staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -447,7 +448,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     });
 
     syncAfterOperation('staffProfile', 'create', staffProfile).catch((err: any) => {
-      console.error('[Sync] StaffProfile create sync failed:', err.message);
+      logger.error('[Sync] StaffProfile create sync failed:', { message: err.message });
     });
 
     const flatData = {
@@ -469,7 +470,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       message: 'Staff created successfully'
     });
   } catch (error) {
-    console.error('Error creating staff:', error);
+    logger.error('Error creating staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -547,7 +548,7 @@ export const updateStaff = async (req: AuthRequest, res: Response) => {
     });
 
     syncAfterOperation('staffProfile', 'update', staffProfile).catch((err: any) => {
-      console.error('[Sync] StaffProfile update sync failed:', err.message);
+      logger.error('[Sync] StaffProfile update sync failed:', { message: err.message });
     });
 
     const flatData = {
@@ -569,7 +570,7 @@ export const updateStaff = async (req: AuthRequest, res: Response) => {
       message: 'Staff updated successfully'
     });
   } catch (error) {
-    console.error('Error updating staff:', error);
+    logger.error('Error updating staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -599,7 +600,7 @@ export const deleteStaff = async (req: AuthRequest, res: Response) => {
     });
 
     syncAfterOperation('staffProfile', 'update', deletedStaff).catch((err: any) => {
-      console.error('[Sync] StaffProfile delete sync failed:', err.message);
+      logger.error('[Sync] StaffProfile delete sync failed:', { message: err.message });
     });
 
     return res.json({
@@ -607,7 +608,7 @@ export const deleteStaff = async (req: AuthRequest, res: Response) => {
       message: 'Staff deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting staff:', error);
+    logger.error('Error deleting staff:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -651,7 +652,7 @@ export const searchUser = async (req: AuthRequest, res: Response) => {
       data: user || null
     });
   } catch (error) {
-    console.error('Error searching user:', error);
+    logger.error('Error searching user:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -705,7 +706,7 @@ export const getStaffStats = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching staff stats:', error);
+    logger.error('Error fetching staff stats:', { error: String(error) });
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

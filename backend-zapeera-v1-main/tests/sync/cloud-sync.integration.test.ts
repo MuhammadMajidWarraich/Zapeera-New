@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import { startTestApp, stopTestApp, getPrisma, agent, cleanDatabase } from './helpers/test-app';
-import { seedTestData, SeedData } from './helpers/seed';
+import { seedTestData, SeedData, TEST_USER_EMAIL, TEST_USER_PASSWORD } from './helpers/seed';
 
 let seed: SeedData;
 
@@ -20,7 +20,7 @@ describe('Cloud Sync API — Full Integration', () => {
     it('should login and return JWT token', async () => {
       const res = await agent()
         .post('/api/auth/login')
-        .send({ email: 'test@zapeera.test', password: 'testpassword123' });
+        .send({ email: TEST_USER_EMAIL, password: TEST_USER_PASSWORD });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -31,7 +31,7 @@ describe('Cloud Sync API — Full Integration', () => {
     it('should reject invalid credentials', async () => {
       const res = await agent()
         .post('/api/auth/login')
-        .send({ email: 'test@zapeera.test', password: 'wrongpassword' });
+        .send({ email: TEST_USER_EMAIL, password: 'wrongpassword' });
 
       expect(res.status).toBe(401);
     });
@@ -226,7 +226,7 @@ describe('Cloud Sync API — Full Integration', () => {
     it('should complete a full login → account sync → provision → push → pull cycle', async () => {
       const loginRes = await agent()
         .post('/api/auth/login')
-        .send({ email: 'test@zapeera.test', password: 'testpassword123' });
+        .send({ email: TEST_USER_EMAIL, password: TEST_USER_PASSWORD });
 
       expect(loginRes.status).toBe(200);
       const authToken = loginRes.body.token;
