@@ -12,6 +12,7 @@ router.options('/events', (req: Request, res: Response) => {
   const allowedOrigins = [
     'https://app.zapeera.com',
     'https://www.zapeera.com',
+    'https://zapeera-new-six.vercel.app',
     'http://localhost:5173',
     'http://localhost:4200',
     'http://127.0.0.1:4100',
@@ -104,6 +105,7 @@ router.get('/events', async (req: Request, res: Response) => {
   const allowedOrigins = [
     'https://app.zapeera.com',
     'https://www.zapeera.com',
+    'https://zapeera-new-six.vercel.app',
     'http://localhost:5173',
     'http://localhost:4200',
     'http://127.0.0.1:4100',

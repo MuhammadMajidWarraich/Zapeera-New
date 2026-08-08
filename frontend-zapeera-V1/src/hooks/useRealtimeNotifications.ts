@@ -54,8 +54,16 @@ export const useRealtimeNotifications = () => {
 
     window.addEventListener('accountDeactivated', handleAccountDeactivation as EventListener);
 
-    // Create SSE connection (only for website, not Electron)
-    const eventSource = new EventSource(`${config.api.baseUrl}/sse/events`);
+    // Create SSE connection (only for website, not Electron).
+    // EventSource cannot set custom headers and the httpOnly cookie is scoped to the
+    // frontend origin, so authenticate via query token and connect DIRECTLY to the
+    // backend — the Vercel /api rewrite cannot stream SSE (returns 502).
+    const sseBase = String(config.realtime.sseBaseUrl || config.api.baseUrl || '/api').replace(/\/+$/, '');
+    const token = typeof window !== 'undefined'
+      ? (localStorage.getItem('localAccessToken') || localStorage.getItem('token'))
+      : null;
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    const eventSource = new EventSource(`${sseBase}/sse/events${tokenQuery}`, { withCredentials: true });
 
     eventSourceRef.current = eventSource;
 

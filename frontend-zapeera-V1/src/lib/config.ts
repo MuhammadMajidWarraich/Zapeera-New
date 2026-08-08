@@ -78,6 +78,23 @@ export const config = {
     timeout: parseInt(import.meta.env.VITE_CLOUD_API_TIMEOUT || '15000'),
   },
 
+  // Realtime / SSE Configuration
+  // EventSource streams cannot pass through the Vercel /api rewrite (it buffers and
+  // returns 502), so the SSE endpoint must be reached DIRECTLY on the backend.
+  realtime: {
+    sseBaseUrl: (() => {
+      const envUrl = String(import.meta.env.VITE_SSE_BASE_URL || '').trim();
+      if (envUrl) return envUrl;
+      const base = config.api.baseUrl;
+      // Absolute API base (e.g. VITE_API_BASE_URL set) → stream from the same origin
+      if (base.startsWith('http')) return base;
+      // Dev: Vite's proxy forwards /api and can stream SSE
+      if (import.meta.env.DEV) return '/api';
+      // Production web (relative /api through the Vercel rewrite): hit Railway directly
+      return 'https://zapeera-api-production.up.railway.app/api';
+    })(),
+  },
+
   // Local API Configuration (Electron embedded server, SQLite-backed)
   // Note: electronAPI.getLocalApiUrl() is async (IPC invoke) and cannot be used here synchronously.
   local: {
