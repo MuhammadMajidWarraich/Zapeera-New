@@ -15,6 +15,26 @@ import {
   getAdvancedStaffReport,
   getAdvancedFinancialReport,
   getAdvancedPurchaseReport,
+  getAdvancedRefundsReport,
+  getAdvancedExpiryReport,
+  getAdvancedCategoryReport,
+  getAdvancedBranchReport,
+  getAdvancedTaxReport,
+  getAdvancedPaymentTrendsReport,
+  getAdvancedAttendanceReport,
+  getAdvancedStockMovementsReport,
+  getAdvancedExpenseReport,
+  getAdvancedShiftReport,
+  getAdvancedSupplierReport,
+  getAdvancedRetentionReport,
+  getAdvancedCommissionReport,
+  getAdvancedProfitReport,
+  getAdvancedCashflowReport,
+  getAdvancedBatchReport,
+  getAdvancedDiscountReport,
+  getAdvancedProductReport,
+  getAdvancedTurnoverReport,
+  getAdvancedDailyReport,
 } from '../controllers/advanced-report.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { requireBusinessDashboardAccess } from '../middleware/business-dashboard-access.middleware';
@@ -50,5 +70,25 @@ router.get('/advanced/customers', checkPermission('reports.read'), getAdvancedCu
 router.get('/advanced/staff', checkPermission('reports.read'), getAdvancedStaffReport);
 router.get('/advanced/financial', checkPermission('reports.read'), getAdvancedFinancialReport);
 router.get('/advanced/purchases', checkPermission('reports.read'), getAdvancedPurchaseReport);
+router.get('/advanced/refunds', checkPermission('reports.read'), getAdvancedRefundsReport);
+router.get('/advanced/expiry', checkPermission('reports.read'), getAdvancedExpiryReport);
+router.get('/advanced/category', checkPermission('reports.read'), getAdvancedCategoryReport);
+router.get('/advanced/branch', checkPermission('reports.read'), getAdvancedBranchReport);
+router.get('/advanced/tax', checkPermission('reports.read'), getAdvancedTaxReport);
+router.get('/advanced/payment-trends', checkPermission('reports.read'), getAdvancedPaymentTrendsReport);
+router.get('/advanced/attendance', checkPermission('reports.read'), getAdvancedAttendanceReport);
+router.get('/advanced/stock-movements', checkPermission('reports.read'), getAdvancedStockMovementsReport);
+router.get('/advanced/expense', checkPermission('reports.read'), getAdvancedExpenseReport);
+router.get('/advanced/shift', checkPermission('reports.read'), getAdvancedShiftReport);
+router.get('/advanced/supplier', checkPermission('reports.read'), getAdvancedSupplierReport);
+router.get('/advanced/retention', checkPermission('reports.read'), getAdvancedRetentionReport);
+router.get('/advanced/commission', checkPermission('reports.read'), getAdvancedCommissionReport);
+router.get('/advanced/profit', checkPermission('reports.read'), getAdvancedProfitReport);
+router.get('/advanced/cashflow', checkPermission('reports.read'), getAdvancedCashflowReport);
+router.get('/advanced/batch', checkPermission('reports.read'), getAdvancedBatchReport);
+router.get('/advanced/discount', checkPermission('reports.read'), getAdvancedDiscountReport);
+router.get('/advanced/product', checkPermission('reports.read'), getAdvancedProductReport);
+router.get('/advanced/turnover', checkPermission('reports.read'), getAdvancedTurnoverReport);
+router.get('/advanced/daily', checkPermission('reports.read'), getAdvancedDailyReport);
 
 export default router;
