@@ -4,6 +4,7 @@ import { Search, Building2, Plus, Filter, ChevronDown, MoreHorizontal, Eye, Togg
 import { backofficeApi } from '../../../services/api';
 import { Business, BackofficeRole } from '../../../types';
 import { useBackofficeAuth } from '../../../auth/BackofficeAuthContext';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 export function BusinessesPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export function BusinessesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [deletingBusiness, setDeletingBusiness] = useState<Business | null>(null);
 
   useEffect(() => {
     fetchBusinesses();
@@ -34,12 +36,17 @@ export function BusinessesPage() {
     } catch { /* ignore */ }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this business?')) return;
+  const handleDelete = async (business: Business) => {
+    setDeletingBusiness(business);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingBusiness) return;
     try {
-      await backofficeApi.deleteBusiness(id);
+      await backofficeApi.deleteBusiness(deletingBusiness.id);
       fetchBusinesses();
     } catch { /* ignore */ }
+    setDeletingBusiness(null);
   };
 
   const filtered = businesses.filter(b => {
@@ -60,7 +67,8 @@ export function BusinessesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Businesses</h1>
@@ -138,7 +146,7 @@ export function BusinessesPage() {
                         <button onClick={e => { e.stopPropagation(); handleToggleStatus(biz.id); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Toggle Status"><ToggleLeft className="w-4 h-4" /></button>
                       )}
                       {hasPermission('business.delete') && (
-                        <button onClick={e => { e.stopPropagation(); handleDelete(biz.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={e => { e.stopPropagation(); handleDelete(biz); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       )}
                     </div>
                   </td>
@@ -146,8 +154,24 @@ export function BusinessesPage() {
               ))}
             </tbody>
           </table>
-        </div>
+</div>
       )}
     </div>
+
+  {/* Delete Confirmation Modal */}
+  <ConfirmationModal
+    isOpen={!!deletingBusiness}
+    onClose={() => setDeletingBusiness(null)}
+    onConfirm={handleConfirmDelete}
+    title="Delete Business"
+    description="Are you sure you want to delete this business? This action cannot be undone."
+    confirmText="Delete Business"
+    cancelText="Cancel"
+    variant="danger"
+    itemName={deletingBusiness ? `Business: ${deletingBusiness.name}` : undefined}
+    itemDetails="This will permanently remove the business and all associated data."
+    icon={<Trash2 className="w-4 h-4" />}
+  />
+    </>
   );
 }

@@ -1642,6 +1642,16 @@ export class ApiService {
     }>(`/expenses${query ? `?${query}` : ''}`);
   }
 
+  private buildAdvancedReportQuery(params?: any) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    return queryParams.toString();
+  }
+
   async getAdvancedSalesReport(params?: { startDate?: string; endDate?: string; period?: string; branchId?: string; companyId?: string }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -1703,83 +1713,83 @@ export class ApiService {
   }
 
   async getAdvancedRefundsReport(params?: any) {
-    return this.request<any>('/reports/advanced/refunds');
+    return this.request<any>(`/reports/advanced/refunds${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedExpiryReport(params?: any) {
-    return this.request<any>('/reports/advanced/expiry');
+    return this.request<any>(`/reports/advanced/expiry${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedCategoryReport(params?: any) {
-    return this.request<any>('/reports/advanced/category');
+    return this.request<any>(`/reports/advanced/category${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedBranchReport(params?: any) {
-    return this.request<any>('/reports/advanced/branch');
+    return this.request<any>(`/reports/advanced/branch${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedTaxReport(params?: any) {
-    return this.request<any>('/reports/advanced/tax');
+    return this.request<any>(`/reports/advanced/tax${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedPaymentTrendsReport(params?: any) {
-    return this.request<any>('/reports/advanced/payment-trends');
+    return this.request<any>(`/reports/advanced/payment-trends${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedAttendanceReport(params?: any) {
-    return this.request<any>('/reports/advanced/attendance');
+    return this.request<any>(`/reports/advanced/attendance${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedStockMovementsReport(params?: any) {
-    return this.request<any>('/reports/advanced/stock-movements');
+    return this.request<any>(`/reports/advanced/stock-movements${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedExpenseReport(params?: any) {
-    return this.request<any>('/reports/advanced/expense');
+    return this.request<any>(`/reports/advanced/expense${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedShiftReport(params?: any) {
-    return this.request<any>('/reports/advanced/shift');
+    return this.request<any>(`/reports/advanced/shift${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedSupplierReport(params?: any) {
-    return this.request<any>('/reports/advanced/supplier');
+    return this.request<any>(`/reports/advanced/supplier${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedRetentionReport(params?: any) {
-    return this.request<any>('/reports/advanced/retention');
+    return this.request<any>(`/reports/advanced/retention${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedCommissionReport(params?: any) {
-    return this.request<any>('/reports/advanced/commission');
+    return this.request<any>(`/reports/advanced/commission${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedProfitReport(params?: any) {
-    return this.request<any>('/reports/advanced/profit');
+    return this.request<any>(`/reports/advanced/profit${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedCashflowReport(params?: any) {
-    return this.request<any>('/reports/advanced/cashflow');
+    return this.request<any>(`/reports/advanced/cashflow${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedBatchReport(params?: any) {
-    return this.request<any>('/reports/advanced/batch');
+    return this.request<any>(`/reports/advanced/batch${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedDiscountReport(params?: any) {
-    return this.request<any>('/reports/advanced/discount');
+    return this.request<any>(`/reports/advanced/discount${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedProductReport(params?: any) {
-    return this.request<any>('/reports/advanced/product');
+    return this.request<any>(`/reports/advanced/product${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedTurnoverReport(params?: any) {
-    return this.request<any>('/reports/advanced/turnover');
+    return this.request<any>(`/reports/advanced/turnover${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   async getAdvancedDailyReport(params?: any) {
-    return this.request<any>('/reports/advanced/daily');
+    return this.request<any>(`/reports/advanced/daily${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
   // Admin Management (Platform Admin only)

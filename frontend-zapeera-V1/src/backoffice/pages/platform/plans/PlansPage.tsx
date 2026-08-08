@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { backofficeApi } from '../../../services/api';
 import { Plan, Subscription, PlanModulePermission, Module } from '../../../types';
 import { ModuleCheckboxGroup, HierarchyModule, formatModuleName } from '../../../components/ModuleCheckboxGroup';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 export function PlansPage() {
   const [activeTab, setActiveTab] = useState<'plans' | 'subscriptions'>('plans');
@@ -15,6 +16,7 @@ export function PlansPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [planForm, setPlanForm] = useState({ name: '', subtitle: '', price: 0, interval: 'monthly', badge: '', features: '', maxStaffMembers: 0, maxBranches: 0, isActive: true });
+  const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
 
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const [moduleStates, setModuleStates] = useState<Record<string, Record<string, boolean>>>({});
@@ -106,13 +108,18 @@ export function PlansPage() {
     } catch { toast.error('Failed to save plan'); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this plan?')) return;
+  const handleDelete = (plan: Plan) => {
+    setDeletingPlan(plan);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingPlan) return;
     try {
-      await backofficeApi.deletePlan(id);
+      await backofficeApi.deletePlan(deletingPlan.id);
       toast.success('Plan deleted');
       fetchData();
     } catch { toast.error('Failed to delete plan'); }
+    setDeletingPlan(null);
   };
 
   const toggleModule = (planId: string, moduleName: string) => {
@@ -272,7 +279,7 @@ export function PlansPage() {
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(plan.id)}
+                            onClick={() => handleDelete(plan)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -411,6 +418,21 @@ export function PlansPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deletingPlan}
+        onClose={() => setDeletingPlan(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Plan"
+        description="Are you sure you want to delete this plan? This action cannot be undone."
+        confirmText="Delete Plan"
+        cancelText="Cancel"
+        variant="danger"
+        itemName={deletingPlan ? `Plan: ${deletingPlan.name}` : undefined}
+        itemDetails="This will permanently remove the subscription plan."
+        icon={<Trash2 className="w-4 h-4" />}
+      />
     </div>
   );
 }

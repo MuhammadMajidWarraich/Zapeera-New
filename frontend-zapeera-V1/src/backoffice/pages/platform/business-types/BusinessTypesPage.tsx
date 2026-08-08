@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Save, X, FileStack, ChevronDown, ChevronRight } fr
 import { backofficeApi } from '../../../services/api';
 import { BusinessType, Module } from '../../../types';
 import { ModuleCheckboxGroup, HierarchyModule } from '../../../components/ModuleCheckboxGroup';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 export function BusinessTypesPage() {
   const [types, setTypes] = useState<BusinessType[]>([]);
@@ -11,6 +12,7 @@ export function BusinessTypesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<BusinessType | null>(null);
   const [form, setForm] = useState({ name: '', description: '' });
+  const [deletingType, setDeletingType] = useState<BusinessType | null>(null);
 
   const [expandedType, setExpandedType] = useState<string | null>(null);
   const [moduleStates, setModuleStates] = useState<Record<string, Record<string, boolean>>>({});
@@ -75,12 +77,17 @@ export function BusinessTypesPage() {
     } catch {}
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this business type?')) return;
+  const handleDelete = (type: BusinessType) => {
+    setDeletingType(type);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingType) return;
     try {
-      await backofficeApi.deleteBusinessType(id);
+      await backofficeApi.deleteBusinessType(deletingType.id);
       fetchData();
     } catch {}
+    setDeletingType(null);
   };
 
   const toggleModule = (typeId: string, moduleName: string) => {
@@ -196,7 +203,7 @@ export function BusinessTypesPage() {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDelete(t.id)}
+                      onClick={() => handleDelete(t)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -269,6 +276,21 @@ export function BusinessTypesPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deletingType}
+        onClose={() => setDeletingType(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Business Type"
+        description="Are you sure you want to delete this business type? This action cannot be undone."
+        confirmText="Delete Business Type"
+        cancelText="Cancel"
+        variant="danger"
+        itemName={deletingType ? `Business Type: ${deletingType.name}` : undefined}
+        itemDetails="This will permanently remove the business type."
+        icon={<Trash2 className="w-4 h-4" />}
+      />
     </div>
   );
 }

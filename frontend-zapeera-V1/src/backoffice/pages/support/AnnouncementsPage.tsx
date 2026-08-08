@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Megaphone, Plus, Edit2, Trash2, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 interface Announcement {
   id: string;
@@ -18,6 +19,7 @@ export function AnnouncementsPage() {
   const [items, setItems] = useState<Announcement[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState<Announcement | null>(null);
   const [form, setForm] = useState({ title: '', content: '', type: 'INFO' as Announcement['type'], status: 'DRAFT' as Announcement['status'] });
 
   const handleSave = () => {
@@ -32,10 +34,15 @@ export function AnnouncementsPage() {
     setShowModal(false); setEditing(null); setForm({ title: '', content: '', type: 'INFO', status: 'DRAFT' });
   };
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm('Delete this announcement?')) return;
-    setItems(prev => prev.filter(a => a.id !== id));
+  const handleDelete = (announcement: Announcement) => {
+    setDeletingAnnouncement(announcement);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingAnnouncement) return;
+    setItems(prev => prev.filter(a => a.id !== deletingAnnouncement.id));
     toast.success('Announcement deleted');
+    setDeletingAnnouncement(null);
   };
 
   return (
@@ -67,7 +74,7 @@ export function AnnouncementsPage() {
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { setEditing(a); setForm({ title: a.title, content: a.content, type: a.type, status: a.status }); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(a.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(a)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -93,6 +100,21 @@ export function AnnouncementsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deletingAnnouncement}
+        onClose={() => setDeletingAnnouncement(null)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Announcement"
+        description="Are you sure you want to delete this announcement? This action cannot be undone."
+        confirmText="Delete Announcement"
+        cancelText="Cancel"
+        variant="danger"
+        itemName={deletingAnnouncement ? `Announcement: ${deletingAnnouncement.title}` : undefined}
+        itemDetails="This will permanently remove the announcement."
+        icon={<Trash2 className="w-4 h-4" />}
+      />
     </div>
   );
 }

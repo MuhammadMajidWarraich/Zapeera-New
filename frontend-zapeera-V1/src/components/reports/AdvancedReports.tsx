@@ -756,7 +756,42 @@ const AdvancedReports = () => {
       </div>
     );
   };
-  const renderAttendanceTab = () => <div className="p-8 text-center text-slate-400">Staff Attendance Report - Coming Soon</div>;
+  const renderAttendanceTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byStaff = d.byStaff || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Attendance Records" value={s.totalRecords || 0} icon={Clock} tone="blue" />
+          <SummaryCard label="Present" value={s.present || 0} icon={CheckCircle} tone="green" />
+          <SummaryCard label="Late" value={s.late || 0} icon={AlertTriangle} tone="amber" />
+          <SummaryCard label="Absent" value={s.absent || 0} icon={UserCheck} tone="red" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Attendance by Staff Member</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Staff Member</TableHead><TableHead className="text-right">Present</TableHead><TableHead className="text-right">Late</TableHead><TableHead className="text-right">Absent</TableHead><TableHead className="text-right">Total Hours</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {byStaff.map((row: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.staffName}</TableCell>
+                    <TableCell className="text-right"><Badge variant="default">{row.present}</Badge></TableCell>
+                    <TableCell className="text-right text-amber-600">{row.late}</TableCell>
+                    <TableCell className="text-right text-red-600">{row.absent}</TableCell>
+                    <TableCell className="text-right">{Number(row.totalHours || 0).toFixed(1)}</TableCell>
+                  </TableRow>
+                ))}
+                {byStaff.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No attendance records found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
   const renderStockTab = () => {
     const d = currentData;
     if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
@@ -787,10 +822,148 @@ const AdvancedReports = () => {
       </div>
     );
   };
-  const renderShiftTab = () => <div className="p-8 text-center text-slate-400">Shift Reports - Coming Soon</div>;
-  const renderSupplierTab = () => <div className="p-8 text-center text-slate-400">Supplier Performance Report - Coming Soon</div>;
-  const renderRetentionTab = () => <div className="p-8 text-center text-slate-400">Customer Retention Report - Coming Soon</div>;
-  const renderCommissionTab = () => <div className="p-8 text-center text-slate-400">Commission Details Report - Coming Soon</div>;
+  const renderShiftTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byStaff = d.byStaff || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Shifts" value={s.totalShifts || 0} icon={CalendarDays} tone="blue" />
+          <SummaryCard label="Active" value={s.active || 0} icon={Activity} tone="green" />
+          <SummaryCard label="Completed" value={s.completed || 0} icon={CheckCircle} tone="purple" />
+          <SummaryCard label="Net Difference" value={formatPKR(s.netDifference || 0)} icon={AlertTriangle} tone={(s.netDifference || 0) < 0 ? "red" : "amber"} />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Shift Summary by Staff Member</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Staff Member</TableHead><TableHead className="text-right">Shifts</TableHead><TableHead className="text-right">Cash In</TableHead><TableHead className="text-right">Cash Out</TableHead><TableHead className="text-right">Difference</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {byStaff.map((row: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.staffName}</TableCell>
+                    <TableCell className="text-right">{row.shifts}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.cashIn || 0)}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.cashOut || 0)}</TableCell>
+                    <TableCell className={`text-right ${(row.difference || 0) < 0 ? "text-red-600" : "text-green-600"}`}>{formatPKR(row.difference || 0)}</TableCell>
+                  </TableRow>
+                ))}
+                {byStaff.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No shift records found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderSupplierTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const bySupplier = d.bySupplier || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Suppliers" value={s.totalSuppliers || 0} icon={Truck} tone="blue" />
+          <SummaryCard label="Purchase Orders" value={s.totalPurchases || 0} icon={ShoppingCart} tone="green" />
+          <SummaryCard label="Total Purchases" value={formatPKR(s.totalAmount || 0)} icon={DollarSign} tone="purple" />
+          <SummaryCard label="Outstanding" value={formatPKR(s.outstanding || 0)} icon={Wallet} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Supplier Performance</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Supplier</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Total Amount</TableHead><TableHead className="text-right">Paid</TableHead><TableHead className="text-right">Outstanding</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {bySupplier.map((row: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.supplierName}</TableCell>
+                    <TableCell className="text-right">{row.purchases}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.totalAmount || 0)}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.paidAmount || 0)}</TableCell>
+                    <TableCell className={`text-right ${(row.outstanding || 0) > 0 ? "text-amber-600" : "text-green-600"}`}>{formatPKR(row.outstanding || 0)}</TableCell>
+                  </TableRow>
+                ))}
+                {bySupplier.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No supplier data found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderRetentionTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const topCustomers = d.topCustomers || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Customers" value={s.totalCustomers || 0} icon={Users} tone="blue" />
+          <SummaryCard label="Repeat Customers" value={s.repeatCustomers || 0} icon={Repeat} tone="green" />
+          <SummaryCard label="Retention Rate" value={`${(s.retentionRate || 0).toFixed(1)}%`} icon={TrendingUp} tone="purple" />
+          <SummaryCard label="Avg Orders / Customer" value={Number(s.avgOrdersPerCustomer || 0).toFixed(2)} icon={ShoppingCart} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Top Customers by Repeat Purchases</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Total Spent</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {topCustomers.map((row: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.customerName}</TableCell>
+                    <TableCell className="text-right">{row.orderCount}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.totalSpent || 0)}</TableCell>
+                  </TableRow>
+                ))}
+                {topCustomers.length === 0 && <TableRow><TableCell colSpan={3} className="text-center text-slate-400 py-8">No retention data available</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderCommissionTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byStaff = d.byStaff || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Commission Records" value={s.totalCommissions || 0} icon={Percent} tone="blue" />
+          <SummaryCard label="Total Commission" value={formatPKR(s.totalAmount || 0)} icon={DollarSign} tone="purple" />
+          <SummaryCard label="Paid" value={formatPKR(s.paid || 0)} icon={CheckCircle} tone="green" />
+          <SummaryCard label="Pending" value={formatPKR(s.pending || 0)} icon={Clock} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Commission by Staff Member</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Staff Member</TableHead><TableHead className="text-right">Transactions</TableHead><TableHead className="text-right">Total Sales</TableHead><TableHead className="text-right">Commission</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {byStaff.map((row: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.staffName}</TableCell>
+                    <TableCell className="text-right">{row.totalTransactions || 0}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.totalSales || 0)}</TableCell>
+                    <TableCell className="text-right">{formatPKR(row.totalCommission || 0)}</TableCell>
+                    <TableCell><Badge variant={String(row.status || "").toUpperCase() === "PAID" ? "default" : "secondary"}>{row.status || "PENDING"}</Badge></TableCell>
+                  </TableRow>
+                ))}
+                {byStaff.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No commission data found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
   const renderProfitTab = () => {
     const d = currentData;
     if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
@@ -821,11 +994,186 @@ const AdvancedReports = () => {
       </div>
     );
   };
-  const renderBatchTab = () => <div className="p-8 text-center text-slate-400">Batch Analysis Report - Coming Soon</div>;
-  const renderDiscountTab = () => <div className="p-8 text-center text-slate-400">Discount Analysis Report - Coming Soon</div>;
-  const renderProductTab = () => <div className="p-8 text-center text-slate-400">Product Performance Report - Coming Soon</div>;
-  const renderTurnoverTab = () => <div className="p-8 text-center text-slate-400">Inventory Turnover Report - Coming Soon</div>;
-  const renderDailyTab = () => <div className="p-8 text-center text-slate-400">Daily Sales Trends Report - Coming Soon</div>;
+  const renderBatchTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const batches = d.batches || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Batches" value={s.totalBatches || 0} icon={Layers} tone="blue" />
+          <SummaryCard label="Active" value={s.activeBatches || 0} icon={CheckCircle} tone="green" />
+          <SummaryCard label="Expired" value={s.expiredBatches || 0} icon={AlertTriangle} tone="red" />
+          <SummaryCard label="Batch Value" value={formatPKR(s.totalValue || 0)} icon={DollarSign} tone="purple" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Batch Inventory Analysis</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Product</TableHead><TableHead>Batch No</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Cost</TableHead><TableHead className="text-right">Selling Price</TableHead><TableHead>Expiry</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {batches.map((b: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{b.product?.name || "—"}</TableCell>
+                    <TableCell className="text-slate-500">{b.batchNo}</TableCell>
+                    <TableCell className="text-right">{b.quantity}</TableCell>
+                    <TableCell className="text-right">{formatPKR(b.purchasePrice || 0)}</TableCell>
+                    <TableCell className="text-right">{formatPKR(b.sellingPrice || 0)}</TableCell>
+                    <TableCell className={b.expireDate && new Date(b.expireDate) < new Date() ? "text-red-600" : "text-slate-500"}>
+                      {b.expireDate ? new Date(b.expireDate).toLocaleDateString() : "—"}
+                    </TableCell>
+                    <TableCell><Badge variant={b.isActive ? "default" : "secondary"}>{b.isActive ? "Active" : "Inactive"}</Badge></TableCell>
+                  </TableRow>
+                ))}
+                {batches.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-slate-400 py-8">No batch data found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderDiscountTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byMethod = (d.byMethod || []).map((m: any) => ({
+      name: m.paymentMethod || "Unknown",
+      value: m._sum?.discountAmount || 0,
+      orders: m._count?.id || 0,
+    }));
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Discount" value={formatPKR(s.totalDiscount || 0)} icon={Percent} tone="amber" />
+          <SummaryCard label="Discounted Orders" value={s.totalOrders || 0} icon={ShoppingCart} tone="blue" />
+          <SummaryCard label="Avg Discount / Order" value={formatPKR(s.avgDiscount || 0)} icon={Wallet} tone="purple" />
+          <SummaryCard label="Discount Rate" value={`${(s.discountRate || 0).toFixed(1)}%`} icon={TrendingDown} tone="green" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Discount by Payment Method</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={byMethod}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
+                  <Tooltip formatter={(v: any) => formatPKR(v)} />
+                  <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderProductTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byProduct = d.byProduct || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Products" value={s.totalProducts || 0} icon={Package} tone="blue" />
+          <SummaryCard label="Total Revenue" value={formatPKR(s.totalRevenue || 0)} icon={DollarSign} tone="green" />
+          <SummaryCard label="Avg Revenue / Product" value={formatPKR(s.avgRevenue || 0)} icon={BarChart3} tone="purple" />
+          <SummaryCard label="Top Product" value={s.topProduct || "—"} icon={TrendingUp} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Product Performance</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right">Quantity Sold</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Revenue</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {byProduct.map((p: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{p.productName}</TableCell>
+                    <TableCell className="text-right">{p.quantity}</TableCell>
+                    <TableCell className="text-right">{p.orders}</TableCell>
+                    <TableCell className="text-right">{formatPKR(p.revenue || 0)}</TableCell>
+                  </TableRow>
+                ))}
+                {byProduct.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-slate-400 py-8">No product sales data found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderTurnoverTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byProduct = d.byProduct || [];
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Products Tracked" value={s.totalProducts || 0} icon={Package} tone="blue" />
+          <SummaryCard label="Inventory Value" value={formatPKR(s.inventoryValue || 0)} icon={DollarSign} tone="purple" />
+          <SummaryCard label="COGS Sold" value={formatPKR(s.totalCostOfGoods || 0)} icon={Truck} tone="green" />
+          <SummaryCard label="Turnover Ratio" value={Number(s.turnoverRatio || 0).toFixed(2)} icon={PieChartIcon} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Inventory Turnover by Product</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right">Units Sold</TableHead><TableHead className="text-right">Avg Stock</TableHead><TableHead className="text-right">Inventory Value</TableHead><TableHead className="text-right">Turnover</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {byProduct.map((p: any, i: number) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{p.productName}</TableCell>
+                    <TableCell className="text-right">{p.unitsSold}</TableCell>
+                    <TableCell className="text-right">{p.avgStock}</TableCell>
+                    <TableCell className="text-right">{formatPKR(p.inventoryValue || 0)}</TableCell>
+                    <TableCell className="text-right">{Number(p.turnover || 0).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+                {byProduct.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No turnover data found</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+  const renderDailyTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const s = d.summary || {};
+    const byDay = d.byDay || [];
+    const avgPerDay = byDay.length > 0 ? (s.totalRevenue || 0) / byDay.length : 0;
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Total Revenue" value={formatPKR(s.totalRevenue || 0)} icon={DollarSign} tone="green" />
+          <SummaryCard label="Total Orders" value={s.totalOrders || 0} icon={ShoppingCart} tone="blue" />
+          <SummaryCard label="Best Day" value={s.bestDay || "—"} icon={TrendingUp} tone="purple" />
+          <SummaryCard label="Avg / Day" value={formatPKR(avgPerDay)} icon={Calendar} tone="amber" />
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Daily Sales Trend</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={byDay}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
+                  <Tooltip formatter={(v: any) => formatPKR(v)} />
+                  <Bar dataKey="total" name="Revenue" fill="#007bff" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderActiveTab = () => {
     if (loading) {

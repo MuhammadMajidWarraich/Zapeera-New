@@ -1514,19 +1514,11 @@ const Invoices = () => {
                 {/* Items to Refund */}
                 <div className="space-y-4">
                   <h3 className="font-semibold">Items to Refund</h3>
-                  <div className="text-sm text-muted-foreground">
-                    Debug: {refundItems.length} items loaded
-                  </div>
                   <div className="space-y-3">
                     {refundItems.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <p>No items found in this invoice.</p>
-                        <p className="text-sm">Invoice ID: {selectedInvoice?.id}</p>
-                        <p className="text-sm">Items in invoice: {selectedInvoice?.items?.length || 0}</p>
-                        <p className="text-sm">Debug: {refundItems.length} items loaded</p>
-                        <div className="text-xs text-muted-foreground mt-2">
-                          <p>Invoice structure: {JSON.stringify(selectedInvoice?.items?.slice(0, 1), null, 2)}</p>
-                        </div>
+                        <p className="text-sm">This invoice may already be fully refunded.</p>
                         <Button
                           variant="outline"
                           size="sm"

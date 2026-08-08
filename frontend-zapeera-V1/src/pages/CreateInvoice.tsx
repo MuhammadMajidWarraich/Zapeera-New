@@ -1072,15 +1072,11 @@ const CreateInvoice = () => {
         customerName = invoiceCustomer.name;
         customerPhone = invoiceCustomer.phone;
       } else if (invoiceCustomer.phone) {
-        customerName = `Customer-${invoiceCustomer.phone}`;
+        customerName = invoiceCustomer.name || `Customer-${invoiceCustomer.phone}`;
         customerPhone = invoiceCustomer.phone;
       } else if (invoiceCustomer.name) {
         customerName = invoiceCustomer.name;
-        customerPhone = `000-${Date.now()}`;
-      } else {
-        const timestamp = Date.now();
-        customerName = `Walk-in-${timestamp}`;
-        customerPhone = `000-${timestamp}`;
+        customerPhone = "";
       }
       // Determine branch ID for customer creation
       let customerBranchId: string | undefined;
@@ -1259,7 +1255,7 @@ const CreateInvoice = () => {
         discountPercentage: discountPercentage,
         total: totalAmount,
         paymentMethod: paymentMethod.toUpperCase(),
-        paymentStatus: paymentStatus === 'COMPLETED' ? 'Completed' : 'Pending'
+        paymentStatus: paymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
       };
 
       // Set current receipt and show dialog
@@ -1315,15 +1311,11 @@ const CreateInvoice = () => {
         customerName = modalInvoiceCustomer.name;
         customerPhone = modalInvoiceCustomer.phone;
       } else if (modalInvoiceCustomer.phone) {
-        customerName = `Customer-${modalInvoiceCustomer.phone}`;
+        customerName = modalInvoiceCustomer.name || `Customer-${modalInvoiceCustomer.phone}`;
         customerPhone = modalInvoiceCustomer.phone;
       } else if (modalInvoiceCustomer.name) {
         customerName = modalInvoiceCustomer.name;
-        customerPhone = `000-${Date.now()}`;
-      } else {
-        const timestamp = Date.now();
-        customerName = `Walk-in-${timestamp}`;
-        customerPhone = `000-${timestamp}`;
+        customerPhone = "";
       }
 
       // Determine branch ID for customer creation
@@ -1486,7 +1478,7 @@ const CreateInvoice = () => {
         discountPercentage: modalDiscountPercentage,
         total: totalAmount,
         paymentMethod: modalPaymentMethod.toUpperCase(),
-        paymentStatus: modalPaymentStatus === 'COMPLETED' ? 'Completed' : 'Pending'
+        paymentStatus: modalPaymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
       };
 
       // Set current receipt and show dialog
@@ -2839,7 +2831,11 @@ const CreateInvoice = () => {
                       />
                     </div>
                     <div className="flex items-center justify-between rounded-[12px] border border-[rgba(15,23,60,0.08)] bg-gradient-to-r from-[#f4f6fa] to-white px-4 py-3">
-                      <span className="text-sm font-semibold text-[#4a5578]">Change / returned</span>
+                      <span className="text-sm font-semibold text-[#4a5578]">{(() => {
+                        const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+                        const finalTotal = total - (total * (discountPercentage / 100));
+                        return paidAmount >= finalTotal ? 'Change / returned' : 'Balance due';
+                      })()}</span>
                       <span className={`text-lg font-bold ${(() => {
                         const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                         const discountAmount = total * (discountPercentage / 100);
@@ -2847,12 +2843,14 @@ const CreateInvoice = () => {
                         const returned = paidAmount - finalTotal;
                         return returned >= 0 ? 'text-green-600' : 'text-red-600';
                       })()}`}>
-                        PKR {(() => {
+                        {(() => {
                           const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                           const discountAmount = total * (discountPercentage / 100);
                           const finalTotal = total - discountAmount;
                           const returned = paidAmount - finalTotal;
-                          return Math.max(0, returned).toFixed(2);
+                          return returned >= 0
+                            ? `PKR ${returned.toFixed(2)}`
+                            : `PKR ${Math.abs(returned).toFixed(2)}`;
                         })()}
                       </span>
                     </div>
@@ -2966,7 +2964,7 @@ const CreateInvoice = () => {
                 <div className="mt-4 flex border-t border-[rgba(15,23,60,0.08)] pt-4">
                   <Button
                     onClick={createInvoice}
-                    disabled={invoiceItems.length === 0 || isLoading || paidAmount < mainTotalAmount}
+                    disabled={invoiceItems.length === 0 || isLoading}
                     className="h-12 flex-1 rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-base font-semibold text-white shadow-[0_4px_20px_rgba(26,82,197,0.3)] transition-all hover:-translate-y-0.5 hover:from-[#1746b0] hover:to-[#24b5c0] hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
                   >
                     {isLoading ? (
@@ -3789,7 +3787,11 @@ const CreateInvoice = () => {
                         />
                       </div>
                       <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg border">
-                        <span className="text-sm font-medium text-gray-700">Returned Amount</span>
+                        <span className="text-sm font-medium text-gray-700">{(() => {
+                          const total = modalInvoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+                          const finalTotal = total - (total * (modalDiscountPercentage / 100));
+                          return modalPaidAmount >= finalTotal ? 'Returned Amount' : 'Balance Due';
+                        })()}</span>
                         <span className={`text-base font-bold ${(() => {
                           const total = modalInvoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                           const discountAmount = total * (modalDiscountPercentage / 100);
@@ -3802,7 +3804,7 @@ const CreateInvoice = () => {
                             const discountAmount = total * (modalDiscountPercentage / 100);
                             const finalTotal = total - discountAmount;
                             const returned = modalPaidAmount - finalTotal;
-                            return Math.max(0, returned).toFixed(2);
+                            return Math.abs(returned).toFixed(2);
                           })()}
                         </span>
                       </div>
@@ -3883,7 +3885,7 @@ const CreateInvoice = () => {
                   <div className="flex space-x-3 pt-4 border-t mt-4">
                     <Button
                       onClick={createModalInvoice}
-                      disabled={isLoading || modalInvoiceItems.length === 0 || modalPaidAmount < modalTotalAmount}
+                      disabled={isLoading || modalInvoiceItems.length === 0}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {isLoading ? (

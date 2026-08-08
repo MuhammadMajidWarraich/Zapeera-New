@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import {
   ShoppingCart,
+  Barcode,
   Search,
   Scan,
   Plus,
@@ -206,6 +207,8 @@ const POSInterface = () => {
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState("");
+  const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState("");
   const [appliedPromotions, setAppliedPromotions] = useState<Promotion[]>([]);
   const [promoCode, setPromoCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -275,8 +278,8 @@ const POSInterface = () => {
   const [loadingBatches, setLoadingBatches] = useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
-    // console.log('🔄 POS useEffect triggered');
-    // console.log('🔄 User in useEffect:', user);
+    // console.log('ðŸ”„ POS useEffect triggered');
+    // console.log('ðŸ”„ User in useEffect:', user);
 
     // Load products immediately
     const loadProductsImmediately = async () => {
@@ -288,16 +291,16 @@ const POSInterface = () => {
             // Owner users can see products from selected branch or all branches
             if (selectedBranchId) {
               branchId = selectedBranchId;
-              // console.log('🔄 Admin selected specific branch (immediate):', selectedBranch?.name);
+              // console.log('ðŸ”„ Admin selected specific branch (immediate):', selectedBranch?.name);
             } else {
-              // console.log('🔄 Admin viewing all branches - loading all products (immediate)');
+              // console.log('ðŸ”„ Admin viewing all branches - loading all products (immediate)');
             }
           } else {
             // Regular users see only their branch products
             branchId = user?.membership?.branchIds?.[0] || user?.branchId || null;
             if (!branchId) {
             }
-            // console.log('🔄 Regular user branch (immediate):', branchId);
+            // console.log('ðŸ”„ Regular user branch (immediate):', branchId);
           }
 
           const url = branchId
@@ -406,7 +409,7 @@ const POSInterface = () => {
 
     loadCategoriesSimple();
 
-    // Listen for product updates — smart in-place updates via SSE events
+    // Listen for product updates â€” smart in-place updates via SSE events
     // NOTE: Previously, legacy 'productCreated'/'productUpdated'/'productDeleted' event listeners
     // called loadProducts() for a FULL reload. Removed because the 'productChanged' handler below
     // already does smart in-place add/update/delete without disrupting the user's work.
@@ -966,7 +969,7 @@ const POSInterface = () => {
     // Show prescription warning if product requires prescription
     if (product.requiresPrescription) {
       toast({
-        title: "⚠️ Prescription Required",
+        title: "âš ï¸ Prescription Required",
         description: `"${product.name}" requires a valid doctor's prescription before sale. Please verify the prescription.`,
         variant: "destructive",
         duration: 5000,
@@ -1117,8 +1120,8 @@ const POSInterface = () => {
   ];
 
   // Debug: Log products state (commented out to prevent repeated logging)
-  // console.log('🔄 Current products state:', products);
-  // console.log('🔄 Filtered products:', filteredProducts);
+  // console.log('ðŸ”„ Current products state:', products);
+  // console.log('ðŸ”„ Filtered products:', filteredProducts);
 
   const filteredInvoiceProducts = products.filter(product => {
     const query = invoiceSearchQuery.toLowerCase();
@@ -1131,34 +1134,39 @@ const POSInterface = () => {
 
   // Barcode scanning functionality
   const handleBarcodeScan = async () => {
-    setIsScanning(true);
-    try {
-      // Check if browser supports camera access
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    // Check if browser supports camera access
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        setIsScanning(true);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        stream.getTracks().forEach(track => track.stop());
+        // Camera works â€” open the manual entry dialog as the in-app fallback
+      } catch (error) {
         toast({
-          title: "Camera Not Supported",
-          description: "Camera access not supported in this browser",
+          title: "Camera Not Available",
+          description: "Camera could not be opened. You can enter the barcode manually.",
           variant: "destructive",
         });
-        return;
+      } finally {
+        setIsScanning(false);
       }
-
-      // For now, we'll use a simple prompt for barcode input
-      // In a real implementation, you would integrate with a barcode scanning library
-      const barcode = prompt('Enter barcode or scan QR code:');
-      if (barcode) {
-        setScannedBarcode(barcode);
-        await searchProductByBarcode(barcode);
-      }
-    } catch (error) {
+    } else {
       toast({
-        title: "Camera Error",
-        description: "Error accessing camera for barcode scanning",
+        title: "Camera Not Supported",
+        description: "Camera access not supported in this browser. You can enter the barcode manually.",
         variant: "destructive",
       });
-    } finally {
-      setIsScanning(false);
     }
+    setManualBarcode("");
+    setIsBarcodeDialogOpen(true);
+  };
+
+  const handleManualBarcodeSubmit = async () => {
+    const barcode = manualBarcode.trim();
+    if (!barcode) return;
+    setScannedBarcode(barcode);
+    setIsBarcodeDialogOpen(false);
+    await searchProductByBarcode(barcode);
   };
 
   const searchProductByBarcode = async (barcode: string) => {
@@ -1262,7 +1270,6 @@ const POSInterface = () => {
 
   const applyPromotion = () => {
     if (!promoCode.trim()) {
-      alert("Please enter a promotion code");
       toast({
         title: "Promotion Code Required",
         description: "Please enter a promotion code",
@@ -1276,7 +1283,6 @@ const POSInterface = () => {
     );
 
     if (!promotion) {
-      alert("Invalid or expired promotion code");
       toast({
         title: "Invalid Promotion",
         description: "Invalid or expired promotion code",
@@ -1287,7 +1293,6 @@ const POSInterface = () => {
 
     // Check if promotion is already applied
     if (appliedPromotions.find(p => p.id === promotion.id)) {
-      alert("This promotion has already been applied");
       toast({
         title: "Promotion Already Applied",
         description: "This promotion has already been applied",
@@ -1308,7 +1313,6 @@ const POSInterface = () => {
 
     // Check validity
     if (promotion.validUntil && new Date(promotion.validUntil) < new Date()) {
-      alert("This promotion has expired");
       toast({
         title: "Promotion Expired",
         description: "This promotion has expired",
@@ -1332,7 +1336,6 @@ const POSInterface = () => {
     setAppliedPromotions([...appliedPromotions, promotion]);
     setDiscountAmount(discountAmount + discount);
     setPromoCode("");
-    alert(`Promotion "${promotion.name}" applied! Discount: PKR ${discount.toFixed(2)}`);
     toast({
       title: "Promotion Applied",
       description: `Promotion "${promotion.name}" applied! Discount: PKR ${discount.toFixed(2)}`,
@@ -2116,7 +2119,7 @@ const POSInterface = () => {
                 <div class="item">
                   <div>
                     <div class="item-name">${item.name}</div>
-                    <div class="item-details">${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}</div>
+                    <div class="item-details">${item.quantity} ${item.unitType} Ã— PKR ${item.unitPrice.toFixed(2)}</div>
                     ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
                   </div>
                   <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
@@ -2222,7 +2225,6 @@ const POSInterface = () => {
         });
 
         if (result.success) {
-          alert(`Receipt saved to: ${result.filePath}`);
           toast({
             title: "Receipt Saved",
             description: `Receipt saved to: ${result.filePath}`,
@@ -2246,7 +2248,6 @@ const POSInterface = () => {
       URL.revokeObjectURL(url);
       }
     } catch (error) {
-      alert('Error downloading receipt. Please try again.');
       toast({
         title: "Download Error",
         description: "Error downloading receipt. Please try again.",
@@ -2398,7 +2399,7 @@ const POSInterface = () => {
               <div>
                 <div class="item-name">${item.name}</div>
                 <div class="item-details">
-                  ${item.quantity} ${item.unitType} × PKR ${item.unitPrice.toFixed(2)}<br>
+                  ${item.quantity} ${item.unitType} Ã— PKR ${item.unitPrice.toFixed(2)}<br>
                   ${item.instructions ? `Instructions: ${item.instructions}` : ''}
                 </div>
               </div>
@@ -2444,7 +2445,6 @@ const POSInterface = () => {
 
   const sendSMSReceipt = async () => {
     if (!currentReceipt?.customer?.phone) {
-      alert("Customer phone number is required to send SMS receipt");
       toast({
         title: "Phone Number Required",
         description: "Customer phone number is required to send SMS receipt",
@@ -2495,17 +2495,28 @@ Thank you for choosing us!`;
             </html>
           `);
         } else {
-          alert(`SMS Receipt for ${currentReceipt.customer.phone}:\n\n${smsMessage}\n\nCopy this message and send it via your SMS app.`);
+          toast({
+            title: "SMS Receipt Ready",
+            description: `Message prepared for ${currentReceipt.customer.phone}. Copy and send it via your SMS app.`,
+          });
         }
       }
     } catch (error) {
-      alert('Error preparing SMS receipt. Please try again.');
+      toast({
+        title: "SMS Error",
+        description: "Error preparing SMS receipt. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const sendEmailReceipt = async () => {
     if (!currentReceipt?.customer?.email) {
-      alert("Customer email address is required to send email receipt");
+      toast({
+        title: "Email Required",
+        description: "Customer email address is required to send email receipt",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2526,7 +2537,7 @@ Receipt Details:
 
 Items Purchased:
 ${currentReceipt.items.map(item => `
-• ${item.name}
+â€¢ ${item.name}
   Quantity: ${item.quantity} ${item.unitType}
   Unit Price: PKR ${item.unitPrice.toFixed(2)}
   Total: PKR ${item.totalPrice.toFixed(2)}
@@ -2594,11 +2605,18 @@ Zapeera Staff
             </html>
           `);
         } else {
-          alert(`Email Receipt for ${currentReceipt.customer.email}:\n\nSubject: ${emailSubject}\n\n${emailBody}\n\nCopy this content and send it via your email client.`);
+          toast({
+            title: "Email Receipt Ready",
+            description: `Email prepared for ${currentReceipt.customer.email}. Copy the content and send it via your email client.`,
+          });
         }
       }
     } catch (error) {
-      alert('Error preparing email receipt. Please try again.');
+      toast({
+        title: "Email Error",
+        description: "Error preparing email receipt. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -2607,7 +2625,11 @@ Zapeera Staff
   // Invoice lookup functionality
   const lookupInvoice = async () => {
     if (!refundReceiptNumber.trim()) {
-      alert("Please enter a receipt number");
+      toast({
+        title: "Receipt Number Required",
+        description: "Please enter a receipt number",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2668,13 +2690,25 @@ Zapeera Staff
           setFoundInvoice(transformedInvoice);
           setIsRefundDialogOpen(true);
         } else {
-          alert(`Invoice with receipt number "${refundReceiptNumber}" not found.`);
+          toast({
+            title: "Invoice Not Found",
+            description: `Invoice with receipt number "${refundReceiptNumber}" not found.`,
+            variant: "destructive",
+          });
         }
       } else {
-        alert('Failed to load invoices. Please try again.');
+        toast({
+          title: "Load Failed",
+          description: "Failed to load invoices. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
-      alert('Error looking up invoice. Please try again.');
+      toast({
+        title: "Lookup Error",
+        description: "Error looking up invoice. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setInvoiceLookupLoading(false);
     }
@@ -2684,7 +2718,11 @@ Zapeera Staff
   // Refund and return functionality
   const processRefund = async () => {
     if (!refundReceiptNumber.trim()) {
-      alert("Please enter a receipt number");
+      toast({
+        title: "Receipt Number Required",
+        description: "Please enter a receipt number",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2695,7 +2733,11 @@ Zapeera Staff
         companyId: selectedCompanyId || '',
       });
       if (!salesResponse.success || !salesResponse.data?.sales?.length) {
-        alert("Sale not found with the given receipt number");
+        toast({
+          title: "Sale Not Found",
+          description: "Sale not found with the given receipt number",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -2708,7 +2750,11 @@ Zapeera Staff
       );
 
       if (!originalSale) {
-        alert(`Receipt number ${refundReceiptNumber} not found`);
+        toast({
+          title: "Sale Not Found",
+          description: `Receipt number ${refundReceiptNumber} not found`,
+          variant: "destructive",
+        });
         return;
       }
       // Automatically use all items from the original sale for refund
@@ -2736,17 +2782,11 @@ Zapeera Staff
       // Call the refund API
       const refundResponse = await apiService.createRefund(refundData);
       if (refundResponse.success) {
-        alert(`Refund processed successfully!
-
-Receipt Number: ${refundReceiptNumber}
-Refund Amount: PKR ${totalRefundAmount.toFixed(2)}
-Reason: ${refundReason || "Customer requested refund"}
-
-Items Refunded:
-${originalSale.items.map((item: any) => `• ${item.product?.name || 'Unknown Product'} - ${item.quantity} ${item.saleType === 'BOX' ? 'box(es)' : 'unit(s)'} - PKR ${(item.quantity * item.unitPrice).toFixed(2)}`).join('\n')}
-
-Stock has been updated and items are back in inventory.
-Sale amount has been deducted from reports.`);
+        toast({
+          title: "Refund Processed",
+          description: `Receipt ${refundReceiptNumber} refunded. Amount: PKR ${totalRefundAmount.toFixed(2)}. Stock has been updated.`,
+          variant: "success",
+        });
 
         // Reset refund form
         setRefundReceiptNumber("");
@@ -2765,10 +2805,13 @@ Sale amount has been deducted from reports.`);
         const errorMessage = refundResponse.message || "Failed to process refund. Please try again.";
         const isAlreadyRefunded = errorMessage.toLowerCase().includes('already refunded') || (refundResponse as any).error === 'ALREADY_REFUNDED';
         
-        alert(isAlreadyRefunded 
-          ? `⚠️ Already Refunded\n\n${errorMessage}\n\nThis item has already been refunded. Please check the refund history.`
-          : errorMessage
-        );
+        toast({
+          title: isAlreadyRefunded ? "Already Refunded" : "Refund Failed",
+          description: isAlreadyRefunded
+            ? `${errorMessage}. This item has already been refunded. Please check the refund history.`
+            : errorMessage,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       const errorMessage = error?.response?.message 
@@ -2780,10 +2823,13 @@ Sale amount has been deducted from reports.`);
         || error?.response?.error === 'ALREADY_REFUNDED'
         || error?.response?.data?.error === 'ALREADY_REFUNDED';
       
-      alert(isAlreadyRefunded 
-        ? `⚠️ Already Refunded\n\n${errorMessage}\n\nThis item has already been refunded. Please check the refund history.`
-        : errorMessage
-      );
+      toast({
+        title: isAlreadyRefunded ? "Already Refunded" : "Refund Error",
+        description: isAlreadyRefunded
+          ? `${errorMessage}. This item has already been refunded. Please check the refund history.`
+          : errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -2820,17 +2866,29 @@ Sale amount has been deducted from reports.`);
     const giftCard = sampleGiftCards.find(card => card.number === cardNumber);
 
     if (!giftCard) {
-      alert("Gift card not found");
+      toast({
+        title: "Gift Card Not Found",
+        description: "Gift card not found",
+        variant: "destructive",
+      });
       return false;
     }
 
     if (!giftCard.isActive) {
-      alert("Gift card is inactive");
+      toast({
+        title: "Gift Card Inactive",
+        description: "Gift card is inactive",
+        variant: "destructive",
+      });
       return false;
     }
 
     if (giftCard.expiryDate && new Date(giftCard.expiryDate) < new Date()) {
-      alert("Gift card has expired");
+      toast({
+        title: "Gift Card Expired",
+        description: "Gift card has expired",
+        variant: "destructive",
+      });
       return false;
     }
 
@@ -2840,22 +2898,38 @@ Sale amount has been deducted from reports.`);
 
   const applyGiftCard = () => {
     if (!giftCardNumber.trim()) {
-      alert("Please enter a gift card number");
+      toast({
+        title: "Gift Card Number Required",
+        description: "Please enter a gift card number",
+        variant: "destructive",
+      });
       return;
     }
 
     if (giftCardAmount <= 0) {
-      alert("Please enter a valid amount");
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
       return;
     }
 
     if (giftCardAmount > giftCardBalance) {
-      alert(`Insufficient balance. Available: PKR ${giftCardBalance.toFixed(2)}`);
+      toast({
+        title: "Insufficient Balance",
+        description: `Insufficient balance. Available: PKR ${giftCardBalance.toFixed(2)}`,
+        variant: "destructive",
+      });
       return;
     }
 
     if (giftCardAmount > total) {
-      alert(`Amount cannot exceed total. Total: PKR ${total.toFixed(2)}`);
+      toast({
+        title: "Amount Exceeds Total",
+        description: `Amount cannot exceed total. Total: PKR ${total.toFixed(2)}`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2867,12 +2941,20 @@ Sale amount has been deducted from reports.`);
     setGiftCardAmount(0);
     setGiftCardBalance(0);
 
-    alert(`Gift card applied successfully! Amount: PKR ${giftCardAmount.toFixed(2)}`);
+    toast({
+      title: "Gift Card Applied",
+      description: `Gift card applied successfully! Amount: PKR ${giftCardAmount.toFixed(2)}`,
+      variant: "success",
+    });
   };
 
   const searchReceiptForRefund = async () => {
     if (!refundReceiptNumber.trim()) {
-      alert("Please enter a receipt number");
+      toast({
+        title: "Receipt Number Required",
+        description: "Please enter a receipt number",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -2918,15 +3000,31 @@ Sale amount has been deducted from reports.`);
           setRefundReceiptNumber("");
           setIsRefundSearchOpen(false);
 
-          alert(`Receipt ${refundReceiptNumber} found! All items are ready for refund. Click "Process Refund" to complete the refund.`);
+          toast({
+            title: "Receipt Found",
+            description: `Receipt ${refundReceiptNumber} found! All items are ready for refund.`,
+            variant: "success",
+          });
         } else {
-          alert(`Receipt number ${refundReceiptNumber} not found`);
+          toast({
+            title: "Receipt Not Found",
+            description: `Receipt number ${refundReceiptNumber} not found`,
+            variant: "destructive",
+          });
         }
       } else {
-        alert("Error searching for receipt");
+        toast({
+          title: "Search Error",
+          description: "Error searching for receipt",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      alert('Error searching for receipt. Please try again.');
+      toast({
+        title: "Search Error",
+        description: "Error searching for receipt. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -3397,7 +3495,10 @@ Sale amount has been deducted from reports.`);
                 className="text-center bg-gray-100 p-3 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors group"
                 onClick={() => {
                   navigator.clipboard.writeText(currentReceipt.receiptNumber);
-                  alert(`Receipt number copied: ${currentReceipt.receiptNumber}`);
+                  toast({
+                    title: "Receipt Number Copied",
+                    description: `Receipt number copied: ${currentReceipt.receiptNumber}`,
+                  });
                 }}
               >
                 <p className="text-xs text-gray-500 mb-1">Click to copy receipt number</p>
@@ -3446,7 +3547,7 @@ Sale amount has been deducted from reports.`);
                     <div className="flex-1">
                       <p className="font-medium">{item.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unitType} × PKR {item.unitPrice.toFixed(2)}
+                        {item.quantity} {item.unitType} Ã— PKR {item.unitPrice.toFixed(2)}
                       </p>
                       {item.instructions && (
                         <p className="text-xs text-blue-600 mt-1">{item.instructions}</p>
@@ -3502,6 +3603,46 @@ Sale amount has been deducted from reports.`);
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Barcode Entry Dialog */}
+      <Dialog open={isBarcodeDialogOpen} onOpenChange={setIsBarcodeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Barcode className="w-5 h-5 text-primary" />
+              <span>Enter Barcode</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="manualBarcode">Barcode / SKU</Label>
+              <Input
+                id="manualBarcode"
+                autoFocus
+                placeholder="Scan or type barcode..."
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleManualBarcodeSubmit();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsBarcodeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleManualBarcodeSubmit} disabled={!manualBarcode.trim()}>
+                <Search className="mr-2 h-4 w-4" />
+                Look Up
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -3627,7 +3768,7 @@ Sale amount has been deducted from reports.`);
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-sm truncate">{product.name}</h4>
                               <span className="text-xs text-muted-foreground">
-                                {product.unitType} • Stock: {product.stock}
+                                {product.unitType} â€¢ Stock: {product.stock}
                               </span>
                             </div>
                           </div>
@@ -3777,16 +3918,16 @@ Sale amount has been deducted from reports.`);
                           {getUnitIcon(item.unitType)}
                           <span className="text-xs text-muted-foreground">
                             {isBoxItem
-                              ? `${displayBoxes?.toFixed(0)} box (${displayUnits} units) • PKR ${item.unitPrice.toFixed(2)} each`
-                              : `${displayUnits} ${item.unitType} • PKR ${item.unitPrice.toFixed(2)} each`}
+                              ? `${displayBoxes?.toFixed(0)} box (${displayUnits} units) â€¢ PKR ${item.unitPrice.toFixed(2)} each`
+                              : `${displayUnits} ${item.unitType} â€¢ PKR ${item.unitPrice.toFixed(2)} each`}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Batch: {item.batch} • Exp: {item.expiry}
+                          Batch: {item.batch} â€¢ Exp: {item.expiry}
                         </p>
                         {item.instructions && (
                           <p className="text-xs text-blue-600 mt-1 font-medium">
-                            💊 {item.instructions}
+                            ðŸ’Š {item.instructions}
                           </p>
                         )}
                       </div>
@@ -4070,7 +4211,7 @@ Sale amount has been deducted from reports.`);
                             PKR {foundInvoice.totalAmount.toFixed(2)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {foundInvoice.paymentMethod} • {foundInvoice.paymentStatus}
+                            {foundInvoice.paymentMethod} â€¢ {foundInvoice.paymentStatus}
                           </p>
                         </div>
                       </div>
@@ -4101,9 +4242,9 @@ Sale amount has been deducted from reports.`);
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{item.product.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {item.quantity} {item.product.unitType} × PKR {item.unitPrice.toFixed(2)}
-                                  {item.batchNumber && ` • Batch: ${item.batchNumber}`}
-                                  {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
+                                  {item.quantity} {item.product.unitType} Ã— PKR {item.unitPrice.toFixed(2)}
+                                  {item.batchNumber && ` â€¢ Batch: ${item.batchNumber}`}
+                                  {item.expiryDate && ` â€¢ Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                                 </p>
                               </div>
                               <p className="font-semibold text-sm">PKR {item.totalPrice.toFixed(2)}</p>

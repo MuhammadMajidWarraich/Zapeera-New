@@ -531,7 +531,6 @@ const Reports = () => {
           previousEndDate = `${now.getFullYear() - 1}-12-31`;
           break;
       }
-      });
 
       // Load current period data
 

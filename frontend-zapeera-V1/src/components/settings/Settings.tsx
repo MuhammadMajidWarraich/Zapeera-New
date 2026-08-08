@@ -24,6 +24,7 @@ import { apiService } from "@/services/api";
 import { config } from "@/lib/config";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
 
 type DeviceIcon = ComponentType<{ className?: string; strokeWidth?: string | number }>;
 
@@ -60,6 +61,9 @@ const Settings = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditingPOS, setIsEditingPOS] = useState(false);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
+  const [importedSettings, setImportedSettings] = useState<any>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -399,19 +403,9 @@ const Settings = () => {
 
         // Validate imported data
         if (importedData.settings && importedData.business) {
-          // Confirm import
-          const confirmed = window.confirm(
-            'This will replace your current settings. Are you sure you want to continue?'
-          );
-
-          if (confirmed) {
-            setSettings(importedData.settings);
-            toast({
-              title: "Import Successful",
-              description: "Data imported successfully!",
-              variant: "success",
-            });
-          }
+          // Show confirmation modal
+          setImportedSettings(importedData);
+          setShowImportConfirm(true);
         } else {
           toast({
             title: "Invalid File",
@@ -432,51 +426,58 @@ const Settings = () => {
     input.click();
   };
 
+  const handleConfirmImport = () => {
+    if (importedSettings) {
+      setSettings(importedSettings.settings);
+      toast({
+        title: "Import Successful",
+        description: "Data imported successfully!",
+        variant: "success",
+      });
+      setImportedSettings(null);
+    }
+    setShowImportConfirm(false);
+  };
+
   const handleFactoryReset = () => {
-    const confirmed = window.confirm(
-      'This will reset ALL settings to default values. This action cannot be undone. Are you sure?'
-    );
+    setShowFactoryResetConfirm(true);
+  };
 
-    if (confirmed) {
-      const doubleConfirm = window.confirm(
-        'Are you absolutely sure? This will permanently delete all your custom settings.'
-      );
-
-      if (doubleConfirm) {
-        // Reset to default settings
-        setSettings({
-          business: {
-            name: "My Business",
-            address: "Block A, Gulberg III, Lahore",
-            phone: "+92 42 1234567",
-            email: "info@mybusiness.com",
-            license: "PHR-LHR-2024-001",
-            taxNumber: "1234567890123"
-          },
-          pos: {
-            autoSync: true,
-            offlineMode: true,
-            receiptPrinter: "EPSON TM-T20II",
-            barcodePrinter: "Zebra ZD220",
-            defaultTax: 17,
-            lowStockAlert: 20,
-            expiryAlert: 30
-          },
-          user: {
-            name: userProfile.name || user?.name || "Loading...",
-            email: userProfile.email || "Loading...",
-            role: userProfile.role || user?.membership?.roleName || user?.role || "Loading...",
-            deviceId: "TABLET-001",
-            lastLogin: "2024-01-15 10:30 AM"
-          },
-          security: {
-            autoLogout: 30,
-            requirePin: true,
-            encryptData: true,
-            backupEnabled: true,
-            auditLog: true
-          },
-          notifications: {
+  const handleConfirmFactoryReset = () => {
+    // Reset to default settings
+    setSettings({
+      business: {
+        name: "My Business",
+        address: "Block A, Gulberg III, Lahore",
+        phone: "+92 42 1234567",
+        email: "info@mybusiness.com",
+        license: "PHR-LHR-2024-001",
+        taxNumber: "1234567890123"
+      },
+      pos: {
+        autoSync: true,
+        offlineMode: true,
+        receiptPrinter: "EPSON TM-T20II",
+        barcodePrinter: "Zebra ZD220",
+        defaultTax: 17,
+        lowStockAlert: 20,
+        expiryAlert: 30
+      },
+      user: {
+        name: userProfile.name || user?.name || "Loading...",
+        email: userProfile.email || "Loading...",
+        role: userProfile.role || user?.membership?.roleName || user?.role || "Loading...",
+        deviceId: "TABLET-001",
+        lastLogin: "2024-01-15 10:30 AM"
+      },
+      security: {
+        autoLogout: 30,
+        requirePin: true,
+        encryptData: true,
+        backupEnabled: true,
+        auditLog: true
+      },
+      notifications: {
             lowStock: true,
             expiry: true,
             sales: false,
@@ -485,13 +486,11 @@ const Settings = () => {
           }
         });
 
-        toast({
+toast({
           title: "Settings Reset",
           description: "Settings have been reset to default values.",
           variant: "success",
         });
-      }
-    }
   };
 
   const handleChangePassword = async () => {
@@ -713,7 +712,8 @@ const Settings = () => {
 
   // All dashboard users see the same settings
   return (
-    <div className="min-h-full bg-[#f0f2f7]">
+    <>
+      <div className="min-h-full bg-[#f0f2f7]">
       <div className="px-11 pb-14 pt-9">
         {/* Page header — zapeera-settings.html */}
         <div className="zv3-settings-block mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1071,7 +1071,35 @@ const Settings = () => {
           </div>
         </section>
       </div>
+
+    {/* Import Settings Confirmation Modal */}
+    <ConfirmationModal
+      isOpen={showImportConfirm}
+      onClose={() => { setShowImportConfirm(false); setImportedSettings(null); }}
+      onConfirm={handleConfirmImport}
+      title="Import Settings"
+      description="This will replace your current settings with the imported data. Are you sure you want to continue?"
+      confirmText="Import Settings"
+      cancelText="Cancel"
+      variant="warning"
+      icon={<Upload className="w-4 h-4" />}
+    />
+
+    {/* Factory Reset Confirmation Modal */}
+    <ConfirmationModal
+      isOpen={showFactoryResetConfirm}
+      onClose={() => setShowFactoryResetConfirm(false)}
+      onConfirm={handleConfirmFactoryReset}
+      title="Factory Reset"
+      description="This will reset ALL settings to default values. This action cannot be undone and will permanently delete all your custom settings. Are you absolutely sure?"
+      confirmText="Reset Everything"
+      cancelText="Cancel"
+      variant="danger"
+      isLoading={false}
+      icon={<RefreshCw className="w-4 h-4" />}
+    />
     </div>
+    </>
   );
 };
 

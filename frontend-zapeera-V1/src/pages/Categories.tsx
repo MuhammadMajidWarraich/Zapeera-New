@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
 import CategoryForm from "@/components/inventory/CategoryForm";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import { cn } from "@/lib/utils";
 
 interface Category {
@@ -56,6 +57,7 @@ const Categories = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -307,11 +309,18 @@ const Categories = () => {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
+    const category = categories.find(c => c.id === categoryId);
+    if (category) {
+      setDeletingCategory(category);
+    }
+  };
 
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    
     try {
-      setIsDeleting(categoryId);
-      const response = await apiService.deleteCategory(categoryId);
+      setIsDeleting(deletingCategory.id);
+      const response = await apiService.deleteCategory(deletingCategory.id);
 
       if (response.success) {
         toast({
@@ -320,16 +329,14 @@ const Categories = () => {
         });
         loadCategories();
       } else {
-        // Show error - do NOT use demo mode
-          toast({
+        toast({
           title: "Error",
           description: response.message || "Failed to delete category. Please try again.",
-            variant: "destructive",
-          });
+          variant: "destructive",
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting category:', err);
-      // Show error - do NOT use demo mode
       toast({
         title: "Error",
         description: err.message || "Failed to delete category. Please try again.",
@@ -337,6 +344,7 @@ const Categories = () => {
       });
     } finally {
       setIsDeleting(null);
+      setDeletingCategory(null);
     }
   };
 
@@ -450,7 +458,8 @@ const Categories = () => {
   );
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <>
+      <div className="relative min-h-full bg-[#f0f2f7]">
       <div
         className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
         aria-hidden
@@ -730,8 +739,27 @@ const Categories = () => {
           />
         </DialogContent>
       </Dialog>
+
       </div>
-    </div>
+
+    {/* Delete Confirmation Modal */}
+    <ConfirmationModal
+      isOpen={!!deletingCategory}
+      onClose={() => setDeletingCategory(null)}
+      onConfirm={handleConfirmDeleteCategory}
+      title="Delete Category"
+      description="Are you sure you want to delete this category? This action cannot be undone."
+      confirmText="Delete Category"
+      cancelText="Cancel"
+      variant="danger"
+      isLoading={!!isDeleting}
+      loadingText="Deleting..."
+      itemName={deletingCategory ? `Category: ${deletingCategory.name}` : undefined}
+      itemDetails="This will permanently remove the category and all associated data."
+      icon={<Trash2 className="w-4 h-4" />}
+    />
+      </div>
+    </>
   );
 };
 
