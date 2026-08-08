@@ -206,11 +206,17 @@ export const getAdvancedStaffReport = async (req: AuthRequest, res: Response) =>
   try {
     const prisma = await getPrisma();
     const dateFilter = buildDateFilter(req);
-    const staffWhere = buildBranchWhereClause(req, { isActive: true });
-    const saleWhere = buildBranchWhereClause(req, {});
     const { branchId } = req.query as any;
+    const businessId = req.membership?.business_id;
+    const staffMembershipFilter: any = {};
+    if (businessId) staffMembershipFilter.businessId = businessId;
+    if (branchId) staffMembershipFilter.branches = { some: { branchId } };
+    const staffWhere = {
+      isActive: true,
+      ...(Object.keys(staffMembershipFilter).length ? { membership: staffMembershipFilter } : {})
+    };
+    const saleWhere = buildBranchWhereClause(req, {});
     if (branchId) {
-      staffWhere.branchId = branchId;
       saleWhere.branchId = branchId;
     }
 

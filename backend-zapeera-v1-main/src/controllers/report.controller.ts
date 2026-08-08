@@ -1044,8 +1044,19 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       }) : Promise.resolve(0),
       prisma.staffProfile.count({
         where: {
-          ...where,
-          isActive: true
+          isActive: true,
+          ...(companyId ? {
+            membership: {
+              businessId: companyId,
+              ...(where.branchId ? {
+                branches: {
+                  some: {
+                    branchId: where.branchId
+                  }
+                }
+              } : {})
+            }
+          } : {})
         }
       })
     ]);
