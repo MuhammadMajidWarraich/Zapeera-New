@@ -563,9 +563,9 @@ export const checkModule = (moduleName: string) => {
           const typeCheck = resolvedBtId ? await prisma.$queryRaw<any[]>`
             SELECT 1
             FROM business_type_modules btm
-            INNER JOIN modules m ON m.id = btm."moduleId"
+            INNER JOIN module_definitions m ON m.id = btm."moduleId"
             WHERE btm."businessTypeId" = ${resolvedBtId}
-              AND LOWER(m.name) = LOWER(${moduleName})
+              AND LOWER(m.key) = LOWER(${moduleName})
               AND btm."isEnabled" = true
             LIMIT 1
           ` : [];
@@ -603,9 +603,9 @@ export const checkModule = (moduleName: string) => {
       const typeEnabledCheck = resolvedBtId ? await prisma.$queryRaw<any[]>`
         SELECT 1
         FROM business_type_modules btm
-        INNER JOIN modules m ON m.id = btm."moduleId"
+        INNER JOIN module_definitions m ON m.id = btm."moduleId"
         WHERE btm."businessTypeId" = ${resolvedBtId}
-          AND LOWER(m.name) = LOWER(${moduleName})
+          AND LOWER(m.key) = LOWER(${moduleName})
           AND btm."isEnabled" = true
         LIMIT 1
       ` : [];

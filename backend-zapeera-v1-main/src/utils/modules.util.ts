@@ -92,8 +92,18 @@ export async function ensureBusinessTypesExist(): Promise<void> {
 
     // Auto-seed business_type_modules for default business types that have NO module configuration.
     // Only seeds when zero rows exist — preserves any existing super admin configuration.
+    // IMPORTANT: business_type_modules.moduleId has an FK to module_definitions(id), so seed
+    // using module_definitions ids (NOT legacy modules ids — they differ for some modules).
     try {
-      const allLegacyModules = await prisma.module.findMany({ select: { id: true, name: true } });
+      let allLegacyModules: any[] = [];
+      try {
+        allLegacyModules = await (prisma.moduleDefinition as any).findMany({ select: { id: true, key: true } });
+      } catch {
+        // module_definitions may not exist yet — fall back to legacy modules table below
+      }
+      if (allLegacyModules.length === 0) {
+        allLegacyModules = await prisma.module.findMany({ select: { id: true, name: true } });
+      }
       if (allLegacyModules.length > 0) {
         for (const type of defaultTypes) {
           const rowCount = await prisma.$queryRaw<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM business_type_modules WHERE "businessTypeId" = ${type.id}`;
@@ -374,7 +384,34 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
     });
 
     const moduleRow = await (prisma.module as any).findUnique({ where: { name: MODULE_NAME } });
-    const moduleId = moduleRow?.id;
+
+    // business_type_modules.moduleId has an FK to module_definitions(id), NOT modules(id).
+    // The two tables use DIFFERENT ids for employee_portal, so resolve the module_definitions
+    // id here (the modules row above only drives the backoffice module list).
+    let defRow: any = null;
+    try {
+      defRow = await (prisma.moduleDefinition as any).findUnique({ where: { key: MODULE_NAME } });
+    } catch {
+      // module_definitions may not exist yet (pre-migration)
+    }
+    if (!defRow) {
+      try {
+        defRow = await (prisma.moduleDefinition as any).create({
+          data: {
+            key: MODULE_NAME,
+            name: 'Employee Portal',
+            icon: 'Briefcase',
+            description: 'Self-service portal for employees (attendance, shifts, profile, notifications)',
+            route: '/employee-portal',
+            isSidebar: true,
+            isActive: true,
+          }
+        });
+      } catch {
+        // ignore — row may already exist from another source
+      }
+    }
+    const moduleId = defRow?.id || moduleRow?.id;
 
     // 1) Business types: insert an enabled entry for every type missing one.
     if (moduleId) {

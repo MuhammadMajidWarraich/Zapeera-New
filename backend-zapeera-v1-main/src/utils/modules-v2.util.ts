@@ -558,12 +558,13 @@ async function resolveModuleAccessLayers(
       if (btRows && btRows.length > 0) {
         const btRecord = btRows[0];
 
-        // Load modules for this business type via raw SQL (avoids Prisma relation issues)
+        // Load modules for this business type via raw SQL (avoids Prisma relation issues).
+        // business_type_modules.moduleId references module_definitions(id) — join that table.
         const rawBtModules = await prisma.$queryRaw<any[]>`
           SELECT btm."businessTypeId", btm."moduleId", btm."isEnabled", btm."sortOrder",
-                 m.name as "moduleName", m."displayName" as "moduleDisplayName"
+                 m.key as "moduleName", m.name as "moduleDisplayName"
           FROM business_type_modules btm
-          LEFT JOIN modules m ON m.id = btm."moduleId"
+          LEFT JOIN module_definitions m ON m.id = btm."moduleId"
           WHERE btm."businessTypeId" = ${btRecord.id}
         `;
 

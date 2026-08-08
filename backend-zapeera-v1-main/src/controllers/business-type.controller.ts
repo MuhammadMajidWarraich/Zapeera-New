@@ -16,15 +16,14 @@ export const getBusinessTypesWithCounts = async (req: AuthRequest, res: Response
     const businessTypes = await (prisma.businessType as any).findMany();
 
     // Fetch modules per business type via raw SQL (Prisma include fails because
-    // BusinessTypeModule.module relation points to module_definitions, but the
-    // actual data in business_type_modules references the modules table).
+    // BusinessTypeModule.module relation points to module_definitions).
     let btmRows: any[] = [];
     try {
       btmRows = await prisma.$queryRawUnsafe<any[]>(
         `SELECT btm."businessTypeId", btm."isEnabled", btm."sortOrder",
-                m.id as module_id, m.name as module_name, m.description as module_desc
+                m.id as module_id, m.key as module_name, m.description as module_desc, m.icon as module_icon
          FROM business_type_modules btm
-         JOIN modules m ON m.id = btm."moduleId"`
+         JOIN module_definitions m ON m.id = btm."moduleId"`
       );
     } catch (btmErr: any) {
       console.warn('[BusinessTypeController] btm raw query failed:', btmErr.message);
@@ -47,6 +46,7 @@ export const getBusinessTypesWithCounts = async (req: AuthRequest, res: Response
           id: r.module_id,
           name: r.module_name,
           description: r.module_desc,
+          icon: r.module_icon,
         }
       }));
     }
@@ -184,9 +184,9 @@ export const getBusinessTypes = async (req: AuthRequest, res: Response) => {
     try {
       btmRows = await prisma.$queryRawUnsafe<any[]>(
         `SELECT btm."businessTypeId", btm."isEnabled", btm."sortOrder",
-                m.id as module_id, m.name as module_name, m.description as module_desc
+                m.id as module_id, m.key as module_name, m.description as module_desc, m.icon as module_icon
          FROM business_type_modules btm
-         JOIN modules m ON m.id = btm."moduleId"`
+         JOIN module_definitions m ON m.id = btm."moduleId"`
       );
     } catch (btmErr: any) {
       console.warn('[BusinessTypeController] getBusinessTypes btm raw query failed:', btmErr.message);
@@ -207,6 +207,7 @@ export const getBusinessTypes = async (req: AuthRequest, res: Response) => {
           id: r.module_id,
           name: r.module_name,
           description: r.module_desc,
+          icon: r.module_icon,
         }
       }));
     }
@@ -436,15 +437,21 @@ export const updateBusinessTypeModules = async (req: AuthRequest, res: Response)
 
     const prisma = await getPrisma();
 
-    // Get all modules to map keys to IDs
-    const allModules = await prisma.module.findMany({
-      select: { id: true, name: true }
+    // Get all modules to map keys to IDs.
+    // IMPORTANT: business_type_modules.moduleId has an FK to module_definitions(id),
+    // NOT modules(id) — the two tables use DIFFERENT ids for employee_portal/dashboard/
+    // prescriptions. So we must resolve keys to module_definitions ids here.
+    const allModules = await (prisma.moduleDefinition as any).findMany({
+      select: { id: true, key: true, name: true }
     });
-    
-    // Build a map of module name (key) to ID
+
+    // Build a map of module key/name/id to ID (module_definitions id)
     const moduleNameToId = new Map<string, string>();
     for (const mod of allModules) {
-      moduleNameToId.set(mod.name.toLowerCase(), mod.id);
+      const key = String(mod.key || '').toLowerCase();
+      if (key) moduleNameToId.set(key, mod.id);
+      const displayName = String(mod.name || '').toLowerCase();
+      if (displayName) moduleNameToId.set(displayName, mod.id);
       moduleNameToId.set(mod.id, mod.id);
     }
 
@@ -470,7 +477,7 @@ export const updateBusinessTypeModules = async (req: AuthRequest, res: Response)
     // All module keys to persist (enabled or disabled) — if moduleOrder provided use it, else all modules
     const allKeys = Array.isArray(moduleOrder) && moduleOrder.length > 0
       ? moduleOrder.map((k: string) => k.toLowerCase())
-      : allModules.map((m) => m.name.toLowerCase());
+      : allModules.map((m: any) => String(m.key || m.name).toLowerCase());
 
       console.log(`[updateBusinessTypeModules] Business type ${id}: enabling ${keysToEnable.length} modules`);
 
@@ -499,11 +506,11 @@ export const updateBusinessTypeModules = async (req: AuthRequest, res: Response)
 
     // Fetch updated business type with modules ordered by sortOrder
     const updatedRows = await prisma.$queryRaw<any[]>`
-      SELECT m.id, m.name, m.description, btm."isEnabled", btm."sortOrder"
+      SELECT m.id, m.key as name, m.description, btm."isEnabled", btm."sortOrder"
       FROM business_type_modules btm
-      JOIN modules m ON m.id = btm."moduleId"
+      JOIN module_definitions m ON m.id = btm."moduleId"
       WHERE btm."businessTypeId" = ${id}
-      ORDER BY btm."sortOrder" ASC, m.name ASC
+      ORDER BY btm."sortOrder" ASC, m.key ASC
     `;
 
     const transformedModules = updatedRows.map((row: any) => ({
@@ -594,23 +601,49 @@ export const updateBusinessTypeModule = async (req: AuthRequest, res: Response) 
       });
     }
 
-    // Check if module exists
-    const module = await prisma.module.findUnique({
-      where: { id: moduleId },
-      select: { id: true, name: true }
-    });
-
-    if (!module) {
-      return res.status(404).json({
-        success: false,
-        message: 'Module not found'
+    // Check if module exists.
+    // business_type_modules.moduleId has an FK to module_definitions(id), so we must
+    // resolve the module to its module_definitions id (modules.id may differ, e.g. employee_portal).
+    let module: any = null;
+    try {
+      module = await (prisma.moduleDefinition as any).findUnique({
+        where: { id: moduleId },
+        select: { id: true, key: true }
       });
+    } catch {
+      // module_definitions may not exist yet
+    }
+    if (!module) {
+      const legacyModule = await prisma.module.findUnique({
+        where: { id: moduleId },
+        select: { id: true, name: true }
+      });
+      if (!legacyModule) {
+        return res.status(404).json({
+          success: false,
+          message: 'Module not found'
+        });
+      }
+      try {
+        module = await (prisma.moduleDefinition as any).findUnique({
+          where: { key: legacyModule.name },
+          select: { id: true, key: true }
+        });
+      } catch {
+        module = null;
+      }
+      if (!module) {
+        return res.status(404).json({
+          success: false,
+          message: 'Module not found in module definitions'
+        });
+      }
     }
 
     // Upsert the business type module association
     await prisma.$executeRaw`
       INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "updatedAt")
-      VALUES (${id}, ${moduleId}, ${enabled}, 0, ${new Date()})
+      VALUES (${id}, ${module.id}, ${enabled}, 0, ${new Date()})
       ON CONFLICT ("businessTypeId", "moduleId") DO UPDATE SET
         "isEnabled" = ${enabled},
         "updatedAt" = ${new Date()}
@@ -618,7 +651,7 @@ export const updateBusinessTypeModule = async (req: AuthRequest, res: Response) 
 
     return res.json({
       success: true,
-      message: `Module ${module.name} ${enabled ? 'enabled' : 'disabled'} for ${businessType.name}`
+      message: `Module ${module.key} ${enabled ? 'enabled' : 'disabled'} for ${businessType.name}`
     });
   } catch (error: any) {
     console.error('[BusinessTypeController] Error updating business type module:', error.message);
