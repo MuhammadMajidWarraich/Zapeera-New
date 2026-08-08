@@ -85,9 +85,13 @@ export const config = {
     sseBaseUrl: (() => {
       const envUrl = String(import.meta.env.VITE_SSE_BASE_URL || '').trim();
       if (envUrl) return envUrl;
-      const base = config.api.baseUrl;
-      // Absolute API base (e.g. VITE_API_BASE_URL set) → stream from the same origin
-      if (base.startsWith('http')) return base;
+      // NOTE: do NOT reference `config` here — this runs while `config` is still
+      // being initialized (would throw a TDZ ReferenceError).
+      const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+      if (isElectron) {
+        return `http://127.0.0.1:${import.meta.env.VITE_EMBEDDED_PORT || '4201'}/api`;
+      }
+      if (apiBase) return apiBase;
       // Dev: Vite's proxy forwards /api and can stream SSE
       if (import.meta.env.DEV) return '/api';
       // Production web (relative /api through the Vercel rewrite): hit Railway directly
