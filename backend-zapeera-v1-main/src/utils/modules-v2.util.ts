@@ -225,6 +225,7 @@ function getDefaultModuleIcon(moduleKey: string): string {
     reports: 'BarChart3',
     subscription: 'CreditCard',
     dashboard: 'LayoutDashboard',
+    employee_portal: 'Briefcase',
   };
 
   return iconMap[moduleKey] || 'Box';

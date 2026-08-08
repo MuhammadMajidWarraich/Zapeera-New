@@ -272,6 +272,7 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/expenses': 'expenses',
   '/subscription': 'subscription',
   '/admin/business-subscription': 'subscription',
+  '/employee-portal': 'employee_portal',
 };
 
 const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
@@ -296,6 +297,7 @@ const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
   reports: 'reports',
   'advanced-reports': 'reports',
   prescriptions: 'prescriptions',
+  'employee-portal': 'employee_portal',
 };
 
 /**
@@ -335,6 +337,7 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   '/business/expenses': { parentModule: 'expenses', subModuleKey: 'expenses', label: 'Expenses' },
   '/business/shifts': { parentModule: 'business_management', subModuleKey: 'shifts', label: 'Shifts' },
   '/subscription': { parentModule: 'subscription', subModuleKey: 'subscription', label: 'Subscription' },
+  '/employee-portal': { parentModule: 'employee_portal', subModuleKey: 'dashboard', label: 'Employee Portal' },
 };
 
 const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
@@ -357,6 +360,7 @@ const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   shifts: { parentModule: 'business_management', subModuleKey: 'shifts', label: 'Shifts' },
   expenses: { parentModule: 'expenses', subModuleKey: 'expenses', label: 'Expenses' },
   subscription: { parentModule: 'subscription', subModuleKey: 'subscription', label: 'Subscription' },
+  'employee-portal': { parentModule: 'employee_portal', subModuleKey: 'dashboard', label: 'Employee Portal' },
 };
 
 const getModuleFromPath = (pathname: string): string | undefined => {

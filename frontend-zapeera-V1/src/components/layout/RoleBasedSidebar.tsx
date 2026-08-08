@@ -26,7 +26,8 @@ import {
   ShoppingCart, Package, Truck, TrendingUp, Building2, CreditCard,
   FileText, Receipt, Users, Layers, Factory, LayoutGrid, Boxes,
   ShoppingBag, ClipboardList, BarChart3, Stethoscope, Shield, Clock,
-  UserCheck, Building, LayoutDashboard, Bell, User, Calendar
+  UserCheck, Building, LayoutDashboard, Bell, User, Calendar,
+  Briefcase, CalendarDays
 } from 'lucide-react';
 
 const getIconComponent = (iconName?: string): React.ComponentType<any> | null => {
@@ -56,6 +57,10 @@ const getIconComponent = (iconName?: string): React.ComponentType<any> | null =>
     'Building': Building,
     'LayoutDashboard': LayoutDashboard,
     'Circle': Circle,
+    'Briefcase': Briefcase,
+    'CalendarDays': CalendarDays,
+    'User': User,
+    'Bell': Bell,
   };
   return iconMap[iconName] || Circle;
 };
@@ -317,52 +322,6 @@ function SidebarSection({
   );
 }
 
-// ─── Employee Portal Sidebar (for roles without business modules) ─────────────
-
-const EmployeePortalSidebar: React.FC<{ isCollapsed: boolean }> = ({ isCollapsed }) => {
-  const location = useLocation();
-
-  const portalItems = [
-    { label: 'My Dashboard', href: '/employee-portal', icon: LayoutDashboard },
-    { label: 'My Attendance', href: '/employee-portal#attendance', icon: Clock },
-    { label: 'My Shifts', href: '/employee-portal#shifts', icon: Calendar },
-    { label: 'My Profile', href: '/employee-portal#profile', icon: User },
-    { label: 'Notifications', href: '/employee-portal#notifications', icon: Bell },
-  ];
-
-  return (
-    <div className="space-y-0.5">
-      {!isCollapsed && (
-        <div className="px-3.5 pb-2.5 pt-[18px] text-[10px] font-bold uppercase tracking-[1.8px] text-white">
-          Employee Portal
-        </div>
-      )}
-      {portalItems.map((item) => {
-        const isActive = location.pathname + location.hash === item.href ||
-          (item.href === '/employee-portal' && location.pathname === '/employee-portal' && !location.hash);
-        return (
-          <Link
-            key={item.label}
-            to={item.href}
-            className={cn(
-              'relative mb-0.5 flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
-              isActive
-                ? 'bg-gradient-to-br from-[#1a52c5]/20 to-[#28c2ce]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
-                : 'text-white/85 hover:bg-white/[0.04] hover:text-white',
-              isCollapsed && 'justify-center px-2',
-            )}
-            title={isCollapsed ? item.label : undefined}
-          >
-            <ActiveIndicator active={isActive} />
-            <item.icon className={cn('h-5 w-5 shrink-0 stroke-[1.8]', isActive ? 'text-white' : 'text-white/85')} />
-            {!isCollapsed && <span className="truncate">{item.label}</span>}
-          </Link>
-        );
-      })}
-    </div>
-  );
-};
-
 // ─── Root sidebar ──────────────────────────────────────────────────────────────
 
 export const RoleBasedSidebar: React.FC = () => {
@@ -578,111 +537,6 @@ export const RoleBasedSidebar: React.FC = () => {
 
   const mainGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'main'), [visibleGroups]);
   const managementGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'management'), [visibleGroups]);
-
-  // Check if user has any business modules (excluding Dashboard)
-  const hasBusinessModules = useMemo(() => {
-    return visibleGroups.some((g) => g.module && g.module !== 'dashboard' && g.pages.length > 0);
-  }, [visibleGroups]);
-
-  // If no business modules visible, show Employee Portal sidebar
-  if (!hasBusinessModules) {
-    return (
-      <div
-        className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f] transition-all duration-300',
-          "after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:content-[''] after:bg-gradient-to-b after:from-[#1a52c5] after:via-[#28c2ce]/40 after:to-transparent after:opacity-[0.35]",
-          isCollapsed ? 'w-[72px]' : 'w-[272px]',
-        )}
-      >
-        <div
-          className="pointer-events-none absolute -bottom-[100px] -left-[60px] h-[260px] w-[260px] rounded-full bg-[radial-gradient(circle,rgba(26,82,197,0.12)_0%,transparent_70%)] blur-[40px]"
-          aria-hidden
-        />
-        <div
-          className={cn(
-            'relative z-[2] flex items-center px-6 pb-6 pt-[30px]',
-            isCollapsed ? 'flex-col gap-3 px-3' : 'justify-between',
-          )}
-        >
-          <div className={cn('flex min-w-0 items-center gap-3.5', isCollapsed && 'justify-center')}>
-            <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
-              <Zap className="h-[22px] w-[22px] fill-white text-white" />
-            </div>
-            {!isCollapsed && (
-              <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
-                Zap
-                <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="shrink-0 rounded-lg p-1 text-white transition-colors hover:bg-white/5"
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-          </button>
-        </div>
-        <nav
-          className={cn(
-            'relative z-[2] flex-1 space-y-0 overflow-y-auto px-3.5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20',
-            isCollapsed && 'overflow-x-visible px-2',
-          )}
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255, 255, 255, 0.25) transparent',
-          }}
-        >
-          <style>{`
-            nav::-webkit-scrollbar {
-              width: 8px;
-            }
-            nav::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            nav::-webkit-scrollbar-thumb {
-              background: rgba(255, 255, 255, 0.25);
-              border-radius: 4px;
-              transition: background 0.2s ease;
-            }
-            nav::-webkit-scrollbar-thumb:hover {
-              background: rgba(255, 255, 255, 0.4);
-            }
-            nav::-webkit-scrollbar-thumb:active {
-              background: linear-gradient(to bottom, #1a52c5, #28c2ce);
-            }
-          `}</style>
-          <EmployeePortalSidebar isCollapsed={isCollapsed} />
-        </nav>
-        <div className="relative z-[2] mt-auto space-y-0.5 px-3.5 pb-6 pt-2">
-          <Link
-            to="/zapeera"
-            className={cn(
-              'flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-              isCollapsed && 'justify-center px-2',
-            )}
-            title={isCollapsed ? 'Zapeera' : undefined}
-          >
-            <Globe className="h-5 w-5 shrink-0 stroke-[1.8]" />
-            {!isCollapsed && <span>Zapeera</span>}
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-              isCollapsed && 'justify-center px-2',
-            )}
-            title={isCollapsed ? 'Log Out' : undefined}
-          >
-            <LogOut className="h-5 w-5 shrink-0 stroke-[1.8]" />
-            {!isCollapsed && <span>Log Out</span>}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -137,7 +138,36 @@ function getStatusBadge(status: string) {
 
 const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessName, membershipId }) => {
   const { user } = useAuth();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const TAB_HASHES: Record<string, string> = {
+    dashboard: '',
+    attendance: 'attendance',
+    shifts: 'shifts',
+    profile: 'profile',
+    notifications: 'notifications',
+  };
+  const HASH_TO_TAB: Record<string, string> = Object.fromEntries(
+    Object.entries(TAB_HASHES).map(([tab, hash]) => [hash, tab]),
+  );
+
+  // Sync active tab with the URL hash (sidebar links use /employee-portal#attendance etc.)
+  useEffect(() => {
+    const hash = location.hash.replace(/^#/, '');
+    if (hash in HASH_TO_TAB) {
+      setActiveTab(HASH_TO_TAB[hash]);
+    }
+  }, [location.hash]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const targetHash = TAB_HASHES[tab] ?? '';
+    const currentHash = location.hash.replace(/^#/, '');
+    if (currentHash !== targetHash) {
+      window.history.replaceState(null, '', targetHash ? `#${targetHash}` : window.location.pathname + window.location.search);
+    }
+  };
 
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
@@ -328,7 +358,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
         <p className="text-muted-foreground">Employee Portal</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dashboard" className="text-xs md:text-sm">
             <CheckCircle className="h-4 w-4 mr-1 hidden md:block" />Dashboard
@@ -342,8 +372,8 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
           <TabsTrigger value="profile" className="text-xs md:text-sm">
             <User className="h-4 w-4 mr-1 hidden md:block" />Profile
           </TabsTrigger>
-          <TabsTrigger value="announcements" className="text-xs md:text-sm">
-            <Bell className="h-4 w-4 mr-1 hidden md:block" />Updates
+          <TabsTrigger value="notifications" className="text-xs md:text-sm">
+            <Bell className="h-4 w-4 mr-1 hidden md:block" />Notifications
           </TabsTrigger>
         </TabsList>
 

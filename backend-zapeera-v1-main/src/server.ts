@@ -102,7 +102,7 @@ import { getPrisma } from './utils/db.util';
 import { validateCSRF } from './middleware/csrf.middleware';
 import { applyUniversalModuleProtection } from './middleware/universal-module-protection.middleware';
 import { ensurePostgresSchemaCompatibility } from './utils/postgres-schema-compat';
-import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist } from './utils/modules.util';
+import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled } from './utils/modules.util';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -133,7 +133,8 @@ try {
           await ensureModulesExist();
           await ensureBusinessTypesExist();
           await ensureDefaultPlansExist();
-          console.log('[Server] ✅ Standard modules, business types, and plans ensured');
+          await ensureEmployeePortalEnabled();
+          console.log('[Server] ✅ Standard modules, business types, plans, and employee portal ensured');
           startSubscriptionCron();
         } catch (modErr) {
           console.warn('[Server] ⚠️ Failed to ensure standard modules or business types:', modErr);

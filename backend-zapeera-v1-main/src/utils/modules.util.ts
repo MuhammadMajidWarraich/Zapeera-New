@@ -18,6 +18,7 @@ const STANDARD_MODULES = [
   { name: 'business_management', displayName: 'Business Management',  description: 'Branches, staff and shifts management' },
   { name: 'expenses',            displayName: 'Expenses',             description: 'Track and manage business expenses' },
   { name: 'subscription',        displayName: 'Subscription',         description: 'Billing and subscription management' },
+  { name: 'employee_portal',     displayName: 'Employee Portal',      description: 'Self-service portal for employees (attendance, shifts, profile, notifications)' },
 ];
 
 export async function ensureModulesExist(): Promise<void> {
@@ -349,9 +350,96 @@ export async function ensureDefaultPlansExist(): Promise<void> {
   }
 }
 
+/**
+ * Enable the Employee Portal module by default for every business type, plan and role.
+ * Runs at server startup so the module is available out-of-the-box while remaining
+ * fully togglable from the Backoffice (business type / plan / role module config).
+ * Uses ON CONFLICT DO NOTHING so existing super admin configuration is preserved
+ * (it only inserts missing rows — never flips an existing enabled=false to true).
+ */
+export async function ensureEmployeePortalEnabled(): Promise<void> {
+  const prisma = await getPrisma();
+  const MODULE_NAME = 'employee_portal';
+
+  try {
+    // Ensure the legacy modules row exists (drives business_type_modules + backoffice lists)
+    await (prisma.module as any).upsert({
+      where: { name: MODULE_NAME },
+      update: { displayName: 'Employee Portal', updatedAt: new Date() } as any,
+      create: {
+        name: MODULE_NAME,
+        displayName: 'Employee Portal',
+        description: 'Self-service portal for employees (attendance, shifts, profile, notifications)'
+      }
+    });
+
+    const moduleRow = await (prisma.module as any).findUnique({ where: { name: MODULE_NAME } });
+    const moduleId = moduleRow?.id;
+
+    // 1) Business types: insert an enabled entry for every type missing one.
+    if (moduleId) {
+      const typeRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`SELECT id FROM business_types`);
+      const now = new Date();
+      for (const type of typeRows || []) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
+           VALUES ($1, $2, true, 0, $3, $3)
+           ON CONFLICT ("businessTypeId", "moduleId") DO NOTHING`,
+          type.id, moduleId, now
+        );
+      }
+      console.log(`[Modules] ✅ Employee Portal enabled for ${(typeRows || []).length} business types`);
+    }
+
+    // 2) Plans: for every plan that has an explicit config, ensure employee_portal is enabled.
+    try {
+      const planRows = await prisma.$queryRawUnsafe<Array<{ planId: string }>>(
+        `SELECT DISTINCT "planId" FROM plan_module_permissions`
+      );
+      for (const plan of planRows || []) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO plan_module_permissions (id, "planId", "moduleName", enabled, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT ("planId", "moduleName") DO NOTHING`,
+          `${plan.planId}:${MODULE_NAME}`, plan.planId, MODULE_NAME
+        );
+      }
+      if ((planRows || []).length > 0) {
+        console.log(`[Modules] ✅ Employee Portal enabled for ${planRows.length} plans`);
+      }
+    } catch {
+      // plan_module_permissions may not exist yet — ignore
+    }
+
+    // 3) Roles: for every role that has an explicit config, ensure employee_portal is enabled.
+    try {
+      const roleRows = await prisma.$queryRawUnsafe<Array<{ roleName: string }>>(
+        `SELECT DISTINCT "roleName" FROM role_module_permissions`
+      );
+      for (const role of roleRows || []) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO role_module_permissions (id, "roleName", "moduleName", enabled, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT ("roleName", "moduleName") DO NOTHING`,
+          `${role.roleName}:${MODULE_NAME}`, role.roleName, MODULE_NAME
+        );
+      }
+      if ((roleRows || []).length > 0) {
+        console.log(`[Modules] ✅ Employee Portal enabled for ${roleRows.length} roles`);
+      }
+    } catch {
+      // role_module_permissions may not exist yet — ignore
+    }
+  } catch (error: any) {
+    if (isMissingTableError(error)) return;
+    console.error('[ensureEmployeePortalEnabled] Error:', error.message);
+  }
+}
+
 export default {
   ensureModulesExist,
   ensureBusinessTypesExist,
   ensureDefaultPlansExist,
+  ensureEmployeePortalEnabled,
   enableDefaultModulesForBusiness,
 };

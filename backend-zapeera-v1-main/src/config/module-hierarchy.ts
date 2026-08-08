@@ -198,6 +198,57 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
     ],
   },
 
+  // ─── Employee Portal Module ────────────────────────────────────────────
+  {
+    module: 'employee_portal',
+    label: 'Employee Portal',
+    icon: 'Briefcase',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'dashboard',
+        label: 'My Dashboard',
+        href: '/employee-portal',
+        icon: 'LayoutDashboard',
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'attendance',
+        label: 'My Attendance',
+        href: '/employee-portal#attendance',
+        icon: 'Clock',
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'shifts',
+        label: 'My Shifts',
+        href: '/employee-portal#shifts',
+        icon: 'CalendarDays',
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'profile',
+        label: 'My Profile',
+        href: '/employee-portal#profile',
+        icon: 'User',
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/employee-portal#notifications',
+        icon: 'Bell',
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
   // ─── Prescriptions Module (Medical/Pharmacy) ───────────────────────────
   {
     module: 'prescriptions',

@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AdminProvider } from "./contexts/AdminContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { useMembershipRole } from "./hooks/useMembershipRole";
@@ -191,14 +191,42 @@ const LoginRoute = () => {
 // Wrapper to pass required props to EmployeePortal
 const EmployeePortalWrapper = () => {
   const { user } = useAuth();
-  const { selectedCompany, selectedCompanyId } = useAdmin();
-  return (
+  const { selectedCompany, selectedCompanyId, allCompanies } = useAdmin();
+  const { businessSlug } = useParams();
+  const isBusinessSlugRoute = Boolean(businessSlug?.trim());
+
+  const slugCompany = useMemo(() => {
+    if (!businessSlug) return null;
+    return allCompanies.find((company: any) => company.slug === businessSlug) || null;
+  }, [businessSlug, allCompanies]);
+
+  const company = (isBusinessSlugRoute ? slugCompany : null) || selectedCompany || null;
+  const businessId = company?.id || selectedCompanyId || '';
+
+  const portal = (
     <EmployeePortal
-      businessId={selectedCompanyId || ''}
-      businessName={selectedCompany?.name || 'My Business'}
+      businessId={businessId}
+      businessName={company?.name || 'My Business'}
       membershipId={(user as any)?.membership?.id || ''}
     />
   );
+
+  if (isBusinessSlugRoute) {
+    return (
+      <MainLayout>
+        {company?.id ? (
+          portal
+        ) : (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading business context…</p>
+          </div>
+        )}
+      </MainLayout>
+    );
+  }
+
+  return portal;
 };
 
 // Main App Routes Component
@@ -527,6 +555,18 @@ const AppRoutes = () => {
           <AuthStatus>
             <BusinessTypeGuard>
               <EmployeePortalWrapper />
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/employee-portal" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <EmployeePortalWrapper />
+                </AutoModuleGuard>
+              </BusinessSlugGate>
             </BusinessTypeGuard>
           </AuthStatus>
         } />

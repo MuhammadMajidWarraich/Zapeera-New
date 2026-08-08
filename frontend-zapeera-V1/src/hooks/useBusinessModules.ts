@@ -50,6 +50,7 @@ const ALL_MODULES: Record<string, ModuleState> = {
   pos:                 { enabled: false, label: 'Point of Sale' },
   staff:               { enabled: false, label: 'Staff' },
   branches:            { enabled: false, label: 'Branches' },
+  employee_portal:     { enabled: true, label: 'Employee Portal' },
 };
 
 export const useBusinessModules = (companyId?: string) => {

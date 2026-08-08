@@ -33,6 +33,10 @@ import {
   CreditCard,
   Monitor,
   Settings,
+  Briefcase,
+  CalendarDays,
+  User,
+  Bell,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -225,6 +229,57 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         icon: Building2,
         module: 'suppliers',
         roles: ['OWNER', 'MANAGER'],
+      },
+    ],
+  },
+
+  // ─── Employee Portal ───────────────────────────────────────────────────
+  {
+    module: 'employee_portal',
+    label: 'Employee Portal',
+    icon: Briefcase,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'dashboard',
+        label: 'My Dashboard',
+        href: '/employee-portal',
+        icon: LayoutDashboard,
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'attendance',
+        label: 'My Attendance',
+        href: '/employee-portal#attendance',
+        icon: Clock,
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'shifts',
+        label: 'My Shifts',
+        href: '/employee-portal#shifts',
+        icon: CalendarDays,
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'profile',
+        label: 'My Profile',
+        href: '/employee-portal#profile',
+        icon: User,
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        href: '/employee-portal#notifications',
+        icon: Bell,
+        module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
     ],
   },
