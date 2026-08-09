@@ -129,6 +129,7 @@ router.get('/events', async (req: Request, res: Response) => {
     // Still set CORS headers even for 401
     if (origin && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
     res.status(401).json({ message: 'Unauthorized' });
     return;

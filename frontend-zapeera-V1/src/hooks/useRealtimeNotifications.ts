@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { config } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -16,14 +16,63 @@ export const useRealtimeNotifications = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const eventSourceRef = useRef<EventSource | null>(null);
+  const [sseToken, setSseToken] = useState<string | null>(null);
+  const [tokenRetry, setTokenRetry] = useState(0);
 
   // Detect if running in Electron (offline mode)
   const isElectron = typeof window !== 'undefined' &&
     typeof window.electronAPI !== 'undefined';
 
+  // Obtain a JWT for SSE authentication.
+  // The auth JWT lives ONLY in the httpOnly auth-token cookie (scoped to the
+  // frontend origin, e.g. Vercel), so it can't be sent to a different origin
+  // (Railway) and JS can't read it. Fetch it same-origin through the /api
+  // rewrite (cookie is sent), cache it in sessionStorage, and pass it as
+  // ?token= on the cross-origin EventSource.
   useEffect(() => {
-    if (!user) {
-      // Close connection if user is not logged in
+    if (!user || isElectron) {
+      sessionStorage.removeItem('sseToken');
+      setSseToken(null);
+      return;
+    }
+
+    const cached = sessionStorage.getItem('sseToken');
+    if (cached) {
+      setSseToken(cached);
+      return;
+    }
+
+    let cancelled = false;
+    const apiBase = String(config.api.baseUrl || '/api').replace(/\/+$/, '');
+
+    fetch(`${apiBase}/auth/sse-token`, { credentials: 'include' })
+      .then((r) =>
+        r.ok
+          ? r.json()
+          : Promise.reject(Object.assign(new Error(`HTTP ${r.status}`), { status: r.status }))
+      )
+      .then((d) => {
+        if (!cancelled && d?.success && d?.token) {
+          sessionStorage.setItem('sseToken', d.token);
+          setSseToken(d.token);
+        }
+      })
+      .catch((err: any) => {
+        console.error('[SSE] Failed to obtain token:', err);
+        const status = err?.status;
+        if (!cancelled && status !== 401 && status !== 403 && status !== 404) {
+          setTimeout(() => setTokenRetry((n) => n + 1), 15000);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isElectron, tokenRetry]);
+
+  useEffect(() => {
+    if (!user || !sseToken) {
+      // Close connection if user is not logged in (or token not ready yet)
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -56,14 +105,12 @@ export const useRealtimeNotifications = () => {
 
     // Create SSE connection (only for website, not Electron).
     // EventSource cannot set custom headers and the httpOnly cookie is scoped to the
-    // frontend origin, so authenticate via query token and connect DIRECTLY to the
-    // backend — the Vercel /api rewrite cannot stream SSE (returns 502).
+    // frontend origin, so authenticate via the query token obtained from
+    // /api/auth/sse-token and connect DIRECTLY to the backend — the Vercel /api
+    // rewrite cannot stream SSE (returns 502).
     const sseBase = String(config.realtime.sseBaseUrl || config.api.baseUrl || '/api').replace(/\/+$/, '');
-    const token = typeof window !== 'undefined'
-      ? (localStorage.getItem('localAccessToken') || localStorage.getItem('token'))
-      : null;
-    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
-    const eventSource = new EventSource(`${sseBase}/sse/events${tokenQuery}`, { withCredentials: true });
+    const tokenQuery = `?token=${encodeURIComponent(sseToken)}`;
+    const eventSource = new EventSource(`${sseBase}/sse/events${tokenQuery}`);
 
     eventSourceRef.current = eventSource;
 
@@ -257,7 +304,7 @@ export const useRealtimeNotifications = () => {
         eventSourceRef.current = null;
       }
     };
-  }, [user, logout, toast]);
+  }, [user, sseToken, logout, toast]);
 
   // Cleanup on unmount
   useEffect(() => {

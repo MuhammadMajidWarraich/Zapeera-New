@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { login, register, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -57,5 +58,40 @@ router.post('/logout', authenticate, logout);
 
 // Account status check (for periodic checking by frontend)
 router.get('/check-status', authenticate, checkAccountStatus);
+
+// Issue a JWT for SSE (EventSource) authentication.
+// The httpOnly auth-token cookie is scoped to the frontend origin, so cross-origin
+// SSE connections to the backend must authenticate via a query token instead.
+// This endpoint (same-origin through the Vercel rewrite) returns the JWT to JS.
+router.get('/sse-token', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user?.id) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    if (!process.env.JWT_SECRET) {
+      res.status(500).json({ success: false, message: 'JWT_SECRET is not configured' });
+      return;
+    }
+
+    const token = (jwt.sign as any)(
+      {
+        userId: user.id,
+        username: user.username,
+        branchId: user.branchId,
+        createdBy: user.createdBy,
+        sessionToken: user.sessionToken,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.json({ success: true, token });
+  } catch (error: any) {
+    console.error('Error issuing SSE token:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Failed to issue SSE token' });
+  }
+});
 
 export default router;
