@@ -12,13 +12,17 @@ const { execSync } = require('child_process');
 
 const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
 
+// In test mode (jest) the test suites provision their own SQLite databases,
+// so never touch the desktop database directory or push into it.
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.TEST_MODE === 'true';
+
 // Ensure SQLite database directory exists
 const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
 const sqliteDir = path.dirname(sqlitePath);
 
 try {
-  // Ensure SQLite directory exists
-  if (!fs.existsSync(sqliteDir)) {
+  // Ensure SQLite directory exists (desktop only — tests use their own DBs)
+  if (!isTestMode && !fs.existsSync(sqliteDir)) {
     fs.mkdirSync(sqliteDir, { recursive: true });
     console.log('[Schema Check] 📁 Created SQLite directory:', sqliteDir);
   }
@@ -69,33 +73,37 @@ try {
       // Continue anyway - might already be generated
     }
 
-    // Push schema to database (creates tables if they don't exist)
-    console.log('[Schema Check] 🔄 Initializing SQLite database...');
-    const dbExists = fs.existsSync(sqlitePath);
+    // Push schema to database (creates tables if they don't exist) — desktop only
+    if (isTestMode) {
+      console.log('[Schema Check] ✅ Test mode detected — skipping desktop database push');
+    } else {
+      console.log('[Schema Check] 🔄 Initializing SQLite database...');
+      const dbExists = fs.existsSync(sqlitePath);
 
-    try {
-      execSync('npx prisma db push --accept-data-loss', {
-        stdio: 'pipe',
-        cwd: path.join(__dirname, '..'),
-        env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
-      });
-      console.log('[Schema Check] ✅ SQLite database initialized');
-    } catch (err) {
-      const errorMsg = err.message || err.toString();
+      try {
+        execSync('npx prisma db push --accept-data-loss', {
+          stdio: 'pipe',
+          cwd: path.join(__dirname, '..'),
+          env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
+        });
+        console.log('[Schema Check] ✅ SQLite database initialized');
+      } catch (err) {
+        const errorMsg = err.message || err.toString();
 
-      // PRESERVE DATA: Never auto-wipe an existing database on schema conflict.
-      // If the schema differs, log a warning and continue. Devs must manually
-      // migrate or run `prisma db push --accept-data-loss` themselves.
-      if (errorMsg.includes('index associated with UNIQUE or PRIMARY KEY constraint cannot be dropped') ||
-          errorMsg.includes('UNIQUE constraint failed') ||
-          errorMsg.includes('cannot drop')) {
-        console.log('[Schema Check] ⚠️  Schema conflict detected - SKIPPING auto-wipe to preserve data.');
-        console.log('[Schema Check] ⚠️  Run `npx prisma db push --accept-data-loss` manually if needed.');
-      } else {
-        console.error('[Schema Check] ⚠️  Error initializing database:', errorMsg);
+        // PRESERVE DATA: Never auto-wipe an existing database on schema conflict.
+        // If the schema differs, log a warning and continue. Devs must manually
+        // migrate or run `prisma db push --accept-data-loss` themselves.
+        if (errorMsg.includes('index associated with UNIQUE or PRIMARY KEY constraint cannot be dropped') ||
+            errorMsg.includes('UNIQUE constraint failed') ||
+            errorMsg.includes('cannot drop')) {
+          console.log('[Schema Check] ⚠️  Schema conflict detected - SKIPPING auto-wipe to preserve data.');
+          console.log('[Schema Check] ⚠️  Run `npx prisma db push --accept-data-loss` manually if needed.');
+        } else {
+          console.error('[Schema Check] ⚠️  Error initializing database:', errorMsg);
+        }
+        // Continue startup with the existing database
+        void dbExists;
       }
-      // Continue startup with the existing database
-      void dbExists;
     }
   }
 } catch (error) {

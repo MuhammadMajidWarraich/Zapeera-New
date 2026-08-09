@@ -73,6 +73,58 @@ export interface ModuleAccessPayloadV2 {
   cacheExpiresIn: number;           // milliseconds
 }
 
+// ====================================
+// Legacy payload conversion (V2 resolver → legacy /api/modules shape)
+// ====================================
+
+export function mapAccessReasonToDisabledReason(
+  reason: AccessReason | string
+): 'BUSINESS_TYPE' | 'SUBSCRIPTION_PLAN' | 'ROLE' | 'PARENT_MODULE' | null {
+  switch (reason) {
+    case 'BUSINESS_TYPE_RESTRICTED':
+    case 'BUSINESS_OWNER_DISABLED':
+      return 'BUSINESS_TYPE';
+    case 'SUBSCRIPTION_NOT_ENTITLED':
+    case 'MODULE_DEPENDENCY_MISSING':
+      return 'SUBSCRIPTION_PLAN';
+    case 'ROLE_NO_ACCESS':
+    case 'OPERATION_NOT_PERMITTED':
+      return 'ROLE';
+    case 'PARENT_MODULE_DENIED':
+      return 'PARENT_MODULE';
+    default:
+      return null;
+  }
+}
+
+export interface LegacyModulePayloadItem {
+  name: string;
+  enabled: boolean;
+  sortOrder: number;
+  typeAllowed: boolean;
+  planAllowed: boolean;
+  roleAllowed: boolean;
+  disabledReason: 'BUSINESS_TYPE' | 'SUBSCRIPTION_PLAN' | 'ROLE' | 'PARENT_MODULE' | null;
+}
+
+export function toLegacyModuleAccessPayload(payload: Pick<ModuleAccessPayloadV2, 'modules'>): {
+  success: true;
+  data: LegacyModulePayloadItem[];
+  enabledModuleNames: string[];
+} {
+  const data: LegacyModulePayloadItem[] = payload.modules.map((m) => ({
+    name: m.moduleKey,
+    enabled: m.enabled,
+    sortOrder: 0,
+    typeAllowed: m.typeAllowed,
+    planAllowed: m.planAllowed,
+    roleAllowed: m.roleAllowed,
+    disabledReason: m.enabled ? null : mapAccessReasonToDisabledReason(m.reason),
+  }));
+  const enabledModuleNames = data.filter((item) => item.enabled).map((item) => item.name);
+  return { success: true, data, enabledModuleNames };
+}
+
 export interface DependencyCheckResult {
   satisfied: boolean;
   missingDependencies: string[];

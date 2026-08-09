@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
-import { getModuleAccessV2, type SubModuleAccessResult } from '../utils/modules-v2.util';
+import { getModuleAccessV2, toLegacyModuleAccessPayload, type SubModuleAccessResult } from '../utils/modules-v2.util';
 import MODULE_HIERARCHY, { ModuleConfig, SubModuleConfig } from '../config/module-hierarchy';
 
 const isMissingTableError = (error: any): boolean => {
@@ -39,24 +39,14 @@ export const getEnabledModules = async (req: AuthRequest, res: Response) => {
       roleName,
     });
 
-    const data = v2Payload.modules.map((m) => ({
-      name: m.moduleKey,
-      enabled: m.enabled,
-      sortOrder: 0,
-      typeAllowed: m.typeAllowed,
-      planAllowed: m.planAllowed,
-      roleAllowed: m.roleAllowed,
-      disabledReason: m.enabled ? null : mapAccessReasonToDisabledReason(m.reason),
-    }));
-
-    const enabledModuleNames = data.filter((item) => item.enabled).map((item) => item.name);
+    const legacyPayload = toLegacyModuleAccessPayload(v2Payload);
 
     return res.json({
       success: true,
-      data,
+      data: legacyPayload.data,
       disabledSubModules: v2Payload.disabledSubModules || [],
       subModuleResults: v2Payload.subModuleResults || [],
-      enabledModuleNames,
+      enabledModuleNames: legacyPayload.enabledModuleNames,
     });
   } catch (error: any) {
     if (isMissingTableError(error)) {
@@ -69,24 +59,6 @@ export const getEnabledModules = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-function mapAccessReasonToDisabledReason(reason: string): 'BUSINESS_TYPE' | 'SUBSCRIPTION_PLAN' | 'ROLE' | 'PARENT_MODULE' | null {
-  switch (reason) {
-    case 'BUSINESS_TYPE_RESTRICTED':
-    case 'BUSINESS_OWNER_DISABLED':
-      return 'BUSINESS_TYPE';
-    case 'SUBSCRIPTION_NOT_ENTITLED':
-    case 'MODULE_DEPENDENCY_MISSING':
-      return 'SUBSCRIPTION_PLAN';
-    case 'ROLE_NO_ACCESS':
-    case 'OPERATION_NOT_PERMITTED':
-      return 'ROLE';
-    case 'PARENT_MODULE_DENIED':
-      return 'PARENT_MODULE';
-    default:
-      return null;
-  }
-}
 
 /**
  * Get full module hierarchy with pages dynamically
@@ -191,15 +163,7 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
     const disabledSubModulesSet = new Set<string>(
       Array.isArray(v2Payload.disabledSubModules) ? v2Payload.disabledSubModules.map((s: string) => s.toLowerCase()) : []
     );
-    const enabledModulesData = v2Payload.modules.map((m) => ({
-      name: m.moduleKey,
-      enabled: m.enabled,
-      sortOrder: 0,
-      typeAllowed: m.typeAllowed,
-      planAllowed: m.planAllowed,
-      roleAllowed: m.roleAllowed,
-      disabledReason: m.enabled ? null : mapAccessReasonToDisabledReason(m.reason),
-    }));
+    const enabledModulesData = toLegacyModuleAccessPayload(v2Payload).data;
     const normalizedRole = userRole === 'ADMIN' ? 'OWNER' : userRole.toUpperCase();
     const moduleStatusMap = new Map(
       enabledModulesData.map((m) => [String(m.name || '').toLowerCase(), m])
