@@ -24,6 +24,7 @@ export const MODULE_ROUTE_MAP: Record<string, string> = {
   '/api/sales': 'sales',
   '/api/pos': 'pos',
   '/api/refunds': 'sales',
+  '/api/customers': 'customers',
 
   // Purchases
   '/api/purchases': 'purchases',
@@ -62,7 +63,6 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   // Core infrastructure — needed before any module can be evaluated
   '/api/companies',
   '/api/branches',
-  '/api/customers',
   '/api/invitations',
   '/api/subscription',
   '/api/business-types',
@@ -75,6 +75,13 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/health',
   '/api/payments/manual',
 ];
+
+/** Convert versioned API paths to the canonical authorization policy path. */
+export function normalizeModulePolicyPath(path: string): string {
+  const withoutQuery = String(path || '').split('?')[0];
+  const normalizedVersion = withoutQuery.replace(/^\/api\/v\d+(?=\/|$)/i, '/api');
+  return normalizedVersion.length > 1 ? normalizedVersion.replace(/\/+$/, '') : normalizedVersion;
+}
 
 /**
  * Routes that require authentication but no specific module
@@ -94,10 +101,11 @@ export const BACKOFFICE_ROUTES: string[] = [
  * Check if a route should skip module checks
  */
 export function shouldSkipModuleCheck(path: string): boolean {
-  if (ALWAYS_ALLOWED_ROUTES.some(route => path === route || path.startsWith(route + '/'))) {
+  const policyPath = normalizeModulePolicyPath(path);
+  if (ALWAYS_ALLOWED_ROUTES.some(route => policyPath === route || policyPath.startsWith(route + '/'))) {
     return true;
   }
-  if (BACKOFFICE_ROUTES.some(route => path.startsWith(route))) {
+  if (BACKOFFICE_ROUTES.some(route => policyPath.startsWith(route))) {
     return true;
   }
   return false;
@@ -108,12 +116,13 @@ export function shouldSkipModuleCheck(path: string): boolean {
  * Returns null if no module required
  */
 export function getRequiredModule(path: string): string | null {
-  if (shouldSkipModuleCheck(path)) {
+  const policyPath = normalizeModulePolicyPath(path);
+  if (shouldSkipModuleCheck(policyPath)) {
     return null;
   }
 
   for (const [routePrefix, moduleName] of Object.entries(MODULE_ROUTE_MAP)) {
-    if (path === routePrefix || path.startsWith(routePrefix + '/')) {
+    if (policyPath === routePrefix || policyPath.startsWith(routePrefix + '/')) {
       return moduleName;
     }
   }

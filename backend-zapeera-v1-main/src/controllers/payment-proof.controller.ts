@@ -116,6 +116,24 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
     }
 
     const prisma = await getPrisma();
+    const membership = await prisma.membership.findFirst({
+      where: {
+        userId: String(req.user?.id || ''),
+        businessId: String(businessId),
+        status: 'ACTIVE',
+      },
+      select: { id: true },
+    });
+
+    if (!membership) {
+      safeUnlink(filePath);
+      res.status(403).json({
+        success: false,
+        message: 'You do not have access to submit a payment proof for this business.',
+        code: 'BUSINESS_ACCESS_DENIED',
+      });
+      return;
+    }
 
     // ── Verify plan exists ────────────────────────────────────────────────────
     const plan = await prisma.plan.findUnique({ where: { id: planId } });

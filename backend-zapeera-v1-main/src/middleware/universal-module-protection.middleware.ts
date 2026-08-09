@@ -7,7 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES } from '../config/module-route-protection.config';
+import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES, normalizeModulePolicyPath } from '../config/module-route-protection.config';
 import { checkModuleAccess } from './module-access.middleware';
 import { authenticate } from './auth.middleware';
 import logger from '../utils/logger';
@@ -18,6 +18,8 @@ interface AuthRequest extends Request {
     selectedCompanyId?: string;
     companyId?: string;
   };
+  membership?: { business_id?: string };
+  business_id?: string;
 }
 
 interface AccessCacheEntry {
@@ -86,7 +88,7 @@ export async function universalModuleProtection(
   next: NextFunction
 ) {
   const startTime = Date.now();
-  const path = (req.originalUrl || req.path || '').split('?')[0];
+  const path = normalizeModulePolicyPath(req.originalUrl || req.path || '');
 
   try {
     // Skip always-allowed routes before trying to authenticate public endpoints.
@@ -136,6 +138,9 @@ async function enforceModuleAccess(
 
     // Extract business context
     const businessId =
+      req.business_id ||
+      req.membership?.business_id ||
+      req.headers['x-business-id'] as string ||
       req.headers['x-company-id'] as string ||
       req.user?.selectedCompanyId ||
       req.user?.companyId;

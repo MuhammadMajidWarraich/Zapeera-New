@@ -17,6 +17,7 @@ import {
 import { reconcileLatestApprovedPaymentProofSubscription } from '../utils/manual-payment-subscription.util';
 import { invalidateModuleCache } from '../utils/modules-v2.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
+import { clearModuleAccessCache } from '../middleware/universal-module-protection.middleware';
 import crypto from 'crypto';
 import { createNotification } from './notification.controller';
 
@@ -24,6 +25,35 @@ const PRICING_PLANS_SETTINGS_OWNER = 'global_pricing';
 const PRICING_PLANS_SETTINGS_KEY = 'plans';
 const ANNUAL_DISCOUNT_SETTINGS_OWNER = 'global_pricing';
 const ANNUAL_DISCOUNT_SETTINGS_KEY = 'annual_discount_percent';
+
+const isPlatformAdmin = (req: Request): boolean => {
+  const role = String((req as any).adminRole || (req as any).user?.role || '').toUpperCase();
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+};
+
+const allowDirectSubscriptionMutation = (): boolean =>
+  process.env.NODE_ENV !== 'production' && process.env.ALLOW_DIRECT_SUBSCRIPTION_MUTATIONS === 'true';
+
+const invalidateBusinessAccess = (businessId: string): void => {
+  invalidateModuleCache({ type: 'PLAN_CHANGED', businessId });
+  invalidateEntitlementsCache(businessId);
+  clearModuleAccessCache(undefined, businessId);
+};
+
+const requireBusinessOwner = async (prisma: any, userId: string, businessId: string): Promise<boolean> => {
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { createdBy: true },
+  });
+  if (!business) return false;
+  if (String(business.createdBy || '') === String(userId)) return true;
+
+  const membership = await prisma.membership.findFirst({
+    where: { userId, businessId, status: 'ACTIVE' },
+    include: { role: { select: { name: true } } },
+  });
+  return String(membership?.role?.name || '').toUpperCase() === 'OWNER';
+};
 
 const annualDiscountSchema = Joi.object({
   percent: Joi.number().min(0).max(100).required(),
@@ -225,8 +255,7 @@ export const getAnnualDiscount = async (req: Request, res: Response): Promise<vo
 export const updateAnnualDiscount = async (req: Request, res: Response): Promise<void> => {
   const prisma = await getPrisma();
   try {
-    const role = String((req as any).user?.role || '').toUpperCase();
-    if (role !== 'ADMIN') {
+    if (!isPlatformAdmin(req)) {
       res.status(403).json({
         success: false,
         message: 'Only platform admin can update annual discount',
@@ -283,6 +312,13 @@ export const updateAnnualDiscount = async (req: Request, res: Response): Promise
 export const updateSubscription = async (req: Request, res: Response): Promise<void> => {
   const prisma = await getPrisma();
   try {
+    if (!allowDirectSubscriptionMutation()) {
+      res.status(403).json({
+        success: false,
+        message: 'Direct subscription activation is disabled. Submit a payment proof for approval instead.',
+      });
+      return;
+    }
     const { error } = updateSubscriptionSchema.validate(req.body);
     if (error) {
       res.status(400).json({
@@ -308,6 +344,11 @@ export const updateSubscription = async (req: Request, res: Response): Promise<v
         success: false,
         message: 'No business selected. X-Business-ID header is required.',
       });
+      return;
+    }
+
+    if (!(await requireBusinessOwner(prisma, String(userId), String(selectedCompanyId)))) {
+      res.status(403).json({ success: false, message: 'Only the business owner can change a subscription.' });
       return;
     }
 
@@ -358,8 +399,7 @@ export const updateSubscription = async (req: Request, res: Response): Promise<v
     }
 
     await assignBusinessPlan(prisma, company.id, targetPlan.id, userId);
-    invalidateModuleCache({ type: 'PLAN_CHANGED', businessId: company.id });
-    invalidateEntitlementsCache(company.id);
+    invalidateBusinessAccess(company.id);
 
     if (typeof status === 'string' && status.trim()) {
       try {
@@ -480,8 +520,7 @@ export const getPricingPlans = async (req: Request, res: Response): Promise<void
 export const updatePricingPlans = async (req: Request, res: Response): Promise<void> => {
   const prisma = await getPrisma();
   try {
-    const role = String((req as any).user?.role || '').toUpperCase();
-    if (role !== 'ADMIN') {
+    if (!isPlatformAdmin(req)) {
       res.status(403).json({
         success: false,
         message: 'Only platform admin can update pricing plans'
@@ -540,6 +579,10 @@ export const updatePricingPlans = async (req: Request, res: Response): Promise<v
 export const updatePlanModule = async (req: Request, res: Response): Promise<void> => {
   const prisma = await getPrisma();
   try {
+    if (!isPlatformAdmin(req)) {
+      res.status(403).json({ success: false, message: 'Only platform admins can update plan modules.' });
+      return;
+    }
     const { planId, moduleId } = req.params;
     const { enabled } = req.body;
 
@@ -639,6 +682,11 @@ export const updatePlanModule = async (req: Request, res: Response): Promise<voi
       console.warn('[updatePlanModule] Failed to sync plan_module_permissions:', permErr.message);
     }
 
+    // A plan affects every subscribed business, so both entitlement caches
+    // must be cleared before the success response is sent.
+    invalidateModuleCache({ type: 'PLAN_CHANGED', businessId: normalizedPlanId });
+    clearModuleAccessCache();
+
     res.json({
       success: true,
       message: `Module ${enabled ? 'enabled' : 'disabled'} for plan ${plan.name}`,
@@ -714,6 +762,13 @@ export const getBusinessEntitlements = async (req: AuthRequest, res: Response): 
 export const updateBusinessEntitlements = async (req: AuthRequest, res: Response): Promise<void> => {
   const prisma = await getPrisma();
   try {
+    if (!allowDirectSubscriptionMutation()) {
+      res.status(403).json({
+        success: false,
+        message: 'Direct entitlement changes are disabled. Submit a payment proof for approval instead.',
+      });
+      return;
+    }
     const { error } = assignBusinessPlanSchema.validate(req.body);
     if (error) {
       res.status(400).json({
@@ -751,6 +806,11 @@ export const updateBusinessEntitlements = async (req: AuthRequest, res: Response
       return;
     }
 
+    if (!(await requireBusinessOwner(prisma, String(requesterId), company.id))) {
+      res.status(403).json({ success: false, message: 'Only the business owner can change a subscription.' });
+      return;
+    }
+
     const plans = await loadPricingPlans(prisma);
     const targetPlan = plans.find((entry) => entry.id === req.body.planId);
     if (!targetPlan) {
@@ -780,8 +840,7 @@ export const updateBusinessEntitlements = async (req: AuthRequest, res: Response
     }
 
     await assignBusinessPlan(prisma, company.id, targetPlan.id, requesterId);
-    invalidateModuleCache({ type: 'PLAN_CHANGED', businessId: company.id });
-    invalidateEntitlementsCache(company.id);
+    invalidateBusinessAccess(company.id);
     if (req.body.addOns && typeof req.body.addOns === 'object') {
       await assignBusinessAddOns(
         prisma,
@@ -1199,8 +1258,21 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
     const prisma = await getPrisma();
     const { businessId, planId } = req.body;
 
+    if (!allowDirectSubscriptionMutation()) {
+      res.status(403).json({
+        success: false,
+        message: 'Test subscription activation is disabled. Use the payment-proof approval flow.',
+      });
+      return;
+    }
+
     if (!businessId || !planId) {
       res.status(400).json({ success: false, message: 'businessId and planId are required' });
+      return;
+    }
+
+    if (!req.user?.id || !(await requireBusinessOwner(prisma, String(req.user.id), String(businessId)))) {
+      res.status(403).json({ success: false, message: 'Only the business owner can activate a test subscription.' });
       return;
     }
 
@@ -1229,6 +1301,8 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
         data: { businessId, planId, status: 'ACTIVE', currentPeriodEnd: endDate, trialEndsAt: null }
       });
     }
+
+    invalidateBusinessAccess(String(businessId));
 
     console.log(`[FakePayment] ✅ Activated plan '${planId}' for business '${businessId}', ends ${endDate.toISOString()}`);
 
