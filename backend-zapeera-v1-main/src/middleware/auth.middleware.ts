@@ -101,6 +101,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
           select: {
             id: true,
             username: true,
+            email: true,
             createdBy: true,
             isActive: true,
             sessionToken: true // For single-session validation
@@ -188,6 +189,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     req.user = {
       id: user.id,
       username: user.username,
+      email: user.email,
       createdBy: createdBy || undefined,
       selectedCompanyId: selectedCompanyId || undefined,
       selectedBranchId: selectedBranchId || undefined,

@@ -420,7 +420,18 @@ export const getMyInvitations = async (req: AuthRequest, res: Response): Promise
   try {
     const prisma = await getPrisma();
 
-    if (!req.user?.email) {
+    let email = req.user?.email;
+
+    // Fallback: resolve email from the database when the token/request lacks it
+    if (!email && req.user?.id) {
+      const user = await prisma.zapeeraUser.findUnique({
+        where: { id: req.user.id },
+        select: { email: true },
+      });
+      email = user?.email;
+    }
+
+    if (!email) {
       res.status(400).json({
         success: false,
         message: 'User email not found'
@@ -429,7 +440,7 @@ export const getMyInvitations = async (req: AuthRequest, res: Response): Promise
     }
 
     // Get invitations
-    const invitations = await getUserInvitations(prisma, req.user.email);
+    const invitations = await getUserInvitations(prisma, email);
 
     res.json({
       success: true,
