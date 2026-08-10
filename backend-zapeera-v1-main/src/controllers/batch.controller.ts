@@ -424,7 +424,11 @@ export const getBatches = async (req: any, res: Response) => {
 
     // Determine target branch/company
     const targetBranchId = selectedBranchId || userBranchId || null;
-    let targetCompanyId = selectedCompanyId || userCompanyId || null;
+    // Company fallback chain: "All Branches" mode sends no X-Branch-ID, so fall back to
+    // the middleware-resolved business context (X-Business-ID header → req.user.selectedCompanyId / req.business_id)
+    let targetCompanyId = selectedCompanyId || userCompanyId ||
+      req.business_id || req.membership?.business_id ||
+      req.user?.selectedCompanyId || req.headers['x-business-id'] || null;
 
     console.log('🔍 getBatches:', { targetBranchId, targetCompanyId });
 

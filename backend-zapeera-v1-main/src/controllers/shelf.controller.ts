@@ -37,9 +37,13 @@ export const getShelves = async (req: AuthRequest, res: Response) => {
     const userBranchId = req.user?.branchId;
     const userCompanyId = req.user?.companyId;
 
-    // Determine target branch/company — same pattern as manufacturers controller
+    // Determine target branch/company — same pattern as categories controller
     const targetBranchId = selectedBranchId || userBranchId || null;
-    const targetCompanyId = selectedCompanyId || userCompanyId || null;
+    // Company fallback chain: "All Branches" mode sends no X-Branch-ID, so fall back to
+    // the middleware-resolved business context (X-Business-ID header → req.user.selectedCompanyId / req.business_id)
+    const targetCompanyId = selectedCompanyId || userCompanyId ||
+      req.business_id || req.membership?.business_id ||
+      req.user?.selectedCompanyId || req.headers['x-business-id'] || null;
 
     console.log('🗄️ getShelves:', { targetBranchId, targetCompanyId });
 

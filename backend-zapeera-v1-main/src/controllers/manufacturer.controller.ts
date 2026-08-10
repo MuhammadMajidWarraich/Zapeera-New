@@ -44,7 +44,11 @@ export const getManufacturers = async (req: AuthRequest, res: Response) => {
 
     // Determine target branch/company — same pattern as categories controller
     const targetBranchId = selectedBranchId || userBranchId || null;
-    const targetCompanyId = selectedCompanyId || userCompanyId || null;
+    // Company fallback chain: "All Branches" mode sends no X-Branch-ID, so fall back to
+    // the middleware-resolved business context (X-Business-ID header → req.user.selectedCompanyId / req.business_id)
+    const targetCompanyId = selectedCompanyId || userCompanyId ||
+      req.business_id || req.membership?.business_id ||
+      req.user?.selectedCompanyId || req.headers['x-business-id'] || null;
 
     console.log('🏭 getManufacturers:', { targetBranchId, targetCompanyId });
 
