@@ -85,24 +85,30 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     setIsSearching(true);
     try {
       const response = await apiService.searchUser(searchQuery);
-      if (response.success && response.data) {
-        const { found, user } = response.data as any;
-        if (found && user) {
-          setExistingUser(user);
-          setIsNewUser(false);
-          toast.success('User found');
-        } else {
-          setExistingUser(null);
-          setIsNewUser(true);
-          setNewUserData((prev) => ({
-            ...prev,
-            email: searchType === 'email' ? searchQuery : '',
-            phone: searchType === 'phone' ? searchQuery : '',
-          }));
-          toast.info('User not found. You can create a new account.');
-        }
-        setStep(2);
+      if (!response.success) {
+        toast.error(response.message || 'Search failed. Please try again.');
+        return;
       }
+
+      // Backend returns { found, user }; tolerate a raw user object too
+      const payload = response.data as any;
+      const user = payload?.user || (payload && payload.id ? payload : null);
+
+      if (user) {
+        setExistingUser(user);
+        setIsNewUser(false);
+        toast.success('User found');
+      } else {
+        setExistingUser(null);
+        setIsNewUser(true);
+        setNewUserData((prev) => ({
+          ...prev,
+          email: searchType === 'email' ? searchQuery : '',
+          phone: searchType === 'phone' ? searchQuery : '',
+        }));
+        toast.info('User not found. You can create a new account.');
+      }
+      setStep(2);
     } catch (error: any) {
       toast.error(error?.message || 'Search failed. Please try again.');
     } finally {
@@ -134,19 +140,19 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
         designation: hrData.designation,
         department: hrData.department,
         employmentType: hrData.employmentType,
-        status: 'INVITED',
-        isNewUser,
       };
 
       if (existingUser) {
+        // Existing user found via search — link them by userId
         payload.userId = existingUser.id;
+        payload.name = existingUser.name;
+        payload.email = existingUser.email;
       } else {
-        payload.newUserData = {
-          name: newUserData.name,
-          email: newUserData.email,
-          phone: newUserData.phone,
-          password: newUserData.password,
-        };
+        // New user — backend creates the account
+        payload.name = newUserData.name;
+        payload.email = newUserData.email;
+        payload.phone = newUserData.phone;
+        if (newUserData.password) payload.password = newUserData.password;
       }
 
       if (hrData.salary) payload.salary = parseFloat(hrData.salary);
@@ -159,7 +165,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
       const response = await apiService.createStaff(payload);
       if (response.success) {
-        toast.success('Staff member added successfully! Invitation sent.');
+        toast.success('Staff member added successfully!');
         resetState();
         onSuccess();
         handleClose();
@@ -429,15 +435,15 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
 
         <div className="space-y-2">
           <Label>Status</Label>
-          <Select value="INVITED" disabled>
+          <Select value="ACTIVE" disabled>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="INVITED">Invited</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-[#8c95b0]">Status is set to "Invited" — the user will receive an invitation email.</p>
+          <p className="text-xs text-[#8c95b0]">Staff member is added with immediate access to the selected branch.</p>
         </div>
       </div>
 
@@ -595,8 +601,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     return (
       <div className="space-y-4">
         <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-[#0a1128]">Review & Send</h3>
-          <p className="text-sm text-[#8c95b0]">Confirm all details before sending invitation</p>
+          <h3 className="text-lg font-semibold text-[#0a1128]">Review & Add</h3>
+          <p className="text-sm text-[#8c95b0]">Confirm all details before adding the staff member</p>
         </div>
 
         <div className="space-y-3">
@@ -628,7 +634,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
               </div>
               <div>
                 <span className="text-[#8c95b0]">Status:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">Invited</span>
+                <span className="ml-2 font-medium text-[#0a1128]">Active</span>
               </div>
             </div>
           </div>
@@ -678,12 +684,12 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Sending...
+                Adding...
               </>
             ) : (
               <>
                 <UserPlus className="w-4 h-4" />
-                Send Invitation
+                Add Staff Member
               </>
             )}
           </Button>

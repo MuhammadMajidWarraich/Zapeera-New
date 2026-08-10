@@ -3,11 +3,13 @@ import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
 import Joi from 'joi';
+import bcrypt from 'bcryptjs';
 import logger from '../utils/logger';
 
 const createStaffSchema = Joi.object({
-  name: Joi.string().required(),
-  email: Joi.string().email().required(),
+  name: Joi.string().optional().allow(''),
+  email: Joi.string().email({ tlds: { allow: false } }).optional().allow(''),
+  userId: Joi.string().optional().allow(''),
   phone: Joi.string().optional().allow(''),
   password: Joi.string().optional().allow(''),
   role: Joi.string().optional().default('STAFF'),
@@ -92,8 +94,9 @@ export const getStaff = async (req: AuthRequest, res: Response) => {
 
     const where: any = {};
 
-    if (isActive !== 'all') {
-      where.isActive = isActive === 'true';
+    const isActiveFilter = String(isActive).toLowerCase();
+    if (isActiveFilter !== 'all') {
+      where.isActive = isActiveFilter === 'true';
     }
 
     if (department) {
@@ -285,7 +288,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     }
 
     const {
-      name, email, phone, password, role: roleStr = 'STAFF',
+      userId, name, email, phone, password, role: roleStr = 'STAFF',
       branchId, businessId: bodyBusinessId,
       designation, department, employmentType, salary, salaryType,
       joiningDate, bankName, bankAccountNumber, bankBranchName,
@@ -294,6 +297,13 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       shiftPreference, weeklyOffDays, annualLeaveBalance, sickLeaveBalance,
       casualLeaveBalance, notes
     } = req.body;
+
+    if (!userId && (!name || !email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide an existing userId, or name and email for a new user'
+      });
+    }
 
     const businessId = bodyBusinessId || req.membership?.business_id;
 
@@ -324,24 +334,40 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    let user = await prisma.zapeeraUser.findUnique({ where: { email } });
+    let user: any = null;
 
-    if (!user) {
-      const bcrypt = require('bcrypt');
-      const hashedPassword = password
-        ? await bcrypt.hash(password, 10)
-        : await bcrypt.hash('Staff@123', 10);
-
-      user = await prisma.zapeeraUser.create({
-        data: {
-          username: email,
-          email,
-          password: hashedPassword,
-          name,
-          phone: phone || null,
-          isActive: true
-        }
+    if (userId) {
+      // Existing user selected from the search step
+      user = await prisma.zapeeraUser.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, phone: true }
       });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+    } else {
+      user = await prisma.zapeeraUser.findUnique({ where: { email } });
+
+      if (!user) {
+        const hashedPassword = password
+          ? await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || '12'))
+          : await bcrypt.hash('Staff@123', parseInt(process.env.BCRYPT_ROUNDS || '12'));
+
+        user = await prisma.zapeeraUser.create({
+          data: {
+            username: email,
+            email,
+            password: hashedPassword,
+            name,
+            phone: phone || null,
+            isActive: true
+          }
+        });
+      }
     }
 
     let membership = await prisma.membership.findFirst({
@@ -367,6 +393,20 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
           status: 'ACTIVE'
         }
       });
+    } else if (roleStr) {
+      // User is already a member — keep the flow idempotent by updating the role
+      const role = await prisma.role.findFirst({
+        where: {
+          businessId,
+          name: roleStr
+        }
+      });
+      if (role && membership.roleId !== role.id) {
+        await prisma.membership.update({
+          where: { id: membership.id },
+          data: { roleId: role.id }
+        });
+      }
     }
 
     const existingBranchMembership = await prisma.membershipBranch.findFirst({
@@ -385,71 +425,95 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const employeeId = await generateEmployeeId(prisma);
-
-    const staffProfile = await prisma.staffProfile.create({
-      data: {
-        membershipId: membership.id,
-        employeeId,
-        designation: designation || null,
-        department: department || null,
-        employmentType: employmentType || 'FULL_TIME',
-        salary: salary && salary > 0 ? salary : null,
-        salaryType: salaryType || 'MONTHLY',
-        joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
-        bankName: bankName || null,
-        bankAccountNumber: bankAccountNumber || null,
-        bankBranchName: bankBranchName || null,
-        cnicNumber: cnicNumber || null,
-        cnicExpiry: cnicExpiry ? new Date(cnicExpiry) : null,
-        passportNumber: passportNumber || null,
-        emergencyContactName: emergencyContactName || null,
-        emergencyContactPhone: emergencyContactPhone || null,
-        emergencyContactRelation: emergencyContactRelation || null,
-        reportingManagerId: reportingManagerId || null,
-        shiftPreference: shiftPreference || null,
-        weeklyOffDays: weeklyOffDays || null,
-        annualLeaveBalance: annualLeaveBalance || 0,
-        sickLeaveBalance: sickLeaveBalance || 0,
-        casualLeaveBalance: casualLeaveBalance || 0,
-        notes: notes || null
-      },
-      include: {
-        membership: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                profileImage: true
-              }
-            },
-            branches: {
-              include: {
-                branch: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
+    const includeStaff = {
+      membership: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              profileImage: true
+            }
+          },
+          branches: {
+            include: {
+              branch: {
+                select: {
+                  id: true,
+                  name: true
                 }
               }
-            },
-            role: {
-              select: {
-                id: true,
-                name: true
-              }
+            }
+          },
+          role: {
+            select: {
+              id: true,
+              name: true
             }
           }
         }
       }
+    };
+
+    const staffData = {
+      designation: designation || null,
+      department: department || null,
+      employmentType: employmentType || 'FULL_TIME',
+      salary: salary && salary > 0 ? salary : null,
+      salaryType: salaryType || 'MONTHLY',
+      joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
+      bankName: bankName || null,
+      bankAccountNumber: bankAccountNumber || null,
+      bankBranchName: bankBranchName || null,
+      cnicNumber: cnicNumber || null,
+      cnicExpiry: cnicExpiry ? new Date(cnicExpiry) : null,
+      passportNumber: passportNumber || null,
+      emergencyContactName: emergencyContactName || null,
+      emergencyContactPhone: emergencyContactPhone || null,
+      emergencyContactRelation: emergencyContactRelation || null,
+      reportingManagerId: reportingManagerId || null,
+      shiftPreference: shiftPreference || null,
+      weeklyOffDays: weeklyOffDays || null,
+      annualLeaveBalance: annualLeaveBalance || 0,
+      sickLeaveBalance: sickLeaveBalance || 0,
+      casualLeaveBalance: casualLeaveBalance || 0,
+      notes: notes || null
+    };
+
+    const existingStaffProfile = await prisma.staffProfile.findFirst({
+      where: { membershipId: membership.id }
     });
 
-    syncAfterOperation('staffProfile', 'create', staffProfile).catch((err: any) => {
-      logger.error('[Sync] StaffProfile create sync failed:', { message: err.message });
-    });
+    let staffProfile: any;
+
+    if (existingStaffProfile) {
+      staffProfile = await prisma.staffProfile.update({
+        where: { id: existingStaffProfile.id },
+        data: staffData,
+        include: includeStaff
+      });
+
+      syncAfterOperation('staffProfile', 'update', staffProfile).catch((err: any) => {
+        logger.error('[Sync] StaffProfile update sync failed:', { message: err.message });
+      });
+    } else {
+      const employeeId = await generateEmployeeId(prisma);
+
+      staffProfile = await prisma.staffProfile.create({
+        data: {
+          membershipId: membership.id,
+          employeeId,
+          ...staffData
+        },
+        include: includeStaff
+      });
+
+      syncAfterOperation('staffProfile', 'create', staffProfile).catch((err: any) => {
+        logger.error('[Sync] StaffProfile create sync failed:', { message: err.message });
+      });
+    }
 
     const flatData = {
       ...staffProfile,
@@ -629,27 +693,33 @@ export const searchUser = async (req: AuthRequest, res: Response) => {
     }
 
     const searchTerm = query.trim();
+    const queryDigits = searchTerm.replace(/\D/g, '');
 
-    const user = await prisma.zapeeraUser.findFirst({
-      where: {
-        OR: [
-          { email: searchTerm },
-          { phone: searchTerm }
-        ]
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        profileImage: true,
-        isActive: true
-      }
-    });
+    const select = {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      profileImage: true,
+      isActive: true
+    } as const;
+
+    // Provider-agnostic matching: fetch candidates and match case-insensitively in JS
+    const users = await prisma.zapeeraUser.findMany({ select });
+
+    const lowerQuery = searchTerm.toLowerCase();
+    const user =
+      users.find(
+        (u) =>
+          u.email?.toLowerCase() === lowerQuery ||
+          (queryDigits.length >= 6 &&
+            !!u.phone &&
+            u.phone.replace(/\D/g, '').endsWith(queryDigits.slice(-7)))
+      ) || null;
 
     return res.json({
       success: true,
-      data: user || null
+      data: { found: !!user, user }
     });
   } catch (error) {
     logger.error('Error searching user:', { error: String(error) });

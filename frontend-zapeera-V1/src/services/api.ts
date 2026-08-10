@@ -3499,6 +3499,10 @@ export class ApiService {
 
   async createStaff(staffData: {
     userId?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    password?: string;
     role: string;
     branchId: string;
     employeeId?: string;
