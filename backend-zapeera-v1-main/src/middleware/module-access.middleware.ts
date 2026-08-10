@@ -42,6 +42,8 @@ interface ModuleAccessResult {
   module?: string;
   error?: string;
   allowedModules?: string[];
+  allowedOperations?: string[];
+  blockedOperations?: string[];
 }
 
 /**
@@ -86,6 +88,8 @@ export async function checkModuleAccess(
       allowed: true,
       module: moduleKey,
       allowedModules: modules.filter((m) => m.enabled).map((m) => String(m.moduleKey).toLowerCase()),
+      allowedOperations: Array.isArray(moduleEntry.allowedOperations) ? moduleEntry.allowedOperations : [],
+      blockedOperations: Array.isArray(moduleEntry.blockedOperations) ? moduleEntry.blockedOperations : [],
     };
   } catch (error: any) {
     const message = String(error?.message || '').toLowerCase();
@@ -191,6 +195,11 @@ export function requireModule(moduleKey: string) {
       req.moduleAccess = {
         allowedModules: accessResult.allowedModules || [],
         hasAccess: (key: string) => accessResult.allowedModules?.includes(key) || false,
+      };
+      (req as any).moduleOperations = {
+        allowedOperations: accessResult.allowedOperations || [],
+        blockedOperations: accessResult.blockedOperations || [],
+        hasOperation: (op: string) => accessResult.allowedOperations?.includes(op) || false,
       };
 
       return next();

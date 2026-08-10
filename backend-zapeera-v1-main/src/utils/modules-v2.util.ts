@@ -1090,7 +1090,13 @@ async function getPermittedOperations(
     : [];
 
   if (!rolePermissions.length) {
-    return { allowedOperations: ['read'], blockedOperations: [] };
+    // No explicit V2 permissions configured for this role — default to the full
+    // operation set so unconfigured roles keep today's behavior. Explicit
+    // role_permissions_v2 rows are the only source of operation restrictions.
+    return {
+      allowedOperations: ['read', 'create', 'update', 'delete', 'export'],
+      blockedOperations: [],
+    };
   }
 
   for (const permission of rolePermissions) {

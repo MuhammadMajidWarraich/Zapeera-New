@@ -7,7 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES, normalizeModulePolicyPath } from '../config/module-route-protection.config';
+import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES, normalizeModulePolicyPath, resolveModuleOperation } from '../config/module-route-protection.config';
 import { checkModuleAccess } from './module-access.middleware';
 import { authenticate } from './auth.middleware';
 import logger from '../utils/logger';
@@ -25,6 +25,7 @@ interface AuthRequest extends Request {
 interface AccessCacheEntry {
   allowed: boolean;
   error?: string;
+  allowedOperations?: string[];
   timestamp: number;
 }
 
@@ -177,6 +178,13 @@ async function enforceModuleAccess(
           module: requiredModule,
         });
       }
+
+      // Enforce role-based operation permissions (e.g. read-only roles)
+      const operationDenied = enforceOperation(req.method, path, cached.allowedOperations);
+      if (operationDenied) {
+        return res.status(403).json(operationDenied);
+      }
+
       // Cached allowed - proceed
       return next();
     }
@@ -188,6 +196,7 @@ async function enforceModuleAccess(
     setCachedAccess(userId, businessId, requiredModule, {
       allowed: accessResult.allowed,
       error: accessResult.error,
+      allowedOperations: accessResult.allowedOperations,
       timestamp: Date.now(),
     });
 
@@ -216,6 +225,12 @@ async function enforceModuleAccess(
     // Access granted
     logger.debug(`[Universal Protection] ALLOWED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
 
+    // Enforce role-based operation permissions (e.g. read-only roles)
+    const operationDenied = enforceOperation(req.method, path, accessResult.allowedOperations);
+    if (operationDenied) {
+      return res.status(403).json(operationDenied);
+    }
+
     // Attach module info to request for downstream use
     (req as any).requiredModule = requiredModule;
 
@@ -229,6 +244,39 @@ async function enforceModuleAccess(
       message: 'Unable to verify module access. Please try again.',
     });
   }
+}
+/**
+ * Enforce role-based operation permissions for a request.
+ * Resolves the operation for the HTTP method/path and blocks the request when
+ * the role's allowedOperations do not include it. 'read' is never blocked here
+ * (it is the baseline), and requests with no operation mapping pass through.
+ * Returns a 403 body when denied, otherwise null.
+ */
+function enforceOperation(
+  method: string,
+  path: string,
+  allowedOperations?: string[]
+): { success: boolean; error: string; message: string; operation: string } | null {
+  if (!allowedOperations || !allowedOperations.length) {
+    return null;
+  }
+
+  const operation = resolveModuleOperation(method, path);
+  if (!operation || operation === 'read') {
+    return null;
+  }
+
+  if (!allowedOperations.includes(operation)) {
+    logger.warn(`[Universal Protection] OPERATION BLOCKED: ${operation} ${method} ${path} (allowed=${allowedOperations.join(',')})`);
+    return {
+      success: false,
+      error: 'OPERATION_NOT_ALLOWED',
+      message: `You do not have permission to perform this action (${operation})`,
+      operation,
+    };
+  }
+
+  return null;
 }
 
 /**

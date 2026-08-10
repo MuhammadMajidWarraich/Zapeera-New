@@ -146,3 +146,27 @@ export const MODULE_DISPLAY_NAMES: Record<string, string> = {
   expenses: 'Expenses',
   subscription: 'Subscription & Billing',
 };
+
+export type ModuleOperation = 'read' | 'create' | 'update' | 'delete' | 'export';
+
+/**
+ * Map an HTTP request to the module operation it performs.
+ * Operations match the `operations` table keys used by role_permissions_v2.
+ * Explicitly named export/download routes resolve to 'export'; everything else
+ * is derived from the HTTP method. Returns null when no operation applies.
+ */
+export function resolveModuleOperation(method: string, path: string): ModuleOperation | null {
+  const m = String(method || '').toUpperCase();
+  const p = String(path || '');
+
+  // Explicit export endpoints (e.g. /api/reports/export/...)
+  if (/\/export(\/|$)/i.test(p) || /\/download(\/|$)/i.test(p)) {
+    return 'export';
+  }
+
+  if (m === 'POST') return 'create';
+  if (m === 'PUT' || m === 'PATCH') return 'update';
+  if (m === 'DELETE') return 'delete';
+  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return 'read';
+  return null;
+}
