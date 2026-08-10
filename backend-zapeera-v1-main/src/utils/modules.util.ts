@@ -448,6 +448,29 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
       // plan_module_permissions may not exist yet — ignore
     }
 
+    // 2b) Plans with entitlements: ensure employee_portal is entitled for EVERY plan.
+    //     plan_module_permissions (step 2) only covers plans that have explicit rows there;
+    //     plans gated purely via plan_entitlements (e.g. "single-scale") need this row too,
+    //     otherwise the module is denied at the subscription layer.
+    try {
+      const allPlans = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT id FROM platform_plans`
+      );
+      for (const plan of allPlans || []) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO plan_entitlements (id, "planId", "moduleKey", "entitlementLevel", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, 'FULL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT ("planId", "moduleKey") DO NOTHING`,
+          `ent:${plan.id}:${MODULE_NAME}`, plan.id, MODULE_NAME
+        );
+      }
+      if ((allPlans || []).length > 0) {
+        console.log(`[Modules] ✅ Employee Portal entitled for ${allPlans.length} plans`);
+      }
+    } catch {
+      // plan_entitlements may not exist yet — ignore
+    }
+
     // 3) Roles: for every role that has an explicit config, ensure employee_portal is enabled.
     try {
       const roleRows = await prisma.$queryRawUnsafe<Array<{ roleName: string }>>(
