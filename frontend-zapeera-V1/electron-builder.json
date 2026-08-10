@@ -128,7 +128,7 @@
     {
       "from": "../backend-zapeera-v1-main/prisma",
       "to": "zapeera-backend/prisma",
-      "filter": ["schema.prisma"]
+      "filter": ["schema.sqlite.prisma"]
     }
   ],
   "asarUnpack": [

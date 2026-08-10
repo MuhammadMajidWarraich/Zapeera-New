@@ -332,7 +332,7 @@ SYNC_INTERVAL_MS=30000
 **"PostgreSQL not available"**
 - Check `DATABASE_URL` is set correctly
 - Verify PostgreSQL service is running
-- For local dev: Use `provider = "sqlite"` in schema.prisma
+- For local dev: run `npm run setup:web` (regenerates the PostgreSQL Prisma client) or `npm run setup:electron` for SQLite. The server refuses to start if the generated Prisma client does not match the selected mode — follow the remediation command printed at startup.
 
 **"Connection pool exhausted"**
 - Reduce `PG_CONNECTION_LIMIT` to 5-10

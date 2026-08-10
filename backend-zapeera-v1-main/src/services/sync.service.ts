@@ -178,8 +178,8 @@ class SyncService {
           DATABASE_URL: `file:${sqlitePath}`
         };
 
-        // Run prisma db push to create all tables
-        execSync('npx prisma db push --skip-generate --accept-data-loss', {
+        // Run prisma db push to create all tables (deterministic SQLite schema)
+        execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --skip-generate --accept-data-loss', {
           cwd: path.join(__dirname, '..', '..'),
           env,
           stdio: 'pipe',

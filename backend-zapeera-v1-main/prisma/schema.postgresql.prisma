@@ -1,10 +1,14 @@
+// DETERMINISTIC Prisma schema for PostgreSQL (Web / cloud mode).
+// Generated client: npm run setup:web  (uses scripts/generate-client.js)
+// Keep identical to schema.sqlite.prisma EXCEPT the datasource provider.
+// scripts/check-schema-sync.js fails the build if the two drift.
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "windows", "darwin", "darwin-arm64", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -1236,7 +1240,7 @@ model PlanEntitlement {
   @@map("plan_entitlements")
 }
 
-// ─── Backoffice: Support Tickets ─────────────────────────────────────────────
+// â”€â”€â”€ Backoffice: Support Tickets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 model SupportTicket {
   id           String   @id @default(cuid())
   businessId   String?
@@ -1255,7 +1259,7 @@ model SupportTicket {
   @@map("support_tickets")
 }
 
-// ─── Backoffice: Announcements ───────────────────────────────────────────────
+// â”€â”€â”€ Backoffice: Announcements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 model Announcement {
   id         String   @id @default(cuid())
   title      String
@@ -1271,7 +1275,7 @@ model Announcement {
   @@map("announcements")
 }
 
-// ─── Backoffice: Feature Flags ───────────────────────────────────────────────
+// â”€â”€â”€ Backoffice: Feature Flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 model FeatureFlag {
   id          String   @id @default(cuid())
   key         String   @unique
@@ -1284,7 +1288,7 @@ model FeatureFlag {
   @@map("feature_flags")
 }
 
-// ─── Notifications ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Persisted notifications for users (in-app notification feed)
 model Notification {
   id         String   @id @default(cuid())
@@ -1323,3 +1327,4 @@ model NotificationPreference {
   @@index([userId], name: "idx_notif_pref_user")
   @@map("notification_preferences")
 }
+

@@ -1,0 +1,1330 @@
+// DETERMINISTIC Prisma schema for SQLite (Electron / offline desktop mode).
+// Generated client: npm run setup:electron  (uses scripts/generate-client.js)
+// Keep identical to schema.postgresql.prisma EXCEPT the datasource provider.
+// scripts/check-schema-sync.js fails the build if the two drift.
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "darwin", "darwin-arm64", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ZapeeraUser {
+  id                       String    @id @default(cuid())
+  username                 String    @unique
+  email                    String    @unique
+  password                 String
+  name                     String
+  profileImage             String?
+  phone                    String?
+  address                  String?
+  city                     String?
+  country                  String?
+  dateOfBirth              DateTime?
+  bio                      String?
+  isActive                 Boolean   @default(true)
+  businessAccessGranted    Boolean   @default(true)
+  twoFactorEnabled         Boolean   @default(false)
+  sessionToken             String?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
+  emailVerified            Boolean   @default(false)
+  emailVerificationToken   String?   @unique
+  emailVerificationExpires DateTime?
+  welcomeEmailSent         Boolean   @default(false)
+  lastLoginAt              DateTime?
+  uuid                     String?   @unique
+  syncStatus               String    @default("PENDING")
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  createdBy                String?
+
+  deviceActivations DeviceActivation[]
+  card_details      card_details[]
+  receipts          Receipt[]
+  refunds           Refund[]
+  sales             Sale[]
+  scheduledShifts   ScheduledShiftUser[]
+  memberships       Membership[]
+  invitationsSent   BusinessInvitation[] @relation("inviter")
+  billingProfiles   BillingProfile[]     @relation("userBillingProfiles")
+  notifications     Notification[]
+  hasUsedTrial      Boolean              @default(false)
+  trialUsedAt       DateTime?
+
+  @@map("zapeera_users")
+}
+
+model StaffProfile {
+  id                       String       @id @default(cuid())
+  membershipId             String       @unique
+  employeeId               String       @unique
+  designation              String?
+  department               String?
+  employmentType           String       @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERN
+  salary                   Float?
+  salaryType               String       @default("MONTHLY") // MONTHLY, WEEKLY, DAILY, HOURLY
+  joiningDate              DateTime     @default(now())
+  probationEndDate         DateTime?
+  confirmationDate         DateTime?
+  resignationDate          DateTime?
+  terminationDate          DateTime?
+  terminationReason        String?
+  bankName                 String?
+  bankAccountNumber        String?
+  bankBranchName           String?
+  cnicNumber               String?
+  cnicExpiry               DateTime?
+  passportNumber           String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  reportingManagerId       String?
+  shiftPreference          String?
+  weeklyOffDays            String?      // JSON array: ["MON","WED"]
+  annualLeaveBalance       Int          @default(0)
+  sickLeaveBalance         Int          @default(0)
+  casualLeaveBalance       Int          @default(0)
+  documents                String?      // JSON array of document URLs
+  notes                    String?
+  performanceRating        Float?
+  lastReviewDate           DateTime?
+  isActive                 Boolean      @default(true)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  membership   Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  attendance   Attendance[]
+  commissions  Commission[]
+  shifts       Shift[]
+
+  @@index([membershipId], name: "idx_staff_profile_membership")
+  @@index([department], name: "idx_staff_profile_department")
+  @@index([designation], name: "idx_staff_profile_designation")
+  @@index([isActive], name: "idx_staff_profile_active")
+  @@map("staff_profiles")
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  slug         String?  @unique
+  description  String?
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+  businessType String?
+  createdBy    String?
+  isActive     Boolean  @default(true)
+  uuid         String?  @unique
+  syncStatus   String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deviceActivations         DeviceActivation[]
+  branches                  Branch[]
+  products                  Product[]
+  customers                 Customer[]
+  sales                     Sale[]
+  batches                   Batch[]
+  purchases                 Purchase[]
+  categories                Category[]
+  memberships               Membership[]             @relation("memberships")
+  roles                     Role[]                   @relation("roles")
+  businessModules           BusinessModule[]         @relation("businessModules")
+  businessModuleOverridesV2 BusinessModuleOverride[] @relation("businessModuleOverridesV2")
+  businessSubscription      BusinessSubscription?    @relation("businessSubscription")
+  // MULTI-TENANT: Invitations
+  invitations               BusinessInvitation[]     @relation("businessInvitations")
+  billingProfiles           BillingProfile[]         @relation("businessBillingProfiles")
+  paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
+
+  @@index([createdBy], name: "idx_business_createdBy")
+  @@index([businessType], name: "idx_business_type")
+  @@index([isActive], name: "idx_business_active")
+  @@map("businesses")
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  name       String
+  address    String
+  phone      String
+  email      String
+  companyId  String
+  managerId  String?
+  createdBy  String?
+  isActive   Boolean  @default(true)
+  uuid       String?  @unique
+  syncStatus String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  deviceActivations  DeviceActivation[]
+  attendance         Attendance[]
+  commissions        Commission[]
+  customers          Customer[]
+  products           Product[]
+  receipts           Receipt[]
+  sales              Sale[]
+  shifts             Shift[]
+  scheduledShifts    ScheduledShift[]
+  batches            Batch[]
+  purchases          Purchase[]
+  categories         Category[]
+  manufacturers      Manufacturer[]
+  suppliers          Supplier[]
+  shelves            Shelf[]
+  company            Business           @relation(fields: [companyId], references: [id])
+  membershipBranches MembershipBranch[] @relation("membershipBranches")
+
+  @@unique([name, companyId], name: "branch_name_per_company")
+  @@index([companyId], name: "idx_branch_company")
+  @@index([isActive], name: "idx_branch_active")
+  @@map("branches")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  type        String    @default("GENERAL")
+  color       String?   @default("#3B82F6")
+  branchId    String?
+  companyId   String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  branch      Branch?   @relation(fields: [branchId], references: [id])
+  company     Business? @relation(fields: [companyId], references: [id])
+  products    Product[]
+
+  @@unique([name, branchId], name: "category_name_per_branch")
+  @@index([companyId], name: "idx_category_company")
+  @@index([branchId], name: "idx_category_branch")
+  @@map("categories")
+}
+
+model Manufacturer {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  phone       String?
+  website     String?
+  country     String?
+  branchId    String?
+  companyId   String?
+  createdBy   String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  branch      Branch?    @relation(fields: [branchId], references: [id])
+  suppliers   Supplier[]
+
+  @@unique([name, branchId], name: "manufacturer_name_per_branch")
+  @@index([companyId], name: "idx_manufacturer_company")
+  @@index([branchId], name: "idx_manufacturer_branch")
+  @@map("manufacturers")
+}
+
+model Supplier {
+  id             String        @id @default(cuid())
+  name           String
+  contactPerson  String
+  phone          String
+  email          String?
+  address        String?
+  manufacturerId String?
+  branchId       String?
+  companyId      String?
+  createdBy      String?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  branch         Branch?       @relation(fields: [branchId], references: [id])
+  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [id])
+  products       Product[]
+  batches        Batch[]
+  purchases      Purchase[]
+
+  @@unique([name, branchId], name: "supplier_name_per_branch")
+  @@index([companyId], name: "idx_supplier_company")
+  @@index([branchId], name: "idx_supplier_branch")
+  @@map("suppliers")
+}
+
+model Shelf {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  location    String?
+  branchId    String?
+  companyId   String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  batches     Batch[]
+
+  @@unique([name, branchId], name: "shelf_name_per_branch")
+  @@index([companyId], name: "idx_shelf_company")
+  @@index([branchId], name: "idx_shelf_branch")
+  @@map("shelves")
+}
+
+model Product {
+  id                   String    @id @default(cuid())
+  name                 String
+  description          String?
+  formula              String? // New field for product composition
+  sku                  String    @unique
+  categoryId           String
+  supplierId           String? // Optional - supplier is assigned to batches, not products
+  branchId             String
+  companyId            String
+  createdBy            String?
+  minStock             Int       @default(10)
+  maxStock             Int?
+  unitsPerPack         Int       @default(1)
+  barcode              String?   @unique
+  additionalBarcodes   String?   // JSON array of additional barcodes: ["CODE1","CODE2"]
+  barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
+  isGenerated          Boolean   @default(false) // true if barcode was auto-generated
+  requiresPrescription Boolean   @default(false)
+  isActive             Boolean   @default(true)
+  uuid                 String?   @unique
+  syncStatus           String    @default("PENDING")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  expiryDate           DateTime?
+
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  company        Business        @relation(fields: [companyId], references: [id])
+  category       Category        @relation(fields: [categoryId], references: [id])
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  refundItems    RefundItem[]
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  batches        Batch[]
+  purchaseItems  PurchaseItem[]
+
+  @@index([companyId], name: "idx_product_company")
+  @@index([branchId], name: "idx_product_branch")
+  @@index([categoryId], name: "idx_product_category")
+  @@index([supplierId], name: "idx_product_supplier")
+  @@index([isActive], name: "idx_product_active")
+  @@map("products")
+}
+
+model Batch {
+  id                  String         @id @default(cuid())
+  batchNo             String
+  productId           String
+  branchId            String
+  companyId           String
+  supplierId          String?
+  supplierName        String?
+  barcode             String?
+  totalBoxes          Int            @default(0)
+  unitsPerBox         Int            @default(0)
+  quantity            Int            @default(0) // Current available quantity
+  purchasePrice       Float // Price per unit when purchased
+  sellingPrice        Float // Price per unit when sold
+  stockPurchasePrice  Float          @default(0)
+  paidAmount          Float          @default(0)
+  supplierOutstanding Float          @default(0)
+  supplierInvoiceNo   String?
+  purchasingMethod    String?
+  expireDate          DateTime?
+  productionDate      DateTime?
+  shelfId             String?
+  shelfName           String?
+  isActive            Boolean        @default(true)
+  isReported          Boolean        @default(false)
+  reportReason        String? // Reason for reporting the batch
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  createdBy           String?
+  product             Product        @relation(fields: [productId], references: [id])
+  branch              Branch         @relation(fields: [branchId], references: [id])
+  company             Business       @relation(fields: [companyId], references: [id])
+  shelf               Shelf?         @relation(fields: [shelfId], references: [id])
+  supplier            Supplier?      @relation(fields: [supplierId], references: [id])
+  purchaseItems       PurchaseItem[]
+  saleItems           SaleItem[]
+
+  @@unique([batchNo, productId, branchId])
+  @@index([companyId], name: "idx_batch_company")
+  @@index([branchId], name: "idx_batch_branch")
+  @@index([productId], name: "idx_batch_product")
+  @@index([isActive], name: "idx_batch_active")
+  @@index([expireDate], name: "idx_batch_expireDate")
+  @@map("batches")
+}
+
+model Purchase {
+  id            String         @id @default(cuid())
+  supplierId    String
+  branchId      String
+  companyId     String
+  invoiceNo     String?
+  purchaseDate  DateTime       @default(now())
+  totalAmount   Float          @default(0)
+  paidAmount    Float          @default(0)
+  outstanding   Float          @default(0)
+  status        String         @default("PENDING")
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  company       Business       @relation(fields: [companyId], references: [id])
+  purchaseItems PurchaseItem[]
+
+  @@index([companyId], name: "idx_purchase_company")
+  @@index([branchId], name: "idx_purchase_branch")
+  @@index([supplierId], name: "idx_purchase_supplier")
+  @@index([status], name: "idx_purchase_status")
+  @@index([purchaseDate], name: "idx_purchase_date")
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  productId  String
+  batchId    String?
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+  batch      Batch?   @relation(fields: [batchId], references: [id])
+
+  @@map("purchase_items")
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String
+  type      String
+  quantity  Int
+  reason    String?
+  reference String?
+  createdAt DateTime @default(now())
+  createdBy String?
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId], name: "idx_stockMovement_product")
+  @@index([type], name: "idx_stockMovement_type")
+  @@index([createdAt], name: "idx_stockMovement_createdAt")
+  @@map("stock_movements")
+}
+
+model Customer {
+  id             String    @id @default(cuid())
+  name           String
+  phone          String    @unique
+  email          String?
+  address        String?
+  branchId       String
+  companyId      String
+  createdBy      String?
+  totalPurchases Float     @default(0)
+  loyaltyPoints  Int       @default(0)
+  isVIP          Boolean   @default(false)
+  lastVisit      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  branch         Branch    @relation(fields: [branchId], references: [id])
+  company        Business  @relation(fields: [companyId], references: [id])
+  sales          Sale[]
+
+  @@index([companyId], name: "idx_customer_company")
+  @@index([branchId], name: "idx_customer_branch")
+  @@index([isActive], name: "idx_customer_active")
+  @@map("customers")
+}
+
+model Sale {
+  id                 String    @id @default(cuid())
+  invoiceNumber      String?   @unique
+  customerId         String?
+  userId             String
+  branchId           String
+  companyId          String
+  createdBy          String?
+  subtotal           Float
+  taxAmount          Float
+  discountAmount     Float     @default(0)
+  discountPercentage Float?    @default(0)
+  totalAmount        Float
+  paidAmount         Float     @default(0)
+  returnedAmount     Float     @default(0)
+  paymentMethod      String
+  paymentStatus      String    @default("PENDING")
+  status             String    @default("COMPLETED")
+  saleDate           DateTime?
+  membershipId       String?
+  uuid               String?   @unique
+  syncStatus         String    @default("PENDING")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  receipts Receipt[]
+  refunds  Refund[]    @relation("SaleRefunds")
+  items    SaleItem[]
+  branch   Branch      @relation(fields: [branchId], references: [id])
+  company  Business    @relation(fields: [companyId], references: [id])
+  customer Customer?   @relation(fields: [customerId], references: [id])
+  user     ZapeeraUser @relation(fields: [userId], references: [id])
+
+  @@index([companyId], name: "idx_sale_company")
+  @@index([branchId], name: "idx_sale_branch")
+  @@index([customerId], name: "idx_sale_customer")
+  @@index([userId], name: "idx_sale_user")
+  @@index([saleDate], name: "idx_sale_date")
+  @@index([status], name: "idx_sale_status")
+  @@index([paymentStatus], name: "idx_sale_paymentStatus")
+  @@index([createdAt], name: "idx_sale_createdAt")
+  @@map("sales")
+}
+
+model SaleItem {
+  id            String    @id @default(cuid())
+  saleId        String
+  productId     String
+  batchId       String? // Link to specific batch
+  createdBy     String?
+  quantity      Int
+  unitsDeducted Int? // Actual units deducted (box => qty * unitsPerBox)
+  unitsPerBox   Int? // Units per box for this sale item
+  saleType      String? // UNIT | BOX
+  unitPrice     Float
+  totalPrice    Float
+  batchNumber   String? // Keep for backward compatibility
+  expiryDate    DateTime?
+  product       Product   @relation(fields: [productId], references: [id])
+  batch         Batch?    @relation(fields: [batchId], references: [id])
+  sale          Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@map("sale_items")
+}
+
+model Receipt {
+  id            String      @id @default(cuid())
+  saleId        String
+  userId        String
+  branchId      String
+  createdBy     String?
+  receiptNumber String      @unique
+  printedAt     DateTime    @default(now())
+  branch        Branch      @relation(fields: [branchId], references: [id])
+  sale          Sale        @relation(fields: [saleId], references: [id])
+  user          ZapeeraUser @relation(fields: [userId], references: [id])
+
+  @@map("receipts")
+}
+
+model Refund {
+  id             String       @id @default(cuid())
+  originalSaleId String
+  refundReason   String
+  refundAmount   Float
+  refundedBy     String
+  createdBy      String?
+  status         String       @default("PENDING")
+  processedAt    DateTime?
+  createdAt      DateTime?    @default(now())
+  updatedAt      DateTime?    @default(now()) @updatedAt
+  items          RefundItem[]
+  originalSale   Sale         @relation("SaleRefunds", fields: [originalSaleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refundedByUser ZapeeraUser  @relation(fields: [refundedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([originalSaleId], name: "idx_refund_sale")
+  @@index([status], name: "idx_refund_status")
+  @@index([createdAt], name: "idx_refund_createdAt")
+  @@map("refunds")
+}
+
+model RefundItem {
+  id        String  @id @default(cuid())
+  refundId  String
+  productId String
+  createdBy String?
+  quantity  Int
+  unitPrice Float
+  reason    String
+  product   Product @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  refund    Refund  @relation(fields: [refundId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("refund_items")
+}
+
+model Attendance {
+  id              String    @id @default(cuid())
+  staffProfileId  String
+  membershipId    String
+  branchId        String
+  checkIn         DateTime
+  checkOut        DateTime?
+  totalHours      Float?
+  status          String    @default("PRESENT")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  staffProfile    StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership      Membership  @relation(fields: [membershipId], references: [id])
+
+  @@index([staffProfileId], name: "idx_attendance_staff_profile")
+  @@index([membershipId], name: "idx_attendance_membership")
+  @@index([branchId], name: "idx_attendance_branch")
+  @@index([checkIn], name: "idx_attendance_checkIn")
+  @@index([status], name: "idx_attendance_status")
+  @@map("attendance")
+}
+
+model Shift {
+  id              String    @id @default(cuid())
+  staffProfileId  String
+  membershipId    String
+  branchId        String
+  shiftDate       DateTime
+  startTime       DateTime
+  endTime         DateTime?
+  openingBalance  Float     @default(0)
+  cashIn          Float     @default(0)
+  cashOut         Float     @default(0)
+  expectedBalance Float?
+  actualBalance   Float?
+  difference      Float?
+  status          String    @default("ACTIVE")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  staffProfile    StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership      Membership  @relation(fields: [membershipId], references: [id])
+
+  @@index([staffProfileId], name: "idx_shift_staff_profile")
+  @@index([membershipId], name: "idx_shift_membership")
+  @@index([branchId], name: "idx_shift_branch")
+  @@index([shiftDate], name: "idx_shift_date")
+  @@index([status], name: "idx_shift_status")
+  @@map("shifts")
+}
+
+model Commission {
+  id                String    @id @default(cuid())
+  staffProfileId    String
+  membershipId      String
+  branchId          String
+  period            String
+  periodType        String    @default("MONTHLY")
+  totalSales        Float     @default(0)
+  totalTransactions Int       @default(0)
+  averageSale       Float     @default(0)
+  baseRate          Float     @default(0.02)
+  bonusRate         Float     @default(0)
+  totalCommission   Float     @default(0)
+  bonusAmount       Float     @default(0)
+  totalAmount       Float     @default(0)
+  status            String    @default("PENDING")
+  paidAt            DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  branch            Branch      @relation(fields: [branchId], references: [id])
+  staffProfile      StaffProfile @relation(fields: [staffProfileId], references: [id])
+  membership        Membership  @relation(fields: [membershipId], references: [id])
+
+  @@index([staffProfileId], name: "idx_commission_staff_profile")
+  @@index([membershipId], name: "idx_commission_membership")
+  @@index([branchId], name: "idx_commission_branch")
+  @@index([period], name: "idx_commission_period")
+  @@index([status], name: "idx_commission_status")
+  @@map("commissions")
+}
+
+model card_details {
+  id              String           @id
+  userId          String
+  last4           String
+  brand           String
+  expiryMonth     Int
+  expiryYear      Int
+  isDefault       Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  users           ZapeeraUser      @relation(fields: [userId], references: [id])
+  billingProfiles BillingProfile[] @relation("billingProfilePaymentMethod")
+}
+
+model Settings {
+  id          String   @id @default(cuid())
+  createdBy   String
+  key         String
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([createdBy, key], name: "createdBy_key")
+  @@index([createdBy], name: "idx_settings_createdBy")
+  @@map("settings")
+}
+
+model ScheduledShift {
+  id            String               @id @default(cuid())
+  name          String
+  startTime     String // Time in HH:MM format
+  endTime       String // Time in HH:MM format
+  date          DateTime // Date of the shift
+  branchId      String
+  maxUsers      Int                  @default(1)
+  status        String               @default("SCHEDULED")
+  notes         String?
+  assignedUsers ScheduledShiftUser[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  branch        Branch               @relation(fields: [branchId], references: [id])
+
+  @@map("scheduled_shifts")
+}
+
+model ScheduledShiftUser {
+  id               String         @id @default(cuid())
+  scheduledShiftId String
+  userId           String
+  assignedAt       DateTime       @default(now())
+  assignedBy       String?
+  scheduledShift   ScheduledShift @relation(fields: [scheduledShiftId], references: [id], onDelete: Cascade)
+  user             ZapeeraUser    @relation(fields: [userId], references: [id])
+
+  @@unique([scheduledShiftId, userId], name: "unique_shift_user")
+  @@map("scheduled_shift_users")
+}
+
+// Enums removed - SQLite doesn't support enums, using String instead
+// All enum values are now stored as strings in the database
+
+model DeviceActivation {
+  id                     String    @id @default(cuid())
+  deviceId               String    @unique
+  fingerprint            String
+  status                 String    @default("PENDING") // PENDING, ACTIVE, INACTIVE
+  licenseKey             String?
+  userId                 String?
+  companyId              String?
+  branchId               String?
+  platform               String?
+  hostname               String?
+  macAddress             String?
+  notes                  String?
+  offlineAccessExpiresAt DateTime?
+  activatedBy            String?
+  activatedAt            DateTime?
+  lastVerifiedAt         DateTime?
+  lastVerifiedStatus     String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user    ZapeeraUser? @relation(fields: [userId], references: [id])
+  company Business?    @relation(fields: [companyId], references: [id])
+  branch  Branch?      @relation(fields: [branchId], references: [id])
+
+  @@map("device_activations")
+}
+
+// =====================================
+// MULTI-TENANT: ACCESS LAYER
+// =====================================
+model Membership {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  roleId     String?
+  status     String   @default("ACTIVE") // ACTIVE, INVITED, INACTIVE
+  invitedBy  String?
+  uuid       String?  @unique
+  syncStatus String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user            ZapeeraUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business        Business           @relation("memberships", fields: [businessId], references: [id], onDelete: Cascade)
+  role            Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  branches        MembershipBranch[]
+  staffProfile    StaffProfile?
+  attendance      Attendance[]
+  shifts          Shift[]
+  commissions     Commission[]
+
+  @@unique([userId, businessId], name: "unique_user_business")
+  @@index([userId], name: "idx_membership_user")
+  @@index([businessId], name: "idx_membership_business")
+  @@map("memberships")
+}
+
+model MembershipBranch {
+  id           String   @id @default(cuid())
+  membershipId String
+  branchId     String
+  uuid         String?  @unique
+  syncStatus   String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation("membershipBranches", fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, branchId], name: "unique_membership_branch")
+  @@index([membershipId], name: "idx_membership_branch_membership")
+  @@index([branchId], name: "idx_membership_branch_branch")
+  @@map("membership_branches")
+}
+
+// =====================================
+// MULTI-TENANT: BUSINESS INVITATIONS
+// =====================================
+model BusinessInvitation {
+  id         String    @id @default(cuid())
+  businessId String
+  email      String // Email of invited person (may not have account yet)
+  invitedBy  String // User ID of inviter
+  roleId     String?
+  status     String    @default("PENDING") // PENDING, ACCEPTED, REJECTED, EXPIRED, CANCELLED
+  expiresAt  DateTime? // When invitation expires
+  token      String    @unique // Unique token for acceptance link
+  acceptedAt DateTime? // When invitation was accepted
+  rejectedAt DateTime? // When invitation was rejected
+  uuid       String?   @unique
+  syncStatus String    @default("PENDING")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  business Business    @relation("businessInvitations", fields: [businessId], references: [id], onDelete: Cascade)
+  inviter  ZapeeraUser @relation("inviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+  role     Role?       @relation("invitationRoles", fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, email], name: "unique_invitation_per_business_email")
+  @@index([businessId], name: "idx_invitation_business")
+  @@index([email], name: "idx_invitation_email")
+  @@index([token], name: "idx_invitation_token")
+  @@index([status], name: "idx_invitation_status")
+  @@map("business_invitations")
+}
+
+// =====================================
+// MULTI-TENANT: RBAC SYSTEM
+// =====================================
+model Role {
+  id         String   @id @default(cuid())
+  businessId String? // NULL for global roles, set for business-specific
+  name       String
+  uuid       String?  @unique
+  syncStatus String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business? @relation("roles", fields: [businessId], references: [id], onDelete: Cascade)
+
+  permissionsV2 RolePermissionV2[]   @relation("rolePermissionsV2")
+  memberships   Membership[]
+  invitations   BusinessInvitation[] @relation("invitationRoles")
+
+  @@unique([businessId, name], name: "unique_role_per_business")
+  @@index([businessId], name: "idx_role_business")
+  @@map("roles")
+}
+
+// =====================================
+// MULTI-TENANT: MODULE SYSTEM (Odoo-like)
+// =====================================
+model Module {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "products", "sales", "inventory"
+  displayName String?
+  description String?
+  isActive    Boolean  @default(true)
+  uuid        String?  @unique
+  syncStatus  String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  businessModules BusinessModule[]
+
+  @@map("modules")
+}
+
+model BusinessModule {
+  id         String   @id @default(cuid())
+  businessId String
+  moduleId   String
+  enabled    Boolean  @default(true)
+  uuid       String?  @unique
+  syncStatus String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation("businessModules", fields: [businessId], references: [id], onDelete: Cascade)
+  module   Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, moduleId], name: "unique_business_module")
+  @@index([businessId], name: "idx_business_module_business")
+  @@map("business_modules")
+}
+
+// =====================================
+// MULTI-TENANT: BUSINESS TYPE TEMPLATES
+// =====================================
+model BusinessType {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "PHARMACY", "RETAIL_STORE"
+  description String?
+  isActive    Boolean  @default(true)
+  uuid        String?  @unique
+  syncStatus  String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules BusinessTypeModule[]
+
+  @@map("business_types")
+}
+
+model BusinessTypeModule {
+  businessTypeId String
+  moduleId       String
+  isEnabled      Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  uuid           String?  @unique
+  syncStatus     String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessType BusinessType     @relation(fields: [businessTypeId], references: [id], onDelete: Cascade)
+  module       ModuleDefinition @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([businessTypeId, moduleId])
+  @@map("business_type_modules")
+}
+
+// =====================================
+// BUSINESS SUBSCRIPTION (one per business)
+// =====================================
+model BusinessSubscription {
+  id               String    @id @default(cuid())
+  businessId       String    @unique
+  planId           String
+  status           String    @default("ACTIVE") // Subscription Status: TRIAL, GRACE, ACTIVE, SUSPENDED, EXPIRED, CANCELLED
+  billingStatus    String    @default("PENDING") // Billing Status: Paid, Pending
+  trialEndsAt      DateTime? // When trial ends (if applicable)
+  currentPeriodEnd DateTime? // Current billing period end
+  billingProfileId String?
+  uuid             String?   @unique
+  syncStatus       String    @default("PENDING")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  business       Business        @relation("businessSubscription", fields: [businessId], references: [id], onDelete: Cascade)
+  plan           Plan            @relation(fields: [planId], references: [id])
+  billingProfile BillingProfile? @relation("subscriptionBillingProfile", fields: [billingProfileId], references: [id])
+
+  @@map("business_subscriptions")
+}
+
+model BillingProfile {
+  id              String   @id @default(cuid())
+  userId          String
+  businessId      String?
+  name            String // Profile name (e.g., "Primary", "Office")
+  email           String
+  phone           String?
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  state           String
+  postalCode      String
+  country         String   @default("US")
+  taxId           String? // Tax ID/VAT number
+  companyName     String? // For business billing
+  isDefault       Boolean  @default(false)
+  paymentMethodId String? // Reference to card_details.id
+  uuid            String?  @unique
+  syncStatus      String   @default("PENDING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          ZapeeraUser            @relation("userBillingProfiles", fields: [userId], references: [id], onDelete: Cascade)
+  business      Business?              @relation("businessBillingProfiles", fields: [businessId], references: [id], onDelete: Cascade)
+  paymentMethod card_details?          @relation("billingProfilePaymentMethod", fields: [paymentMethodId], references: [id])
+  subscriptions BusinessSubscription[] @relation("subscriptionBillingProfile")
+
+  @@map("billing_profiles")
+}
+
+model Plan {
+  id                String   @id @default(cuid())
+  name              String
+  price             Float
+  durationDays      Int
+  trialDurationDays Int      @default(14)
+  isTrial           Boolean  @default(false)
+  maxBranches       Int?
+  maxUsers          Int?
+  maxCounters       Int?
+  trialLimitPerUser Int      @default(1)
+  features          Json?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions BusinessSubscription[]
+  paymentProofs PaymentProof[]
+  entitlements  PlanEntitlement[]      @relation("planEntitlements")
+
+  @@map("platform_plans")
+}
+
+model PaymentProof {
+  id             String  @id @default(cuid())
+  businessId     String
+  planId         String
+  subscriptionId String? // linked once approved
+
+  amount        Float
+  currency      String  @default("PKR")
+  method        String // BANK_TRANSFER | EASYPAISA | JAZZCASH
+  referenceNote String? // TXN ID, cheque number, etc.
+
+  screenshotUrl  String // relative path: payment-proofs/<filename>
+  screenshotHash String? // SHA-256 of file to detect reuse
+
+  status String @default("PENDING") // PENDING | APPROVED | REJECTED
+
+  reviewedBy      String? // adminId
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  submissionsToday Int @default(0) // denormalized; enforced in controller
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation("businessPaymentProofs", fields: [businessId], references: [id])
+  plan     Plan     @relation(fields: [planId], references: [id])
+
+  @@index([businessId, status])
+  @@index([screenshotHash])
+  @@map("payment_proofs")
+}
+
+// =====================================
+// BACKOFFICE: ADMIN SYSTEM
+// =====================================
+model BackOfficeUser {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  role        String // SUPER_ADMIN, ADMIN, FINANCE, SUPPORT, HR
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  logs      BackOfficeActionLog[]
+  loginLogs BackOfficeLoginLog[]
+
+  @@map("backoffice_users")
+}
+
+model BackOfficeActionLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  admin BackOfficeUser @relation(fields: [adminId], references: [id])
+
+  @@map("backoffice_action_logs")
+}
+
+model BackOfficeLoginLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  admin BackOfficeUser @relation(fields: [adminId], references: [id])
+
+  @@map("backoffice_login_logs")
+}
+
+model EmailNotification {
+  id            String    @id @default(cuid())
+  businessId    String?
+  userId        String?
+  type          String // SUBSCRIPTION_EXPIRY_REMINDER, WELCOME, etc.
+  daysRemaining Int?
+  status        String    @default("PENDING") // PENDING, SENT, FAILED
+  error         String?
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+
+  @@index([businessId], name: "idx_emailNotif_business")
+  @@index([userId], name: "idx_emailNotif_user")
+  @@index([type], name: "idx_emailNotif_type")
+  @@index([status], name: "idx_emailNotif_status")
+  @@map("email_notifications")
+}
+
+// =====================================
+// MODULE HIERARCHY V2 (DATABASE-DRIVEN)
+// =====================================
+model ModuleDefinition {
+  id           String   @id @default(cuid())
+  key          String   @unique // "sales", "inventory"
+  name         String // "Sales", "Inventory"
+  icon         String // "ShoppingCart"
+  description  String?
+  sortOrder    Int      @default(0)
+  parentId     String? // For module groups
+  route        String? // "/sales"
+  isSidebar    Boolean  @default(true)
+  isCore       Boolean  @default(false) // Core = always available
+  isActive     Boolean  @default(true)
+  moduleSource String   @default("CORE") // CORE, APP, THIRD_PARTY
+  uuid         String?  @unique
+  syncStatus   String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  businessTypeModules BusinessTypeModule[]
+  pages               ModulePage[]
+  dependencies        ModuleDependency[]       @relation("dependencies")
+  dependents          ModuleDependency[]       @relation("dependents")
+  businessOverrides   BusinessModuleOverride[]
+
+  @@index([key])
+  @@index([isActive])
+  @@map("module_definitions")
+}
+
+model ModulePage {
+  id         String   @id @default(cuid())
+  moduleId   String
+  key        String // "products", "categories"
+  name       String // "Products", "Categories"
+  route      String?
+  icon       String?
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  uuid       String?  @unique
+  syncStatus String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  module            ModuleDefinition   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  rolePermissionsV2 RolePermissionV2[]
+
+  @@unique([moduleId, key])
+  @@index([moduleId])
+  @@map("module_pages")
+}
+
+model Operation {
+  id          String   @id @default(cuid())
+  key         String   @unique // "read", "create", "update", "delete", "export", "import", "approve", "print"
+  name        String
+  description String? // Operation description
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  uuid        String?  @unique
+  syncStatus  String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissionsV2 RolePermissionV2[]
+
+  @@map("operations")
+}
+
+model RolePermissionV2 {
+  id           String   @id @default(cuid())
+  roleId       String
+  operationKey String // "read", "create", "update", "delete"
+  modulePageId String // Specific page within module
+  allowed      Boolean  @default(false)
+  priority     Int      @default(0) // For conflict resolution
+  uuid         String?  @unique
+  syncStatus   String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  role       Role       @relation("rolePermissionsV2", fields: [roleId], references: [id], onDelete: Cascade)
+  operation  Operation  @relation(fields: [operationKey], references: [key])
+  modulePage ModulePage @relation(fields: [modulePageId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, operationKey, modulePageId])
+  @@index([roleId])
+  @@index([modulePageId])
+  @@map("role_permissions_v2")
+}
+
+model BusinessModuleOverride {
+  id             String   @id @default(cuid())
+  businessId     String
+  moduleId       String
+  enabled        Boolean  @default(true)
+  disabledReason String? // "owner_disabled", "testing", "cost_saving"
+  notes          String?
+  uuid           String?  @unique
+  syncStatus     String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business         @relation("businessModuleOverridesV2", fields: [businessId], references: [id], onDelete: Cascade)
+  module   ModuleDefinition @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, moduleId])
+  @@index([businessId])
+  @@map("business_module_overrides")
+}
+
+model ModuleDependency {
+  id                String   @id @default(cuid())
+  moduleId          String
+  dependsOnModuleId String
+  isHardDependency  Boolean  @default(true) // true = hard block, false = warning
+  uuid              String?  @unique
+  syncStatus        String   @default("PENDING")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  module    ModuleDefinition @relation("dependencies", fields: [moduleId], references: [id], onDelete: Cascade)
+  dependsOn ModuleDefinition @relation("dependents", fields: [dependsOnModuleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, dependsOnModuleId])
+  @@index([moduleId])
+  @@map("module_dependencies")
+}
+
+model PlanEntitlement {
+  id               String   @id @default(cuid())
+  planId           String
+  moduleKey        String // "inventory", "accounting", "payroll"
+  entitlementLevel String   @default("FULL") // FULL, LIMITED
+  uuid             String?  @unique
+  syncStatus       String   @default("PENDING")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  plan Plan @relation("planEntitlements", fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, moduleKey])
+  @@index([planId])
+  @@map("plan_entitlements")
+}
+
+// â”€â”€â”€ Backoffice: Support Tickets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+model SupportTicket {
+  id           String   @id @default(cuid())
+  businessId   String?
+  userId       String?
+  subject      String
+  description  String
+  status       String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority     String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assignedTo   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([businessId])
+  @@map("support_tickets")
+}
+
+// â”€â”€â”€ Backoffice: Announcements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  type       String   @default("INFO") // INFO, WARNING, MAINTENANCE, UPDATE
+  status     String   @default("ACTIVE") // ACTIVE, INACTIVE, ARCHIVED
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@map("announcements")
+}
+
+// â”€â”€â”€ Backoffice: Feature Flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String   @default("")
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+// â”€â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Persisted notifications for users (in-app notification feed)
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String?
+  type       String   // e.g. sale_created, subscription_expiry, invitation_received, staff_added, payment_approved, inventory_low, system_announcement
+  title      String
+  body       String
+  actionUrl  String?  // deep link to relevant page
+  metadata   String?  // JSON string for extra data
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     ZapeeraUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_notification_user")
+  @@index([userId, read], name: "idx_notification_user_read")
+  @@index([businessId], name: "idx_notification_business")
+  @@index([type], name: "idx_notification_type")
+  @@index([createdAt], name: "idx_notification_created")
+  @@map("notifications")
+}
+
+// Per-user notification preference for each category
+// One row per user per category. Missing rows = enabled (default).
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   // sale, inventory, subscription, invitation, staff, billing, system
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category], name: "unique_notification_pref_user_category")
+  @@index([userId], name: "idx_notif_pref_user")
+  @@map("notification_preferences")
+}
+

@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
 
-const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
+const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.sqlite.prisma');
 const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
 const sqliteDir = path.dirname(sqlitePath);
 
@@ -27,43 +27,30 @@ try {
     console.log('✅ SQLite directory exists');
   }
 
-  // Step 2: Read and check schema
+  // Step 2: Verify the committed SQLite schema (deterministic — never mutated)
   console.log('\nStep 2: Checking Prisma schema...');
-  let schema = fs.readFileSync(schemaPath, 'utf8');
-
+  if (!fs.existsSync(schemaPath)) {
+    console.error('❌ SQLite schema file not found:', schemaPath);
+    throw new Error('Missing prisma/schema.sqlite.prisma');
+  }
+  const schema = fs.readFileSync(schemaPath, 'utf8');
   const currentProvider = schema.match(/provider\s*=\s*"(\w+)"/);
   const provider = currentProvider ? currentProvider[1] : null;
-
   if (provider !== 'sqlite') {
-    console.log(`⚠️  Schema is set to ${provider}, switching to SQLite...`);
-
-    // Replace provider
-    schema = schema.replace(
-      /provider\s*=\s*"postgresql"/,
-      'provider = "sqlite"'
-    );
-
-    // Fix BigInt to Int for SQLite compatibility
-    schema = schema.replace(
-      /maxStock\s+BigInt\?/g,
-      'maxStock             Int?'
-    );
-
-    fs.writeFileSync(schemaPath, schema, 'utf8');
-    console.log('✅ Schema switched to SQLite');
-  } else {
-    console.log('✅ Schema is already set to SQLite');
+    console.error(`❌ prisma/schema.sqlite.prisma has provider "${provider}", expected "sqlite".`);
+    throw new Error('Invalid SQLite schema provider');
   }
+  console.log('✅ Deterministic SQLite schema verified (provider = sqlite)');
 
   // Step 3: Set DATABASE_URL
   console.log('\nStep 3: Setting DATABASE_URL...');
   process.env.DATABASE_URL = `file:${sqlitePath}`;
   console.log('✅ DATABASE_URL set to:', process.env.DATABASE_URL);
 
-  // Step 4: Regenerate Prisma client
+  // Step 4: Regenerate Prisma client from the deterministic SQLite schema
   console.log('\nStep 4: Regenerating Prisma client...');
   try {
-    execSync('npx prisma generate', {
+    execSync('node scripts/generate-client.js sqlite', {
       stdio: 'inherit',
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
@@ -87,7 +74,7 @@ try {
   }
 
   try {
-    execSync('npx prisma db push --accept-data-loss', {
+    execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --accept-data-loss', {
       stdio: 'pipe',
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
@@ -150,7 +137,7 @@ try {
     // Now try again with fresh database
     console.log('🔄 Creating fresh database...');
     try {
-      execSync('npx prisma db push --accept-data-loss', {
+      execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --accept-data-loss', {
         stdio: 'inherit',
         cwd: path.join(__dirname, '..'),
         env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
@@ -202,6 +189,6 @@ try {
   console.error('  1. Make sure you have Node.js and npm installed');
   console.error('  2. Run: npm install');
   console.error('  3. Check that Prisma is installed: npx prisma --version');
-  console.error('  4. Try manually: npx prisma generate && npx prisma db push');
+  console.error('  4. Try manually: npm run setup:electron && npm run db:push');
   process.exit(1);
 }

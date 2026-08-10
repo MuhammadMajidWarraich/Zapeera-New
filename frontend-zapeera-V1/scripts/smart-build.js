@@ -77,7 +77,7 @@ async function smartBuild() {
   const force = process.argv.includes('--force');
 
   let needsFrontend = force || needsRebuild('src', cache.frontend);
-  let needsBackend = force || needsRebuild('../backend-zapeera-v1/src', cache.backend);
+  let needsBackend = force || needsRebuild('../backend-zapeera-v1-main/src', cache.backend);
 
   console.log(`Frontend rebuild needed: ${needsFrontend ? '✅ YES' : '⏭️  SKIP (no changes)'}`);
   console.log(`Backend rebuild needed: ${needsBackend ? '✅ YES' : '⏭️  SKIP (no changes)'}\n`);

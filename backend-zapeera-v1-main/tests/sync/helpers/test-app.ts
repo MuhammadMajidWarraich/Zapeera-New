@@ -19,7 +19,7 @@ async function pushSchema(): Promise<void> {
   for (const [k, v] of Object.entries(process.env)) {
     if (typeof v === 'string' && !v.includes('\0')) env[k] = v;
   }
-  execSync('npx prisma db push --skip-generate --accept-data-loss', {
+  execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --skip-generate --accept-data-loss', {
     cwd: path.resolve(__dirname, '..', '..', '..'),
     env: { ...env, DATABASE_URL: DB_URL },
     stdio: 'pipe',

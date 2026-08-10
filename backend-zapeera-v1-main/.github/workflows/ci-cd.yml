@@ -47,7 +47,7 @@ jobs:
             git pull origin main
             npm ci
             npm run setup:web
-            npx prisma migrate deploy
+            node scripts/prisma-mode.js migrate deploy
             npm run build
             pm2 restart zapeera-backend || pm2 start dist/server.js --name zapeera-backend
             pm2 save

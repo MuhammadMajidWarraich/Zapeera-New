@@ -6,6 +6,7 @@
 import '../config/database.init';
 import { PrismaClient } from '@prisma/client';
 import { getDatabaseService } from '../services/database.service';
+import { isPostgreSQLMode, isSQLiteMode } from '../config/database-mode';
 
 let cachedClient: PrismaClient | null = null;
 
@@ -13,15 +14,14 @@ let cachedClient: PrismaClient | null = null;
  * Check if we're using SQLite
  */
 export function isSQLite(): boolean {
-  const dbUrl = process.env.DATABASE_URL || '';
-  return dbUrl.startsWith('file:');
+  return isSQLiteMode();
 }
 
 /**
  * Check if we're using PostgreSQL
  */
 export function isPostgreSQL(): boolean {
-  return !isSQLite();
+  return isPostgreSQLMode();
 }
 
 /**

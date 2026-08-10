@@ -126,16 +126,25 @@ npm run start:web
 
 ## Prisma & Database Commands
 
+Prisma generation is deterministic per mode — each mode uses its own committed
+schema input (`prisma/schema.sqlite.prisma` or `prisma/schema.postgresql.prisma`)
+and the generated client must always match the selected mode. The server
+enforces this at startup and refuses to boot on mismatch.
+
 ```bash
-npm run db:generate
-npm run db:push
-npm run db:migrate
-npm run db:studio
-npm run db:switch-postgresql
-npm run db:switch-sqlite
-npm run setup:web
-npm run setup:electron
+npm run dev:web          # PostgreSQL (web) — generates client, then starts dev server
+npm run dev:electron     # SQLite (desktop) — generates client, initializes DB, starts dev server
+npm run setup:web        # generate PostgreSQL client (production web build)
+npm run setup:electron   # generate SQLite client (Electron packaging)
+npm run db:generate      # generate client for the mode selected by the environment
+npm run db:push          # prisma db push against the selected mode's schema
+npm run db:migrate       # prisma migrate dev against the selected mode's schema
+npm run db:deploy        # prisma migrate deploy against the selected mode's schema
+npm run db:studio        # prisma studio against the selected mode's schema
 ```
+
+Both schema files MUST stay identical except the datasource provider —
+`npm run setup:*`, `npm test`, and `scripts/check-schema-sync.js` fail if they drift.
 
 ## Testing
 

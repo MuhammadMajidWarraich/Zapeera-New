@@ -12,6 +12,7 @@ import { Client } from 'pg';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { resolveDatabaseMode, isPostgresUrl as isPostgresUrlSafe } from '../config/database-mode';
 
 function withPostgresConnectionLimit(databaseUrl: string): string {
   try {
@@ -53,8 +54,8 @@ class DatabaseService {
 
   constructor() {
     const currentUrl = process.env.DATABASE_URL || '';
-    const isPostgresUrl = currentUrl.startsWith('postgresql://') || currentUrl.startsWith('postgres://');
-    this.isPostgreSQLMode = isPostgresUrl || process.env.USE_POSTGRESQL === 'true';
+    this.isPostgreSQLMode = resolveDatabaseMode(process.env) === 'postgresql';
+    const isPostgresUrl = isPostgresUrlSafe(currentUrl);
 
     // PostgreSQL URL - use DATABASE_URL if it's already postgres, otherwise check other env vars
     const postgresUrl = isPostgresUrl

@@ -3,6 +3,11 @@
 // ES6 imports are hoisted, so we need CommonJS to set DATABASE_URL before Prisma loads
 require('./config/database-url-init');
 
+// STARTUP ASSERTION: the generated Prisma client must match the selected
+// database mode (SQLite for Electron, PostgreSQL for Web). Fails fast with
+// actionable remediation instead of a confusing Prisma crash. Secret-safe.
+require('./config/prisma-mode-assert').assertDatabaseModeMatch();
+
 // Now import the TypeScript database initialization (for additional setup)
 import './config/database.init';
 

@@ -3,19 +3,20 @@
  * Handles differences between SQLite and PostgreSQL
  */
 
+import { isPostgreSQLMode, isSQLiteMode } from '../config/database-mode';
+
 /**
  * Check if we're using SQLite
  */
 export function isSQLite(): boolean {
-  const dbUrl = process.env.DATABASE_URL || '';
-  return dbUrl.startsWith('file:');
+  return isSQLiteMode();
 }
 
 /**
  * Check if we're using PostgreSQL
  */
 export function isPostgreSQL(): boolean {
-  return !isSQLite();
+  return isPostgreSQLMode();
 }
 
 /**

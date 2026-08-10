@@ -1,30 +1,40 @@
 import { Express, Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { getDatabaseService, DatabaseType } from '../services/database.service';
+import { resolveDatabaseMode, databaseModeLabel } from '../config/database-mode';
+import { readGeneratedProvider } from '../config/prisma-mode-assert';
 
 async function healthCheckHandler(_req: Request, res: Response): Promise<void> {
   try {
     const dbService = getDatabaseService();
     const dbStatus = dbService.getStatus();
     const currentType = dbService.getCurrentType();
+    const configuredMode = resolveDatabaseMode();
+    const generatedProvider = readGeneratedProvider();
 
+    let select1 = 'skipped';
     try {
       const prismaClient = await getPrisma();
       try {
         if (currentType === DatabaseType.SQLITE) {
           await prismaClient.$queryRaw`SELECT datetime('now') as test`;
+          select1 = 'ok';
         } else {
           await prismaClient.$queryRaw`SELECT 1 as test`;
+          select1 = 'ok';
         }
       } catch {
         try {
           await prismaClient.$queryRaw`SELECT 1 as test`;
+          select1 = 'ok';
         } catch {
           // Both queries failed; connection may still work
+          select1 = 'failed';
         }
       }
     } catch (err) {
       console.error('[Health] Database connection error:', err);
+      select1 = 'failed';
     }
 
     res.json({
@@ -32,6 +42,11 @@ async function healthCheckHandler(_req: Request, res: Response): Promise<void> {
       timestamp: new Date().toISOString(),
       database: {
         type: currentType === DatabaseType.SQLITE ? 'sqlite' : 'postgresql',
+        mode: configuredMode,
+        modeLabel: databaseModeLabel(configuredMode),
+        provider: generatedProvider || 'unknown',
+        modeMatch: configuredMode === generatedProvider,
+        select1,
         status: dbStatus.connectionStatus,
         isOnline: dbService.isOnline(),
         isOffline: dbService.isOffline(),
