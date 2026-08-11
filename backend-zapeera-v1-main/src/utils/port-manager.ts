@@ -98,11 +98,12 @@ export async function probeIsZapeera(port: number, timeoutMs = 1500): Promise<bo
  */
 export async function findPortOwnerPids(
   port: number,
-  execImpl: (command: string, opts?: { encoding?: string; timeout?: number }) => string = execSyncSafe
+  execImpl: (command: string, opts?: { encoding?: string; timeout?: number }) => string = execSyncSafe,
+  platform: NodeJS.Platform = process.platform
 ): Promise<PortOwnerInfo> {
   let pids: string[] = [];
   try {
-    if (process.platform === 'win32') {
+    if (platform === 'win32') {
       const output = String(execImpl(`netstat -ano | findstr :${port}`, { encoding: 'utf8', timeout: 2000 }));
       pids = parseNetstatListeningPids(output, port);
     } else {

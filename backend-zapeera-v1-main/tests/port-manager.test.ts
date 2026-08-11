@@ -62,8 +62,10 @@ describe('isZapeeraHealthPayload', () => {
 
 describe('findPortOwnerPids (Issue 7 — verify before stopping)', () => {
   it('never reports a non-Zapeera listener as stoppable (confirmedZapeera=false)', async () => {
-    // exec stub returns a LISTENING pid; the probe will fail (no real server),
-    // so the owner must NOT be confirmed as Zapeera.
+    // exec stub returns a LISTENING pid (Windows netstat format); the probe
+    // will fail (no real server), so the owner must NOT be confirmed as
+    // Zapeera. The platform is injected so the test is deterministic on CI
+    // (Linux) as well.
     const owner = await findPortOwnerPids(59999, (() => {
       let called = false;
       return (): string => {
@@ -73,7 +75,23 @@ describe('findPortOwnerPids (Issue 7 — verify before stopping)', () => {
         }
         throw new Error('no more calls');
       };
-    })() as any);
+    })() as any, 'win32');
+
+    expect(owner.pids).toEqual(['4242']);
+    expect(owner.confirmedZapeera).toBe(false);
+  });
+
+  it('parses the lsof output format on Linux/macOS (confirmedZapeera=false)', async () => {
+    const owner = await findPortOwnerPids(59997, (() => {
+      let called = false;
+      return (): string => {
+        if (!called) {
+          called = true;
+          return '4242\n';
+        }
+        throw new Error('no more calls');
+      };
+    })() as any, 'linux');
 
     expect(owner.pids).toEqual(['4242']);
     expect(owner.confirmedZapeera).toBe(false);

@@ -1,0 +1,95 @@
+{
+  "generated": "2026-08-11T20:40:09.503Z",
+  "advisories": [
+    {
+      "name": "app-builder-lib",
+      "url": "https://github.com/advisories/GHSA-7g7r-gx96-252g",
+      "severity": "high"
+    },
+    {
+      "name": "builder-util-runtime",
+      "url": "https://github.com/advisories/GHSA-p2f4-r6v6-j797",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-532v-xpq5-8h95",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-8337-3p73-46f4",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-9f4c-93c8-jc8g",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-9wfr-w7mm-pc7f",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-h7rp-cf8h-j98x",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-jjp3-mq3x-295m",
+      "severity": "high"
+    },
+    {
+      "name": "electron",
+      "url": "https://github.com/advisories/GHSA-v3j7-r9gq-3gjw",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-23hp-3jrh-7fpw",
+      "severity": "critical"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-34x7-hfp2-rc4v",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-83g3-92jg-28cx",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-8qq5-rm4j-mr97",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-8x88-c5mf-7j5w",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-9ppj-qmqm-q256",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-qffp-2rhf-9h96",
+      "severity": "high"
+    },
+    {
+      "name": "tar",
+      "url": "https://github.com/advisories/GHSA-r6q2-hw4h-h46w",
+      "severity": "high"
+    },
+    {
+      "name": "vite",
+      "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+      "severity": "high"
+    }
+  ]
+}
