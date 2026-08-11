@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'backend-zapeera-v1-main/**'
+  workflow_dispatch:
 
 jobs:
   backend-validate:
@@ -113,7 +114,7 @@ jobs:
         # plus explicit project/service ids. Runs from backend-zapeera-v1-main
         # so `railway up` uploads the backend root (Railway builds it).
         # Skipped (with a notice) when the Railway secrets are not configured.
-        if: env.RAILWAY_TOKEN != ''
+        if: secrets.RAILWAY_TOKEN != ''
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
@@ -121,5 +122,5 @@ jobs:
         run: npx --yes @railway/cli@latest up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "${{ secrets.RAILWAY_ENVIRONMENT || 'production' }}" -m "deploy ${{ github.sha }}"
 
       - name: Railway deploy not configured
-        if: env.RAILWAY_TOKEN == ''
-        run: echo "::warning::Railway deploy SKIPPED — add RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (, RAILWAY_ENVIRONMENT) secrets to enable it."
+        if: secrets.RAILWAY_TOKEN == ''
+        run: echo "::warning::Railway deploy SKIPPED — add RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (and optional RAILWAY_ENVIRONMENT) repository secrets to enable automatic deploys."
