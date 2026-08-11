@@ -108,9 +108,12 @@ jobs:
         run: npm run build:prod
 
       - name: Deploy to Railway
-        uses: railwayapp/actions/deploy@v3
-        with:
-          projectId: ${{ secrets.RAILWAY_PROJECT_ID }}
-          serviceId: ${{ secrets.RAILWAY_SERVICE_ID }}
-          token: ${{ secrets.RAILWAY_TOKEN }}
-          dir: backend-zapeera-v1-main
+        # railwayapp/actions was retired — Railway now ships deploy tooling via
+        # the official CLI (@railway/cli). Project token auth (RAILWAY_TOKEN)
+        # plus explicit project/service ids. Runs from backend-zapeera-v1-main
+        # so `railway up` uploads the backend root (Railway builds it).
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: npx --yes @railway/cli@latest up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" -m "deploy ${{ github.sha }}"
