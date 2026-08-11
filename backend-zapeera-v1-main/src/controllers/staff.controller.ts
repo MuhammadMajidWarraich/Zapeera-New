@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
+import { isBusinessCreator } from '../utils/membership-bridge.util';
 import Joi from 'joi';
 import bcrypt from 'bcryptjs';
 import logger from '../utils/logger';
@@ -378,10 +379,12 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     });
 
     if (!membership) {
+      // Business creator must always be OWNER, regardless of the submitted role.
+      const effectiveRole = (await isBusinessCreator(prisma, businessId, user.id)) ? 'OWNER' : roleStr;
       const role = await prisma.role.findFirst({
         where: {
           businessId,
-          name: roleStr
+          name: effectiveRole
         }
       });
 
@@ -394,14 +397,18 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
         }
       });
     } else if (roleStr) {
-      // User is already a member — keep the flow idempotent by updating the role
+      // User is already a member — keep the flow idempotent by updating the role.
+      // NEVER demote the business creator through the staff edit flow.
+      const canChangeRole =
+        String(roleStr).toUpperCase() === 'OWNER' ||
+        !(await isBusinessCreator(prisma, businessId, user.id));
       const role = await prisma.role.findFirst({
         where: {
           businessId,
           name: roleStr
         }
       });
-      if (role && membership.roleId !== role.id) {
+      if (role && canChangeRole && membership.roleId !== role.id) {
         await prisma.membership.update({
           where: { id: membership.id },
           data: { roleId: role.id }

@@ -749,6 +749,22 @@ async function startServer(): Promise<void> {
 
           // Update process.env.PORT so other parts of the app know the actual port
           process.env.PORT = currentPort.toString();
+
+          // Warm-up (non-blocking): pre-seed canonical module definitions so
+          // the FIRST request after a restart does not pay the seeding
+          // latency. Without this, the first sidebar load after a fresh
+          // deploy shows only a few (locked) items for a few seconds.
+          try {
+            const { getPrismaSync } = require('./utils/db.util');
+            const { ensureModuleAccessV2SeedData } = require('./utils/modules-v2.util');
+            setTimeout(() => {
+              ensureModuleAccessV2SeedData(getPrismaSync()).catch((warmupErr: any) => {
+                console.error('[Warmup] Canonical module seeding failed:', String(warmupErr?.message || warmupErr));
+              });
+            }, 0);
+          } catch (warmupError) {
+            console.warn('[Warmup] Skipped module seeding warm-up:', String((warmupError as any)?.message || warmupError));
+          }
         });
 
         // Handle server startup errors

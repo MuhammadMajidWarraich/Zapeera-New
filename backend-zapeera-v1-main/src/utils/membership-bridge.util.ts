@@ -40,6 +40,22 @@ export const ensureBusinessRole = async (
   }
 };
 
+export const isBusinessCreator = async (
+  prisma: PrismaClient,
+  businessId: string,
+  userId: string
+): Promise<boolean> => {
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { createdBy: true },
+    });
+    return !!business && String(business.createdBy) === String(userId);
+  } catch {
+    return false;
+  }
+};
+
 export const upsertMembership = async (
   prisma: PrismaClient,
   params: {
@@ -62,15 +78,40 @@ export const upsertMembership = async (
 
     if (existing[0]?.id) {
       const id = String(existing[0].id);
-      await prisma.$executeRaw`
-        UPDATE memberships
-        SET "roleId" = ${params.roleId || null},
-            status = ${status},
-            "invitedBy" = ${params.invitedBy || null},
-            "updatedAt" = CURRENT_TIMESTAMP,
-            "syncStatus" = 'PENDING'
-        WHERE id = ${id}
-      `;
+      // NEVER demote the business creator via a generic upsert: the creator
+      // must keep OWNER. If a caller passes a non-OWNER role for the creator,
+      // keep the existing role and only update status/invitedBy.
+      let roleId: string | null | undefined = params.roleId || null;
+      if (params.roleId) {
+        const roleRow = await prisma.$queryRaw<any[]>`
+          SELECT name FROM roles WHERE id = ${params.roleId} LIMIT 1
+        `;
+        const roleName = String(roleRow?.[0]?.name || '').toUpperCase();
+        if (roleName !== 'OWNER' && (await isBusinessCreator(prisma, params.businessId, params.userId))) {
+          console.warn(`[Membership] ⚠️ Refusing to demote business creator ${params.userId} from OWNER (requested role: ${roleName})`);
+          roleId = undefined; // keep the existing role untouched
+        }
+      }
+      if (roleId === undefined) {
+        await prisma.$executeRaw`
+          UPDATE memberships
+          SET status = ${status},
+              "invitedBy" = ${params.invitedBy || null},
+              "updatedAt" = CURRENT_TIMESTAMP,
+              "syncStatus" = 'PENDING'
+          WHERE id = ${id}
+        `;
+      } else {
+        await prisma.$executeRaw`
+          UPDATE memberships
+          SET "roleId" = ${roleId},
+              status = ${status},
+              "invitedBy" = ${params.invitedBy || null},
+              "updatedAt" = CURRENT_TIMESTAMP,
+              "syncStatus" = 'PENDING'
+          WHERE id = ${id}
+        `;
+      }
       return id;
     }
 

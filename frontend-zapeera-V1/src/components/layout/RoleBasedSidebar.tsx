@@ -538,6 +538,32 @@ export const RoleBasedSidebar: React.FC = () => {
   const mainGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'main'), [visibleGroups]);
   const managementGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'management'), [visibleGroups]);
 
+  // Until the first modules/hierarchy payload arrives, the hook exposes a
+  // default state where every module looks locked. Render a skeleton instead
+  // of that misleading default menu during the first load.
+  const hasSidebarData = hierarchy.length > 0 || Object.keys(moduleOrder).length > 0;
+
+  if (modulesLoading && !hasSidebarData) {
+    return (
+      <div
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f]',
+          isCollapsed ? 'w-[72px]' : 'w-[272px]',
+        )}
+      >
+        <div className={cn('flex items-center px-6 pb-6 pt-[30px]', isCollapsed && 'justify-center px-3')}>
+          <div className="h-[42px] w-[42px] shrink-0 animate-pulse rounded-[13px] bg-white/10" />
+          {!isCollapsed && <div className="ml-3.5 h-5 w-24 animate-pulse rounded-md bg-white/10" />}
+        </div>
+        <div className="flex-1 space-y-2 px-3.5">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-9 animate-pulse rounded-lg bg-white/[0.05]" style={{ animationDelay: `${i * 90}ms` }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(

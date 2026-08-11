@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
+import { isBusinessCreator } from '../utils/membership-bridge.util';
 import { ROLE_PERMISSIONS, getRolePermissions as getRolePermissionsConfig, getAccessibleResources as getAccessibleResourcesConfig, getAllowedActions as getAllowedActionsConfig, hasPermission } from '../config/permissions';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
@@ -270,8 +271,19 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Update membership role instead of user table
+    // The business creator must stay OWNER: demoting them removes the
+    // business's ownership entirely.
     const prisma = await getPrisma();
+    if (role !== 'OWNER' && (await isBusinessCreator(prisma, businessId, userId))) {
+      res.status(400).json({
+        success: false,
+        message: 'The business creator cannot be demoted from OWNER'
+      });
+      return;
+    }
+
+    // Update membership role instead of user table
+    // First, find or create the role
     
     // First, find or create the role
     let roleRecord = await prisma.role.findFirst({
