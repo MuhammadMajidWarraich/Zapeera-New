@@ -1128,7 +1128,7 @@ export const assignSubscription = async (req: Request, res: Response): Promise<v
     // Mark previous active subscriptions as REPLACED
     await prisma.businessSubscription.updateMany({
       where: { businessId, status: { in: ['ACTIVE', 'TRIAL'] } },
-      data: { status: 'REPLACED' }
+      data: { status: 'REPLACED', updatedAt: new Date() }
     });
 
     const startDate = new Date();

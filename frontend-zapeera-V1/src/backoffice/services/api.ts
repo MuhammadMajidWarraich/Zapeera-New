@@ -171,6 +171,19 @@ export const backofficeApi = {
   getAllPlans: (): Promise<{ success: boolean; data: any[] }> =>
     request('/module-permissions/plans'),
 
+  // Canonical atomic policies (single source of truth — replaces the legacy
+  // module-permissions saves above)
+  publishPlanPolicy: (planId: string, modules: Array<{ key: string; entitlementLevel?: string; pages?: Array<{ key: string; entitlementLevel: string }> }>): Promise<{ success: boolean; data: unknown }> =>
+    request(`/policies/plans/${planId}`, { method: 'PUT', body: JSON.stringify({ modules }) }),
+  publishRolePolicy: (roleId: string, permissions: Array<{ moduleKey: string; pageKey: string; operationKey: string; allowed: boolean; scope?: string }>): Promise<{ success: boolean; data: unknown }> =>
+    request(`/policies/roles/${roleId}`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
+  getPolicyRoles: (): Promise<{ success: boolean; data: Array<{ id: string; name: string; isSystem: boolean; permissionState: string; policyVersion: number }> }> =>
+    request('/policies/roles'),
+  publishBusinessTypePolicy: (businessTypeId: string, modules: Array<{ key: string; enabled: boolean; pages?: Array<{ key: string; enabled: boolean }> }>): Promise<{ success: boolean; data: unknown }> =>
+    request(`/policies/business-types/${businessTypeId}`, { method: 'PUT', body: JSON.stringify({ modules }) }),
+  previewEffectiveAccess: (body: { businessTypeId?: string; planId: string; roleId?: string }): Promise<{ success: boolean; data: unknown }> =>
+    request('/policies/preview', { method: 'POST', body: JSON.stringify(body) }),
+
   // Payment Proofs
   getPaymentProofs: (): Promise<{ success: boolean; data: PaymentProof[] }> =>
     request('/payment-proofs'),
@@ -182,12 +195,12 @@ export const backofficeApi = {
   // Audit Logs
   getAuditLogs: (params?: string): Promise<{ success: boolean; data: AuditLog[] }> =>
     request(`/logs/actions${params ? `?${params}` : ''}`),
-  getLoginLogs: (): Promise<{ success: boolean; data: any[] }> => request('/logs/logins'),
+  getLoginLogs: (): Promise<{ success: boolean; data: unknown[] }> => request('/logs/logins'),
 
   // Impersonation
-  startImpersonation: (businessId: string): Promise<{ success: boolean; data: { token: string; session: any } }> =>
+  startImpersonation: (businessId: string): Promise<{ success: boolean; data: { token: string; session: unknown } }> =>
     request('/impersonate', { method: 'POST', body: JSON.stringify({ businessId }) }),
-  validateImpersonation: (token: string): Promise<{ success: boolean; data: any }> =>
+  validateImpersonation: (token: string): Promise<{ success: boolean; data: unknown }> =>
     request('/impersonate/validate', { method: 'POST', body: JSON.stringify({ token }) }),
 
   // Support

@@ -47,6 +47,11 @@ import {
   updateBusinessTypeSubModulePermission,
   updatePlanSubModulePermission,
   updateRoleSubModulePermission,
+  publishPlanPolicy,
+  publishRolePolicy,
+  publishBusinessTypePolicy,
+  previewEffectiveAccess,
+  listPolicyRoles,
 } from '../controllers/module-permissions.controller';
 import {
   generateImpersonationToken,
@@ -156,6 +161,15 @@ router.put('/module-permissions/roles/:roleName', adminAuthenticate, adminRoleGu
 router.put('/business-types/:id/sub-modules', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), updateBusinessTypeSubModulePermission);
 router.put('/module-permissions/plans/:planId/sub-modules', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), updatePlanSubModulePermission);
 router.put('/module-permissions/roles/:roleName/sub-modules', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), updateRoleSubModulePermission);
+
+/**
+ * Canonical atomic policy routes (single source of truth)
+ */
+router.put('/policies/plans/:planId', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), publishPlanPolicy);
+router.put('/policies/roles/:roleId', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), publishRolePolicy);
+router.put('/policies/business-types/:businessTypeId', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), publishBusinessTypePolicy);
+router.post('/policies/preview', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE', 'SUPPORT'), previewEffectiveAccess);
+router.get('/policies/roles', adminAuthenticate, listPolicyRoles);
 
 /**
  * Businesses Management Routes

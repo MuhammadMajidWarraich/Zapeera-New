@@ -7,12 +7,12 @@ on:
       - 'backend-zapeera-v1-main/**'
 
 jobs:
-  deploy:
+  backend-validate:
+    name: Backend validation
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend-zapeera-v1-main
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,12 +21,87 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: backend-zapeera-v1-main/package-lock.json
+
+      - name: Install dependencies (deterministic)
+        run: npm ci
+
+      - name: Schema parity check
+        run: node scripts/check-schema-sync.js
+
+      - name: Backend test suite (deterministic SQLite test mode)
+        run: npm test
+
+      - name: Confirm Prisma provider is restored after tests
+        # The test runner restores the previously generated provider. In CI
+        # nothing was generated before, so the SQLite test client must remain.
+        run: node scripts/check-generated-provider.js sqlite
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Route-policy / authorization tests
+        run: node scripts/run-tests.js --testPathPattern="(route-inventory|module-route-protection|module-page-permissions)"
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+  frontend-validate:
+    name: Frontend validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-zapeera-V1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-zapeera-V1/package-lock.json
+
+      - name: Install dependencies (deterministic)
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run build:typecheck
+
+      - name: Lint (baseline gate — no new issues)
+        run: npm run lint:gate
+
+      - name: Production build
+        run: npm run build:prod
+
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+
+  deploy:
+    name: Deploy to Railway
+    needs: [backend-validate, frontend-validate]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-zapeera-v1-main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend-zapeera-v1-main/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build
-        run: npm run build:prod:force
+      - name: Build (validated — no forced flags)
+        run: npm run build:prod
 
       - name: Deploy to Railway
         uses: railwayapp/actions/deploy@v3

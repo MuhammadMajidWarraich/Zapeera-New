@@ -3,6 +3,15 @@
  * Comprehensive SQLite Setup Fix
  * This script ensures SQLite mode is properly configured and working
  * Run this if SQLite mode is not working
+ *
+ * DATA SAFETY (Issue 3):
+ *   - The initial `db push` NEVER uses the destructive data-loss flag:
+ *     existing user data is never dropped automatically.
+ *   - The destructive "backup + delete + recreate database" recovery path only
+ *     runs when the operator explicitly opts in by setting:
+ *       FIX_SQLITE_ALLOW_DESTRUCTIVE=true
+ *   - Without the opt-in, a schema conflict produces actionable instructions
+ *     and leaves the database untouched.
  */
 
 const fs = require('fs');
@@ -13,6 +22,8 @@ const { execSync } = require('child_process');
 const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.sqlite.prisma');
 const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
 const sqliteDir = path.dirname(sqlitePath);
+
+const allowDestructive = process.env.FIX_SQLITE_ALLOW_DESTRUCTIVE === 'true';
 
 console.log('🔧 SQLite Setup Fix');
 console.log('==================\n');
@@ -61,7 +72,7 @@ try {
     throw err;
   }
 
-  // Step 5: Push schema to database
+  // Step 5: Push schema to database (non-destructive — never the data-loss flag)
   console.log('\nStep 5: Initializing database schema...');
 
   // Check if database exists and handle constraint errors
@@ -74,7 +85,7 @@ try {
   }
 
   try {
-    execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --accept-data-loss', {
+    execSync('npx prisma db push --schema prisma/schema.sqlite.prisma', {
       stdio: 'pipe',
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }
@@ -87,7 +98,17 @@ try {
     if (errorMsg.includes('index associated with UNIQUE or PRIMARY KEY constraint cannot be dropped') ||
         errorMsg.includes('UNIQUE constraint failed') ||
         errorMsg.includes('cannot drop')) {
-      console.log('⚠️  Schema conflict detected - recreating database...');
+      console.log('⚠️  Schema conflict detected - database is left untouched.');
+      if (!allowDestructive) {
+        console.log('');
+        console.log('🛑 DESTRUCTIVE RECOVERY SKIPPED. To rebuild the database from scratch you must opt in:');
+        console.log('    1. Back up this database file first: ' + sqlitePath);
+        console.log('    2. Re-run with: FIX_SQLITE_ALLOW_DESTRUCTIVE=true npm run fix:sqlite');
+        console.log('   ⚠️  WARNING: that recovery DELETES the existing database and all its data.');
+        process.exit(1);
+      }
+      console.log('📢 DESTRUCTIVE RECOVERY OPTED IN (FIX_SQLITE_ALLOW_DESTRUCTIVE=true)');
+      console.log('   The database will be backed up before it is recreated.');
       needsFreshStart = true;
     } else {
       console.error('❌ Error initializing database:', errorMsg);
@@ -95,8 +116,9 @@ try {
     }
   }
 
-  // If we need to recreate, backup and delete old database
+  // If we need to recreate (explicit opt-in only), backup and delete old database
   if (needsFreshStart) {
+    console.log('⚠️  Recreating database — this DESTRUCTIVE path runs only because you opted in.');
     if (dbExists) {
       const backupPath = sqlitePath + '.backup.' + Date.now();
       console.log(`📦 Backing up existing database to: ${backupPath}`);
@@ -137,7 +159,7 @@ try {
     // Now try again with fresh database
     console.log('🔄 Creating fresh database...');
     try {
-      execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --accept-data-loss', {
+      execSync('npx prisma db push --schema prisma/schema.sqlite.prisma', {
         stdio: 'inherit',
         cwd: path.join(__dirname, '..'),
         env: { ...process.env, DATABASE_URL: `file:${sqlitePath}` }

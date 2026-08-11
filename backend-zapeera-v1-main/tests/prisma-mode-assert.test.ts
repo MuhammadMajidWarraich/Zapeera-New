@@ -73,7 +73,8 @@ describe('buildMismatchMessage', () => {
 
 describe('readGeneratedProvider (integration — real generated client)', () => {
   it('reads the provider from the actual generated client schema', () => {
-    // pretest (npm test) generates a SQLite client before jest runs.
+    // The test runner (scripts/run-tests.js) generates a SQLite client before
+    // jest runs and restores the previous provider afterwards.
     const provider = readGeneratedProvider();
     expect(provider).toBe('sqlite');
   });

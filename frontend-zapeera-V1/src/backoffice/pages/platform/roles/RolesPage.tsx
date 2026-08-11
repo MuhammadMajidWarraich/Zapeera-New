@@ -12,6 +12,7 @@ const ROLE_META: Record<string, { color: string; desc: string }> = {
 
 export function RolesPage() {
   const [rolePermissions, setRolePermissions] = useState<RoleModulePermission[]>([]);
+  const [policyRoles, setPolicyRoles] = useState<Record<string, string>>({});
   const [hierarchy, setHierarchy] = useState<HierarchyModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
@@ -25,15 +26,19 @@ export function RolesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [rolesRes, hierarchyRes] = await Promise.all([
+      const [rolesRes, hierarchyRes, policyRolesRes] = await Promise.all([
         backofficeApi.getRoleModulePermissions(),
         backofficeApi.getModuleHierarchy(),
+        backofficeApi.getPolicyRoles().catch(() => ({ success: false, data: [] as Array<{ id: string; name: string }> })),
       ]);
       const rolesData = rolesRes.data || [];
       const hierarchyData = hierarchyRes.data || [];
 
       setRolePermissions(rolesData);
       setHierarchy(hierarchyData);
+      setPolicyRoles(
+        Object.fromEntries((policyRolesRes.data || []).map((r) => [r.name.toUpperCase(), r.id]))
+      );
 
       const modStates: Record<string, Record<string, boolean>> = {};
       const subStates: Record<string, Record<string, boolean>> = {};
@@ -55,7 +60,7 @@ export function RolesPage() {
       }
       setModuleStates(modStates);
       setSubModuleStates(subStates);
-    } catch {}
+    } catch { /* hierarchy/module endpoints may fail independently; tables render empty */ }
     setLoading(false);
   };
 
@@ -88,25 +93,44 @@ export function RolesPage() {
     });
   };
 
+  const OPERATION_KEYS = ['read', 'create', 'update', 'delete', 'export', 'approve', 'print'];
+
   const handleSaveModules = async (roleName: string) => {
     setSavingRole(roleName);
     setSaveSuccess(null);
     setSaveError(null);
     try {
-      const states = moduleStates[roleName] || {};
-      const enabledModules = Object.entries(states)
-        .filter(([, enabled]) => enabled)
-        .map(([name]) => name);
-      await backofficeApi.updateRoleModulePermissions(roleName, enabledModules);
+      const roleId = policyRoles[roleName.toUpperCase()];
+      if (!roleId) {
+        throw new Error(`No platform role "${roleName}" found — run the auth-policies migration first`);
+      }
 
+      const states = moduleStates[roleName] || {};
       const subs = subModuleStates[roleName] || {};
-      await backofficeApi.updateRoleSubModules(roleName, subs);
+
+      // Atomic role policy: an enabled module grants every operation on every
+      // enabled page; disabled sub-modules get no grants (default deny).
+      const permissions: Array<{ moduleKey: string; pageKey: string; operationKey: string; allowed: boolean; scope: string }> = [];
+      for (const [moduleName, enabled] of Object.entries(states)) {
+        if (!enabled) continue;
+        for (const [composite, pageEnabled] of Object.entries(subs)) {
+          if (!composite.startsWith(`${moduleName}::`)) continue;
+          if (!pageEnabled) continue;
+          const pageKey = composite.split('::')[1];
+          if (pageKey === moduleName) continue; // "self" overview entry is not a catalog page
+          for (const operationKey of OPERATION_KEYS) {
+            permissions.push({ moduleKey: moduleName, pageKey, operationKey, allowed: true, scope: 'BUSINESS' });
+          }
+        }
+      }
+
+      await backofficeApi.publishRolePolicy(roleId, permissions);
 
       setSaveSuccess(roleName);
       setTimeout(() => setSaveSuccess(null), 3000);
       fetchData();
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to save');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save');
       setTimeout(() => setSaveError(null), 5000);
     }
     setSavingRole(null);

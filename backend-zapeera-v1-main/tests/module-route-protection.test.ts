@@ -1,5 +1,6 @@
 import {
   getRequiredModule,
+  getRequiredPage,
   normalizeModulePolicyPath,
   resolveModuleOperation,
   shouldSkipModuleCheck,
@@ -22,6 +23,47 @@ describe('module route protection policy', () => {
     expect(shouldSkipModuleCheck('/api/subscription')).toBe(true);
     expect(shouldSkipModuleCheck('/api/v1/subscription/pricing-plans')).toBe(true);
     expect(shouldSkipModuleCheck('/api/v1/auth/login')).toBe(true);
+  });
+});
+
+describe('module page resolution (Issue 4)', () => {
+  it.each([
+    ['/api/products', 'products'],
+    ['/api/v1/products', 'products'],
+    ['/api/categories', 'categories'],
+    ['/api/shelves', 'shelves'],
+    ['/api/manufacturers', 'manufacturers'],
+    ['/api/batches', 'batches'],
+    ['/api/suppliers', 'suppliers'],
+    ['/api/pos', 'pos'],
+    ['/api/refunds', 'refunds'],
+    ['/api/sales', 'invoices'],
+    ['/api/customers', 'customers'],
+    ['/api/purchases', 'order-purchase'],
+    ['/api/staff', 'staff'],
+    ['/api/attendance', 'attendance'],
+    ['/api/shifts', 'shifts'],
+    ['/api/scheduled-shifts', 'shifts'],
+    ['/api/commissions', 'commissions'],
+    ['/api/reports', 'reports'],
+    ['/api/settings', 'settings'],
+    ['/api/roles', 'roles'],
+    ['/api/expenses', 'expenses'],
+    ['/api/inventory', 'overview'],
+  ])('resolves %s to page %s', (path, expectedPage) => {
+    expect(getRequiredPage(path)).toBe(expectedPage);
+  });
+
+  it('resolves pages identically for versioned /api/v1 equivalents', () => {
+    for (const path of ['/api/products', '/api/v1/products', '/api/v1/products/abc']) {
+      expect(getRequiredPage(path)).toBe('products');
+    }
+  });
+
+  it('returns null when no module page policy applies', () => {
+    expect(getRequiredPage('/api/auth/login')).toBeNull();
+    expect(getRequiredPage('/api/health')).toBeNull();
+    expect(getRequiredPage('/api/unknown-thing')).toBeNull();
   });
 });
 

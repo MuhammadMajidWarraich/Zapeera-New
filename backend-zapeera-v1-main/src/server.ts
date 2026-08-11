@@ -646,57 +646,51 @@ function isPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-// Function to kill process using a port (macOS/Linux)
-async function killProcessOnPort(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
+/**
+ * SAFE port reclaim (Issue 7).
+ * Never kills an unknown process. Only a verified stale Zapeera backend
+ * (confirmed via a local health/identity probe) may be stopped.
+ *
+ * Returns:
+ *   'not-listening' — port is free;
+ *   'stopped'       — verified stale Zapeera backend was stopped;
+ *   'unknown-owner' — an unrelated process owns the port (NOT touched).
+ */
+async function safePortReclaim(port: number): Promise<'not-listening' | 'stopped' | 'unknown-owner'> {
+  const { findPortOwnerPids } = await import('./utils/port-manager');
+  const owner = await findPortOwnerPids(port);
+
+  if (!owner.pids.length) {
+    return 'not-listening';
+  }
+
+  if (!owner.confirmedZapeera) {
+    console.warn(`[Server] ⚠️  Port ${port} is in use by a process that is NOT a verified Zapeera backend.`);
+    console.warn(`[Server] ⚠️  Refusing to terminate it (pids: ${owner.pids.join(', ')}).`);
+    return 'unknown-owner';
+  }
+
+  console.log(`[Server] 🔄 Port ${port} is held by a stale Zapeera backend (pid(s): ${owner.pids.join(', ')}). Stopping it...`);
+  for (const pid of owner.pids) {
     try {
-      const { execSync } = require('child_process');
-      if (process.platform === 'darwin' || process.platform === 'linux') {
-        try {
-          const pids = execSync(`lsof -ti:${port}`, { encoding: 'utf8', timeout: 2000 }).trim();
-          if (pids) {
-            const pidArray = pids.split('\n').filter((p: string) => p.trim());
-            pidArray.forEach((pid: string) => {
-              try {
-                execSync(`kill -9 ${pid.trim()}`, { timeout: 1000 });
-                console.log(`✅ Killed process ${pid.trim()} using port ${port}`);
-              } catch (e) {
-                // Ignore errors
-              }
-            });
-            setTimeout(() => resolve(true), 1000);
-          } else {
-            resolve(false);
-          }
-        } catch (e) {
-          resolve(false);
-        }
-      } else if (process.platform === 'win32') {
-        try {
-          const result = execSync(`netstat -ano | findstr :${port}`, { encoding: 'utf8', timeout: 2000 });
-          const lines = result.split('\n').filter((line: string) => line.includes('LISTENING'));
-          lines.forEach((line: string) => {
-            const pid = line.trim().split(/\s+/).pop();
-            if (pid) {
-              try {
-                execSync(`taskkill /F /PID ${pid}`, { timeout: 1000 });
-                console.log(`✅ Killed process ${pid} using port ${port}`);
-              } catch (e) {
-                // Ignore errors
-              }
-            }
-          });
-          setTimeout(() => resolve(true), 1000);
-        } catch (e) {
-          resolve(false);
-        }
-      } else {
-        resolve(false);
+      process.kill(Number(pid), 'SIGTERM');
+      console.log(`[Server] ✅ Stopped verified Zapeera process ${pid}`);
+    } catch (error: any) {
+      if (error && error.code !== 'ESRCH') {
+        console.warn(`[Server] ⚠️  Could not stop pid ${pid}: ${error?.message || error}`);
       }
-    } catch (error) {
-      resolve(false);
     }
-  });
+  }
+
+  // Give the process a moment to release the port.
+  for (let i = 0; i < 10; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (await isPortAvailable(port)) {
+      return 'stopped';
+    }
+  }
+  console.warn(`[Server] ⚠️  Verified Zapeera processes stopped but port ${port} is still occupied.`);
+  return 'unknown-owner';
 }
 
 // Start server with database connection check and automatic port selection
@@ -709,10 +703,23 @@ async function startServer(): Promise<void> {
   let server: any = null;
 
   while (attempts < maxAttempts) {
-    // Try to kill any process using the port first (especially important if PORT is explicitly set)
-    await killProcessOnPort(currentPort);
+    // Safely reclaim the port: only a VERIFIED stale Zapeera backend may be
+    // stopped; an unrelated process is never touched (Issue 7).
+    const reclaim = await safePortReclaim(currentPort);
 
-    // Wait a bit for port to be released (longer wait if port is explicitly set)
+    if (reclaim === 'unknown-owner') {
+      if (PORT_EXPLICITLY_SET) {
+        console.error(`❌ Port ${currentPort} is in use by a non-Zapeera application and cannot be freed safely.`);
+        console.error(`❌ Stop that application, or set PORT to a different value, then restart.`);
+        process.exit(1);
+      }
+      console.log(`⚠️  Port ${currentPort} is in use by another application. Trying next port...`);
+      attempts++;
+      currentPort++;
+      continue;
+    }
+
+    // Wait a bit for the port to be released (longer wait if port is explicitly set)
     await new Promise(resolve => setTimeout(resolve, PORT_EXPLICITLY_SET ? 1000 : 500));
 
     // Check if port is available
@@ -743,7 +750,7 @@ async function startServer(): Promise<void> {
           if (error.code === 'EADDRINUSE') {
             if (PORT_EXPLICITLY_SET) {
               // If port is explicitly set, keep trying the same port
-              console.log(`⚠️  Port ${currentPort} is still in use. Killing processes and retrying...`);
+              console.log(`⚠️  Port ${currentPort} is still in use. Checking owner and retrying...`);
               if (server) {
                 server.close();
               }
@@ -821,7 +828,7 @@ async function startServer(): Promise<void> {
     } else {
       if (PORT_EXPLICITLY_SET) {
         // Keep trying the same port
-        console.log(`⚠️  Port ${currentPort} is not available. Killing processes and retrying...`);
+        console.log(`⚠️  Port ${currentPort} is not available. Checking owner and retrying...`);
         attempts++;
         await new Promise(resolve => setTimeout(resolve, 2000));
       } else {

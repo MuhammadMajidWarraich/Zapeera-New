@@ -21,6 +21,7 @@
     "desktop:win": "npm run desktop:build && npm run electron:build-backend && electron-builder --config electron-builder.json --win nsis",
     "desktop:dev": "cross-env VITE_CJS_IGNORE_WARNING=1 ELECTRON=true VITE_APP_TARGET=desktop electron electron/main.js",
     "lint": "eslint .",
+    "lint:gate": "node scripts/check-lint-baseline.js",
     "preview": "cross-env VITE_CJS_IGNORE_WARNING=1 vite preview",
     "preview:prod": "cross-env VITE_CJS_IGNORE_WARNING=1 vite preview --mode production",
     "start": "cross-env VITE_CJS_IGNORE_WARNING=1 vite preview --host 0.0.0.0 --port $PORT",

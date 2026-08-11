@@ -44,17 +44,27 @@ interface ModuleAccessResult {
   allowedModules?: string[];
   allowedOperations?: string[];
   blockedOperations?: string[];
+  page?: string;
+  fallbackFullOps?: boolean;
 }
 
 /**
- * Check if a user has access to a specific module for their business
- * This is the core authorization logic - used by middleware and can be called directly
+ * Check if a user has access to a specific module page for their business.
+ * This is the core authorization logic - used by middleware and can be called
+ * directly.
+ *
+ * SECURITY (Issue 4): when `pageKey` is provided, `allowedOperations` is
+ * resolved per page — a permission on another page of the same module grants
+ * nothing here. When the role has no role_permissions_v2 rows at all, the
+ * documented migration fallback grants the full operation set and
+ * `fallbackFullOps` is true (measurable via getFallbackOperationGrantCount).
  */
 export async function checkModuleAccess(
   userId: string,
   businessId: string,
   moduleKey: string,
-  membershipRole?: string
+  membershipRole?: string,
+  pageKey?: string
 ): Promise<ModuleAccessResult> {
   const prisma = await getPrisma();
 
@@ -84,12 +94,31 @@ export async function checkModuleAccess(
       };
     }
 
+    // Resolve per-page operations when a page is required for this endpoint.
+    const requestedPage = pageKey ? String(pageKey).trim().toLowerCase() : null;
+    let allowedOperations = Array.isArray(moduleEntry.allowedOperations) ? moduleEntry.allowedOperations : [];
+    let blockedOperations = Array.isArray(moduleEntry.blockedOperations) ? moduleEntry.blockedOperations : [];
+
+    if (requestedPage && moduleEntry.pageOperations) {
+      const pageOps = moduleEntry.pageOperations[requestedPage];
+      if (pageOps) {
+        allowedOperations = Array.isArray(pageOps.allowedOperations) ? pageOps.allowedOperations : [];
+        blockedOperations = Array.isArray(pageOps.blockedOperations) ? pageOps.blockedOperations : [];
+      } else {
+        // Page not present in the resolved access payload — no implicit grants.
+        allowedOperations = [];
+        blockedOperations = [];
+      }
+    }
+
     return {
       allowed: true,
       module: moduleKey,
       allowedModules: modules.filter((m) => m.enabled).map((m) => String(m.moduleKey).toLowerCase()),
-      allowedOperations: Array.isArray(moduleEntry.allowedOperations) ? moduleEntry.allowedOperations : [],
-      blockedOperations: Array.isArray(moduleEntry.blockedOperations) ? moduleEntry.blockedOperations : [],
+      allowedOperations,
+      blockedOperations,
+      page: requestedPage || undefined,
+      fallbackFullOps: !!(moduleEntry as any).fallbackFullOps,
     };
   } catch (error: any) {
     const message = String(error?.message || '').toLowerCase();

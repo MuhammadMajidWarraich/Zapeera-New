@@ -120,6 +120,7 @@ model Business {
   businessType String?
   createdBy    String?
   isActive     Boolean  @default(true)
+  policyVersion Int      @default(0) // Bumped on auth-relevant changes (membership/override/subscription/business-type)
   uuid         String?  @unique
   syncStatus   String   @default("PENDING")
   createdAt    DateTime @default(now())
@@ -829,12 +830,19 @@ model BusinessInvitation {
 // =====================================
 model Role {
   id         String   @id @default(cuid())
-  businessId String? // NULL for global roles, set for business-specific
+  businessId String? // NULL for global/platform roles, set for business-specific
   name       String
-  uuid       String?  @unique
-  syncStatus String   @default("PENDING")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  description String?
+  isSystem    Boolean  @default(false) // OWNER/MANAGER/CASHIER presets are protected
+  isActive    Boolean  @default(true)
+  // permissionState: UNCONFIGURED (no policy published yet — default deny) or
+  // CONFIGURED (a policy was published; zero grants = deny all non-core).
+  permissionState String @default("UNCONFIGURED")
+  policyVersion   Int    @default(0)
+  uuid         String?  @unique
+  syncStatus   String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   business Business? @relation("roles", fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -898,6 +906,7 @@ model BusinessType {
   updatedAt   DateTime @updatedAt
 
   modules BusinessTypeModule[]
+  pages   BusinessTypePage[]
 
   @@map("business_types")
 }
@@ -917,6 +926,26 @@ model BusinessTypeModule {
 
   @@id([businessTypeId, moduleId])
   @@map("business_type_modules")
+}
+
+// Business type → page/resource enablement (canonical replacement for the raw
+// business_type_sub_module_permissions table).
+model BusinessTypePage {
+  businessTypeId String
+  pageId         String
+  isEnabled      Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  uuid           String?  @unique
+  syncStatus     String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  businessType BusinessType @relation(fields: [businessTypeId], references: [id], onDelete: Cascade)
+  page         ModulePage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@id([businessTypeId, pageId])
+  @@index([pageId])
+  @@map("business_type_pages")
 }
 
 // =====================================
@@ -986,6 +1015,10 @@ model Plan {
   trialLimitPerUser Int      @default(1)
   features          Json?
   isActive          Boolean  @default(true)
+  // permissionState: UNCONFIGURED (no policy published yet — default deny) or
+  // CONFIGURED (a policy was published; zero entitlements = deny all non-core).
+  permissionState String @default("UNCONFIGURED")
+  policyVersion   Int    @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1140,6 +1173,7 @@ model ModulePage {
 
   module            ModuleDefinition   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   rolePermissionsV2 RolePermissionV2[]
+  businessTypePages BusinessTypePage[]
 
   @@unique([moduleId, key])
   @@index([moduleId])
@@ -1166,9 +1200,11 @@ model Operation {
 model RolePermissionV2 {
   id           String   @id @default(cuid())
   roleId       String
-  operationKey String // "read", "create", "update", "delete"
-  modulePageId String // Specific page within module
+  operationKey String // "read", "create", "update", "delete", "export", "approve", "print"
+  modulePageId String // Specific page/resource within module
   allowed      Boolean  @default(false)
+  // Data scope: OWN, ASSIGNED_BRANCH, ALL_BRANCHES, BUSINESS
+  scope        String   @default("BUSINESS")
   priority     Int      @default(0) // For conflict resolution
   uuid         String?  @unique
   syncStatus   String   @default("PENDING")
@@ -1227,7 +1263,8 @@ model PlanEntitlement {
   id               String   @id @default(cuid())
   planId           String
   moduleKey        String // "inventory", "accounting", "payroll"
-  entitlementLevel String   @default("FULL") // FULL, LIMITED
+  pageKey          String? // null = whole-module entitlement; set = page/resource level
+  entitlementLevel String   @default("FULL") // FULL, LIMITED, NONE
   uuid             String?  @unique
   syncStatus       String   @default("PENDING")
   createdAt        DateTime @default(now())
@@ -1235,9 +1272,27 @@ model PlanEntitlement {
 
   plan Plan @relation("planEntitlements", fields: [planId], references: [id], onDelete: Cascade)
 
-  @@unique([planId, moduleKey])
+  @@unique([planId, moduleKey, pageKey])
   @@index([planId])
   @@map("plan_entitlements")
+}
+
+// Policy audit trail for plan / role / business-type / override / subscription
+// policy mutations. Written in the same transaction as the mutation.
+model PolicyAuditLog {
+  id            String   @id @default(cuid())
+  entityType    String // PLAN, ROLE, BUSINESS_TYPE, BUSINESS_OVERRIDE, SUBSCRIPTION, MEMBERSHIP
+  entityId      String
+  actorId       String?
+  action        String // PUBLISH_POLICY, UPDATE, ASSIGN, REVOKE, ...
+  before        Json?
+  after         Json?
+  policyVersion Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("policy_audit_logs")
 }
 
 // â”€â”€â”€ Backoffice: Support Tickets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

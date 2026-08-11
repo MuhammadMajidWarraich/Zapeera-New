@@ -123,20 +123,31 @@ export function BusinessTypesPage() {
     setSaveError(null);
     try {
       const states = moduleStates[typeId] || {};
-      const enabledKeys = Object.entries(states)
-        .filter(([, enabled]) => enabled)
-        .map(([name]) => name);
-      await backofficeApi.updateBusinessTypeModules(typeId, enabledKeys);
-
-      // Save sub-module states
       const subs = subModuleStates[typeId] || {};
-      await backofficeApi.updateBusinessTypeSubModules(typeId, subs);
+
+      // Atomic business-type policy: full module/page enablement in one save.
+      // Pages are only meaningful under enabled modules (backend rejects
+      // enabled pages under a disabled parent).
+      const modules = Object.entries(states).map(([moduleName, enabled]) => ({
+        key: moduleName,
+        enabled,
+        pages: enabled
+          ? Object.entries(subs)
+              .filter(([composite]) => composite.startsWith(`${moduleName}::`))
+              .map(([composite, pageEnabled]) => ({
+                key: composite.split('::')[1],
+                enabled: pageEnabled,
+              }))
+          : [],
+      }));
+
+      await backofficeApi.publishBusinessTypePolicy(typeId, modules);
 
       setSaveSuccess(typeId);
       setTimeout(() => setSaveSuccess(null), 3000);
       fetchData();
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to save');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save');
       setTimeout(() => setSaveError(null), 5000);
     }
     setSavingType(null);

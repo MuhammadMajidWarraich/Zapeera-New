@@ -155,19 +155,30 @@ export function PlansPage() {
     setSaveError(null);
     try {
       const states = moduleStates[planId] || {};
-      const enabledModules = Object.entries(states)
-        .filter(([, enabled]) => enabled)
-        .map(([name]) => name);
-      await backofficeApi.updatePlanModulePermissions(planId, enabledModules);
-
       const subs = subModuleStates[planId] || {};
-      await backofficeApi.updatePlanSubModules(planId, subs);
+
+      // Atomic plan policy: only enabled modules are entitled (absent = deny);
+      // page entries override the module level (FULL/NONE).
+      const modules = Object.entries(states)
+        .filter(([, enabled]) => enabled)
+        .map(([moduleName]) => ({
+          key: moduleName,
+          entitlementLevel: 'FULL' as const,
+          pages: Object.entries(subs)
+            .filter(([composite]) => composite.startsWith(`${moduleName}::`))
+            .map(([composite, enabled]) => ({
+              key: composite.split('::')[1],
+              entitlementLevel: enabled ? 'FULL' as const : 'NONE' as const,
+            })),
+        }));
+
+      await backofficeApi.publishPlanPolicy(planId, modules);
 
       setSaveSuccess(planId);
       setTimeout(() => setSaveSuccess(null), 3000);
       fetchData();
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to save');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save');
       setTimeout(() => setSaveError(null), 5000);
     }
     setSavingPlan(null);

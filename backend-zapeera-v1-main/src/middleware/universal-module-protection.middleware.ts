@@ -1,14 +1,27 @@
 /**
- * Universal Module Protection Middleware
- * Automatically applies module access control to all API routes
+ * Universal Module Protection Middleware (Phase 4 rewrite).
  *
- * SECURITY: This middleware wraps all route handlers and enforces
- * module-based access control at the HTTP layer.
+ * Applies the canonical authorization decision to every /api request:
+ *
+ *   1. Resolve the route policy from the complete registry
+ *      (src/config/route-policy.registry.ts).
+ *   2. Unclassified routes FAIL CLOSED in production (403 UNMAPPED_ROUTE).
+ *   3. Tenant-protected resources (`module` kind) are authorized through
+ *      authorizeBusinessAction() — the SAME canonical resolver used by the
+ *      module controller, so the frontend and the API can never disagree on
+ *      what is allowed (shared versioned cache, Issue 10).
+ *   4. Responses are structured: 401 for missing auth/membership, 403 with
+ *      the exact denial reason for everything else.
+ *
+ * The frontend (sidebar/guards) is UX only — this middleware is the
+ * authoritative gate for API access.
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { getRequiredModule, shouldSkipModuleCheck, MODULE_DISPLAY_NAMES, normalizeModulePolicyPath, resolveModuleOperation } from '../config/module-route-protection.config';
-import { checkModuleAccess } from './module-access.middleware';
+import { resolveRoutePolicy, normalizePolicyPath } from '../config/route-policy.registry';
+import { resolveModuleOperation } from '../config/module-route-protection.config';
+import { authorizeBusinessAction } from '../services/authorization.service';
+import { getPrisma } from '../utils/db.util';
 import { authenticate } from './auth.middleware';
 import logger from '../utils/logger';
 
@@ -22,97 +35,74 @@ interface AuthRequest extends Request {
   business_id?: string;
 }
 
-interface AccessCacheEntry {
-  allowed: boolean;
-  error?: string;
-  allowedOperations?: string[];
-  timestamp: number;
+function isProduction(): boolean {
+  return String(process.env.NODE_ENV).toLowerCase() === 'production';
 }
 
 /**
- * Cache for module access checks to reduce DB queries
- * Key: userId:businessId:moduleKey
- * TTL: 5 minutes
- * SECURITY FIX: Added max size limit to prevent memory leaks
- */
-const accessCache = new Map<string, AccessCacheEntry>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_CACHE_SIZE = 10000; // Maximum entries to prevent memory leak
-
-function getCacheKey(userId: string, businessId: string, moduleKey: string): string {
-  return `${userId}:${businessId}:${moduleKey}`;
-}
-
-function getCachedAccess(userId: string, businessId: string, moduleKey: string): AccessCacheEntry | null {
-  const key = getCacheKey(userId, businessId, moduleKey);
-  const cached = accessCache.get(key);
-
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached;
-  }
-
-  // Clean up expired entry
-  if (cached) {
-    accessCache.delete(key);
-  }
-
-  return null;
-}
-
-function setCachedAccess(userId: string, businessId: string, moduleKey: string, entry: AccessCacheEntry): void {
-  const key = getCacheKey(userId, businessId, moduleKey);
-  
-  // SECURITY FIX: Enforce cache size limit to prevent memory leaks
-  if (accessCache.size >= MAX_CACHE_SIZE) {
-    // Evict oldest entries (first 10% of max size)
-    const entriesToEvict = Math.floor(MAX_CACHE_SIZE * 0.1);
-    const entries = Array.from(accessCache.entries());
-    // Sort by timestamp ascending (oldest first)
-    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    // Remove oldest entries
-    for (let i = 0; i < entriesToEvict && i < entries.length; i++) {
-      accessCache.delete(entries[i][0]);
-    }
-    logger.debug(`[Universal Protection] Evicted ${entriesToEvict} old cache entries`);
-  }
-  
-  accessCache.set(key, entry);
-}
-
-/**
- * Universal module protection middleware
- * Automatically checks module access for every request
+ * Universal module protection middleware.
  */
 export async function universalModuleProtection(
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) {
-  const startTime = Date.now();
-  const path = normalizeModulePolicyPath(req.originalUrl || req.path || '');
+  const path = normalizePolicyPath(req.originalUrl || req.path || '');
 
   try {
-    // Skip always-allowed routes before trying to authenticate public endpoints.
-    if (shouldSkipModuleCheck(path)) {
+    const policy = resolveRoutePolicy(path);
+
+    if (!policy) {
+      // FAIL CLOSED: unclassified endpoint.
+      if (isProduction()) {
+        logger.warn(`[Universal Protection] ⛔ UNMAPPED ROUTE BLOCKED (no policy): ${path}`);
+        return res.status(403).json({
+          success: false,
+          error: 'UNMAPPED_ROUTE',
+          message: 'This endpoint has no authorization policy. Contact support.',
+        });
+      }
+      logger.warn(`[Universal Protection] ⚠️  Unmapped route (no policy) — allowed outside production: ${path}`);
+      logger.warn('[Universal Protection]    Add it to src/config/route-policy.registry.ts.');
       return next();
     }
 
-    // Get required module for this route.
-    const requiredModule = getRequiredModule(path);
+    switch (policy.kind) {
+      case 'public':
+      case 'backoffice':
+        // Router-level middleware enforces auth for backoffice; public routes
+        // are explicitly classified.
+        return next();
 
-    if (!requiredModule) {
-      // No specific module required.
-      return next();
+      case 'auth':
+      case 'auth-core':
+      case 'billing':
+        // Authenticated account/core endpoints: ensure a user is present;
+        // routers apply their own membership/branch guards.
+        if (req.user?.id) {
+          return next();
+        }
+        return authenticate(req as any, res, (authError?: any) => {
+          if (authError) return next(authError);
+          return next();
+        });
+
+      case 'module': {
+        const action = resolveModuleOperation(req.method, path) || 'read';
+
+        if (!req.user?.id) {
+          return authenticate(req as any, res, (authError?: any) => {
+            if (authError) return next(authError);
+            return enforceResourceAccess(req, res, next, path, policy.resourceKey, action);
+          });
+        }
+
+        return enforceResourceAccess(req, res, next, path, policy.resourceKey, action);
+      }
+
+      default:
+        return next();
     }
-
-    if (!req.user?.id) {
-      return authenticate(req as any, res, (authError?: any) => {
-        if (authError) return next(authError);
-        return enforceModuleAccess(req, res, next, path, requiredModule, startTime);
-      });
-    }
-
-    return enforceModuleAccess(req, res, next, path, requiredModule, startTime);
   } catch (error) {
     logger.error('[Universal Protection] Error:', { error: String(error) });
     // Fail secure - block access if check fails
@@ -124,13 +114,13 @@ export async function universalModuleProtection(
   }
 }
 
-async function enforceModuleAccess(
+async function enforceResourceAccess(
   req: AuthRequest,
   res: Response,
   next: NextFunction,
   path: string,
-  requiredModule: string,
-  startTime: number
+  resourceKey: string,
+  action: string
 ) {
   try {
     if (!req.user?.id) {
@@ -141,8 +131,8 @@ async function enforceModuleAccess(
     const businessId =
       req.business_id ||
       req.membership?.business_id ||
-      req.headers['x-business-id'] as string ||
-      req.headers['x-company-id'] as string ||
+      (req.headers['x-business-id'] as string) ||
+      (req.headers['x-company-id'] as string) ||
       req.user?.selectedCompanyId ||
       req.user?.companyId;
 
@@ -156,83 +146,49 @@ async function enforceModuleAccess(
     }
 
     const userId = req.user.id;
+    const prisma = await getPrisma();
 
-    // Check cache first
-    const cached = getCachedAccess(userId, businessId, requiredModule);
+    const branchId = (req.headers['x-branch-id'] as string) || undefined;
 
-    if (cached !== null) {
-      if (!cached.allowed) {
-        logger.warn(`[Universal Protection] BLOCKED (cached): ${path} for user ${userId} | error=${cached.error}`);
-        if (cached.error === 'NO_MEMBERSHIP') {
-          return res.status(401).json({
-            success: false,
-            error: 'NO_MEMBERSHIP',
-            message: 'You are not a member of this business',
-          });
-        }
-
-        return res.status(403).json({
-          success: false,
-          error: 'MODULE_NOT_ALLOWED',
-          message: `This feature (${MODULE_DISPLAY_NAMES[requiredModule] || requiredModule}) is not enabled in your subscription`,
-          module: requiredModule,
-        });
-      }
-
-      // Enforce role-based operation permissions (e.g. read-only roles)
-      const operationDenied = enforceOperation(req.method, path, cached.allowedOperations);
-      if (operationDenied) {
-        return res.status(403).json(operationDenied);
-      }
-
-      // Cached allowed - proceed
-      return next();
-    }
-
-    // Check module access
-    const accessResult = await checkModuleAccess(userId, businessId, requiredModule);
-
-    // Cache the result
-    setCachedAccess(userId, businessId, requiredModule, {
-      allowed: accessResult.allowed,
-      error: accessResult.error,
-      allowedOperations: accessResult.allowedOperations,
-      timestamp: Date.now(),
+    const decision = await authorizeBusinessAction(prisma, userId, businessId, resourceKey, action, {
+      branchId,
     });
 
-    const duration = Date.now() - startTime;
+    if (!decision.allowed) {
+      logger.warn(
+        `[Universal Protection] BLOCKED: ${req.method} ${path} | resource=${resourceKey} action=${action} | user=${userId} | reason=${decision.reason}`
+      );
 
-    if (!accessResult.allowed) {
-      logger.warn(`[Universal Protection] BLOCKED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
-
-      if (accessResult.error === 'NO_MEMBERSHIP') {
+      if (decision.reason === 'NO_ACTIVE_MEMBERSHIP') {
         return res.status(401).json({
           success: false,
-          error: 'NO_MEMBERSHIP',
-          message: 'You are not a member of this business',
+          error: 'NO_ACTIVE_MEMBERSHIP',
+          message: 'You are not an active member of this business',
         });
       }
+
+      const [moduleKey] = decision.resourceKey.split('.');
+
+      const upgradeHint =
+        decision.reason === 'PLAN_NOT_ENTITLED' || decision.reason === 'SUBSCRIPTION_INACTIVE';
 
       return res.status(403).json({
         success: false,
-        error: 'MODULE_NOT_ALLOWED',
-        message: `This feature (${MODULE_DISPLAY_NAMES[requiredModule] || requiredModule}) is not enabled in your subscription. Please upgrade your plan.`,
-        module: requiredModule,
-        upgradeUrl: '/subscription',
+        error: decision.reason,
+        message: upgradeHint
+          ? `This feature is not included in your current subscription. Please upgrade your plan.`
+          : `Access denied for ${decision.resourceKey}.${decision.action}`,
+        module: moduleKey,
+        resourceKey: decision.resourceKey,
+        action: decision.action,
+        upgradeUrl: upgradeHint ? '/subscription' : undefined,
       });
     }
 
-    // Access granted
-    logger.debug(`[Universal Protection] ALLOWED: ${path} | Module: ${requiredModule} | User: ${userId} | ${duration}ms`);
-
-    // Enforce role-based operation permissions (e.g. read-only roles)
-    const operationDenied = enforceOperation(req.method, path, accessResult.allowedOperations);
-    if (operationDenied) {
-      return res.status(403).json(operationDenied);
-    }
-
-    // Attach module info to request for downstream use
-    (req as any).requiredModule = requiredModule;
+    // Attach the canonical decision for downstream use
+    (req as any).requiredModule = decision.moduleKey;
+    (req as any).requiredPage = decision.resourceKey.split('.')[1] || 'overview';
+    (req as any).authDecision = decision;
 
     return next();
   } catch (error) {
@@ -245,29 +201,43 @@ async function enforceModuleAccess(
     });
   }
 }
+
 /**
- * Enforce role-based operation permissions for a request.
- * Resolves the operation for the HTTP method/path and blocks the request when
- * the role's allowedOperations do not include it. 'read' is never blocked here
- * (it is the baseline), and requests with no operation mapping pass through.
- * Returns a 403 body when denied, otherwise null.
+ * Legacy alias kept for controllers that clear the module access cache.
+ * The shared authorization cache is version-keyed; clearing is a
+ * belt-and-suspenders measure (Issue 10).
  */
-function enforceOperation(
+export function clearModuleAccessCache(_userId?: string, _businessId?: string): void {
+  const { invalidateAuthPolicyCache } = require('../services/authorization.service');
+  invalidateAuthPolicyCache();
+  logger.debug('[Universal Protection] Cleared shared authorization cache');
+}
+
+/**
+ * Enforce role-based operation permissions for a request (LEGACY helper).
+ *
+ * The universal middleware now authorizes through the canonical service
+ * (authorizeBusinessAction), which resolves the exact (resource, action)
+ * permission — this helper is retained for tests and callers that operate on
+ * precomputed operation lists.
+ */
+export function enforceOperation(
   method: string,
   path: string,
-  allowedOperations?: string[]
+  allowedOperations?: string[],
+  fallbackFullOps?: boolean
 ): { success: boolean; error: string; message: string; operation: string } | null {
-  if (!allowedOperations || !allowedOperations.length) {
-    return null;
-  }
-
   const operation = resolveModuleOperation(method, path);
   if (!operation || operation === 'read') {
     return null;
   }
 
-  if (!allowedOperations.includes(operation)) {
-    logger.warn(`[Universal Protection] OPERATION BLOCKED: ${operation} ${method} ${path} (allowed=${allowedOperations.join(',')})`);
+  if (fallbackFullOps) {
+    return null;
+  }
+
+  if (!allowedOperations || !allowedOperations.includes(operation)) {
+    logger.warn(`[Universal Protection] OPERATION BLOCKED: ${operation} ${method} ${path} (allowed=${(allowedOperations || []).join(',') || 'none'})`);
     return {
       success: false,
       error: 'OPERATION_NOT_ALLOWED',
@@ -280,32 +250,9 @@ function enforceOperation(
 }
 
 /**
- * Clear module access cache (call after module changes)
- */
-export function clearModuleAccessCache(userId?: string, businessId?: string): void {
-  if (!userId && !businessId) {
-    accessCache.clear();
-    logger.debug('[Universal Protection] Cleared all module access cache');
-    return;
-  }
-
-  // Clear specific entries
-  for (const [key] of accessCache) {
-    if ((userId && key.startsWith(`${userId}:`)) ||
-        (businessId && key.includes(`:${businessId}:`))) {
-      accessCache.delete(key);
-    }
-  }
-
-  logger.debug(`[Universal Protection] Cleared cache for user ${userId || 'all'}, business ${businessId || 'all'}`);
-}
-
-/**
- * Express app wrapper - applies universal protection to all routes
+ * Express app wrapper - applies universal protection to all API routes
  */
 export function applyUniversalModuleProtection(app: any): void {
-  // Apply to all API routes
   app.use('/api', universalModuleProtection);
-
   logger.info('[Universal Protection] Module protection enabled for all API routes');
 }

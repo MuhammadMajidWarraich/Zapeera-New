@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AdminAuthRequest } from '../middleware/admin-auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { loadPricingPlans } from '../utils/subscription-entitlements.util';
-import { invalidateModuleCache, moduleAccessCache } from '../utils/modules-v2.util';
+import { invalidateModuleCache, moduleAccessCache, clearModuleCache } from '../utils/modules-v2.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
 import crypto from 'crypto';
 
@@ -602,5 +602,487 @@ export const updateRoleSubModulePermission = async (req: AdminAuthRequest, res: 
   } catch (error: any) {
     console.error('[RoleSubModulePerms] PUT error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to update sub-module permission' });
+  }
+};
+
+// ─── Canonical atomic policy endpoints ─────────────────────────────────────
+// These are the single source of truth for plan / role / business-type
+// policies. Each save replaces the whole policy in one transaction, bumps
+// policyVersion, flips permissionState to CONFIGURED and writes an audit log.
+// Legacy /module-permissions/* endpoints above are deprecated.
+
+const ENTITLEMENT_LEVELS = new Set(['FULL', 'LIMITED', 'NONE']);
+const DATA_SCOPES = new Set(['OWN', 'ASSIGNED_BRANCH', 'ALL_BRANCHES', 'BUSINESS']);
+
+// Resources an OWNER may never lose even read access to.
+const MANDATORY_OWNER_RESOURCES: ReadonlyArray<{ moduleKey: string; pageKey: string; operationKey: string }> = [
+  { moduleKey: 'business_management', pageKey: 'settings', operationKey: 'read' },
+  { moduleKey: 'business_management', pageKey: 'roles', operationKey: 'read' },
+  { moduleKey: 'business_management', pageKey: 'billing', operationKey: 'read' },
+  { moduleKey: 'staff', pageKey: 'staff', operationKey: 'read' },
+];
+
+interface PolicyCatalogModulePage { key: string; id: string; }
+interface PolicyCatalogModule { id: string; key: string; pages: Map<string, string>; }
+
+interface PolicyCatalog {
+  modules: Map<string, PolicyCatalogModule>;
+  operations: Set<string>;
+}
+
+async function loadPolicyCatalog(prisma: any): Promise<PolicyCatalog> {
+  const moduleRows = await prisma.moduleDefinition.findMany({ where: { isActive: true } });
+  const pageRows = await prisma.modulePage.findMany({ where: { isActive: true } });
+  const opRows = await prisma.operation.findMany({ where: { isActive: true } });
+
+  const modules = new Map<string, PolicyCatalogModule>();
+  for (const m of moduleRows) {
+    modules.set(String(m.key).toLowerCase(), { id: m.id, key: String(m.key).toLowerCase(), pages: new Map() });
+  }
+  for (const p of pageRows) {
+    const mod = modules.get(String(p.moduleId));
+    if (mod) mod.pages.set(String(p.key).toLowerCase(), p.id);
+  }
+  return { modules, operations: new Set(opRows.map((o: any) => String(o.key).toLowerCase())) };
+}
+
+function auditSafe(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value, (_key, v) => (v instanceof Date ? v.toISOString() : v)));
+}
+
+async function writePolicyAudit(
+  tx: any,
+  entry: {
+    entityType: string;
+    entityId: string;
+    actorId?: string | null;
+    action: string;
+    before?: unknown;
+    after?: unknown;
+    policyVersion: number;
+  }
+): Promise<void> {
+  await tx.policyAuditLog.create({
+    data: {
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      actorId: entry.actorId ?? null,
+      action: entry.action,
+      before: entry.before === undefined ? undefined : auditSafe(entry.before),
+      after: entry.after === undefined ? undefined : auditSafe(entry.after),
+      policyVersion: entry.policyVersion,
+    },
+  });
+}
+
+const actorIdOf = (req: AdminAuthRequest): string | null => req.admin?.id ?? null;
+
+/**
+ * GET /backoffice/policies/roles
+ * Platform (businessId = null) roles with their policy state, used by the
+ * backoffice to address the atomic role-policy endpoint by roleId.
+ */
+export const listPolicyRoles = async (req: AdminAuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const roles = await prisma.role.findMany({
+      where: { businessId: null },
+      select: { id: true, name: true, description: true, isSystem: true, permissionState: true, policyVersion: true, updatedAt: true },
+      orderBy: { name: 'asc' },
+    });
+    return res.json({ success: true, data: roles });
+  } catch (error: any) {
+    console.error('[PolicyRoles] GET error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to load platform roles' });
+  }
+};
+
+/**
+ * PUT /backoffice/policies/plans/:planId
+ * Body: { modules: [{ key: string; entitlementLevel?: 'FULL'|'LIMITED'|'NONE';
+ *                    pages?: [{ key: string; entitlementLevel: 'FULL'|'LIMITED'|'NONE' }] }] }
+ * Module absent from payload = no entitlement (deny). Module present = module-level
+ * entitlement (default FULL). Page entries override the module level for that page.
+ */
+export const publishPlanPolicy = async (req: AdminAuthRequest, res: Response) => {
+  const { planId } = req.params;
+  const { modules } = req.body as {
+    modules?: Array<{
+      key: string;
+      entitlementLevel?: string;
+      pages?: Array<{ key: string; entitlementLevel: string }>;
+    }>;
+  };
+
+  if (!planId || !Array.isArray(modules)) {
+    return res.status(400).json({ success: false, message: 'planId and modules[] are required' });
+  }
+
+  try {
+    const prisma = await getPrisma();
+    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) return res.status(404).json({ success: false, message: `Plan ${planId} not found` });
+
+    const catalog = await loadPolicyCatalog(prisma);
+    const seenModules = new Set<string>();
+    const entitlements: Array<{ planId: string; moduleKey: string; pageKey: string | null; entitlementLevel: string }> = [];
+
+    for (const mod of modules) {
+      const moduleKey = String(mod.key ?? '').toLowerCase().trim();
+      const moduleDef = catalog.modules.get(moduleKey);
+      if (!moduleDef) return res.status(400).json({ success: false, message: `Unknown module key: ${moduleKey}` });
+      if (seenModules.has(moduleKey)) return res.status(400).json({ success: false, message: `Duplicate module: ${moduleKey}` });
+      seenModules.add(moduleKey);
+
+      const moduleLevel = String(mod.entitlementLevel ?? 'FULL').toUpperCase();
+      if (!ENTITLEMENT_LEVELS.has(moduleLevel)) {
+        return res.status(400).json({ success: false, message: `Invalid entitlementLevel ${moduleLevel} for module ${moduleKey}` });
+      }
+      entitlements.push({ planId, moduleKey, pageKey: null, entitlementLevel: moduleLevel });
+
+      if (Array.isArray(mod.pages)) {
+        const seenPages = new Set<string>();
+        for (const page of mod.pages) {
+          const pageKey = String(page.key ?? '').toLowerCase().trim();
+          if (!moduleDef.pages.has(pageKey)) {
+            return res.status(400).json({ success: false, message: `Unknown page ${moduleKey}.${pageKey}` });
+          }
+          if (seenPages.has(pageKey)) return res.status(400).json({ success: false, message: `Duplicate page ${moduleKey}.${pageKey}` });
+          seenPages.add(pageKey);
+          const level = String(page.entitlementLevel ?? 'NONE').toUpperCase();
+          if (!ENTITLEMENT_LEVELS.has(level)) {
+            return res.status(400).json({ success: false, message: `Invalid entitlementLevel ${level} for page ${moduleKey}.${pageKey}` });
+          }
+          entitlements.push({ planId, moduleKey, pageKey, entitlementLevel: level });
+        }
+      }
+    }
+
+    const previousRows = await prisma.planEntitlement.findMany({ where: { planId } });
+    const before = previousRows.map((r: any) => ({ moduleKey: r.moduleKey, pageKey: r.pageKey, entitlementLevel: r.entitlementLevel }));
+    const after = entitlements.map((e) => ({ moduleKey: e.moduleKey, pageKey: e.pageKey, entitlementLevel: e.entitlementLevel }));
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const updated = await tx.plan.update({
+        where: { id: planId },
+        data: { permissionState: 'CONFIGURED', policyVersion: { increment: 1 } },
+      });
+      await tx.planEntitlement.deleteMany({ where: { planId } });
+      if (entitlements.length > 0) {
+        await tx.planEntitlement.createMany({ data: entitlements });
+      }
+      await writePolicyAudit(tx, {
+        entityType: 'PLAN',
+        entityId: planId,
+        actorId: actorIdOf(req),
+        action: 'PUBLISH_POLICY',
+        before,
+        after,
+        policyVersion: updated.policyVersion,
+      });
+      return updated;
+    });
+
+    invalidateModuleCache({ type: 'PLAN_CHANGED', businessId: planId });
+
+    return res.json({
+      success: true,
+      data: { planId, policyVersion: result.policyVersion, permissionState: result.permissionState, entitlements: after },
+    });
+  } catch (error: any) {
+    console.error('[PlanPolicy] PUT error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to publish plan policy' });
+  }
+};
+
+/**
+ * PUT /backoffice/policies/roles/:roleId
+ * Body: { permissions: [{ moduleKey, pageKey, operationKey, allowed: boolean, scope?: string }] }
+ * Missing permission entry = denied operation. OWNER role can never lose read
+ * access to its mandatory resources.
+ */
+export const publishRolePolicy = async (req: AdminAuthRequest, res: Response) => {
+  const { roleId } = req.params;
+  const { permissions } = req.body as {
+    permissions?: Array<{ moduleKey: string; pageKey: string; operationKey: string; allowed: boolean; scope?: string }>;
+  };
+
+  if (!roleId || !Array.isArray(permissions)) {
+    return res.status(400).json({ success: false, message: 'roleId and permissions[] are required' });
+  }
+
+  try {
+    const prisma = await getPrisma();
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) return res.status(404).json({ success: false, message: `Role ${roleId} not found` });
+
+    const catalog = await loadPolicyCatalog(prisma);
+    const seen = new Set<string>();
+    const pageMetaById = new Map<string, { moduleKey: string; pageKey: string }>();
+    const rows: Array<{ roleId: string; operationKey: string; modulePageId: string; allowed: boolean; scope: string }> = [];
+
+    for (const perm of permissions) {
+      const moduleKey = String(perm.moduleKey ?? '').toLowerCase().trim();
+      const pageKey = String(perm.pageKey ?? '').toLowerCase().trim();
+      const operationKey = String(perm.operationKey ?? '').toLowerCase().trim();
+      const moduleDef = catalog.modules.get(moduleKey);
+      if (!moduleDef) return res.status(400).json({ success: false, message: `Unknown module key: ${moduleKey}` });
+      const pageId = moduleDef.pages.get(pageKey);
+      if (!pageId) return res.status(400).json({ success: false, message: `Unknown page ${moduleKey}.${pageKey}` });
+      if (!catalog.operations.has(operationKey)) {
+        return res.status(400).json({ success: false, message: `Unknown operation key: ${operationKey}` });
+      }
+      const scope = String(perm.scope ?? 'BUSINESS').toUpperCase();
+      if (!DATA_SCOPES.has(scope)) return res.status(400).json({ success: false, message: `Invalid scope: ${scope}` });
+
+      const composite = `${moduleKey}.${pageKey}:${operationKey}`;
+      if (seen.has(composite)) return res.status(400).json({ success: false, message: `Duplicate permission: ${composite}` });
+      seen.add(composite);
+      pageMetaById.set(pageId, { moduleKey, pageKey });
+
+      rows.push({ roleId, operationKey, modulePageId: pageId, allowed: !!perm.allowed, scope });
+    }
+
+    if (String(role.name).toUpperCase() === 'OWNER') {
+      for (const mandatory of MANDATORY_OWNER_RESOURCES) {
+        const ok = rows.some(
+          (r) =>
+            r.allowed &&
+            r.operationKey === mandatory.operationKey &&
+            (() => {
+              const mod = catalog.modules.get(mandatory.moduleKey);
+              return !!mod && mod.pages.get(mandatory.pageKey) === r.modulePageId;
+            })()
+        );
+        if (!ok) {
+          return res.status(400).json({
+            success: false,
+            message: `OWNER role must keep ${mandatory.operationKey} on ${mandatory.moduleKey}.${mandatory.pageKey}`,
+          });
+        }
+      }
+    }
+
+    const previousRows = await prisma.rolePermissionV2.findMany({ where: { roleId }, include: { modulePage: { include: { module: true } } } });
+    const before = previousRows.map((r: any) => ({
+      moduleKey: r.modulePage?.module?.key ?? null,
+      pageKey: r.modulePage?.key ?? null,
+      operationKey: r.operationKey,
+      allowed: r.allowed,
+      scope: r.scope,
+    }));
+    const after = rows.map((r) => {
+      const meta = pageMetaById.get(r.modulePageId);
+      return { moduleKey: meta?.moduleKey ?? null, pageKey: meta?.pageKey ?? null, operationKey: r.operationKey, allowed: r.allowed, scope: r.scope };
+    });
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const updated = await tx.role.update({
+        where: { id: roleId },
+        data: { permissionState: 'CONFIGURED', policyVersion: { increment: 1 } },
+      });
+      await tx.rolePermissionV2.deleteMany({ where: { roleId } });
+      if (rows.length > 0) {
+        await tx.rolePermissionV2.createMany({ data: rows });
+      }
+      await writePolicyAudit(tx, {
+        entityType: 'ROLE',
+        entityId: roleId,
+        actorId: actorIdOf(req),
+        action: 'PUBLISH_POLICY',
+        before,
+        after,
+        policyVersion: updated.policyVersion,
+      });
+      return updated;
+    });
+
+    invalidateModuleCache({ type: 'ROLE_PERMISSION_CHANGED', userId: roleId });
+
+    return res.json({
+      success: true,
+      data: { roleId, name: role.name, policyVersion: result.policyVersion, permissionState: result.permissionState, permissions: after },
+    });
+  } catch (error: any) {
+    console.error('[RolePolicy] PUT error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to publish role policy' });
+  }
+};
+
+/**
+ * PUT /backoffice/policies/business-types/:businessTypeId
+ * Body: { modules: [{ key: string; enabled: boolean; pages?: [{ key: string; enabled: boolean }] }] }
+ * A page cannot be enabled while its parent module is disabled.
+ */
+export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Response) => {
+  const { businessTypeId } = req.params;
+  const { modules } = req.body as {
+    modules?: Array<{ key: string; enabled: boolean; pages?: Array<{ key: string; enabled: boolean }> }>;
+  };
+
+  if (!businessTypeId || !Array.isArray(modules)) {
+    return res.status(400).json({ success: false, message: 'businessTypeId and modules[] are required' });
+  }
+
+  try {
+    const prisma = await getPrisma();
+    const businessType = await prisma.businessType.findUnique({ where: { id: businessTypeId } });
+    if (!businessType) return res.status(404).json({ success: false, message: `Business type ${businessTypeId} not found` });
+
+    const catalog = await loadPolicyCatalog(prisma);
+    const seenModules = new Set<string>();
+    const moduleRows: Array<{ businessTypeId: string; moduleId: string; isEnabled: boolean }> = [];
+    const pageRows: Array<{ businessTypeId: string; pageId: string; isEnabled: boolean }> = [];
+
+    for (const mod of modules) {
+      const moduleKey = String(mod.key ?? '').toLowerCase().trim();
+      const moduleDef = catalog.modules.get(moduleKey);
+      if (!moduleDef) return res.status(400).json({ success: false, message: `Unknown module key: ${moduleKey}` });
+      if (seenModules.has(moduleKey)) return res.status(400).json({ success: false, message: `Duplicate module: ${moduleKey}` });
+      seenModules.add(moduleKey);
+      moduleRows.push({ businessTypeId, moduleId: moduleDef.id, isEnabled: !!mod.enabled });
+
+      if (Array.isArray(mod.pages)) {
+        const seenPages = new Set<string>();
+        for (const page of mod.pages) {
+          const pageKey = String(page.key ?? '').toLowerCase().trim();
+          const pageId = moduleDef.pages.get(pageKey);
+          if (!pageId) return res.status(400).json({ success: false, message: `Unknown page ${moduleKey}.${pageKey}` });
+          if (seenPages.has(pageKey)) return res.status(400).json({ success: false, message: `Duplicate page ${moduleKey}.${pageKey}` });
+          seenPages.add(pageKey);
+          if (!!page.enabled && !mod.enabled) {
+            return res.status(400).json({
+              success: false,
+              message: `Page ${moduleKey}.${pageKey} cannot be enabled while module ${moduleKey} is disabled`,
+            });
+          }
+          pageRows.push({ businessTypeId, pageId, isEnabled: !!page.enabled });
+        }
+      }
+    }
+
+    const beforeModules = await prisma.businessTypeModule.findMany({ where: { businessTypeId } });
+    const beforePages = await prisma.businessTypePage.findMany({ where: { businessTypeId } });
+    const before = {
+      modules: beforeModules.map((r: any) => ({ moduleId: r.moduleId, isEnabled: r.isEnabled })),
+      pages: beforePages.map((r: any) => ({ pageId: r.pageId, isEnabled: r.isEnabled })),
+    };
+    const after = {
+      modules: moduleRows.map((r) => ({ moduleId: r.moduleId, isEnabled: r.isEnabled })),
+      pages: pageRows.map((r) => ({ pageId: r.pageId, isEnabled: r.isEnabled })),
+    };
+
+    await prisma.$transaction(async (tx: any) => {
+      await tx.businessTypeModule.deleteMany({ where: { businessTypeId } });
+      if (moduleRows.length > 0) await tx.businessTypeModule.createMany({ data: moduleRows });
+      await tx.businessTypePage.deleteMany({ where: { businessTypeId } });
+      if (pageRows.length > 0) await tx.businessTypePage.createMany({ data: pageRows });
+      await writePolicyAudit(tx, {
+        entityType: 'BUSINESS_TYPE',
+        entityId: businessTypeId,
+        actorId: actorIdOf(req),
+        action: 'PUBLISH_POLICY',
+        before,
+        after,
+        policyVersion: 0,
+      });
+    });
+
+    clearModuleCache();
+
+    return res.json({ success: true, data: { businessTypeId, modules: after.modules, pages: after.pages } });
+  } catch (error: any) {
+    console.error('[BusinessTypePolicy] PUT error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to publish business type policy' });
+  }
+};
+
+/**
+ * POST /backoffice/policies/preview
+ * Body: { businessTypeId?: string; planId: string; roleId?: string }
+ * Read-only evaluation of the three policy layers for every module/page.
+ */
+export const previewEffectiveAccess = async (req: AdminAuthRequest, res: Response) => {
+  const { businessTypeId, planId, roleId } = req.body as { businessTypeId?: string; planId?: string; roleId?: string };
+
+  if (!planId) {
+    return res.status(400).json({ success: false, message: 'planId is required' });
+  }
+
+  try {
+    const prisma = await getPrisma();
+    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan) return res.status(404).json({ success: false, message: `Plan ${planId} not found` });
+
+    const catalog = await loadPolicyCatalog(prisma);
+
+    const [planEntitlements, businessTypeModules, businessTypePages, rolePermissions] = await Promise.all([
+      prisma.planEntitlement.findMany({ where: { planId } }),
+      businessTypeId ? prisma.businessTypeModule.findMany({ where: { businessTypeId } }) : Promise.resolve([]),
+      businessTypeId ? prisma.businessTypePage.findMany({ where: { businessTypeId } }) : Promise.resolve([]),
+      roleId ? prisma.rolePermissionV2.findMany({ where: { roleId } }) : Promise.resolve([]),
+    ]);
+
+    const entitlementByKey = new Map<string, string>();
+    for (const e of planEntitlements) {
+      const key = e.pageKey ? `${e.moduleKey}.${e.pageKey}` : e.moduleKey;
+      entitlementByKey.set(key, String(e.entitlementLevel).toUpperCase());
+    }
+
+    const btModuleById = new Map(businessTypeModules.map((r: any) => [String(r.moduleId).toLowerCase(), !!r.isEnabled]));
+    const btPageById = new Map(businessTypePages.map((r: any) => [String(r.pageId).toLowerCase(), !!r.isEnabled]));
+    const roleOpByPage = new Map<string, Array<{ operationKey: string; allowed: boolean; scope: string }>>();
+    for (const rp of rolePermissions) {
+      const pageId = String(rp.modulePageId).toLowerCase();
+      if (!roleOpByPage.has(pageId)) roleOpByPage.set(pageId, []);
+      roleOpByPage.get(pageId)!.push({ operationKey: rp.operationKey, allowed: rp.allowed, scope: rp.scope });
+    }
+
+    const matrix: Array<Record<string, unknown>> = [];
+    for (const mod of catalog.modules.values()) {
+      const btModuleAllowed = businessTypeId ? (btModuleById.get(mod.id.toLowerCase()) ?? false) : true;
+      for (const [pageKey, pageId] of mod.pages) {
+        const moduleEntitlement = entitlementByKey.get(mod.key) ?? 'NONE';
+        const pageEntitlement = entitlementByKey.get(`${mod.key}.${pageKey}`) ?? moduleEntitlement;
+        const btPageAllowed = businessTypeId ? (btPageById.get(pageId.toLowerCase()) ?? false) : true;
+
+        const operations = (roleOpByPage.get(pageId.toLowerCase()) ?? []).map((op) => ({
+          operationKey: op.operationKey,
+          allowed: op.allowed,
+          scope: op.scope,
+        }));
+
+        let allowed = btModuleAllowed && btPageAllowed && pageEntitlement !== 'NONE';
+        let reason = 'ALLOWED';
+        if (!btModuleAllowed) reason = 'BUSINESS_TYPE_MODULE_DENIED';
+        else if (!btPageAllowed) reason = 'BUSINESS_TYPE_PAGE_DENIED';
+        else if (pageEntitlement === 'NONE') reason = 'PLAN_NOT_ENTITLED';
+        else if (pageEntitlement === 'LIMITED') reason = 'PLAN_READ_ONLY';
+
+        matrix.push({
+          moduleKey: mod.key,
+          pageKey,
+          businessType: businessTypeId ? { enabled: btModuleAllowed && btPageAllowed } : null,
+          plan: { entitlementLevel: pageEntitlement },
+          role: { operations },
+          effective: { allowed, reason },
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        planId,
+        businessTypeId: businessTypeId ?? null,
+        roleId: roleId ?? null,
+        planPermissionState: plan.permissionState,
+        planPolicyVersion: plan.policyVersion,
+        matrix,
+      },
+    });
+  } catch (error: any) {
+    console.error('[PolicyPreview] POST error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to preview effective access' });
   }
 };

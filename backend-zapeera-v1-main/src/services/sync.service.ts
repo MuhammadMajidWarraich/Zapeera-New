@@ -167,7 +167,10 @@ class SyncService {
       }
 
       // Run Prisma db push to create schema FIRST (before any sync)
-      console.log('[Sync] 📋 Creating database schema with Prisma...');
+      // The push NEVER passes the destructive data-loss flag: without it, the
+      // local database is never wiped to force a schema change. If a schema
+      // conflict exists, we stop and preserve the database instead.
+      console.log('[Sync] 📋 Creating database schema with Prisma (non-destructive)...');
       try {
         const { execSync } = require('child_process');
         const sqlitePath = path.join(sqliteDir, 'zapeera.db');
@@ -179,7 +182,7 @@ class SyncService {
         };
 
         // Run prisma db push to create all tables (deterministic SQLite schema)
-        execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --skip-generate --accept-data-loss', {
+        execSync('npx prisma db push --schema prisma/schema.sqlite.prisma --skip-generate', {
           cwd: path.join(__dirname, '..', '..'),
           env,
           stdio: 'pipe',
@@ -188,8 +191,19 @@ class SyncService {
 
         console.log('[Sync] ✅ Database schema created successfully');
       } catch (schemaError: any) {
-        console.error('[Sync] ❌ Failed to create schema:', schemaError.message);
-        // Continue anyway - tables might already exist
+        // PRESERVE DATA: never wipe or rebuild an existing database
+        // automatically. A plain `db push` (without the destructive data-loss
+        // flag) never drops user data; when it fails, the local database is
+        // left untouched.
+        const msg = String(schemaError?.message || schemaError || '');
+        result.errors.push(`Database schema could not be synchronized: ${msg.slice(0, 500)}`);
+        result.errors.push(
+          'Recovery: back up the database, then run manually: npx prisma db push --schema prisma/schema.sqlite.prisma'
+        );
+        result.errors.push('Recovery: do NOT use the destructive Prisma data-loss flag on a database you cannot afford to lose.');
+        console.error('[Sync] ❌ Schema synchronization failed — preserving local database. No data was destroyed.');
+        await pgClient.end();
+        return result;
       }
 
       // Reinitialize database service to pick up new schema
