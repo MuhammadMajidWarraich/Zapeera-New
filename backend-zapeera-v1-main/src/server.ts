@@ -8,6 +8,12 @@ require('./config/database-url-init');
 // actionable remediation instead of a confusing Prisma crash. Secret-safe.
 require('./config/prisma-mode-assert').assertDatabaseModeMatch();
 
+// SCHEMA SELF-HEAL: apply additive PostgreSQL schema changes (prisma db push)
+// before the server starts. No migrations exist in this project; without this,
+// a freshly deployed build would 500 on every protected request until the
+// database is manually migrated.
+require('./config/schema-heal').healDatabaseSchema();
+
 // Now import the TypeScript database initialization (for additional setup)
 import './config/database.init';
 

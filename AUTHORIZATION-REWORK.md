@@ -55,7 +55,11 @@ Frontend (`frontend-zapeera-V1/`):
 
 ## [MIGRATION STEPS]
 
-1. `cd backend-zapeera-v1-main && node scripts/migrate-auth-policies.js`
+> Schema changes are now applied automatically: the server runs a
+> non-destructive `prisma db push` (PostgreSQL mode only) at startup
+> (`src/config/schema-heal.ts`), so a fresh deploy self-migrates.
+
+1. Optional manual run: `cd backend-zapeera-v1-main && node scripts/migrate-auth-policies.js`
    - SQLite: full DB file backup written to `backups/auth-policies-*.db`.
    - Postgres: JSON dump of the five legacy tables to `backups/auth-policies-*.json`.
    - Seed data is re-derived from the new canonical definitions; legacy rows converted to PlanEntitlement / RolePermissionV2 / BusinessTypeModule / BusinessTypePage.
