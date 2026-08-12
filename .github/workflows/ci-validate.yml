@@ -1,4 +1,4 @@
-name: Deploy Backend to Railway
+name: CI: Backend + Frontend validation
 
 on:
   push:
@@ -83,44 +83,3 @@ jobs:
         # covers the desktop/build toolchain (electron, electron-builder/tar,
         # vite) whose fixes are blind major bumps the CI cannot validate.
         run: node scripts/check-audit-baseline.js
-
-  deploy:
-    name: Deploy to Railway
-    needs: [backend-validate, frontend-validate]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend-zapeera-v1-main
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: backend-zapeera-v1-main/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build (validated — no forced flags)
-        run: npm run build:prod
-
-      - name: Deploy to Railway
-        # railwayapp/actions was retired — Railway now ships deploy tooling via
-        # the official CLI (@railway/cli). Project token auth (RAILWAY_TOKEN)
-        # plus explicit project/service ids. Runs from backend-zapeera-v1-main
-        # so `railway up` uploads the backend root (Railway builds it).
-        # Skipped (with a notice) when the Railway secrets are not configured.
-        if: env.RAILWAY_TOKEN != ''
-        run: npx --yes @railway/cli@latest up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "${{ secrets.RAILWAY_ENVIRONMENT || 'production' }}" -m "deploy ${{ github.sha }}"
-
-      - name: Railway deploy not configured
-        if: env.RAILWAY_TOKEN == ''
-        run: echo "::warning::Railway deploy SKIPPED — add RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (and optional RAILWAY_ENVIRONMENT) repository secrets to enable automatic deploys."
