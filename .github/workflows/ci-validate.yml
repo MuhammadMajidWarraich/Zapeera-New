@@ -1,4 +1,4 @@
-name: CI: Backend + Frontend validation
+name: CI Backend + Frontend validation
 
 on:
   push:
