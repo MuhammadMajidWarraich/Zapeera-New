@@ -35,8 +35,11 @@ export function healDatabaseSchema(): void {
     });
     console.log('[Schema Heal] ✅ PostgreSQL schema is up to date');
   } catch (err) {
-    const msg = String((err as any)?.message || err || '').split('\n')[0];
-    console.error(`[Schema Heal] ❌ Failed to synchronize PostgreSQL schema: ${msg}`);
+    // Log the FULL error — execSync errors carry the child's stderr on the
+    // lines AFTER the first ("Command failed: ..."). Truncating to the first
+    // line hides the actual Prisma error (P1001 connection refused, P1010
+    // auth failure, P3000 schema conflict, timeout, ...) in Railway logs.
+    console.error(`[Schema Heal] ❌ Failed to synchronize PostgreSQL schema: ${err}`);
     console.error('[Schema Heal] ❌ Manual remediation: npx prisma db push --schema prisma/schema.postgresql.prisma');
     throw new Error('PostgreSQL schema is out of sync (prisma db push failed). See [Schema Heal] logs above.');
   }
