@@ -8,7 +8,7 @@
     "dev:web": "node scripts/start-dev.js web",
     "dev:live": "node scripts/start-dev.js web",
     "dev:electron": "node scripts/start-dev.js electron",
-    "build": "tsc",
+    "build": "npm run setup:web && tsc --skipLibCheck",
     "build:prod": "npm run setup:web && npm run build",
     "build:prod:force": "npm run setup:web && tsc --skipLibCheck",
     "start": "node dist/server.js",
