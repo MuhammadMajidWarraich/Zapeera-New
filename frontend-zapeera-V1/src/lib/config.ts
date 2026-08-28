@@ -95,7 +95,7 @@ export const config = {
       // Dev: Vite's proxy forwards /api and can stream SSE
       if (import.meta.env.DEV) return '/api';
       // Production web (relative /api through the Vercel rewrite): hit Railway directly
-      return 'https://zapeera-api-production.up.railway.app/api';
+      return 'https://zapeera-new-production.up.railway.app/api';
     })(),
   },
 
