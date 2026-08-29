@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "resend": "^3.5.0"
+  },
+  "devDependencies": {
+    "railway": "^3.11.0"
   }
 }
