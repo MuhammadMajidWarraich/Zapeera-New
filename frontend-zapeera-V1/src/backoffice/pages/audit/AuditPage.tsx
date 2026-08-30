@@ -12,7 +12,11 @@ export function AuditPage() {
 
   useEffect(() => { fetchLogs(); }, [activeTab]);
 
-  const unwrapLogs = (data: any) => (Array.isArray(data) ? data : (data?.logs || []));
+  const unwrapLogs = (data: unknown): Array<Record<string, unknown>> => {
+    if (Array.isArray(data)) return data as Array<Record<string, unknown>>;
+    const inner = (data as { logs?: unknown })?.logs;
+    return Array.isArray(inner) ? (inner as Array<Record<string, unknown>>) : [];
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -24,7 +28,9 @@ export function AuditPage() {
         const res = await backofficeApi.getLoginLogs();
         setLoginLogs(unwrapLogs(res.data));
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to fetch audit logs:', error);
+    }
     setLoading(false);
   };
 

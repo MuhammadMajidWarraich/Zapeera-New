@@ -28,6 +28,42 @@ export interface SubModuleState {
   disabledReason: 'BUSINESS_TYPE' | 'SUBSCRIPTION_PLAN' | 'ROLE' | 'PARENT_MODULE' | null;
 }
 
+// API response shapes (minimal — only the fields the hook reads)
+interface ModuleEnablementItem {
+  name?: string;
+  displayName?: string;
+  enabled?: boolean;
+  sortOrder?: number;
+  disabledReason?: string | null;
+}
+
+interface SubModuleResultItem {
+  module: string;
+  key: string;
+  enabled: boolean;
+  primaryDenialReason?: SubModuleState['disabledReason'] | null;
+}
+
+interface ModulesApiResponse {
+  success: boolean;
+  data?: ModuleEnablementItem[];
+  disabledSubModules?: string[];
+  subModuleResults?: SubModuleResultItem[];
+}
+
+interface HierarchyApiResponse {
+  success: boolean;
+  data?: {
+    hierarchy?: ModuleConfig[];
+    lastUpdated?: string;
+  };
+}
+
+interface BusinessBySlugResponse {
+  success: boolean;
+  data?: { id: string | number };
+}
+
 export interface ModuleState {
   enabled: boolean;
   label: string;
@@ -80,7 +116,7 @@ export const useBusinessModules = (companyId?: string) => {
   const { selectedCompanyId, allCompanies } = useAdmin();
   const location = useLocation();
   const businessSlug = useMemo(() => {
-    const match = location.pathname.match(/\/business\/([^\/]+)/);
+    const match = location.pathname.match(/\/business\/([^/]+)/);
     return match ? match[1] : null;
   }, [location.pathname]);
   
@@ -120,7 +156,7 @@ export const useBusinessModules = (companyId?: string) => {
       setSlugLookupError(null);
       setResolvedSlugCompanyId(undefined);
       try {
-        const response: any = await apiService.getBusinessBySlug(businessSlug);
+        const response = (await apiService.getBusinessBySlug(businessSlug)) as BusinessBySlugResponse;
         if (!cancelled && response.success && response.data?.id) {
           const id = String(response.data.id);
           setResolvedSlugCompanyId(id);
@@ -217,15 +253,15 @@ export const useBusinessModules = (companyId?: string) => {
       setLoading(true);
       setHierarchyLoading(true);
       try {
-        const [modulesResponse, hierarchyResponse]: any[] = await Promise.all([
+        const [modulesResponse, hierarchyResponse] = await Promise.all([
           apiService.getEnabledModules(effectiveCompanyId),
           apiService.getModuleHierarchy(effectiveCompanyId),
-        ]);
+        ]) as [ModulesApiResponse, HierarchyApiResponse];
 
         if (!cancelled && modulesResponse.success && Array.isArray(modulesResponse.data)) {
           const updatedModules = { ...ALL_MODULES };
           
-          modulesResponse.data.forEach((item: any) => {
+          modulesResponse.data.forEach((item: ModuleEnablementItem) => {
             const rawName = String(item.name || '').trim().toLowerCase();
             const moduleKey = rawName.replace(/[\s-]+/g, '_');
             const disabledReason = item.disabledReason || null;
@@ -245,7 +281,7 @@ export const useBusinessModules = (companyId?: string) => {
             }
           });
 
-          const order: Record<string, number> = modulesResponse.data.reduce((acc: Record<string, number>, item: any, idx: number) => {
+          const order: Record<string, number> = modulesResponse.data.reduce((acc: Record<string, number>, item: ModuleEnablementItem, idx: number) => {
             const raw = String(item.name || '').trim().toLowerCase();
             const key = raw.replace(/[\s-]+/g, '_');
             acc[key] = typeof item.sortOrder === 'number' ? item.sortOrder : idx;
@@ -333,6 +369,11 @@ export const useBusinessModules = (companyId?: string) => {
 
     loadAll();
     return () => { cancelled = true; };
+    // businessSlug and hierarchy.length are intentionally not in the deps:
+    // adding hierarchy.length would restart the fetch every time hierarchy is
+    // set, causing a refetch loop; businessSlug changes always flow through
+    // effectiveCompanyId, which is already a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveCompanyId, refetchTick]);
 
   // NOTE: Previously, a 30-second setInterval called refetch() here.

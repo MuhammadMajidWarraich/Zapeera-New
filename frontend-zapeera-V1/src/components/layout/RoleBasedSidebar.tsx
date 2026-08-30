@@ -330,22 +330,24 @@ export const RoleBasedSidebar: React.FC = () => {
   const { selectedCompanyId, selectedCompany, allCompanies } = useAdmin();
   const { isCollapsed, setIsCollapsed } = useSidebarContext();
 
-  if (!user) return null;
+  // NOTE: no early return here — all hooks below must run on every render to
+  // keep the React hook order stable (rules-of-hooks). The user guard happens
+  // after every hook (see "if (!user) return null;" before the skeleton).
 
-  const normalizedUserRole = normalizeAppRole(user.role);
+  const normalizedUserRole = normalizeAppRole(user?.role);
   const resolvedSelectedCompany =
-    selectedCompany || allCompanies.find((company: any) => company.id === selectedCompanyId) || null;
+    selectedCompany || allCompanies.find((company: { id: string }) => company.id === selectedCompanyId) || null;
 
   // Detect businessSlug from URL pathname (e.g., /business/my-business/dashboard)
   const businessSlugFromUrl = useMemo(() => {
-    const match = location.pathname.match(/\/business\/([^\/]+)/);
+    const match = location.pathname.match(/\/business\/([^/]+)/);
     return match ? match[1] : '';
   }, [location.pathname]);
 
   // Find company by URL slug
   const companyByUrlSlug = useMemo(() => {
     if (!businessSlugFromUrl) return null;
-    return allCompanies.find((c: any) => c.slug === businessSlugFromUrl) || null;
+    return allCompanies.find((c: { slug: string }) => c.slug === businessSlugFromUrl) || null;
   }, [businessSlugFromUrl, allCompanies]);
 
   // Use company from URL slug if available, otherwise fall back to selectedCompany
@@ -355,12 +357,12 @@ export const RoleBasedSidebar: React.FC = () => {
   const { modules, moduleOrder, disabledSubModules, subModuleStateMap, hierarchy, hasDynamicHierarchy, isModuleLocked, isSubModuleLocked, isSubModuleHidden, loading: modulesLoading } = useBusinessModules(displayCompanyId);
 
   const ownsAnyBusiness = Boolean(
-    user.id && allCompanies.some((company: any) => String(company?.createdBy || '') === String(user.id)),
+    user?.id && allCompanies.some((company: { createdBy?: string | null }) => String(company?.createdBy || '') === String(user?.id)),
   );
 
   const contextRole = (() => {
     if (!displayCompany) return normalizedUserRole;
-    if (displayCompany.createdBy && String(displayCompany.createdBy) === String(user.id)) {
+    if (displayCompany.createdBy && String(displayCompany.createdBy) === String(user?.id)) {
       return 'OWNER';
     }
     const memberRole = displayCompany?.memberRole;
@@ -551,6 +553,9 @@ export const RoleBasedSidebar: React.FC = () => {
 
   const mainGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'main'), [visibleGroups]);
   const managementGroups = useMemo(() => visibleGroups.filter((g) => g.section === 'management'), [visibleGroups]);
+
+  // All hooks above have run — safe to render nothing for unauthenticated users.
+  if (!user) return null;
 
   // Until the first modules/hierarchy payload arrives, the hook exposes a
   // default state where every module looks locked. Render a skeleton instead

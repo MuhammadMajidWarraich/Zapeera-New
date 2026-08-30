@@ -12,14 +12,15 @@ if (typeof window !== 'undefined') {
   // Handle script loading errors - catch before they break the app
   window.addEventListener('error', (event) => {
     const target = event.target as HTMLElement;
-    const filename = event.filename || (target as any)?.src || '';
+    const elementWithSrc = target as HTMLScriptElement | HTMLLinkElement | null;
+    const filename = event.filename || elementWithSrc?.src || '';
     const isScriptError = target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK');
     
     // Third-party injected web-vitals snippet (host metric / extension) throws an
     // uncaught TypeError reading .startTime from an undefined entry inside an
     // idle callback (stack: et.reportAllChanges). Not our bundle — suppress it.
     if (event.message && String(event.message).includes("reading 'startTime'")) {
-      const errorStack = String(((event as any).error && (event as any).error.stack) || '');
+      const errorStack = String((event.error && (event.error as { stack?: unknown })?.stack) || '');
       if (errorStack.includes('reportAllChanges') || errorStack.includes('web-vitals')) {
         event.preventDefault();
         event.stopPropagation();
@@ -40,7 +41,7 @@ if (typeof window !== 'undefined') {
     
     // Handle MIME type errors for module scripts
     if (event.message && event.message.includes('MIME type') && event.message.includes('module script')) {
-      const errorUrl = filename || (target as any)?.src || 'unknown';
+      const errorUrl = filename || elementWithSrc?.src || 'unknown';
       console.error('❌ MIME type error detected:', {
         message: event.message,
         url: errorUrl,
