@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import { buildPrismaUrl } from '../config/prisma-url';
 import { ExtractedData } from './ocr.service';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
 
 export interface MappedData {
   product: {

@@ -90,7 +90,15 @@ export const getAllSubscriptions = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      data: subscriptions
+      data: subscriptions.map(sub => {
+        const s = sub as any;
+        return {
+          ...sub,
+          businessName: s.business?.name ?? '-',
+          planName: s.plan?.name ?? '-',
+          amount: Number(s.plan?.price ?? 0),
+        };
+      })
     });
   } catch (error: any) {
     console.error('Get all subscriptions error:', error);

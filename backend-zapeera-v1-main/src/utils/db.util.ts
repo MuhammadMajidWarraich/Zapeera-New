@@ -7,6 +7,7 @@ import '../config/database.init';
 import { PrismaClient } from '@prisma/client';
 import { getDatabaseService } from '../services/database.service';
 import { isPostgreSQLMode, isSQLiteMode } from '../config/database-mode';
+import { buildPrismaUrl } from '../config/prisma-url';
 
 let cachedClient: PrismaClient | null = null;
 
@@ -88,7 +89,7 @@ export function getPrismaSync(): PrismaClient {
   }
 
   // Create new client
-  cachedClient = new PrismaClient();
+  cachedClient = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
   return cachedClient;
 }
 

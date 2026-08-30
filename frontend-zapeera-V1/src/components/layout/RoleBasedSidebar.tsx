@@ -381,22 +381,36 @@ export const RoleBasedSidebar: React.FC = () => {
   const visibleGroups = useMemo(() => {
     // Ensure Dashboard is always present as the first entry
     const ensureDashboard = (groups: ModuleGroup[]): ModuleGroup[] => {
-      // Deduplicate: keep only the first occurrence of any group with module='dashboard'
+      // A group is "the dashboard" if its module is 'dashboard' OR it is a
+      // single-page group whose page is the dashboard page. Matching by label
+      // and page key (not only by module) covers legacy/pinned configs that
+      // omit the module key, which previously produced two "Dashboard" links.
+      const isDashboardGroup = (g: ModuleGroup): boolean => {
+        const mod = (g.module || '').toLowerCase();
+        if (mod === 'dashboard') return true;
+        if (g.pages.length === 1) {
+          const page = g.pages[0];
+          if ((page.key || '').toLowerCase() === 'dashboard') return true;
+          if ((page.label || '').toLowerCase() === 'dashboard') return true;
+        }
+        return false;
+      };
+
+      // Deduplicate: keep the first dashboard group, drop any later ones.
       const seen = new Set<string>();
       const deduped = groups.filter((g) => {
-        const key = (g.module || '').toLowerCase();
-        if (key === 'dashboard') {
+        if (isDashboardGroup(g)) {
+          const key = (g.module || 'dashboard').toLowerCase();
           if (seen.has(key)) return false;
           seen.add(key);
         }
         return true;
       });
 
-      const hasDashboard = deduped.some((g) => (g.module || '').toLowerCase() === 'dashboard');
-      if (hasDashboard) {
-        const idx = deduped.findIndex((g) => (g.module || '').toLowerCase() === 'dashboard');
-        if (idx > 0) {
-          const [dash, ...rest] = deduped.splice(idx, 1);
+      const dashIdx = deduped.findIndex(isDashboardGroup);
+      if (dashIdx >= 0) {
+        if (dashIdx > 0) {
+          const [dash, ...rest] = deduped.splice(dashIdx, 1);
           return [dash, ...deduped];
         }
         return deduped;

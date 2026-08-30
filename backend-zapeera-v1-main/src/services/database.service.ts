@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { resolveDatabaseMode, isPostgresUrl as isPostgresUrlSafe } from '../config/database-mode';
+import { buildPrismaUrl } from '../config/prisma-url';
 
 function withPostgresConnectionLimit(databaseUrl: string): string {
   try {
@@ -173,6 +174,7 @@ class DatabaseService {
         
         this.client = new PrismaClient({
           log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+          datasources: { db: { url: buildPrismaUrl() } },
         });
         
         try {
@@ -355,7 +357,7 @@ class DatabaseService {
   async checkConnectivity(): Promise<ConnectionStatus> {
     try {
       if (!this.client) {
-        this.client = new PrismaClient();
+        this.client = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
       }
       await this.client.$queryRaw`SELECT 1`;
       this.connectionStatus = ConnectionStatus.ONLINE;

@@ -12,15 +12,17 @@ export function AuditPage() {
 
   useEffect(() => { fetchLogs(); }, [activeTab]);
 
+  const unwrapLogs = (data: any) => (Array.isArray(data) ? data : (data?.logs || []));
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
       if (activeTab === 'actions') {
         const res = await backofficeApi.getAuditLogs('limit=100');
-        setLogs(res.data || []);
+        setLogs(unwrapLogs(res.data));
       } else {
         const res = await backofficeApi.getLoginLogs();
-        setLoginLogs(res.data || []);
+        setLoginLogs(unwrapLogs(res.data));
       }
     } catch {}
     setLoading(false);

@@ -15,6 +15,18 @@ if (typeof window !== 'undefined') {
     const filename = event.filename || (target as any)?.src || '';
     const isScriptError = target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK');
     
+    // Third-party injected web-vitals snippet (host metric / extension) throws an
+    // uncaught TypeError reading .startTime from an undefined entry inside an
+    // idle callback (stack: et.reportAllChanges). Not our bundle — suppress it.
+    if (event.message && String(event.message).includes("reading 'startTime'")) {
+      const errorStack = String(((event as any).error && (event as any).error.stack) || '');
+      if (errorStack.includes('reportAllChanges') || errorStack.includes('web-vitals')) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    }
+    
     // Handle share-modal.js specifically
     if (filename && filename.includes('share-modal.js')) {
       // If it's a script tag error, prevent it from breaking the app

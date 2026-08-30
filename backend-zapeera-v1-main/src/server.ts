@@ -17,6 +17,8 @@ require('./config/schema-heal').healDatabaseSchema();
 // Now import the TypeScript database initialization (for additional setup)
 import './config/database.init';
 
+import { buildPrismaUrl } from './config/prisma-url';
+
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -246,23 +248,23 @@ async function initializePrismaClient(): Promise<void> {
         console.error('[Server] ❌ Failed to get client from database service:', err);
         // Fallback: try to create with DATABASE_URL if set
         if (process.env.DATABASE_URL) {
-          prisma = new PrismaClient();
+          prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
         } else {
           // Last resort: create with SQLite default
           const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
           process.env.DATABASE_URL = `file:${sqlitePath}`;
-          prisma = new PrismaClient();
+          prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
         }
       }
     } else {
       // Fallback if database service not available
       if (process.env.DATABASE_URL) {
-        prisma = new PrismaClient();
+        prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
       } else {
         // Use SQLite as default
         const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
         process.env.DATABASE_URL = `file:${sqlitePath}`;
-        prisma = new PrismaClient();
+        prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
       }
     }
 
@@ -282,11 +284,11 @@ async function initializePrismaClient(): Promise<void> {
     try {
       const sqlitePath = path.join(os.homedir(), '.zapeera', 'data', 'zapeera.db');
       process.env.DATABASE_URL = `file:${sqlitePath}`;
-      prisma = new PrismaClient();
+      prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
     } catch (e: any) {
       console.error('❌ Failed to initialize Prisma Client with SQLite:', e.message);
       // Create a client anyway - it might work
-      prisma = new PrismaClient();
+      prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
     }
   }
 }

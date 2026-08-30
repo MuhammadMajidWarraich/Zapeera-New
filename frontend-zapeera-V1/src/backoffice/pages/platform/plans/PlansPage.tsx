@@ -353,8 +353,8 @@ export function PlansPage() {
                     {subscriptions.map(sub => (
                       <tr key={sub.id} className="hover:bg-gray-50 transition">
                         <td className="px-4 py-3 font-medium text-gray-900">{sub.businessName || '-'}</td>
-                        <td className="px-4 py-3 text-gray-600">{sub.planName}</td>
-                        <td className="px-4 py-3 text-gray-900">PKR {sub.amount.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-gray-600">{sub.planName || '-'}</td>
+                        <td className="px-4 py-3 text-gray-900">PKR {(sub.amount ?? 0).toLocaleString()}</td>
                         <td className="px-4 py-3">{statusBadge(sub.status)}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs">
                           {sub.currentPeriodStart ? `${new Date(sub.currentPeriodStart).toLocaleDateString()} - ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : ''}` : '-'}

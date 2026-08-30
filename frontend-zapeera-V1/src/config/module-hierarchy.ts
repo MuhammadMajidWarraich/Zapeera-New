@@ -75,6 +75,10 @@ export interface ModuleGroup {
 export const MODULE_HIERARCHY: ModuleGroup[] = [
   // ─── Always-visible ───────────────────────────────────────────────────
   {
+    // module: 'dashboard' — the backend hierarchy + RoleBasedSidebar.ensureDashboard
+    // both identify the dashboard by exactly this key. Keeping it set here makes
+    // the static fallback consistent so the dashboard is never rendered twice.
+    module: 'dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
     section: 'main',

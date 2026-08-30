@@ -53,6 +53,29 @@ const ALL_MODULES: Record<string, ModuleState> = {
   employee_portal:     { enabled: true, label: 'Employee Portal' },
 };
 
+/** Read the last-good module hierarchy for a company from localStorage. */
+const readHierarchyCache = (companyId: string): ModuleConfig[] | null => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`moduleHierarchy_${companyId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch (e) {
+    console.warn('[HIERARCHY] Failed to parse cached hierarchy:', e);
+    return null;
+  }
+};
+
+const readHierarchyCacheTimestamp = (companyId: string): string | null => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage.getItem(`moduleHierarchyTimestamp_${companyId}`) || null;
+  } catch {
+    return null;
+  }
+};
+
 export const useBusinessModules = (companyId?: string) => {
   const { selectedCompanyId, allCompanies } = useAdmin();
   const location = useLocation();
@@ -144,6 +167,11 @@ export const useBusinessModules = (companyId?: string) => {
   // Track last successfully loaded company to avoid redundant calls
   const lastLoadedCompanyIdRef = useRef<string | null>(null);
 
+  // Set once real module/hierarchy data (network or cache) has been painted.
+  // Used so the visible menu is not mis-flagged as "locked" while a fresh
+  // fetch is still in flight.
+  const dataReadyRef = useRef(false);
+
   // Safety timeout: force loading to false after 5s so the UI is never permanently stuck
   useEffect(() => {
     if (!loading) return;
@@ -170,6 +198,20 @@ export const useBusinessModules = (companyId?: string) => {
           setHierarchyLoading(false);
         }
         return;
+      }
+
+      // Reset the "we have real data" flag when switching companies
+      if (lastLoadedCompanyIdRef.current !== effectiveCompanyId) {
+        dataReadyRef.current = false;
+      }
+
+      // Paint the last-good cached hierarchy immediately so a slow/hung fetch
+      // never drops the user onto the partial fallback menu.
+      const cached = readHierarchyCache(effectiveCompanyId);
+      if (cached && !cancelled) {
+        dataReadyRef.current = true;
+        setHierarchy(cached);
+        setLastUpdated(readHierarchyCacheTimestamp(effectiveCompanyId));
       }
 
       setLoading(true);
@@ -250,6 +292,7 @@ export const useBusinessModules = (companyId?: string) => {
 
         if (!cancelled && hierarchyResponse.success && hierarchyResponse.data?.hierarchy) {
           lastLoadedCompanyIdRef.current = effectiveCompanyId;
+          dataReadyRef.current = true;
           
           if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
             try {
@@ -263,21 +306,23 @@ export const useBusinessModules = (companyId?: string) => {
           setHierarchy(hierarchyResponse.data.hierarchy);
           setLastUpdated(hierarchyResponse.data.lastUpdated || new Date().toISOString());
         } else if (!cancelled) {
-          const cached = typeof window !== 'undefined' && localStorage ? localStorage.getItem(`moduleHierarchy_${effectiveCompanyId}`) : null;
+          const cached = readHierarchyCache(effectiveCompanyId);
           if (cached) {
-            try {
-              const cachedHierarchy = JSON.parse(cached);
-              setHierarchy(cachedHierarchy);
-              setLastUpdated(localStorage.getItem(`moduleHierarchyTimestamp_${effectiveCompanyId}`) || new Date().toISOString());
-            } catch (e) {
-              console.warn('[HIERARCHY] Failed to load from localStorage:', e);
-            }
+            dataReadyRef.current = true;
+            setHierarchy(cached);
+            setLastUpdated(readHierarchyCacheTimestamp(effectiveCompanyId) || new Date().toISOString());
           } else if (lastLoadedCompanyIdRef.current !== effectiveCompanyId || hierarchy.length === 0) {
             setHierarchy([]);
           }
         }
       } catch (error) {
         console.error('useBusinessModules - Error fetching modules/hierarchy:', error);
+        const cached = readHierarchyCache(effectiveCompanyId);
+        if (cached) {
+          dataReadyRef.current = true;
+          setHierarchy(cached);
+          setLastUpdated(readHierarchyCacheTimestamp(effectiveCompanyId) || new Date().toISOString());
+        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -323,10 +368,15 @@ export const useBusinessModules = (companyId?: string) => {
       if (!moduleName) return false;
       const lower = moduleName.toLowerCase();
       if (lower === 'subscription' || lower === 'dashboard') return false;
-      if (loading) return true;
+      // Before any real data is available, treat everything as locked so the
+      // default ALL_MODULES state never renders as an unlocked menu.
+      if (loading && !dataReadyRef.current) return true;
       const module = modules[lower];
       // If module doesn't exist in the modules object, treat as unlocked
       if (!module) return false;
+      // While a menu is already painted (e.g. from cache) and the enablement
+      // payload is still loading, don't flag modules as locked from a stale map.
+      if (loading && dataReadyRef.current) return false;
       return Boolean(!module.enabled);
     },
     [modules, loading],
