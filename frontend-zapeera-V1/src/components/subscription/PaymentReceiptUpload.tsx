@@ -255,9 +255,28 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
 
     setSubmitting(true);
     try {
+      // CRITICAL: must send Bearer token (and CSRF header) or the backend CSRF
+      // middleware rejects this POST with 403 CSRF_TOKEN_REQUIRED (it only skips
+      // CSRF for Bearer-authenticated requests).
+      const headers = new Headers();
+      const token = (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      try {
+        const cookies = document.cookie.split(';');
+        for (const c of cookies) {
+          const [k, v] = c.trim().split('=');
+          if (k === 'csrf-token' || k === 'XSRF-TOKEN') {
+            headers.set('X-CSRF-Token', decodeURIComponent(v));
+            break;
+          }
+        }
+      } catch { /* ignore */ }
       const response = await fetch(`${BASE_URL}/payments/manual/submit`, {
         method: 'POST',
         body: fd,
+        headers,
         credentials: 'include',
       });
 

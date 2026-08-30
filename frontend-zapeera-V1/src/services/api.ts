@@ -5606,9 +5606,27 @@ export class ApiService {
   }
 
   async submitPaymentProof(formData: FormData) {
+    // NOTE: unlike most endpoints, this path can't use `this.request()` directly
+    // because it needs to retain low-level `{ success, message, code }` fields
+    // (the upload UI maps specific codes like PENDING_EXISTS). It MUST still send
+    // the Bearer token + CSRF header or the backend CSRF middleware rejects the
+    // POST with 403 CSRF_TOKEN_REQUIRED (it bypasses CSRF only for Bearer auth).
+    const headers = new Headers();
+    const token = this._accessToken
+      || (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    const csrfToken = this.getCSRFToken();
+    if (csrfToken) {
+      headers.set('X-CSRF-Token', csrfToken);
+    }
     const response = await fetch(`${this.baseURL}/payments/manual/submit`, {
       method: 'POST',
       body: formData,
+      headers,
       credentials: 'include',
     });
     return response.json();
