@@ -30,7 +30,7 @@ export const config = {
       // since cookies need same-origin requests.
       return '/api';
     })(),
-    timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '30000'),
+    timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '60000'),
   },
 
   // App Configuration

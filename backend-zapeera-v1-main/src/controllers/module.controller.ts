@@ -52,6 +52,14 @@ export const getEnabledModules = async (req: AuthRequest, res: Response) => {
     if (isMissingTableError(error)) {
       return res.status(503).json({ success: false, message: 'Module service unavailable' });
     }
+    if (/not member of business/i.test(String(error?.message || ''))) {
+      return res.status(403).json({
+        success: false,
+        message: 'No active membership found for the selected business.',
+        error: 'NO_ACTIVE_MEMBERSHIP',
+        data: { enabledModuleNames: [], disabledSubModules: [] },
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Failed to load business modules.',
@@ -308,6 +316,14 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('[getModuleHierarchy] Error:', error);
+    if (/not member of business/i.test(String(error?.message || ''))) {
+      return res.status(403).json({
+        success: false,
+        message: 'No active membership found for the selected business.',
+        error: 'NO_ACTIVE_MEMBERSHIP',
+        data: { hierarchy: [] },
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Failed to load module hierarchy.',

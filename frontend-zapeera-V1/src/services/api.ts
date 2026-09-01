@@ -142,7 +142,7 @@ export class ApiService {
       // Include X-Business-ID in the key so requests for different companies don't collide
       const requestKey = `${method}:${url}:${headers.get('X-Business-ID') || ''}`;
       if (method === 'GET' && this.pendingRequests.has(requestKey)) {
-        return this.pendingRequests.get(requestKey)!;
+        return await this.pendingRequests.get(requestKey)!;
       }
 
       // Rate limiting disabled during development to prevent loading delays
@@ -253,9 +253,10 @@ export class ApiService {
 
       if (method === 'GET') {
         this.pendingRequests.set(requestKey, processedRequestPromise);
-        processedRequestPromise.finally(() => {
-          setTimeout(() => this.pendingRequests.delete(requestKey), 100);
-        });
+        void processedRequestPromise.then(
+          () => setTimeout(() => this.pendingRequests.delete(requestKey), 100),
+          () => setTimeout(() => this.pendingRequests.delete(requestKey), 100),
+        );
       }
 
       return await processedRequestPromise;

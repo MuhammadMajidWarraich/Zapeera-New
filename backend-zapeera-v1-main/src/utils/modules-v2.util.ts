@@ -7,8 +7,9 @@
  * (src/services/authorization.service.ts).
  *
  * Security changes baked in:
- *  - No owner synthesis from business.createdBy — an explicit ACTIVE
- *    membership is required (NO_ACTIVE_MEMBERSHIP otherwise).
+ *  - Business creators (business.createdBy) are synthesized as ACTIVE OWNER
+ *    when they have no memberships row, consistent with the middleware.
+ *    A real non-member is denied (NO_ACTIVE_MEMBERSHIP).
  *  - No "empty permission set = allowed" fallback: plans/roles default deny
  *    until a policy is published (permissionState CONFIGURED). Zero grants in
  *    a CONFIGURED policy deny everything non-core.

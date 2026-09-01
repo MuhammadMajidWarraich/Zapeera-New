@@ -126,13 +126,23 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
     });
 
     if (!membership) {
-      safeUnlink(filePath);
-      res.status(403).json({
-        success: false,
-        message: 'You do not have access to submit a payment proof for this business.',
-        code: 'BUSINESS_ACCESS_DENIED',
+      // Business creators can submit proof even without a memberships row.
+      const business = await prisma.business.findUnique({
+        where: { id: String(businessId) },
+        select: { createdBy: true },
       });
-      return;
+      const isCreator =
+        !!business?.createdBy && String(business.createdBy) === String(req.user?.id || '');
+
+      if (!isCreator) {
+        safeUnlink(filePath);
+        res.status(403).json({
+          success: false,
+          message: 'You do not have access to submit a payment proof for this business.',
+          code: 'BUSINESS_ACCESS_DENIED',
+        });
+        return;
+      }
     }
 
     // ── Verify plan exists ────────────────────────────────────────────────────

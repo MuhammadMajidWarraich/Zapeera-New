@@ -342,6 +342,15 @@ describe('authorizeBusinessAction — role layer', () => {
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe('NO_ACTIVE_MEMBERSHIP');
   });
+
+  it('synthesizes ACTIVE OWNER access for the business creator without a memberships row', async () => {
+    const ds2 = defaultDataset();
+    ds2.businesses.get('b1')!.createdBy = 'u-creator';
+    const decision = await auth(ds2)('u-creator', 'b1', 'inventory.products', 'create');
+    expect(decision.allowed).toBe(true);
+    expect(decision.reason).toBe('ALLOWED');
+    expect(decision.scope).toBe('BUSINESS');
+  });
 });
 
 describe('authorizeBusinessAction — cross-tenant isolation', () => {

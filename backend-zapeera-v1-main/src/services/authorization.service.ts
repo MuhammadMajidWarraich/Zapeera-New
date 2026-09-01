@@ -23,10 +23,11 @@
  *      SUSPENDED / EXPIRED /
  *      CANCELLED / PAST_DUE      → commercial resources denied; only the
  *                                  explicit billing/account whitelist remains.
- *  - Owners must hold an explicit active membership (no synthesis from
- *    business.createdBy). The OWNER role is protected: it is never subject to
- *    the role-permission gate (but still obeys business type / subscription /
- *    plan / override layers).
+ *  - The business creator (business.createdBy) acts as ACTIVE OWNER even
+ *    without a memberships row (mirrors resolveMembership in the
+ *    multitenancy middleware). The OWNER role is protected: it is never
+ *    subject to the role-permission gate (but still obeys business type /
+ *    subscription / plan / override layers).
  *  - Dependencies evaluate the dependency's EFFECTIVE access for the same
  *    business/user; cycles are detected and fail closed.
  */
@@ -163,6 +164,7 @@ async function computePolicyFingerprint(prisma: any, businessId: string, userId:
       businessType: true,
       policyVersion: true,
       updatedAt: true,
+      createdBy: true,
       businessSubscription: {
         select: { status: true, billingStatus: true, currentPeriodEnd: true, planId: true, updatedAt: true },
       },
@@ -203,6 +205,7 @@ async function computePolicyFingerprint(prisma: any, businessId: string, userId:
   const parts = [
     `b${business.policyVersion}:${nowMs(business.updatedAt)}`,
     `bt${btPart}`,
+    `pr${String(business.createdBy ?? '')}`,
     `p${plan ? `${plan.permissionState}:${plan.policyVersion}:${nowMs(plan.updatedAt)}` : 'none'}`,
     `s${nowMs(business.businessSubscription?.updatedAt)}:${business.businessSubscription?.status || ''}:${business.businessSubscription?.billingStatus || ''}`,
     `m${membership ? `${membership.status}:${nowMs(membership.updatedAt)}` : 'none'}`,
@@ -231,7 +234,7 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
     throw new Error(`Business not found: ${businessId}`);
   }
 
-  const membership = await prisma.membership.findUnique({
+  let membership = await prisma.membership.findUnique({
     where: { unique_user_business: { userId, businessId } },
     include: { role: true, branches: true },
   });
@@ -247,6 +250,27 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
     } catch {
       rolePermissions = [];
     }
+  }
+
+  if (!membership && business.createdBy && String(business.createdBy) === String(userId)) {
+    // Business creator acts as OWNER even without a memberships row. Mirrors
+    // resolveMembership() in multitenancy.middleware.ts so both layers agree.
+    membership = {
+      id: `creator:${userId}:${businessId}`,
+      userId,
+      businessId,
+      status: 'ACTIVE',
+      roleId: null,
+      role: {
+        id: `creator:${userId}`,
+        name: 'OWNER',
+        permissionState: 'CONFIGURED',
+        policyVersion: business.policyVersion,
+        updatedAt: business.updatedAt,
+      },
+      branches: [],
+    };
+    role = membership.role;
   }
 
   const subscription = business.businessSubscription || null;
