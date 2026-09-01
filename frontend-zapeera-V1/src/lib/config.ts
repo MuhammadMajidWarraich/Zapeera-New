@@ -87,14 +87,16 @@ export const config = {
       if (envUrl) return envUrl;
       // NOTE: do NOT reference `config` here — this runs while `config` is still
       // being initialized (would throw a TDZ ReferenceError).
-      const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+      // NOTE: do NOT fall back to VITE_API_BASE_URL (/api) here — the Vercel rewrite
+      // cannot stream SSE (buffers and returns 502). The EventSource must reach the
+      // backend origin directly.
       if (isElectron) {
         return `http://127.0.0.1:${import.meta.env.VITE_EMBEDDED_PORT || '4201'}/api`;
       }
-      if (apiBase) return apiBase;
       // Dev: Vite's proxy forwards /api and can stream SSE
       if (import.meta.env.DEV) return '/api';
-      // Production web (relative /api through the Vercel rewrite): hit Railway directly
+      // Production web: hit Railway directly. Override via VITE_SSE_BASE_URL
+      // when the Railway service URL changes.
       return 'https://zapeera-new-production.up.railway.app/api';
     })(),
   },

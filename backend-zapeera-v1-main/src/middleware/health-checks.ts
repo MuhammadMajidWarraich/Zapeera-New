@@ -37,6 +37,35 @@ async function healthCheckHandler(_req: Request, res: Response): Promise<void> {
       select1 = 'failed';
     }
 
+    const dbHealthy = select1 === 'ok';
+
+    if (!dbHealthy) {
+      res.status(503).json({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        database: {
+          type: currentType === DatabaseType.SQLITE ? 'sqlite' : 'postgresql',
+          mode: configuredMode,
+          modeLabel: databaseModeLabel(configuredMode),
+          provider: generatedProvider || 'unknown',
+          modeMatch: configuredMode === generatedProvider,
+          select1,
+          status: dbStatus.connectionStatus,
+          isOnline: dbService.isOnline(),
+          isOffline: dbService.isOffline(),
+          sqlite: {
+            connected: dbStatus.sqlite.connected,
+            path: dbStatus.sqlite.url?.replace('file:', '') || 'N/A',
+          },
+          postgresql: {
+            connected: dbStatus.postgresql.connected,
+            configured: !!dbStatus.postgresql.url,
+          },
+        },
+      });
+      return;
+    }
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),

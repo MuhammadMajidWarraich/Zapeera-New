@@ -16,3 +16,9 @@ token.txt
 .env
 .env.*
 !.env.example
+
+# scratch / throwaway developer scripts (never commit)
+_*.js
+_*.ts
+_*.cjs
+scratch/

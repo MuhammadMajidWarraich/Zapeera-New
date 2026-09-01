@@ -5,6 +5,12 @@ on:
     branches: [master]
     paths:
       - 'backend-zapeera-v1-main/**'
+      - 'frontend-zapeera-V1/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'backend-zapeera-v1-main/**'
+      - 'frontend-zapeera-V1/**'
   workflow_dispatch:
 
 jobs:

@@ -38,6 +38,12 @@ export const generateImpersonationToken = async (req: AdminAuthRequest, res: Res
     }
 
     // Generate impersonation token
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error'
+      });
+    }
     const impersonationToken = jwt.sign(
       {
         adminId: req.admin!.id,
@@ -45,7 +51,7 @@ export const generateImpersonationToken = async (req: AdminAuthRequest, res: Res
         impersonation: true,
         isAdmin: true
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '1h' } // Short-lived token for security
     );
 
