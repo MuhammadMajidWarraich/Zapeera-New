@@ -1,6 +1,15 @@
 # Zapeera OCR Service
 
-Python microservice for OCR processing using PaddleOCR. Handles handwritten and printed medical rep documents.
+Python microservice for OCR processing. Handles handwritten and printed medical rep documents.
+
+> **Engine change (single-host migration, 2026-10-15):** the engine is now
+> **RapidOCR** (ONNX build of the PaddleOCR models) instead of PaddleOCR/
+> PaddlePaddle, which has no Linux ARM64 wheels and cannot run on the
+> Oracle Ampere A1 host. Endpoints and the response schema are unchanged.
+> If RapidOCR fails to initialise, the service falls back to Tesseract via
+> pytesseract (binary installed in the Docker image). See `main.py` header
+> and the repo-root `MIGRATION.md`. There was no Tesseract code path in the
+> original service — the fallback is new, added with the engine swap.
 
 ## Setup
 

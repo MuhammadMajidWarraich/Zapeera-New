@@ -1,6 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from paddleocr import PaddleOCR
 import numpy as np
 from PIL import Image
 import io
@@ -20,13 +19,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize PaddleOCR
-ocr = PaddleOCR(
-    use_angle_cls=True,
-    lang='en',
-    use_gpu=False,
-    show_log=False
-)
+# ---------------------------------------------------------------------------
+# OCR engine (single-host migration, 2026-10-15)
+#
+# The original engine was PaddleOCR (paddlepaddle), which publishes NO Linux
+# aarch64 wheels, so the service cannot run on the ARM64 single-host VM
+# (Oracle Ampere A1). The engine is now RapidOCR (rapidocr-onnxruntime): the
+# same PaddleOCR model family (PP-OCR det/rec/cls) converted to ONNX, running
+# on ONNX Runtime, which ships aarch64 wheels. RAM use also drops
+# (~1.5-2.5 GB -> ~0.4-0.8 GB). The HTTP API contract — endpoints and the
+# ExtractedData response schema — is UNCHANGED.
+#
+# The engine loads lazily on first use so the health endpoint stays fast.
+# Fallback: if RapidOCR fails to initialise, pytesseract is used when the
+# `tesseract` binary is present (the Docker image installs it). If no engine
+# is available the scan endpoints return HTTP 500 and the rest of the
+# platform is unaffected (the backend already degrades gracefully).
+# ---------------------------------------------------------------------------
+_ocr_engine = None
+_ocr_engine_kind = None
+
+
+def _get_ocr_engine():
+    global _ocr_engine, _ocr_engine_kind
+    if _ocr_engine is not None or _ocr_engine_kind == "unavailable":
+        return _ocr_engine
+    try:
+        from rapidocr_onnxruntime import RapidOCR
+
+        _ocr_engine = RapidOCR()
+        _ocr_engine_kind = "rapidocr"
+    except Exception as exc:  # depends on host binaries/wheels
+        print(f"[OCR] RapidOCR init failed ({exc}); trying Tesseract fallback")
+        try:
+            import shutil
+
+            import pytesseract  # noqa: F401
+
+            if shutil.which("tesseract"):
+                _ocr_engine = "tesseract"
+                _ocr_engine_kind = "tesseract"
+                return _ocr_engine
+        except Exception:
+            pass
+        _ocr_engine_kind = "unavailable"
+    return _ocr_engine
+
+
+def run_ocr(image_array) -> str:
+    """Run the configured OCR engine on a numpy image; return text lines joined by newlines."""
+    engine = _get_ocr_engine()
+    if engine is None:
+        raise RuntimeError(
+            "No OCR engine available (RapidOCR failed to initialise and Tesseract is not installed)"
+        )
+    if engine == "tesseract":
+        import pytesseract
+
+        return pytesseract.image_to_string(Image.fromarray(image_array))
+    # RapidOCR returns (result, elapse); each result item is [box, text, score]
+    result, _elapse = engine(image_array)
+    text_lines = []
+    if result:
+        for item in result:
+            if len(item) >= 2 and item[1]:
+                text_lines.append(str(item[1]))
+    return "\n".join(text_lines)
 
 class ExtractedData(BaseModel):
     productName: Optional[str] = None
@@ -151,7 +209,7 @@ def extract_entities(text: str) -> Dict:
 
 @app.get("/")
 async def root():
-    return {"message": "Zapeera OCR Service is running", "status": "healthy"}
+    return {"message": "Zapeera OCR Service is running", "status": "healthy", "engine": _ocr_engine_kind or "not-initialized"}
 
 @app.post("/scan-document", response_model=ExtractedData)
 async def scan_document(file: UploadFile = File(...)):
@@ -168,17 +226,8 @@ async def scan_document(file: UploadFile = File(...)):
         # Convert to numpy array
         image_array = np.array(image)
         
-        # Perform OCR
-        result = ocr.ocr(image_array, cls=True)
-        
-        # Extract text
-        text_lines = []
-        if result and result[0]:
-            for line in result[0]:
-                if line[0]:
-                    text_lines.append(line[0][0])
-        
-        extracted_text = '\n'.join(text_lines)
+        # Perform OCR (RapidOCR, with Tesseract fallback — see engine notes above)
+        extracted_text = run_ocr(image_array)
         
         # Extract entities
         entities = extract_entities(extracted_text)
@@ -203,17 +252,8 @@ async def scan_document_base64(data: dict):
         # Convert to numpy array
         image_array = np.array(image)
         
-        # Perform OCR
-        result = ocr.ocr(image_array, cls=True)
-        
-        # Extract text
-        text_lines = []
-        if result and result[0]:
-            for line in result[0]:
-                if line[0]:
-                    text_lines.append(line[0][0])
-        
-        extracted_text = '\n'.join(text_lines)
+        # Perform OCR (RapidOCR, with Tesseract fallback — see engine notes above)
+        extracted_text = run_ocr(image_array)
         
         # Extract entities
         entities = extract_entities(extracted_text)
