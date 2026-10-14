@@ -22,7 +22,11 @@ const environments = {
     VITE_ITEMS_PER_PAGE: '10'
   },
   staging: {
-    VITE_API_BASE_URL: 'https://staging-api.zapeera.com/api',
+    // Single-host test deployment (2026-10-15): same-origin /api behind the
+    // reverse proxy; absolute cloud URL only where one is unavoidable.
+    VITE_API_BASE_URL: '/api',
+    VITE_SSE_BASE_URL: '/api',
+    VITE_CLOUD_API_URL: 'https://api.zapeera.seikho.online/api',
     VITE_API_TIMEOUT: '30000',
     VITE_APP_NAME: 'Zapeera',
     VITE_APP_VERSION: '1.0.0',
@@ -34,7 +38,11 @@ const environments = {
     VITE_ITEMS_PER_PAGE: '10'
   },
   production: {
-    VITE_API_BASE_URL: 'https://api.zapeera.com/api',
+    // Single-host deployment (2026-10-15): relative /api keeps the build
+    // domain-portable — moving to Zapeera's own domain needs no rebuild.
+    VITE_API_BASE_URL: '/api',
+    VITE_SSE_BASE_URL: '/api',
+    VITE_CLOUD_API_URL: 'https://api.zapeera.seikho.online/api',
     VITE_API_TIMEOUT: '60000',
     VITE_APP_NAME: 'Zapeera',
     VITE_APP_VERSION: '1.0.0',

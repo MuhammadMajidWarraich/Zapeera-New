@@ -6,7 +6,10 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    allowNavigation: ['*.zapeera.com', '*.railway.app', '*.render.com'],
+    // Current deployment hosts (2026-10-15): the single-host test deployment
+    // lives under seikho.online. The old zapeera.com / Railway / Render hosts
+    // are retired. Add Zapeera's own domain here once it is registered.
+    allowNavigation: ['*.seikho.online'],
   },
   plugins: {
     SplashScreen: {

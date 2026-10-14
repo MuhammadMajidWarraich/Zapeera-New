@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://zapeera-new-production.up.railway.app/api/$1"
+      "destination": "https://api.zapeera.seikho.online/api/$1"
     },
     {
       "source": "/(.*)",

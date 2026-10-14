@@ -79,25 +79,25 @@ export const config = {
   },
 
   // Realtime / SSE Configuration
-  // EventSource streams cannot pass through the Vercel /api rewrite (it buffers and
-  // returns 502), so the SSE endpoint must be reached DIRECTLY on the backend.
+  // Single-host deployment (2026-10-15): the web app is served same-origin
+  // behind a Caddy/nginx reverse proxy that streams /api through to the
+  // backend with buffering disabled, so SSE works over the relative /api
+  // path. (The old "must hit the backend origin directly" rule was specific
+  // to the retired Vercel /api rewrite, which buffered streams into 502s —
+  // and the hardcoded Railway fallback host it pointed at no longer exists.)
   realtime: {
     sseBaseUrl: (() => {
       const envUrl = String(import.meta.env.VITE_SSE_BASE_URL || '').trim();
       if (envUrl) return envUrl;
       // NOTE: do NOT reference `config` here — this runs while `config` is still
       // being initialized (would throw a TDZ ReferenceError).
-      // NOTE: do NOT fall back to VITE_API_BASE_URL (/api) here — the Vercel rewrite
-      // cannot stream SSE (buffers and returns 502). The EventSource must reach the
-      // backend origin directly.
       if (isElectron) {
         return `http://127.0.0.1:${import.meta.env.VITE_EMBEDDED_PORT || '4201'}/api`;
       }
-      // Dev: Vite's proxy forwards /api and can stream SSE
-      if (import.meta.env.DEV) return '/api';
-      // Production web: hit Railway directly. Override via VITE_SSE_BASE_URL
-      // when the Railway service URL changes.
-      return 'https://zapeera-new-production.up.railway.app/api';
+      // Web (dev + production): same-origin /api.
+      // Dev: Vite's proxy forwards /api and can stream SSE.
+      // Production: the single-host reverse proxy streams it (see MIGRATION.md).
+      return '/api';
     })(),
   },
 
@@ -116,10 +116,12 @@ export const config = {
   },
 } as const;
 
-// Runtime check: warn if api.baseUrl unexpectedly points to production
-if (config.api.baseUrl.includes('api.zapeera.com') && config.local.baseUrl) {
+// Runtime check: warn if api.baseUrl unexpectedly points at the configured
+// cloud production API (VITE_CLOUD_API_URL) while a local base is available
+const configuredCloudApiUrl = String(import.meta.env.VITE_CLOUD_API_URL || '').trim();
+if (configuredCloudApiUrl && config.api.baseUrl === configuredCloudApiUrl && config.local.baseUrl) {
   console.warn(
-    '[config] api.baseUrl resolves to production (api.zapeera.com) while local.baseUrl is available.',
+    '[config] api.baseUrl resolves to the cloud production API while local.baseUrl is available.',
     'This likely means VITE_API_BASE_URL from .env.production leaked into a desktop build.',
     `Set VITE_API_BASE_URL=http://127.0.0.1:4201/api in .env.desktop and build with --mode desktop.`
   );
