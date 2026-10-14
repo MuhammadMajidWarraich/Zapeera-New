@@ -3,28 +3,20 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { getPrisma } from '../utils/db.util';
+import { isAllowedOrigin } from '../utils/allowed-origins';
 
 const router = Router();
 
 // CRITICAL: Handle OPTIONS preflight for SSE endpoint
 router.options('/events', (req: Request, res: Response) => {
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://app.zapeera.com',
-    'https://www.zapeera.com',
-    'https://zapeera-new-six.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:4200',
-    'http://127.0.0.1:4100',
-    'http://127.0.0.1:5173'
-  ];
+  // Allowed origins: shared env-driven allowlist (utils/allowed-origins.ts)
+  // — CORS_ORIGINS / FRONTEND_URL + historical defaults. This list used to be
+  // a hardcoded zapeera.com array duplicated in both handlers below/above.
   
-  const isAllowedOrigin = !origin || 
-    allowedOrigins.includes(origin) || 
-    process.env.NODE_ENV === 'development' ||
-    (origin && origin.startsWith('file://'));
-  
-  if (isAllowedOrigin && origin) {
+  const originAllowed = isAllowedOrigin(origin);
+
+  if (originAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -102,23 +94,14 @@ const authenticateSSE = async (req: Request): Promise<{ userId: string; createdB
 router.get('/events', async (req: Request, res: Response) => {
   // CRITICAL: Handle CORS for SSE - must set headers before authentication check
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://app.zapeera.com',
-    'https://www.zapeera.com',
-    'https://zapeera-new-six.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:4200',
-    'http://127.0.0.1:4100',
-    'http://127.0.0.1:5173'
-  ];
+  // Allowed origins: shared env-driven allowlist (utils/allowed-origins.ts)
+  // — CORS_ORIGINS / FRONTEND_URL + historical defaults. This list used to be
+  // a hardcoded zapeera.com array duplicated in both handlers below/above.
   
-  // Allow origin if it's in the allowed list or in development
-  const isAllowedOrigin = !origin || 
-    allowedOrigins.includes(origin) || 
-    process.env.NODE_ENV === 'development' ||
-    (origin && origin.startsWith('file://'));
-  
-  if (!isAllowedOrigin) {
+  // Allow origin if it's in the shared allowlist or in development
+  const originAllowed = isAllowedOrigin(origin);
+
+  if (!originAllowed) {
     res.status(403).json({ message: 'CORS: Origin not allowed' });
     return;
   }
@@ -127,7 +110,7 @@ router.get('/events', async (req: Request, res: Response) => {
 
   if (!auth) {
     // Still set CORS headers even for 401
-    if (origin && allowedOrigins.includes(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
@@ -146,7 +129,7 @@ router.get('/events', async (req: Request, res: Response) => {
   };
   
   // Set CORS headers - use specific origin, not wildcard (required for credentials)
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && isAllowedOrigin(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Credentials'] = 'true';
   } else if (process.env.NODE_ENV === 'development') {

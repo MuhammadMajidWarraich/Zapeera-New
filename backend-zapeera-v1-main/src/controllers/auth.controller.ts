@@ -957,12 +957,13 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       }
     });
 
-    // Construct reset URL
-    // For local development, use localhost, otherwise use production URL
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-    let frontendUrl = process.env.FRONTEND_URL || (isDevelopment
-      ? 'http://localhost:4100'
-      : 'https://app.zapeera.com');
+    // Construct reset URL.
+    // FRONTEND_URL is the single source of truth — set it in EVERY deployed
+    // environment (see the repo-root .env.example). The fallback is a dev
+    // localhost URL in all modes, so a missing env var can never send
+    // password-reset links to a hardcoded production domain the project
+    // does not control (previously: https://app.zapeera.com).
+    let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4100';
 
     // Remove trailing slash if present
     frontendUrl = frontendUrl.replace(/\/$/, '');

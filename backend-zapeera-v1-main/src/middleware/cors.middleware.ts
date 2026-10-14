@@ -1,31 +1,13 @@
 import { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-
-const PRODUCTION_ORIGINS = [
-  'https://app.zapeera.com',
-  'https://www.zapeera.com',
-];
+import { isAllowedOrigin } from '../utils/allowed-origins';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-function isOriginAllowed(origin: string | undefined): boolean {
-  if (!origin) return true;
-  // Exact match against production origins
-  if (PRODUCTION_ORIGINS.includes(origin)) return true;
-  // Allow subdomains of zapeera.com (must start with https:// and end with .zapeera.com)
-  try {
-    const url = new URL(origin);
-    if (url.hostname === 'zapeera.com' || url.hostname.endsWith('.zapeera.com')) return true;
-  } catch { /* not a valid URL */ }
-  // Allow desktop/Electron clients: the packaged app loads from file:// (opaque
-  // origin -> "null" header) and talks to the cloud API cross-origin. Auth is via
-  // Bearer JWT + CSRF token, so reflecting these origins does not leak cookies.
-  if (origin === 'null' || origin.startsWith('file://')) return true;
-  const envOrigins = process.env.CORS_ORIGINS?.split(',').map(o => o.trim());
-  if (envOrigins?.includes(origin)) return true;
-  if (process.env.NODE_ENV === 'development') return true;
-  return false;
-}
+// Origin policy lives in utils/allowed-origins.ts (shared with the SSE
+// routes): env-driven via CORS_ORIGINS / FRONTEND_URL, with the historical
+// production + dev origins kept as defaults when the env vars are unset.
+const isOriginAllowed = isAllowedOrigin;
 
 const DEFAULT_HEADERS =
   'Content-Type, Authorization, X-Requested-With, Accept, Origin, ' +
