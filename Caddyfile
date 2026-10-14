@@ -1,0 +1,34 @@
+# Zapeera single-host reverse proxy — the ONLY public entry point.
+# Site addresses come from the environment (docker-compose `caddy` service):
+#   FRONTEND_DOMAIN  e.g. zapeera.seikho.online
+#   API_DOMAIN       e.g. api.zapeera.seikho.online
+# Moving to Zapeera's own domain later = change those values + DNS. No rebuild.
+# Let's Encrypt needs no account/email by default; to receive expiry notices,
+# add a line `email you@example.com` inside the global block below.
+{
+	auto_https disable_redirects
+}
+
+# --- Web app (same-origin): SPA at /, /api/* proxied by the frontend's own
+# nginx to the backend (buffering off = SSE streams). Caddy just terminates
+# TLS and passes through.
+{$FRONTEND_DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:80
+	log {
+		output stdout
+		format console
+	}
+}
+
+# --- API direct alias: health checks, future mobile/desktop clients, debugging.
+# SSE note: Caddy's reverse_proxy streams by default (flush_interval -1 =
+# immediate flush, correct for text/event-stream); no special block needed.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy backend:4200
+	log {
+		output stdout
+		format console
+	}
+}

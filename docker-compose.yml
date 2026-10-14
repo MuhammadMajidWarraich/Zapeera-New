@@ -1,0 +1,111 @@
+# ============================================================================
+# Zapeera — single-host stack (Oracle Cloud Always Free, Ampere A1 ARM64)
+# ============================================================================
+# One VM, one command:  docker compose up -d --build
+#
+#   caddy     — ONLY public entry point (80/443, automatic Let's Encrypt)
+#               zapeera.seikho.online      -> frontend (SPA + /api proxy)
+#               api.zapeera.seikho.online  -> backend :4200 (direct alias)
+#   frontend  — React/Vite build served by nginx; /api/, /health, /uploads/
+#               proxied to the backend (same-origin, SSE streaming enabled)
+#   backend   — Node + Express + TS API on :4200 (internal only)
+#               Schema: no prisma/migrations exist in this repo — the server
+#               applies `prisma db push` itself at boot (schema-heal).
+#   postgres  — PostgreSQL 16 (arm64), named volume, internal only
+#   ocr       — FastAPI + RapidOCR (ONNX) on :8000 (internal only)
+#
+# Configuration: copy .env.example to .env and fill it in (never commit .env).
+# Domain portability: to move to Zapeera's own domain later, change the
+# FRONTEND_DOMAIN / API_DOMAIN / FRONTEND_URL / CORS_ORIGINS / VITE_* values
+# in .env, update DNS, and re-run `docker compose up -d --build` — the
+# frontend is built with relative /api URLs, so nothing else changes.
+# See MIGRATION.md for the full runbook.
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zapeera}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-zapeera}
+    volumes:
+      - zapeera_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zapeera} -d ${POSTGRES_DB:-zapeera}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Not published: only the backend talks to the database.
+    expose:
+      - "5432"
+
+  backend:
+    build:
+      context: ./backend-zapeera-v1-main
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "4200"
+      USE_POSTGRESQL: "true"
+      # Composed from the POSTGRES_* values in .env (single source of truth).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zapeera}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zapeera}
+      OCR_SERVICE_URL: http://ocr:8000
+    volumes:
+      - zapeera_uploads:/app/uploads
+    expose:
+      - "4200"
+
+  ocr:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend-zapeera-V1
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_SSE_BASE_URL: ${VITE_SSE_BASE_URL:-/api}
+        VITE_CLOUD_API_URL: ${VITE_CLOUD_API_URL:-https://api.zapeera.seikho.online/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-zapeera.seikho.online}
+      API_DOMAIN: ${API_DOMAIN:-api.zapeera.seikho.online}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  zapeera_pgdata:
+  zapeera_uploads:
+  caddy_data:
+  caddy_config:
