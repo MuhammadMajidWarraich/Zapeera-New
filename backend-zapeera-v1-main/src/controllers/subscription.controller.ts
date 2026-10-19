@@ -928,14 +928,14 @@ export const addPaymentMethod = async (req: Request, res: Response): Promise<voi
     }
 
     if (value.isDefault) {
-      await prisma.cardDetails.updateMany({
+      await prisma.card_details.updateMany({
         where: { userId },
         data: { isDefault: false, updatedAt: new Date() }
       });
     }
 
     const now = new Date();
-    const card = await prisma.cardDetails.create({
+    const card = await prisma.card_details.create({
       data: {
         id: `card_${crypto.randomUUID()}`,
         userId,
@@ -992,7 +992,7 @@ export const updatePaymentMethod = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const existing = await prisma.cardDetails.findFirst({
+    const existing = await prisma.card_details.findFirst({
       where: { id: methodId, userId }
     });
     if (!existing) {
@@ -1004,13 +1004,13 @@ export const updatePaymentMethod = async (req: Request, res: Response): Promise<
     }
 
     if (value.isDefault) {
-      await prisma.cardDetails.updateMany({
+      await prisma.card_details.updateMany({
         where: { userId, id: { not: methodId } },
         data: { isDefault: false, updatedAt: new Date() }
       });
     }
 
-    const card = await prisma.cardDetails.update({
+    const card = await prisma.card_details.update({
       where: { id: methodId },
       data: {
         ...(value.last4 !== undefined ? { last4: value.last4 } : {}),
@@ -1055,7 +1055,7 @@ export const setDefaultPaymentMethod = async (req: Request, res: Response): Prom
       return;
     }
 
-    const existing = await prisma.cardDetails.findFirst({
+    const existing = await prisma.card_details.findFirst({
       where: { id: methodId, userId }
     });
     if (!existing) {
@@ -1066,12 +1066,12 @@ export const setDefaultPaymentMethod = async (req: Request, res: Response): Prom
       return;
     }
 
-    await prisma.cardDetails.updateMany({
+    await prisma.card_details.updateMany({
       where: { userId, id: { not: methodId } },
       data: { isDefault: false, updatedAt: new Date() }
     });
 
-    const card = await prisma.cardDetails.update({
+    const card = await prisma.card_details.update({
       where: { id: methodId },
       data: { isDefault: true, updatedAt: new Date() }
     });
@@ -1109,7 +1109,7 @@ export const deletePaymentMethod = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const existing = await prisma.cardDetails.findFirst({
+    const existing = await prisma.card_details.findFirst({
       where: { id: methodId, userId }
     });
     if (!existing) {
@@ -1120,7 +1120,7 @@ export const deletePaymentMethod = async (req: Request, res: Response): Promise<
       return;
     }
 
-    await prisma.cardDetails.delete({
+    await prisma.card_details.delete({
       where: { id: methodId }
     });
 
@@ -1297,7 +1297,7 @@ export const getPaymentMethods = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const cards = await prisma.cardDetails.findMany({
+    const cards = await prisma.card_details.findMany({
       where: { userId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }]
     });
