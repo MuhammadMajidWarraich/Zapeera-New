@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
 import {
   InvitationsStrip,
-  GlobalQuickActions,
   CompletionStrip,
   RecentActivity,
   DesktopBanner,
@@ -274,9 +273,6 @@ const ZapeeraDashboard = () => {
                 for the old hero/stats back), then account-level actions,
                 then the portfolio — every business equal, no featured one */}
             <AccountStats />
-            <div className="mt-6">
-              <GlobalQuickActions onCreateBusiness={handleCreateBusiness} canCreateBusiness={canCreateBusiness} />
-            </div>
 
             <section className="mt-10">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

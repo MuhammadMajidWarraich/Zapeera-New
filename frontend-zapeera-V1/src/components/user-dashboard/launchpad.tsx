@@ -102,65 +102,6 @@ export function InvitationsStrip() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Global quick actions — account-level destinations                   */
-/*                                                                     */
-/* Every target is a route the ZapeeraLayout sidebar itself uses       */
-/* (verified against the sidebar): Invitations, Billing & Payments,    */
-/* Notifications, Downloads, Support Center — plus Create New          */
-/* Business, which opens the page's existing create dialog handler.    */
-/* ------------------------------------------------------------------ */
-export function GlobalQuickActions({
-  onCreateBusiness,
-  canCreateBusiness,
-}: {
-  onCreateBusiness: () => void;
-  canCreateBusiness: boolean;
-}) {
-  const navigate = useNavigate();
-
-  const actions: Array<{
-    key: string;
-    label: string;
-    icon: React.ElementType;
-    tint: string;
-    onClick: () => void;
-    disabled?: boolean;
-  }> = [
-    { key: "create", label: "Create New Business", icon: Plus, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", onClick: onCreateBusiness, disabled: !canCreateBusiness },
-    { key: "invitations", label: "Invitations", icon: UserPlus, tint: "bg-amber-500/10 text-amber-600", onClick: () => navigate("/zapeera/invitations") },
-    { key: "billing", label: "Billing & Payments", icon: CreditCard, tint: "bg-emerald-500/10 text-emerald-600", onClick: () => navigate("/zapeera/billing") },
-    { key: "notifications", label: "Notifications", icon: Bell, tint: "bg-violet-500/10 text-violet-600", onClick: () => navigate("/zapeera/notifications") },
-    { key: "downloads", label: "Downloads", icon: Download, tint: "bg-sky-500/10 text-sky-600", onClick: () => navigate("/downloads") },
-    { key: "support", label: "Support Center", icon: HelpCircle, tint: "bg-rose-500/10 text-rose-600", onClick: () => navigate("/zapeera/support") },
-  ];
-
-  return (
-    <section className={cn(CARD, "p-4 sm:p-5")} aria-label="Quick actions">
-      <p className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Quick actions</p>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-        {actions.map((a) => {
-          const Icon = a.icon;
-          return (
-            <button
-              key={a.key}
-              type="button"
-              onClick={a.onClick}
-              disabled={a.disabled}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.05)] bg-white px-2 py-3.5 text-center transition-all hover:-translate-y-0.5 hover:border-[#1a52c5]/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.07)] disabled:pointer-events-none disabled:opacity-50"
-            >
-              <span className={cn("grid h-10 w-10 place-items-center rounded-xl transition-transform group-hover:scale-105", a.tint)}>
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="text-[12.5px] font-semibold leading-tight text-[#0a1128]">{a.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Account completion — slim strip (gone entirely at 100%)             */
 /* ------------------------------------------------------------------ */
 export function CompletionStrip() {
