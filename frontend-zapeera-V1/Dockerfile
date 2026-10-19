@@ -1,6 +1,7 @@
 FROM node:20-alpine AS zapeera-frontend-builder
 
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=2048
 
 # Single-host build args (2026-10-15): relative /api URLs keep ONE build
 # valid on any domain (test: zapeera.seikho.online; later: Zapeera's own
@@ -15,7 +16,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_CLOUD_API_URL=$VITE_CLOUD_API_URL
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install -g npm@11 && npm ci --legacy-peer-deps
 
 COPY . .
 RUN npm run build

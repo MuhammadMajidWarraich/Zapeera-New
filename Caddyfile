@@ -32,3 +32,13 @@
 		format console
 	}
 }
+
+# --- Plain-HTTP entry points: send everyone to HTTPS (auto_https redirects
+# are disabled above, so without these blocks http:// visitors get nothing).
+http://{$FRONTEND_DOMAIN} {
+	redir https://{host}{uri} permanent
+}
+
+http://{$API_DOMAIN} {
+	redir https://{host}{uri} permanent
+}

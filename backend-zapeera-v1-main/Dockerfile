@@ -16,6 +16,7 @@
 
 FROM node:22-slim AS builder
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=2048
 
 # Prisma engines need OpenSSL + CA certs present at generate/download time.
 RUN apt-get update \
