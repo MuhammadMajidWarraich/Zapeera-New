@@ -31,7 +31,8 @@ import {
   Building2,
   CheckCircle2,
   Copy,
-  Info
+  Info,
+  MessageCircle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -103,6 +104,38 @@ interface Receipt {
   total: number;
   paymentMethod: string;
   paymentStatus: string;
+}
+
+/**
+ * WhatsApp receipt share (QA Wave 2): builds a wa.me deep link with a
+ * text receipt summary. wa.me needs the phone in international format
+ * without '+': local Pakistani numbers (03xx…) are converted to 92xx…;
+ * anything else is passed through as digits.
+ */
+function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string {
+  let digits = String(receipt.customer?.phone || "").replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = "92" + digits.slice(1);
+  else if (digits.length === 10 && digits.startsWith("3")) digits = "92" + digits;
+  const lines: string[] = [
+    `*${businessName} — Receipt ${receipt.receiptNumber}*`,
+    `Date: ${receipt.date} ${receipt.time}`,
+    "------------------------",
+    ...receipt.items.map(
+      (item) => `${item.name} x${item.quantity} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
+    ),
+    "------------------------",
+    `Subtotal: PKR ${Number(receipt.subtotal || 0).toFixed(2)}`,
+  ];
+  if (receipt.discountAmount && receipt.discountAmount > 0) {
+    lines.push(`Discount: -PKR ${Number(receipt.discountAmount).toFixed(2)}`);
+  }
+  lines.push(
+    `*Total: PKR ${Number(receipt.total || 0).toFixed(2)}*`,
+    `Payment: ${receipt.paymentMethod} (${receipt.paymentStatus})`,
+    "",
+    "Thank you for choosing us!"
+  );
+  return `https://wa.me/${digits}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 const CreateInvoice = () => {
@@ -3014,6 +3047,7 @@ const CreateInvoice = () => {
                   Download
                 </Button>
                 {currentReceipt?.customer?.phone && (
+                  <>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -3026,6 +3060,19 @@ const CreateInvoice = () => {
                     <Phone className="w-4 h-4 mr-2" />
                     SMS
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera');
+                      window.open(url, '_blank', 'noopener');
+                    }}
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    WhatsApp
+                  </Button>
+                  </>
                 )}
                 {currentReceipt?.customer?.email && (
                   <Button 
