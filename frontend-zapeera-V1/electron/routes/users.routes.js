@@ -6,7 +6,7 @@
 function registerUsersRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
-          handleDataChange, getDataFilter, uuid, now, hashPassword, generateToken,
+          handleDataChange, getDataFilter, uuid, now, hashPassword, hashPasswordBcrypt, generateToken,
           verifyToken, getDeviceId, getDeviceInfo, REMOTE_DATABASE_URL, SYNC_CONFIG,
           connectPostgreSQL, checkPostgreSQLConnection, syncAllToPostgreSQL,
           pullAllFromPostgreSQL, processOfflineQueue, startPeriodicSync,
@@ -1722,7 +1722,7 @@ function registerUsersRoutes(app, authMiddleware, deps) {
     
           userId = uuid();
           const timestamp = now();
-          const hashedPassword = hashPassword(password);
+          const hashedPassword = hashPasswordBcrypt(password); // bcrypt only — legacy hashPassword() is SHA-256, never for storage
     
           // CRITICAL: Match backend-zp logic exactly
           // Backend uses: createdBy = currentUserId (always use current user's ID)
@@ -2240,7 +2240,7 @@ function registerUsersRoutes(app, authMiddleware, deps) {
           // }
           if (password !== undefined && password !== null && password.trim() !== '') {
             updates.push('password = ?');
-            params.push(hashPassword(password));
+            params.push(hashPasswordBcrypt(password)); // bcrypt only — see above
             console.log('[Users] Updating password (hashed)');
           }
     

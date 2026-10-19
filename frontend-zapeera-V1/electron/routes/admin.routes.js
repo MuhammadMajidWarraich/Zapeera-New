@@ -6,7 +6,7 @@
 function registerAdminRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
-          handleDataChange, getDataFilter, uuid, now, hashPassword, generateToken,
+          handleDataChange, getDataFilter, uuid, now, hashPassword, hashPasswordBcrypt, generateToken,
           verifyToken, getDeviceId, getDeviceInfo, REMOTE_DATABASE_URL, SYNC_CONFIG,
           connectPostgreSQL, checkPostgreSQLConnection, syncAllToPostgreSQL,
           pullAllFromPostgreSQL, processOfflineQueue, startPeriodicSync,
@@ -43,7 +43,7 @@ function registerAdminRoutes(app, authMiddleware, deps) {
           if (!email || !password || !name) return res.status(400).json({ success: false, message: 'Email, password, name required' });
           const id = uuid();
           run('INSERT INTO users (id, username, email, password, name, role, isActive, createdBy, createdAt, updatedAt) VALUES (?,?,?,?,?,?,0,?,?,?)',
-            [id, email, email, hashPassword(password), name, 'ADMIN', req.user?.id, now(), now()]);
+            [id, email, email, hashPasswordBcrypt(password), name, 'ADMIN', req.user?.id, now(), now()]); // bcrypt only — legacy hashPassword() is SHA-256, never for storage
           const user = query('SELECT * FROM users WHERE id = ?', [id])[0];
     
           // 🔄 TWO-WAY SYNC: Sync to PostgreSQL immediately (if online)
