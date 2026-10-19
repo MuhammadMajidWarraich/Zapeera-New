@@ -9,46 +9,10 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { useMembershipRole } from "./hooks/useMembershipRole";
 import { DashboardDataProvider } from "./contexts/DashboardDataContext";
 import AuthContainer from "./components/auth/AuthContainer";
-import ResetPassword from "./components/auth/ResetPassword";
-import VerifyEmail from "./components/auth/VerifyEmail";
 import MainLayout from "./components/layout/MainLayout";
-import Index from "./pages/Index";
-import POS from "./pages/POS";
-import CreateInvoice from "./pages/CreateInvoice";
-import InventoryPage from "./pages/Inventory";
-import MedicalProductsPage from "./pages/MedicalProducts";
-import NonMedicalProductsPage from "./pages/NonMedicalProducts";
-import CategoriesPage from "./pages/Categories";
-import ManufacturersPage from "./pages/Manufacturers";
-import SuppliersPage from "./pages/Suppliers";
-import ShelvesPage from "./pages/Shelves";
-import CustomersPage from "./pages/Customers";
-import ReportsPage from "./pages/Reports";
-import AdvancedReportsPage from "./pages/AdvancedReports";
-import SettingsPage from "./pages/Settings";
-import ExpenseManagement from "./pages/ExpenseManagement";
-import ShiftManagement from "./pages/ShiftManagement";
 import NotFound from "./pages/NotFound";
-import UserManagement from "./components/admin/UserManagement";
-import ManagerUserManagement from "./components/manager/ManagerUserManagement";
-import BranchManagement from "./components/admin/BranchManagement";
-import BusinessManagement from "./components/admin/BusinessManagement";
-import AdminReports from "./components/admin/AdminReports";
-import RoleManagement from "./components/admin/RoleManagement";
-import RoleBasedDashboard from "./components/dashboard/RoleBasedDashboard";
-import { RoleBasedSidebar } from "./components/layout/RoleBasedSidebar";
-import Refunds from "./components/pos/Refunds";
-import Invoices from "./components/pos/Invoices";
-import StaffCheckIn from "./components/pos/EmployeeCheckIn";
-import PerformanceTracking from "./components/pos/PerformanceTracking";
-import InventoryTransfers from "./components/inventory/InventoryTransfers";
-import SubscriptionManagement from "./components/admin/SubscriptionManagement";
-import OrderPurchase from "./components/admin/OrderPurchase";
-import ZapeeraDashboard from "./components/dashboard/ZapeeraDashboard";
 import BusinessTypeGuard from "./components/auth/BusinessTypeGuard";
 import ZapeeraLayout from "./components/layout/ZapeeraLayout";
-import Batches from "./pages/Batches";
-import Purchases from "./pages/Purchases";
 import RoleBasedRoot from "./components/auth/RoleBasedRoot";
 import { useRealtimeNotifications } from "./hooks/useRealtimeNotifications";
 import AuthStatus from "./components/auth/AuthStatus";
@@ -58,17 +22,56 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ModuleGuard, AutoModuleGuard } from "./components/auth/ModuleGuard";
 import { RuntimeProvider } from "./contexts/RuntimeProvider";
 import { SyncProvider } from "./contexts/SyncProvider";
-import { DesktopLoginFlow } from "./components/desktop/DesktopLoginFlow";
-import InvitationsPage from "./components/user-dashboard/InvitationsPage";
-import ProfileSecurityPage from "./components/user-dashboard/ProfileSecurityPage";
-import BillingPage from "./components/user-dashboard/BillingPage";
-import NotificationsPage from "./components/user-dashboard/NotificationsPage";
-import NotificationsListPage from "./components/user-dashboard/NotificationsListPage";
-import NotificationPreferencesPage from "./components/user-dashboard/NotificationPreferencesPage";
 import { NotificationProvider } from "./contexts/NotificationContext";
-import SupportPage from "./components/user-dashboard/SupportPage";
-import DownloadsPage from "./components/user-dashboard/DownloadsPage";
-import EmployeePortal from "./components/staff/EmployeePortal";
+
+
+// Route-level code splitting: heavy screens load on demand instead of in
+// the initial bundle. Layouts, guards and auth stay eager so the shell
+// renders instantly. (manualChunks stays disabled in vite.config — this
+// uses natural dynamic-import chunks, like the Backoffice router.)
+const ResetPassword = React.lazy(() => import("./components/auth/ResetPassword"));
+const VerifyEmail = React.lazy(() => import("./components/auth/VerifyEmail"));
+const POS = React.lazy(() => import("./pages/POS"));
+const CreateInvoice = React.lazy(() => import("./pages/CreateInvoice"));
+const InventoryPage = React.lazy(() => import("./pages/Inventory"));
+const MedicalProductsPage = React.lazy(() => import("./pages/MedicalProducts"));
+const NonMedicalProductsPage = React.lazy(() => import("./pages/NonMedicalProducts"));
+const CategoriesPage = React.lazy(() => import("./pages/Categories"));
+const ManufacturersPage = React.lazy(() => import("./pages/Manufacturers"));
+const SuppliersPage = React.lazy(() => import("./pages/Suppliers"));
+const ShelvesPage = React.lazy(() => import("./pages/Shelves"));
+const CustomersPage = React.lazy(() => import("./pages/Customers"));
+const ReportsPage = React.lazy(() => import("./pages/Reports"));
+const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
+const SettingsPage = React.lazy(() => import("./pages/Settings"));
+const ExpenseManagement = React.lazy(() => import("./pages/ExpenseManagement"));
+const ShiftManagement = React.lazy(() => import("./pages/ShiftManagement"));
+const UserManagement = React.lazy(() => import("./components/admin/UserManagement"));
+const ManagerUserManagement = React.lazy(() => import("./components/manager/ManagerUserManagement"));
+const BranchManagement = React.lazy(() => import("./components/admin/BranchManagement"));
+const BusinessManagement = React.lazy(() => import("./components/admin/BusinessManagement"));
+const AdminReports = React.lazy(() => import("./components/admin/AdminReports"));
+const RoleManagement = React.lazy(() => import("./components/admin/RoleManagement"));
+const RoleBasedDashboard = React.lazy(() => import("./components/dashboard/RoleBasedDashboard"));
+const Refunds = React.lazy(() => import("./components/pos/Refunds"));
+const Invoices = React.lazy(() => import("./components/pos/Invoices"));
+const StaffCheckIn = React.lazy(() => import("./components/pos/EmployeeCheckIn"));
+const PerformanceTracking = React.lazy(() => import("./components/pos/PerformanceTracking"));
+const InventoryTransfers = React.lazy(() => import("./components/inventory/InventoryTransfers"));
+const SubscriptionManagement = React.lazy(() => import("./components/admin/SubscriptionManagement"));
+const OrderPurchase = React.lazy(() => import("./components/admin/OrderPurchase"));
+const ZapeeraDashboard = React.lazy(() => import("./components/dashboard/ZapeeraDashboard"));
+const Batches = React.lazy(() => import("./pages/Batches"));
+const Purchases = React.lazy(() => import("./pages/Purchases"));
+const DesktopLoginFlow = React.lazy(() => import("./components/desktop/DesktopLoginFlow").then(m => ({ default: m.DesktopLoginFlow })));
+const InvitationsPage = React.lazy(() => import("./components/user-dashboard/InvitationsPage"));
+const ProfileSecurityPage = React.lazy(() => import("./components/user-dashboard/ProfileSecurityPage"));
+const BillingPage = React.lazy(() => import("./components/user-dashboard/BillingPage"));
+const NotificationsListPage = React.lazy(() => import("./components/user-dashboard/NotificationsListPage"));
+const NotificationPreferencesPage = React.lazy(() => import("./components/user-dashboard/NotificationPreferencesPage"));
+const SupportPage = React.lazy(() => import("./components/user-dashboard/SupportPage"));
+const DownloadsPage = React.lazy(() => import("./components/user-dashboard/DownloadsPage"));
+const EmployeePortal = React.lazy(() => import("./components/staff/EmployeePortal"));
 
 // Build target: web, desktop, backoffice - replaced at compile time by Vite define
 declare const __VITE_APP_TARGET__: string;
@@ -76,6 +79,12 @@ const APP_TARGET = typeof __VITE_APP_TARGET__ !== 'undefined' ? __VITE_APP_TARGE
 const IS_DESKTOP = APP_TARGET === 'desktop';
 // Replaced at build time: null for desktop, React.lazy(...) for web
 const BackofficeRouterLazy = __BACKOFFICE_MARKER__;
+
+const RouteFallback = () => (
+  <div className="flex min-h-[50vh] items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+  </div>
+);
 
 // Configure QueryClient to prevent rate limiting
 // Disable refetch on window focus and add request deduplication
@@ -243,6 +252,7 @@ const AppRoutes = () => {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ErrorBoundary>
+      <React.Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginRoute />} />
@@ -1114,6 +1124,7 @@ const AppRoutes = () => {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </React.Suspense>
       </ErrorBoundary>
     </Router>
   );

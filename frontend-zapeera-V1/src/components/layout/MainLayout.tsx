@@ -1,7 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { RoleBasedSidebar } from "@/components/layout/RoleBasedSidebar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Building2, Plus, Building, ChevronDown, ArrowLeft, AlertTriangle } from "lucide-react";
+import { LogOut, User, Building2, Plus, Building, ChevronDown, ArrowLeft, AlertTriangle, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -282,6 +282,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     return saved ? JSON.parse(saved) : false;
   });
 
+  // Mobile (<lg) sidebar drawer state — sidebar is off-canvas on small screens
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   // Save sidebar state to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
@@ -300,18 +308,36 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   return (
     <SidebarProvider>
-      <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed }}>
+      <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }}>
         <div className="flex h-screen w-full overflow-hidden bg-[#f0f2f7]">
           <RoleBasedSidebar />
 
+          {/* Mobile drawer backdrop */}
+          {mobileOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+              onClick={() => setMobileOpen(false)}
+              aria-hidden
+            />
+          )}
+
           <div
             className={cn(
-              'flex h-full flex-1 flex-col transition-all duration-300',
-              isCollapsed ? 'ml-[72px]' : 'ml-[272px]',
+              'flex h-full min-w-0 flex-1 flex-col transition-all duration-300',
+              // Sidebar is off-canvas below lg, so no margin there.
+              isCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[272px]',
             )}
           >
-            <header className="sticky top-0 z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-black/[0.04] bg-white/70 px-11 backdrop-blur-xl backdrop-saturate-150">
+            <header className="sticky top-0 z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-black/[0.04] bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-11">
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(true)}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] lg:hidden"
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => navigate(withBusinessSlug(businessSlug || null, "/point-of-sale"))}
@@ -332,7 +358,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12"
+                        className="hidden items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12 md:inline-flex"
                       >
                         <Building2 className="sel-icon h-4 w-4 shrink-0 text-[#4a5578] opacity-60" />
                         <span className="max-w-[160px] truncate">
@@ -480,7 +506,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex max-w-[220px] items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12"
+                        className="hidden max-w-[220px] items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12 md:inline-flex"
                       >
                         <Building className="sel-icon h-4 w-4 shrink-0 opacity-60" />
                         <span className="truncate">

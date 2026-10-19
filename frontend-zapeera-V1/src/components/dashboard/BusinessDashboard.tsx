@@ -1827,7 +1827,7 @@ const BusinessDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+              <table className="w-full min-w-[720px] border-collapse">
                 <thead>
                   <tr className="border-b border-red-300 bg-red-100">
                     <th className="text-left py-3 px-4 font-semibold text-red-800 text-sm">Product</th>

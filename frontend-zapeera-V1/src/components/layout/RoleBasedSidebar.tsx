@@ -328,7 +328,10 @@ export const RoleBasedSidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { selectedCompanyId, selectedCompany, allCompanies } = useAdmin();
-  const { isCollapsed, setIsCollapsed } = useSidebarContext();
+  const { isCollapsed, setIsCollapsed, mobileOpen } = useSidebarContext();
+  // On mobile the sidebar is a full-width drawer: when it is open it always
+  // renders expanded (labels visible), regardless of the desktop collapse state.
+  const effectiveCollapsed = isCollapsed && !mobileOpen;
 
   // NOTE: no early return here — all hooks below must run on every render to
   // keep the React hook order stable (rules-of-hooks). The user guard happens
@@ -566,13 +569,15 @@ export const RoleBasedSidebar: React.FC = () => {
     return (
       <div
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f]',
-          isCollapsed ? 'w-[72px]' : 'w-[272px]',
+          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f] transition-transform duration-300',
+          effectiveCollapsed ? 'w-[72px]' : 'w-[272px]',
+          // Mobile/tablet (<lg): off-canvas drawer, toggled from MainLayout.
+          mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full',
         )}
       >
-        <div className={cn('flex items-center px-6 pb-6 pt-[30px]', isCollapsed && 'justify-center px-3')}>
+        <div className={cn('flex items-center px-6 pb-6 pt-[30px]', effectiveCollapsed && 'justify-center px-3')}>
           <div className="h-[42px] w-[42px] shrink-0 animate-pulse rounded-[13px] bg-white/10" />
-          {!isCollapsed && <div className="ml-3.5 h-5 w-24 animate-pulse rounded-md bg-white/10" />}
+          {!effectiveCollapsed && <div className="ml-3.5 h-5 w-24 animate-pulse rounded-md bg-white/10" />}
         </div>
         <div className="flex-1 space-y-2 px-3.5">
           {[0, 1, 2, 3].map((i) => (
@@ -588,7 +593,9 @@ export const RoleBasedSidebar: React.FC = () => {
       className={cn(
         'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f] transition-all duration-300',
         "after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:content-[''] after:bg-gradient-to-b after:from-[#1a52c5] after:via-[#28c2ce]/40 after:to-transparent after:opacity-[0.35]",
-        isCollapsed ? 'w-[72px]' : 'w-[272px]',
+        effectiveCollapsed ? 'w-[72px]' : 'w-[272px]',
+        // Mobile/tablet (<lg): off-canvas drawer, toggled from MainLayout.
+        mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full',
       )}
     >
       <div
@@ -600,14 +607,14 @@ export const RoleBasedSidebar: React.FC = () => {
       <div
         className={cn(
           'relative z-[2] flex items-center px-6 pb-6 pt-[30px]',
-          isCollapsed ? 'flex-col gap-3 px-3' : 'justify-between',
+          effectiveCollapsed ? 'flex-col gap-3 px-3' : 'justify-between',
         )}
       >
-        <div className={cn('flex min-w-0 items-center gap-3.5', isCollapsed && 'justify-center')}>
+        <div className={cn('flex min-w-0 items-center gap-3.5', effectiveCollapsed && 'justify-center')}>
           <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
             <Zap className="h-[22px] w-[22px] fill-white text-white" />
           </div>
-          {!isCollapsed && (
+          {!effectiveCollapsed && (
             <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
               Zap
               <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
@@ -616,11 +623,11 @@ export const RoleBasedSidebar: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="shrink-0 rounded-lg p-1 text-white transition-colors hover:bg-white/5"
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={() => setIsCollapsed(!effectiveCollapsed)}
+          className="shrink-0 rounded-lg p-1 text-white transition-colors hover:bg-white/5 max-lg:hidden"
+          aria-label={effectiveCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          {effectiveCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </button>
       </div>
 
@@ -628,7 +635,7 @@ export const RoleBasedSidebar: React.FC = () => {
       <nav
         className={cn(
           'relative z-[2] flex-1 space-y-0 overflow-y-auto px-3.5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-white/20',
-          isCollapsed && 'overflow-x-visible px-2',
+          effectiveCollapsed && 'overflow-x-visible px-2',
         )}
         style={{
           scrollbarWidth: 'thin',
@@ -654,8 +661,8 @@ export const RoleBasedSidebar: React.FC = () => {
             background: linear-gradient(to bottom, #1a52c5, #28c2ce);
           }
         `}</style>
-        <SidebarSection label="Main" groups={mainGroups} slug={businessSlug} isCollapsed={isCollapsed} isModuleLocked={isModuleLocked} isSubModuleLocked={isSubModuleLocked} />
-        <SidebarSection label="Management" groups={managementGroups} slug={businessSlug} isCollapsed={isCollapsed} isModuleLocked={isModuleLocked} isSubModuleLocked={isSubModuleLocked} />
+        <SidebarSection label="Main" groups={mainGroups} slug={businessSlug} effectiveCollapsed={effectiveCollapsed} isModuleLocked={isModuleLocked} isSubModuleLocked={isSubModuleLocked} />
+        <SidebarSection label="Management" groups={managementGroups} slug={businessSlug} effectiveCollapsed={effectiveCollapsed} isModuleLocked={isModuleLocked} isSubModuleLocked={isSubModuleLocked} />
       </nav>
 
       {/* Footer */}
@@ -664,24 +671,24 @@ export const RoleBasedSidebar: React.FC = () => {
           to="/zapeera"
           className={cn(
             'flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-            isCollapsed && 'justify-center px-2',
+            effectiveCollapsed && 'justify-center px-2',
           )}
-          title={isCollapsed ? 'Zapeera' : undefined}
+          title={effectiveCollapsed ? 'Zapeera' : undefined}
         >
           <Globe className="h-5 w-5 shrink-0 stroke-[1.8]" />
-          {!isCollapsed && <span>Zapeera</span>}
+          {!effectiveCollapsed && <span>Zapeera</span>}
         </Link>
         <button
           type="button"
           onClick={logout}
           className={cn(
             'flex w-full items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-            isCollapsed && 'justify-center px-2',
+            effectiveCollapsed && 'justify-center px-2',
           )}
-          title={isCollapsed ? 'Log Out' : undefined}
+          title={effectiveCollapsed ? 'Log Out' : undefined}
         >
           <LogOut className="h-5 w-5 shrink-0 stroke-[1.8]" />
-          {!isCollapsed && <span>Log Out</span>}
+          {!effectiveCollapsed && <span>Log Out</span>}
         </button>
       </div>
     </div>

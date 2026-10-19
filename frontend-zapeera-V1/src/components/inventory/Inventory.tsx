@@ -3077,7 +3077,7 @@ const Inventory = () => {
           ) : (
             <>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+              <table className="w-full min-w-[960px] border-collapse">
                 <thead>
                   <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
                     <th className="w-12 py-3.5 pl-8 pr-2 text-left">
@@ -3381,7 +3381,7 @@ const Inventory = () => {
 
               <div className="border rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-[640px]">
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Product Name</th>

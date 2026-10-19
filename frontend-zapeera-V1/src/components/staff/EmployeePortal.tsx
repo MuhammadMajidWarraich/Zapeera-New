@@ -359,7 +359,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0 sm:grid sm:grid-cols-5">
           <TabsTrigger value="dashboard" className="text-xs md:text-sm">
             <CheckCircle className="h-4 w-4 mr-1 hidden md:block" />Dashboard
           </TabsTrigger>

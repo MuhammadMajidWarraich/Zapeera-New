@@ -1826,20 +1826,20 @@ const UserManagement = () => {
                     <p className="font-semibold text-[#0a1128]">{existingUserMatch.name}</p>
                     <p className="text-xs text-[#4a5578]">{existingUserMatch.email}</p>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-2">
-                    <Label className="text-right text-sm">Business</Label>
-                    <div className="col-span-3 rounded-md border border-[rgba(15,23,60,0.08)] bg-muted/40 px-3 py-2 text-sm font-medium">
+                  <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-2">
+                    <Label className="text-left text-sm sm:text-right">Business</Label>
+                    <div className="sm:col-span-3 rounded-md border border-[rgba(15,23,60,0.08)] bg-muted/40 px-3 py-2 text-sm font-medium">
                       {companies.find((c) => c.id === selectedCompanyId)?.name || "Current business"}
                     </div>
                   </div>
                   {currentUser?.role !== "MANAGER" && (
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label className="text-right text-sm">Role</Label>
+                    <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-2">
+                      <Label className="text-left text-sm sm:text-right">Role</Label>
                       <Select
                         value={giveAccessRole}
                         onValueChange={(v) => setGiveAccessRole(v as "MANAGER" | "CASHIER")}
                       >
-                        <SelectTrigger className="col-span-3">
+                        <SelectTrigger className="sm:col-span-3">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1850,14 +1850,14 @@ const UserManagement = () => {
                     </div>
                   )}
                   {getEffectiveRole() === 'MANAGER' && (
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label className="text-right text-sm">Role</Label>
-                      <div className="col-span-3 rounded-md border px-3 py-2 text-sm">Cashier</div>
+                    <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-2">
+                      <Label className="text-left text-sm sm:text-right">Role</Label>
+                      <div className="sm:col-span-3 rounded-md border px-3 py-2 text-sm">Cashier</div>
                     </div>
                   )}
-                  <div className="grid grid-cols-4 items-center gap-2">
-                    <Label className="text-right text-sm">Branch</Label>
-                    <div className="col-span-3 space-y-1">
+                  <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-2">
+                    <Label className="text-left text-sm sm:text-right">Branch</Label>
+                    <div className="sm:col-span-3 space-y-1">
                       <Select
                         value={giveAccessBranchId}
                         onValueChange={setGiveAccessBranchId}
@@ -2380,20 +2380,20 @@ const UserManagement = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-name" className="text-left sm:text-right">
                 Name
               </Label>
               <Input
                 id="edit-name"
                 value={newUser.name}
                 onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                className="col-span-3"
+                className="sm:col-span-3"
                 placeholder="Enter full name"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-email" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-email" className="text-left sm:text-right">
                 Email
               </Label>
               <Input
@@ -2401,27 +2401,27 @@ const UserManagement = () => {
                 type="email"
                 value={newUser.email}
                 onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                className="col-span-3"
+                className="sm:col-span-3"
                 placeholder="Enter email address"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-username" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-username" className="text-left sm:text-right">
                 Username
               </Label>
               <Input
                 id="edit-username"
                 value={newUser.username}
                 onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                className="col-span-3"
+                className="sm:col-span-3"
                 placeholder="Enter username"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-password" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-password" className="text-left sm:text-right">
                 Password
               </Label>
-              <div className="col-span-3 relative">
+              <div className="sm:col-span-3 relative">
                 <Input
                   id="edit-password"
                   type={showEditPassword ? "text" : "password"}
@@ -2439,8 +2439,8 @@ const UserManagement = () => {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-role" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-role" className="text-left sm:text-right">
                 Role
               </Label>
               <Select
@@ -2448,7 +2448,7 @@ const UserManagement = () => {
                 onValueChange={(value) => setNewUser({ ...newUser, role: value })}
                 disabled={newUser.role === 'OWNER'}
               >
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="sm:col-span-3">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2463,12 +2463,12 @@ const UserManagement = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-branch" className="text-right">
+            <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-4">
+              <Label htmlFor="edit-branch" className="text-left sm:text-right">
                 Branch
               </Label>
               <Select value={newUser.branchId} onValueChange={(value) => setNewUser({ ...newUser, branchId: value })}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="sm:col-span-3">
                   <SelectValue placeholder="Select branch" />
                 </SelectTrigger>
                 <SelectContent>
