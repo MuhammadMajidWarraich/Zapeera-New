@@ -556,8 +556,36 @@ export const checkModule = (moduleName: string) => {
       // If we have entitlements, the plan allows this module —
       // but ALSO verify the business type template allows it (business type is the authority).
       if (entitlements && entitlements.modules) {
-        const planAllows = entitlements.modules[moduleName.toLowerCase()];
+        let planAllows = entitlements.modules[moduleName.toLowerCase()];
         console.log(`[checkModule:${moduleName}] planAllows=${planAllows}`);
+        if (!planAllows && entitlements.planId) {
+          // The legacy plan summary predates the V2 entitlement model and
+          // under-reports modules for DB-defined plans (e.g. single-trial
+          // resolves to a minimal hardcoded module list without purchases /
+          // business_management). The canonical policy lives in
+          // plan_entitlements — the same table the authorization service
+          // enforces — so consult it before falling back to the legacy
+          // business_modules veto below, whose default-disabled rows
+          // otherwise block modules the plan actually entitles.
+          try {
+            const v2Rows = await prisma.$queryRaw<any[]>`
+              SELECT 1
+              FROM plan_entitlements pe
+              INNER JOIN platform_plans p ON p.id = pe."planId"
+              WHERE pe."planId" = ${entitlements.planId}
+                AND LOWER(pe."moduleKey") = LOWER(${moduleName})
+                AND UPPER(pe."entitlementLevel") IN ('FULL', 'LIMITED')
+                AND UPPER(p."permissionState") = 'CONFIGURED'
+              LIMIT 1
+            `;
+            if (v2Rows && v2Rows.length > 0) {
+              planAllows = true;
+              console.log(`[checkModule:${moduleName}] planAllows=true (V2 plan_entitlements)`);
+            }
+          } catch {
+            // Table absent on very old schemas — keep the legacy decision.
+          }
+        }
         if (planAllows) {
           // Check if business type also allows this module
           const typeCheck = resolvedBtId ? await prisma.$queryRaw<any[]>`
