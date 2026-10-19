@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { config } from "@/lib/config";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,11 @@ import { cn } from "@/lib/utils";
 import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
 import {
   InvitationsStrip,
-  BusinessHero,
+  GlobalQuickActions,
   AccountStatStrip,
   CompletionStrip,
   RecentActivity,
   DesktopBanner,
-  type LaunchpadBusiness,
 } from "@/components/user-dashboard/launchpad";
 import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
 
@@ -155,43 +154,6 @@ const ZapeeraDashboard = () => {
 
   const { allCompanies, isLoading: companiesLoading } = useAdmin();
 
-  // Primary business for the hero: the most recently accessed one (the
-  // recents list the business cards maintain), else the first business
-  // in the order the account data provides.
-  const primaryBusiness = useMemo<LaunchpadBusiness | null>(() => {
-    const list = (allCompanies || []) as LaunchpadBusiness[];
-    if (list.length === 0) return null;
-    try {
-      const raw = localStorage.getItem("zapeera_recent_businesses");
-      if (raw) {
-        for (const entry of JSON.parse(raw)) {
-          const match = list.find((b) => b.id === entry?.id);
-          if (match) return match;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    return list[0];
-  }, [allCompanies]);
-
-  // Same navigation + recency bookkeeping the business cards perform.
-  const openBusinessWorkspace = useCallback(
-    (b: LaunchpadBusiness) => {
-      try {
-        const raw = localStorage.getItem("zapeera_recent_businesses");
-        const list = raw ? JSON.parse(raw) : [];
-        const filtered = list.filter((x: any) => x.id !== b.id);
-        filtered.unshift({ id: b.id, name: b.name, slug: b.slug || null });
-        localStorage.setItem("zapeera_recent_businesses", JSON.stringify(filtered.slice(0, 5)));
-      } catch {
-        /* ignore */
-      }
-      openWorkspace(b.slug, b.id);
-    },
-    [openWorkspace]
-  );
-
   const canCreateBusiness = Boolean(currentUser);
 
   if (currentUser && currentUser.isActive === false) {
@@ -266,8 +228,9 @@ const ZapeeraDashboard = () => {
 
         {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
-            <div className="h-[300px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div className="h-[132px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
             <div className="h-[72px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div className="h-[220px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
           </div>
         ) : businessCount === 0 ? (
           <>
@@ -307,52 +270,42 @@ const ZapeeraDashboard = () => {
           </>
         ) : (
           <>
-            {/* One strong column: hero launchpad for the primary business */}
-            {primaryBusiness && (
-              <BusinessHero
-                business={primaryBusiness}
-                multiBusiness={businessCount > 1}
-                onOpenWorkspace={openBusinessWorkspace}
-                onCreateBusiness={handleCreateBusiness}
-                onJoinBusiness={() => navigate("/zapeera/invitations")}
-                canCreateBusiness={canCreateBusiness}
-              />
-            )}
+            {/* Global dashboard: account-level actions and summary first,
+                then the portfolio — every business equal, no featured one */}
+            <GlobalQuickActions onCreateBusiness={handleCreateBusiness} canCreateBusiness={canCreateBusiness} />
             <AccountStatStrip />
+
+            <section className="mt-10">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
+                  <p className="text-[13px] text-[#8c95b0]">Owned and joined businesses — open the workspace to operate.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/zapeera/invitations")}
+                    className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                  >
+                    <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
+                    Join a Business
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateBusiness}
+                    disabled={!canCreateBusiness}
+                    className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
+                    Create New Business
+                  </button>
+                </div>
+              </div>
+              <BusinessCardGrid />
+            </section>
+
             <CompletionStrip />
             <RecentActivity onOpen={openWorkspace} />
-
-            {businessCount > 1 && (
-              <section className="mt-10">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">All businesses</h2>
-                    <p className="text-[13px] text-[#8c95b0]">Every business you own or have joined.</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => navigate("/zapeera/invitations")}
-                      className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-                    >
-                      <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
-                      Join a Business
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCreateBusiness}
-                      disabled={!canCreateBusiness}
-                      className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
-                      Create New Business
-                    </button>
-                  </div>
-                </div>
-                <BusinessCardGrid excludeBusinessId={primaryBusiness?.id} />
-              </section>
-            )}
-
             <DesktopBanner />
           </>
         )}

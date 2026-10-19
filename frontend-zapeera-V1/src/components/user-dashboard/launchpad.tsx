@@ -1,14 +1,18 @@
 /**
- * Launchpad — the single-business-first home for /zapeera.
+ * Global dashboard components for the /zapeera account home.
  *
- * These presentational components reshape the data the account home
- * already loads (useAdmin companies, useAuth user/memberships,
- * useRuntime desktop state, per-business entitlements) into a focused
- * launchpad: one strong main column, a hero for the primary business,
- * slim strips instead of a tall right rail of secondary cards.
+ * Revision 2 (owner feedback): the home is a GLOBAL welcome dashboard
+ * for the whole account — a portfolio view of every business the user
+ * owns or has joined — not a launchpad built around one business.
+ * These presentational components reshape the data the page already
+ * loads (useAdmin companies, useAuth user/memberships, useRuntime
+ * desktop state) into account-level sections: global quick actions, a
+ * summary strip, account completion, merged recent activity and a
+ * slim desktop banner. The businesses themselves are rendered by
+ * BusinessCardGrid, all equal, in the page's Businesses section.
  *
  * No new endpoints and no new data sources: every value rendered here
- * comes from the same hooks/services the previous widget layout used.
+ * comes from the same hooks/services the previous layouts used.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,26 +20,22 @@ import {
   AlarmClock,
   ArrowRight,
   BadgeCheck,
+  Bell,
   Building2,
-  Calendar,
   CheckCircle2,
   ChevronDown,
   CreditCard,
+  Download,
+  HelpCircle,
   Laptop,
-  Layers,
   Mail,
-  Package,
   Phone,
-  Receipt,
+  Plus,
   RefreshCw,
   Shield,
   ShieldCheck,
-  ShoppingCart,
   CircleCheckBig,
-  TrendingUp,
   UserPlus,
-  Users,
-  UsersRound,
   Wifi,
   WifiOff,
   XCircle,
@@ -44,42 +44,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
-import { apiService } from "@/services/api";
 import { DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 import { cn } from "@/lib/utils";
-import {
-  normalizeStatus,
-  statusStyle,
-  roleFor,
-  formatDate,
-  expiryLabel,
-  type Entitlement,
-} from "@/components/user-dashboard/business-cards";
-
-export type LaunchpadBusiness = {
-  id: string;
-  name: string;
-  slug?: string | null;
-  businessType?: string | null;
-  createdBy?: string | null;
-  accessType?: "owned" | "shared";
-  memberRole?: string | null;
-  branches?: Array<{ id: string; name?: string }>;
-  _count?: { branches?: number };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-};
+import { formatDate } from "@/components/user-dashboard/business-cards";
 
 const CARD = "rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]";
-
-function prettyType(businessType?: string | null): string {
-  return (
-    String(businessType || "")
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/^\w/, (c) => c.toUpperCase()) || "Business"
-  );
-}
 
 /** Pending invitations, derived exactly like the old InvitationsWidget. */
 export function usePendingInvitations() {
@@ -133,186 +102,59 @@ export function InvitationsStrip() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Business hero + quick actions                                       */
+/* Global quick actions — account-level destinations                   */
+/*                                                                     */
+/* Every target is a route the ZapeeraLayout sidebar itself uses       */
+/* (verified against the sidebar): Invitations, Billing & Payments,    */
+/* Notifications, Downloads, Support Center — plus Create New          */
+/* Business, which opens the page's existing create dialog handler.    */
 /* ------------------------------------------------------------------ */
-const QUICK_ACTIONS = [
-  { key: "pos", label: "Point of Sale", path: "pos", icon: ShoppingCart, tint: "bg-[#1a52c5]/10 text-[#1a52c5]" },
-  { key: "invoices", label: "Invoices", path: "invoices", icon: Receipt, tint: "bg-emerald-500/10 text-emerald-600" },
-  { key: "products", label: "Products", path: "products", icon: Package, tint: "bg-orange-500/10 text-orange-600" },
-  { key: "customers", label: "Customers", path: "customers", icon: Users, tint: "bg-violet-500/10 text-violet-600" },
-  { key: "reports", label: "Reports", path: "reports", icon: TrendingUp, tint: "bg-sky-500/10 text-sky-600" },
-  { key: "team", label: "Team", path: "staff", icon: UsersRound, tint: "bg-rose-500/10 text-rose-600" },
-] as const;
-
-export function BusinessHero({
-  business,
-  multiBusiness,
-  onOpenWorkspace,
+export function GlobalQuickActions({
   onCreateBusiness,
-  onJoinBusiness,
   canCreateBusiness,
 }: {
-  business: LaunchpadBusiness;
-  multiBusiness?: boolean;
-  onOpenWorkspace: (b: LaunchpadBusiness) => void;
   onCreateBusiness: () => void;
-  onJoinBusiness: () => void;
   canCreateBusiness: boolean;
 }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const runtime = useRuntime();
-  const [ent, setEnt] = useState<Entitlement | null>(null);
 
-  // Same entitlement call the business cards make — plan/status badges
-  // only render once it lands so a fresh load never flashes "Inactive".
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiService.getBusinessEntitlements(business.id);
-        if (!cancelled && res.success && res.data) setEnt(res.data as Entitlement);
-      } catch {
-        /* ignore — badges simply stay hidden */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [business.id]);
-
-  const slug = business.slug?.trim() || null;
-  const go = (path: string) => {
-    if (slug) navigate(`/business/${encodeURIComponent(slug)}/${path}`);
-    else navigate("/zapeera/my-businesses");
-  };
-
-  const status = ent ? normalizeStatus(ent.subscriptionStatus) : null;
-  const style = status ? statusStyle[status] : null;
-  const role = roleFor(business as any, user);
-  const branchCount = business._count?.branches ?? business.branches?.length ?? 0;
-  const lastSynced = runtime.isDesktop
-    ? runtime.desktopBusinessStates?.find((s) => s.businessId === business.id)?.lastSyncedAt || business.updatedAt
-    : business.updatedAt;
+  const actions: Array<{
+    key: string;
+    label: string;
+    icon: React.ElementType;
+    tint: string;
+    onClick: () => void;
+    disabled?: boolean;
+  }> = [
+    { key: "create", label: "Create New Business", icon: Plus, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", onClick: onCreateBusiness, disabled: !canCreateBusiness },
+    { key: "invitations", label: "Invitations", icon: UserPlus, tint: "bg-amber-500/10 text-amber-600", onClick: () => navigate("/zapeera/invitations") },
+    { key: "billing", label: "Billing & Payments", icon: CreditCard, tint: "bg-emerald-500/10 text-emerald-600", onClick: () => navigate("/zapeera/billing") },
+    { key: "notifications", label: "Notifications", icon: Bell, tint: "bg-violet-500/10 text-violet-600", onClick: () => navigate("/zapeera/notifications") },
+    { key: "downloads", label: "Downloads", icon: Download, tint: "bg-sky-500/10 text-sky-600", onClick: () => navigate("/downloads") },
+    { key: "support", label: "Support Center", icon: HelpCircle, tint: "bg-rose-500/10 text-rose-600", onClick: () => navigate("/zapeera/support") },
+  ];
 
   return (
-    <section className={cn(CARD, "overflow-hidden")}>
-      {/* Hero body */}
-      <div className="bg-gradient-to-br from-[#1a52c5]/[0.05] via-transparent to-[#28c2ce]/[0.05] p-5 sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-[22px] font-extrabold text-white shadow-[0_8px_24px_rgba(26,82,197,0.3)]">
-            {business.name?.charAt(0).toUpperCase() || "B"}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h2 className="text-[22px] font-extrabold leading-tight tracking-tight text-[#0a1128] sm:text-[26px]">{business.name}</h2>
-              {multiBusiness && (
-                <span className="rounded-full bg-[#1a52c5]/[0.08] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1a52c5]">
-                  Most recent
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-sm text-[#8c95b0]">{prettyType(business.businessType)}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#4a5578]">
-                <Users className="h-3 w-3 opacity-60" /> {role}
+    <section className={cn(CARD, "p-4 sm:p-5")} aria-label="Quick actions">
+      <p className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Quick actions</p>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {actions.map((a) => {
+          const Icon = a.icon;
+          return (
+            <button
+              key={a.key}
+              type="button"
+              onClick={a.onClick}
+              disabled={a.disabled}
+              className="group flex flex-col items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.05)] bg-white px-2 py-3.5 text-center transition-all hover:-translate-y-0.5 hover:border-[#1a52c5]/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.07)] disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span className={cn("grid h-10 w-10 place-items-center rounded-xl transition-transform group-hover:scale-105", a.tint)}>
+                <Icon className="h-5 w-5" />
               </span>
-              {style && ent && (
-                <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", style.cls)}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                  {ent.plan?.name ? `${ent.plan.name} · ${style.label}` : style.label}
-                </span>
-              )}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-[#4a5578]">
-              <span className="inline-flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-[#8c95b0]" />
-                {branchCount} {branchCount === 1 ? "Branch" : "Branches"}
-              </span>
-              {ent && status && (
-                <span className="inline-flex items-center gap-1.5">
-                  <CreditCard className="h-4 w-4 text-[#8c95b0]" />
-                  {expiryLabel(status, ent)}
-                </span>
-              )}
-              {business.createdAt && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4 text-[#8c95b0]" />
-                  Created {formatDate(business.createdAt)}
-                </span>
-              )}
-              {lastSynced && (
-                <span className="inline-flex items-center gap-1.5">
-                  <RefreshCw className="h-4 w-4 text-[#8c95b0]" />
-                  Last synced {formatDate(lastSynced)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={() => onOpenWorkspace(business)}
-            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 text-[15px] font-bold text-white shadow-[0_6px_20px_rgba(26,82,197,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(26,82,197,0.38)] sm:flex-none sm:px-8"
-          >
-            Open Workspace
-            <ArrowRight className="h-[18px] w-[18px]" />
-          </button>
-          {slug && (
-            <button
-              type="button"
-              onClick={() => go("subscription")}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.1)] bg-white px-5 text-sm font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7]"
-            >
-              <CreditCard className="h-4 w-4 text-[#1a52c5]" />
-              Manage Subscription
+              <span className="text-[12.5px] font-semibold leading-tight text-[#0a1128]">{a.label}</span>
             </button>
-          )}
-          <div className="flex items-center justify-center gap-1 sm:ml-auto">
-            <button
-              type="button"
-              onClick={onJoinBusiness}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
-            >
-              <UserPlus className="h-4 w-4 text-[#1a52c5]" />
-              Join a Business
-            </button>
-            <button
-              type="button"
-              onClick={onCreateBusiness}
-              disabled={!canCreateBusiness}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128] disabled:pointer-events-none disabled:opacity-50"
-            >
-              <Building2 className="h-4 w-4 text-[#1a52c5]" />
-              Create Another
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      <div className="border-t border-[rgba(15,23,60,0.05)] p-4 sm:p-5">
-        <p className="mb-3 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Quick actions</p>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-          {QUICK_ACTIONS.map((a) => {
-            const Icon = a.icon;
-            return (
-              <button
-                key={a.key}
-                type="button"
-                onClick={() => go(a.path)}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.05)] bg-white px-2 py-3.5 text-center transition-all hover:-translate-y-0.5 hover:border-[#1a52c5]/20 hover:shadow-[0_8px_24px_rgba(0,0,0,0.07)]"
-              >
-                <span className={cn("grid h-10 w-10 place-items-center rounded-xl transition-transform group-hover:scale-105", a.tint)}>
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="text-[12.5px] font-semibold leading-tight text-[#0a1128]">{a.label}</span>
-              </button>
-            );
-          })}
-        </div>
+          );
+        })}
       </div>
     </section>
   );
