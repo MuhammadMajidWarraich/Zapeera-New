@@ -987,7 +987,6 @@ const Invoices = () => {
           batchId: item.batchId || null, // Include batch ID for stock return
           saleItemId: item.saleItemId || null
         })),
-        refundedBy: user?.id || selectedInvoice.user?.id
       };
 
       const response = await apiService.createRefund(refundData);

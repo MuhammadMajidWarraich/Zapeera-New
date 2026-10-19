@@ -457,7 +457,6 @@ const Refunds = () => {
         originalSaleId: foundInvoice.id,
         refundReason: createRefundReason || "Customer requested refund",
         items: itemsToRefund,
-        refundedBy: user?.id || ""
       };
 
       const refundResponse = await apiService.createRefund(refundData);

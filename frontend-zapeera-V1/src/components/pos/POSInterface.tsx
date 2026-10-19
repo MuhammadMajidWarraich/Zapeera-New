@@ -2777,7 +2777,6 @@ Zapeera Staff
         originalSaleId: originalSale.id,
         refundReason: refundReason || "Customer requested refund",
         items: itemsToRefund,
-        refundedBy: user?.id || ""
       };
       // Call the refund API
       const refundResponse = await apiService.createRefund(refundData);

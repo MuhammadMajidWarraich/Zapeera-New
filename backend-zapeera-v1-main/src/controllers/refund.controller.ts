@@ -54,7 +54,9 @@ interface RefundItem {
   productId: string;
   quantity: number;
   unitsDeducted?: number;
-  unitPrice: number;
+  // Accepted in requests for backward compatibility but NEVER used for
+  // pricing — refund amounts come from the stored sale items (A-03).
+  unitPrice?: number;
   reason: string;
 }
 
@@ -62,7 +64,7 @@ interface CreateRefundData {
   originalSaleId: string;
   refundReason: string;
   items: RefundItem[];
-  refundedBy: string;
+  // NOTE: no `refundedBy` — the acting user is always req.user.id (A-07).
 }
 
 const createRefundSchema = Joi.object({
@@ -74,23 +76,22 @@ const createRefundSchema = Joi.object({
       productId: Joi.string().required(),
       quantity: Joi.number().positive().required(),
       unitsDeducted: Joi.number().positive().optional(),
-      unitPrice: Joi.number().positive().required(),
+      unitPrice: Joi.number().positive().optional(), // Ignored — see RefundItem note
       reason: Joi.string().required(),
       batchId: Joi.string().allow(null, '').optional(), // Optional batch ID for stock return
       saleItemId: Joi.string().allow(null, '').optional() // Optional sale item ID
     })
-  ).min(1).required(),
-  refundedBy: Joi.string().required()
+  ).min(1).required()
+  // NOTE: no `refundedBy` field — a client-supplied value is not accepted;
+  // the refund is always attributed to the authenticated caller (A-07).
 }).or('originalSaleId', 'invoiceNumber'); // At least one must be provided
 
 export const createRefund = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const prisma = await getPrisma();
-    console.log('🔍 DEBUG - Refund request received:', JSON.stringify(req.body, null, 2));
 
     const { error } = createRefundSchema.validate(req.body);
     if (error) {
-      console.log('❌ Validation error:', error.details);
       res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -99,16 +100,40 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    const { originalSaleId, invoiceNumber, refundReason, items, refundedBy } = req.body;
-    console.log('🔍 DEBUG - Processing refund for sale:', { originalSaleId, invoiceNumber });
+    const { originalSaleId, invoiceNumber, refundReason, items } = req.body;
 
-    // Find sale by invoice number or sale ID
+    // The refund is always attributed to the authenticated caller (A-07)
+    const actorId = req.user?.id;
+    if (!actorId) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+      return;
+    }
+
+    // Scope the sale lookup to the caller's business context (A-02 model:
+    // the same scoping the sale list handlers apply). Membership context
+    // first, falling back to the caller's selected company — a sale from
+    // another tenant is indistinguishable from a missing sale.
+    const scope = buildBranchWhereClause(req, {});
+    const scopeCompanyId = scope.companyId && scope.companyId !== 'no-business-context'
+      ? scope.companyId
+      : (req.user?.selectedCompanyId || req.user?.companyId);
+    const saleScope = {
+      ...(scopeCompanyId ? { companyId: scopeCompanyId } : {}),
+      ...(scope.branchId ? { branchId: scope.branchId } : {})
+    };
+
+    // Find sale by invoice number or sale ID — always WITH its items, which
+    // are the only trusted source for refund quantities and prices (A-03)
     let originalSale = null;
     if (invoiceNumber) {
       // Search by invoice number
       originalSale = await prisma.sale.findFirst({
         where: {
-          invoiceNumber: invoiceNumber
+          invoiceNumber: invoiceNumber,
+          ...saleScope
         },
         include: {
           items: {
@@ -119,11 +144,13 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           }
         }
       });
-      console.log('🔍 DEBUG - Found sale by invoice number:', originalSale ? originalSale.id : 'not found');
     } else if (originalSaleId) {
       // Search by sale ID (backward compatibility)
-      originalSale = await prisma.sale.findUnique({
-        where: { id: originalSaleId },
+      originalSale = await prisma.sale.findFirst({
+        where: {
+          id: originalSaleId,
+          ...saleScope
+        },
         include: {
           items: {
             include: {
@@ -133,20 +160,20 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           }
         }
       });
-      console.log('🔍 DEBUG - Found sale by ID:', originalSale ? originalSale.id : 'not found');
     }
 
     if (!originalSale) {
       res.status(404).json({
         success: false,
-        message: invoiceNumber 
+        message: invoiceNumber
           ? `Sale with invoice number "${invoiceNumber}" not found`
           : `Sale with ID "${originalSaleId}" not found`
       });
       return;
     }
 
-    // Check if sale is already refunded
+    // A fully refunded sale is terminal; a partially refunded one stays
+    // refundable for its remaining quantities (A-08)
     if (originalSale.status === 'REFUNDED') {
       res.status(400).json({
         success: false,
@@ -155,136 +182,255 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    // Calculate total refund amount
-    const refundAmount = items.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
+    // ---- Validate every requested item against the original sale (A-03) --
+    // RefundItem rows carry no sale-item link, so prior refunds are tracked
+    // per product. Quantities sold are likewise totalled per product.
+    const priorRefunds = await prisma.refund.findMany({
+      where: { originalSaleId: originalSale.id },
+      include: { items: true }
+    });
+    const alreadyRefundedByProduct = new Map<string, number>();
+    for (const prior of priorRefunds) {
+      for (const priorItem of prior.items) {
+        alreadyRefundedByProduct.set(
+          priorItem.productId,
+          (alreadyRefundedByProduct.get(priorItem.productId) || 0) + priorItem.quantity
+        );
+      }
+    }
+
+    const soldByProduct = new Map<string, number>();
+    for (const saleItem of originalSale.items) {
+      soldByProduct.set(
+        saleItem.productId,
+        (soldByProduct.get(saleItem.productId) || 0) + saleItem.quantity
+      );
+    }
+
+    const requestedByProduct = new Map<string, number>();
+    for (const item of items) {
+      requestedByProduct.set(
+        item.productId,
+        (requestedByProduct.get(item.productId) || 0) + item.quantity
+      );
+    }
+
+    // Resolve each requested item to the sale line(s) it refunds: by
+    // saleItemId when provided, else by productId + batchId, else by
+    // productId alone. Split the requested quantity across the matched
+    // lines (in sale order), never beyond what a line actually sold.
+    interface RefundAllocation {
+      saleItem: any;
+      quantity: number;
+      reason: string;
+    }
+    const allocations: RefundAllocation[] = [];
+
+    for (const item of items) {
+      let matchedLines: any[] = [];
+      if (item.saleItemId) {
+        const line = originalSale.items.find((si: any) => si.id === item.saleItemId);
+        if (line && line.productId === item.productId) {
+          matchedLines = [line];
+        }
+      } else if (item.batchId) {
+        const line = originalSale.items.find(
+          (si: any) => si.productId === item.productId && si.batchId === item.batchId
+        );
+        if (line) {
+          matchedLines = [line];
+        }
+      } else {
+        matchedLines = originalSale.items.filter((si: any) => si.productId === item.productId);
+      }
+
+      if (matchedLines.length === 0) {
+        res.status(422).json({
+          success: false,
+          message: `Product ${item.productId} is not part of sale ${originalSale.invoiceNumber || originalSale.id}; it cannot be refunded against this sale`
+        });
+        return;
+      }
+
+      let remainingForItem = item.quantity;
+      for (const line of matchedLines) {
+        if (remainingForItem <= 0) break;
+        const claimedFromLine = allocations
+          .filter(a => a.saleItem.id === line.id)
+          .reduce((sum, a) => sum + a.quantity, 0);
+        const take = Math.min(line.quantity - claimedFromLine, remainingForItem);
+        if (take > 0) {
+          allocations.push({ saleItem: line, quantity: take, reason: item.reason });
+          remainingForItem -= take;
+        }
+      }
+    }
+
+    // Enforce the refund cap per product:
+    // already refunded + requested in this call must not exceed sold (A-03)
+    let capError: string | null = null;
+    requestedByProduct.forEach((requestedQty, productId) => {
+      if (capError) return;
+      const soldQty = soldByProduct.get(productId) || 0;
+      const alreadyRefunded = alreadyRefundedByProduct.get(productId) || 0;
+      if (alreadyRefunded + requestedQty > soldQty) {
+        capError = `Refund quantity exceeds the sold quantity for product ${productId}. Sold: ${soldQty}, already refunded: ${alreadyRefunded}, requested: ${requestedQty}`;
+      }
+    });
+    if (capError) {
+      res.status(422).json({
+        success: false,
+        message: capError
+      });
+      return;
+    }
+
+    // Every requested unit must have been allocated to a concrete sale line
+    const allocatedByProduct = new Map<string, number>();
+    for (const alloc of allocations) {
+      allocatedByProduct.set(
+        alloc.saleItem.productId,
+        (allocatedByProduct.get(alloc.saleItem.productId) || 0) + alloc.quantity
+      );
+    }
+    let allocationError: string | null = null;
+    requestedByProduct.forEach((requestedQty, productId) => {
+      if (allocationError) return;
+      if ((allocatedByProduct.get(productId) || 0) !== requestedQty) {
+        allocationError = `Requested refund quantity for product ${productId} cannot be matched against the lines of this sale`;
+      }
+    });
+    if (allocationError) {
+      res.status(422).json({
+        success: false,
+        message: allocationError
+      });
+      return;
+    }
+
+    // Refund amounts come ONLY from the stored sale lines (A-03): a line's
+    // effective unit price is totalPrice / quantity, which already carries
+    // that line's discount share. Client-sent prices are never used.
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const effectiveUnitPrice = (saleItem: any): number =>
+      saleItem.quantity > 0 ? saleItem.totalPrice / saleItem.quantity : saleItem.unitPrice;
+    let refundAmount = 0;
+    for (const alloc of allocations) {
+      refundAmount += round2(alloc.quantity * effectiveUnitPrice(alloc.saleItem));
+    }
+    refundAmount = round2(refundAmount);
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx: any) => {
-      console.log('🔍 DEBUG - Starting refund transaction');
-
-      // Create refund record
+      // Create refund record — refundedBy/createdBy are the authenticated
+      // caller, never client input (A-07)
       const refund = await tx.refund.create({
         data: {
-          originalSaleId,
+          originalSaleId: originalSale.id,
           refundReason,
-          refundedBy,
+          refundedBy: actorId,
           refundAmount,
-          createdBy: req.user?.createdBy || req.user?.id,
+          createdBy: actorId,
           status: 'PROCESSED',
           processedAt: new Date()
         }
       });
 
-      console.log('🔍 DEBUG - Refund created with ID:', refund.id);
-
-      // Process each refunded item
+      // Process each validated allocation: one refund item per sale line,
+      // priced from the stored line, restocking the batch the units came
+      // from — only ever the validated quantities (A-03)
       const refundItems = [];
-      for (const item of items) {
-        console.log('🔍 DEBUG - Processing refund item:', item);
-        const unitsToReturn = item.unitsDeducted && item.unitsDeducted > 0 ? item.unitsDeducted : item.quantity;
+      for (const alloc of allocations) {
+        const saleItem = alloc.saleItem;
 
-        // Verify the product exists
-        const product = await tx.product.findUnique({
-          where: { id: item.productId }
-        });
+        // Stock units to return, derived from the SALE line's own ratio
+        // (a BOX line of `quantity` boxes deducted `unitsDeducted` units),
+        // never from client-supplied figures
+        const unitsPerSoldUnit = saleItem.quantity > 0
+          ? (saleItem.unitsDeducted && saleItem.unitsDeducted > 0 ? saleItem.unitsDeducted : saleItem.quantity) / saleItem.quantity
+          : 1;
+        const unitsToReturn = Math.round(alloc.quantity * unitsPerSoldUnit);
 
-        if (!product) {
-          console.log('❌ Product not found:', item.productId);
-          throw new Error(`Product with ID ${item.productId} not found`);
-        }
-
-        console.log('🔍 DEBUG - Found product:', product.name);
-
-        // Create refund item record
+        // Create refund item record at the stored line price
         const refundItem = await tx.refundItem.create({
           data: {
             refundId: refund.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            reason: item.reason,
-            createdBy: req.user?.createdBy || req.user?.id
+            productId: saleItem.productId,
+            quantity: alloc.quantity,
+            unitPrice: round2(effectiveUnitPrice(saleItem)),
+            reason: alloc.reason,
+            createdBy: actorId
           }
         });
 
-        // Find the batch to return items to
-        // First try to use the batchId from the refund item if provided
-        let batchId = item.batchId;
-
-        // If no batchId provided, try to find it from the original sale items
-        if (!batchId) {
-          const originalSaleItem = originalSale.items.find(
-            (si: any) => si.productId === item.productId && si.batchId
-          );
-          if (originalSaleItem) {
-            batchId = originalSaleItem.batchId;
+        // Restock the batch this sale line drew from; only when the line
+        // carries no batch do we fall back to the branch's earliest-expiring
+        // active batch for the product (previous behaviour)
+        let restockBatchId = saleItem.batchId;
+        if (!restockBatchId) {
+          const activeBatch = await tx.batch.findFirst({
+            where: {
+              productId: saleItem.productId,
+              branchId: originalSale.branchId,
+              isActive: true
+            },
+            orderBy: { expireDate: 'asc' }
+          });
+          if (activeBatch) {
+            restockBatchId = activeBatch.id;
           }
         }
 
-        // Update batch quantity (add items back to inventory)
-        if (batchId) {
-          console.log('🔍 DEBUG - Adding', unitsToReturn, 'items back to batch:', batchId);
+        if (restockBatchId && unitsToReturn > 0) {
           await tx.batch.update({
-            where: { id: batchId },
+            where: { id: restockBatchId },
             data: {
               quantity: {
                 increment: unitsToReturn
               }
             }
           });
-          console.log('✅ DEBUG - Batch quantity updated');
-        } else {
-          // If no specific batch, try to find any active batch for this product and branch
-          const activeBatch = await tx.batch.findFirst({
-            where: {
-              productId: item.productId,
-              branchId: originalSale.branchId,
-              isActive: true
-            },
-            orderBy: { expireDate: 'asc' }
-          });
-
-          if (activeBatch) {
-            console.log('🔍 DEBUG - Adding', unitsToReturn, 'items back to first available batch:', activeBatch.id);
-            await tx.batch.update({
-              where: { id: activeBatch.id },
-              data: {
-                quantity: {
-                  increment: unitsToReturn
-                }
-              }
-            });
-            console.log('✅ DEBUG - Batch quantity updated');
-          } else {
-            console.log('⚠️ DEBUG - No batch found to return items to for product:', product.name);
-          }
         }
 
         // Create stock movement record for the return
         await tx.stockMovement.create({
           data: {
-            productId: item.productId,
+            productId: saleItem.productId,
             type: 'RETURN',
             quantity: unitsToReturn,
-            reason: `Refund: ${item.reason}`,
+            reason: `Refund: ${alloc.reason}`,
             reference: `REF-${refund.id}`,
-            createdBy: req.user?.createdBy || req.user?.id
+            createdBy: actorId
           }
         });
 
         refundItems.push(refundItem);
       }
 
-      // Update original sale status to REFUNDED
-      await tx.sale.update({
-        where: { id: originalSaleId },
-        data: {
-          status: 'REFUNDED',
-          updatedAt: new Date()
+      // Sale status after this refund (A-08): REFUNDED only once every
+      // product on the sale is fully refunded; otherwise the sale stays
+      // open for the remaining quantities as PARTIALLY_REFUNDED
+      const refundedAfterByProduct = new Map<string, number>(alreadyRefundedByProduct);
+      for (const alloc of allocations) {
+        refundedAfterByProduct.set(
+          alloc.saleItem.productId,
+          (refundedAfterByProduct.get(alloc.saleItem.productId) || 0) + alloc.quantity
+        );
+      }
+      let fullyRefunded = true;
+      soldByProduct.forEach((soldQty, productId) => {
+        if ((refundedAfterByProduct.get(productId) || 0) < soldQty) {
+          fullyRefunded = false;
         }
       });
 
-      console.log('✅ DEBUG - Sale status updated to REFUNDED');
+      await tx.sale.update({
+        where: { id: originalSale.id },
+        data: {
+          status: fullyRefunded ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+          updatedAt: new Date()
+        }
+      });
 
       return { refund, refundItems };
     });

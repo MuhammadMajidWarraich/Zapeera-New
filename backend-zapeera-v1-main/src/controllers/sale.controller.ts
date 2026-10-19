@@ -1,7 +1,7 @@
 // CRITICAL: Import database initialization FIRST to ensure DATABASE_URL is set
 import '../config/database.init';
 
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { CreateSaleData, SaleResponse, PaymentStatus } from '../models/sale.model';
 import { AuthRequest, buildBranchWhereClause, getUserRole } from '../middleware/auth.middleware';
@@ -39,6 +39,20 @@ const createSaleSchema = Joi.object({
   returnedAmount: Joi.number().min(0).default(0), // Amount returned/refunded
   saleDate: Joi.date().optional()
 });
+
+// Domain error carrying an HTTP status: business-rule failures (insufficient
+// stock, expired batch, ...) must surface as 4xx, not 500 (A-12). The
+// handlers' catch blocks honor `statusCode` when present, mirroring the
+// AppError shape used by src/middleware/error.middleware.ts.
+class HttpError extends Error {
+  statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+    this.statusCode = statusCode;
+  }
+}
 
 const isMissingMembershipColumnError = (error: any): boolean => {
   const message = String(error?.message || '').toLowerCase();
@@ -333,13 +347,15 @@ export const getSales = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getSale = async (req: Request, res: Response) => {
+export const getSale = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const sale = await prisma.sale.findUnique({
-      where: { id },
+    // Scope the lookup to the caller's business context exactly like the
+    // list handler does (A-02): a sale from another tenant reads as 404.
+    const sale = await prisma.sale.findFirst({
+      where: buildBranchWhereClause(req, { id }),
       include: {
         customer: {
           select: {
@@ -402,15 +418,26 @@ export const getSale = async (req: Request, res: Response) => {
   }
 };
 
-export const getSaleByReceiptNumber = async (req: Request, res: Response) => {
+export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { receiptNumber } = req.params;
 
     console.log('Looking up receipt number:', receiptNumber);
 
+    // Tenant scope for both the lookup and the debug listing (A-02): never
+    // expose or match another business's receipts.
+    const scope = buildBranchWhereClause(req, {});
+    const saleScope = {
+      companyId: scope.companyId,
+      ...(scope.branchId ? { branchId: scope.branchId } : {})
+    };
+
     // First, let's see what receipt numbers exist in the database
     const allReceipts = await prisma.receipt.findMany({
+      where: {
+        sale: saleScope
+      },
       select: {
         receiptNumber: true,
         saleId: true
@@ -421,6 +448,7 @@ export const getSaleByReceiptNumber = async (req: Request, res: Response) => {
 
     const sale = await prisma.sale.findFirst({
       where: {
+        ...saleScope,
         receipts: {
           some: {
             receiptNumber: receiptNumber
@@ -489,10 +517,18 @@ export const getSaleByReceiptNumber = async (req: Request, res: Response) => {
   }
 };
 
-export const getAvailableReceiptNumbers = async (req: Request, res: Response) => {
+export const getAvailableReceiptNumbers = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
+    // Only the caller's own business receipts may be listed (A-02)
+    const scope = buildBranchWhereClause(req, {});
     const receipts = await prisma.receipt.findMany({
+      where: {
+        sale: {
+          companyId: scope.companyId,
+          ...(scope.branchId ? { branchId: scope.branchId } : {})
+        }
+      },
       select: {
         id: true,
         receiptNumber: true,
@@ -558,15 +594,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Calculate totals with item-level discounts
-    // For each item: calculate subtotal, apply item discount, then sum
+    // Calculate totals with item-level discounts — ALWAYS computed
+    // server-side (A-04): a client-sent totalPrice is never trusted. Each
+    // line total is quantity × unitPrice − item discount, and the sale
+    // total below is the sum of the line totals (− sale discount + tax).
     const itemTotals = saleData.items.map(item => {
-      // If totalPrice is provided (already includes item discount), use it directly
-      if (item.totalPrice !== undefined && item.totalPrice >= 0) {
-        return item.totalPrice;
-      }
-
-      // Otherwise, calculate from unitPrice and discounts
       const itemSubtotal = item.quantity * item.unitPrice;
       let itemDiscountAmount = 0;
 
@@ -577,7 +609,13 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         itemDiscountAmount = item.discountAmount;
       }
 
-      return itemSubtotal - itemDiscountAmount;
+      const computedTotal = itemSubtotal - itemDiscountAmount;
+
+      if (item.totalPrice !== undefined && item.totalPrice !== null && Math.abs(item.totalPrice - computedTotal) > 0.01) {
+        console.warn(`⚠️ [Sales] Ignoring client-supplied totalPrice ${item.totalPrice} for product ${item.productId}; server-computed line total is ${computedTotal}`);
+      }
+
+      return computedTotal;
     });
 
     const subtotal = itemTotals.reduce((sum, total) => sum + total, 0);
@@ -748,7 +786,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
 
       // Create sale items and update stock
       const saleItems = [];
-      for (const item of saleData.items) {
+      for (let itemIndex = 0; itemIndex < saleData.items.length; itemIndex++) {
+        const item = saleData.items[itemIndex];
         const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
         const unitsPerBox = item.unitsPerBox && item.unitsPerBox > 0 ? item.unitsPerBox : 1;
         const unitsRequired = item.unitsDeducted && item.unitsDeducted > 0
@@ -800,7 +839,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         const totalAvailableStock = availableBatches.reduce((sum: number, batch: any) => sum + batch.quantity, 0);
 
         if (totalAvailableStock < unitsRequired) {
-          throw new Error(`Insufficient stock for ${product.name}. Available: ${totalAvailableStock}, Required: ${unitsRequired}`);
+          throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${totalAvailableStock}, Required: ${unitsRequired}`);
         }
 
         // Handle batch tracking (require a batch, fallback to FIFO if missing)
@@ -834,7 +873,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             throw new Error(`Selected batch not found for ${product.name}.`);
           }
           if (selectedBatch.quantity < unitsRequired) {
-            throw new Error(`Insufficient stock in selected batch ${selectedBatch.batchNo}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
+            throw new HttpError(422, `Insufficient stock in selected batch ${selectedBatch.batchNo}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
           }
         } else if (item.batchNumber) {
           selectedBatch = await tx.batch.findFirst({
@@ -865,7 +904,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             }
           });
           if (!selectedBatch) {
-            throw new Error(`Batch ${item.batchNumber} not available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
+            throw new HttpError(422, `Batch ${item.batchNumber} not available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
           }
         } else {
           selectedBatch = await tx.batch.findFirst({
@@ -895,27 +934,39 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             }
           });
           if (!selectedBatch) {
-            throw new Error(`No batch available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
+            throw new HttpError(422, `No batch available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
           }
         }
 
-        // Update batch quantity
-        // Use raw SQL directly to avoid reportReason column issues
-        await tx.$executeRawUnsafe(
-          `UPDATE batches 
-           SET quantity = quantity - ${unitsRequired},
-               "updatedAt" = CURRENT_TIMESTAMP
-           WHERE id = '${selectedBatch.id}'`
-        );
+        // Never sell expired stock: the batch this line resolves to — the
+        // explicitly selected one or the FIFO choice — must be in date
+        // (Batch.expireDate, per the Prisma schema).
+        if (selectedBatch.expireDate && new Date(selectedBatch.expireDate).getTime() < Date.now()) {
+          throw new HttpError(422, `Cannot sell expired batch ${selectedBatch.batchNo} for ${product.name} (expired ${new Date(selectedBatch.expireDate).toISOString().slice(0, 10)})`);
+        }
 
-        // Create sale item
-        // CRITICAL FIX: Use provided totalPrice if available (for pack/piece calculations)
-        // Otherwise calculate: item.quantity * item.unitPrice
-        // When pack is selected: quantity is in pieces (e.g., 12), unitPrice is price per pack
-        // So we must use the provided totalPrice to avoid incorrect calculation
-        const calculatedTotalPrice = item.totalPrice !== undefined && item.totalPrice !== null
-          ? item.totalPrice
-          : item.quantity * item.unitPrice;
+        // Decrement stock atomically (A-16): the update only applies while
+        // the batch still holds enough units, so two concurrent sales can
+        // no longer both pass the availability check on the same snapshot
+        // and drive the batch negative.
+        const decrementResult = await tx.batch.updateMany({
+          where: {
+            id: selectedBatch.id,
+            quantity: { gte: unitsRequired }
+          },
+          data: {
+            quantity: { decrement: unitsRequired }
+          }
+        });
+
+        if (decrementResult.count !== 1) {
+          throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
+        }
+
+        // Create sale item — totalPrice is the server-computed line total
+        // (quantity × unitPrice − item discount) from itemTotals above
+        // (A-04); any client-sent totalPrice was already discarded there.
+        const calculatedTotalPrice = itemTotals[itemIndex];
 
         const saleItem = await tx.saleItem.create({
           data: {
@@ -1116,7 +1167,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Create sale error:', error);
-    return res.status(500).json({
+    // Typed domain errors (insufficient stock, expired batch) carry their
+    // own HTTP status (A-12); everything else stays a 500.
+    const statusCode = (error as any)?.statusCode;
+    return res.status(typeof statusCode === 'number' ? statusCode : 500).json({
       success: false,
       message: error instanceof Error ? error.message : 'Internal server error'
     });
@@ -1147,9 +1201,10 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Get the existing sale
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
+    // Get the existing sale — scoped to the caller's business (A-02), so a
+    // sale from another tenant reads as "not found", same as the list
+    const existingSale = await prisma.sale.findFirst({
+      where: buildBranchWhereClause(req, { id }),
       include: {
         items: true,
         customer: true,
@@ -1340,9 +1395,10 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    // Get the existing sale
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
+    // Get the existing sale — scoped to the caller's business (A-02), so a
+    // sale from another tenant reads as "not found", same as the list
+    const existingSale = await prisma.sale.findFirst({
+      where: buildBranchWhereClause(req, { id }),
       include: {
         items: true,
         customer: true,
