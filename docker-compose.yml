@@ -69,6 +69,10 @@ services:
       context: ./ocr-service
       dockerfile: Dockerfile
     restart: unless-stopped
+    environment:
+      # Shared secret the backend presents as X-OCR-Key on every scan call.
+      # Fail-closed: with no secret set the scan endpoints refuse (503).
+      OCR_SHARED_SECRET: ${OCR_SHARED_SECRET:-}
     expose:
       - "8000"
 

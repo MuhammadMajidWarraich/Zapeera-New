@@ -1,23 +1,107 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Header
 import numpy as np
 from PIL import Image
 import io
+import os
+import hmac
+import binascii
 import base64
+import logging
 from typing import Dict, List, Optional
 import re
 from pydantic import BaseModel
 
+logger = logging.getLogger("zapeera-ocr")
+logging.basicConfig(level=logging.INFO)
+
 app = FastAPI(title="Zapeera OCR Service", version="1.0.0")
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ---------------------------------------------------------------------------
+# Security (QA fix 2026-10-19, Track A A-11)
+#
+# * NO CORS middleware: this service is server-to-server only (the backend
+#   calls it over the internal container network). Browsers never talk to
+#   it directly, so no Origin is ever granted — the previous wildcard
+#   allow_origins=["*"] + allow_credentials=True is removed entirely.
+#
+# * Shared-secret authentication: both scan endpoints require the header
+#   X-OCR-Key to match the OCR_SHARED_SECRET environment variable (the
+#   backend sends it from the same env value on its side).
+#   Fail-closed policy: if OCR_SHARED_SECRET is NOT set, the scan endpoints
+#   refuse to serve (503) — UNLESS OCR_ALLOW_UNAUTHENTICATED=1 is set
+#   explicitly, which is a local-development escape hatch only. The root
+#   health endpoint (GET /) stays unauthenticated for Docker/backend
+#   health checks and returns no sensitive data.
+#
+# * Upload limits: max 10 MB per upload (raw bytes; the base64 variant caps
+#   the encoded payload accordingly), image content-type allowlist plus a
+#   PIL format verification (client-supplied content types are not trusted),
+#   and a pixel-count ceiling against decompression bombs.
+#
+# * Errors: callers get generic messages; exception details are logged
+#   server-side only (previously str(e) leaked internals to callers).
+# ---------------------------------------------------------------------------
+OCR_SHARED_SECRET = os.environ.get("OCR_SHARED_SECRET", "")
+OCR_ALLOW_UNAUTHENTICATED = os.environ.get("OCR_ALLOW_UNAUTHENTICATED", "") == "1"
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_BASE64_CHARS = 14_500_000  # ~10 MB of binary, base64-encoded (4/3 overhead + margin)
+MAX_IMAGE_PIXELS = 50_000_000  # decompression-bomb ceiling
+ALLOWED_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/bmp",
+    "image/tiff",
+    "image/x-tiff",
+}
+# Formats PIL must actually detect after decoding (magic-byte truth).
+# PDF is intentionally not supported: this service decodes with PIL, which
+# cannot open PDF files, so PDFs are rejected as unsupported.
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "BMP", "TIFF"}
+
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+if not OCR_SHARED_SECRET and not OCR_ALLOW_UNAUTHENTICATED:
+    logger.warning(
+        "OCR_SHARED_SECRET is not set: scan endpoints will refuse requests (503). "
+        "Set OCR_SHARED_SECRET, or OCR_ALLOW_UNAUTHENTICATED=1 for local development only."
+    )
+elif not OCR_SHARED_SECRET:
+    logger.warning(
+        "OCR_ALLOW_UNAUTHENTICATED=1: scan endpoints are UNAUTHENTICATED (dev mode only)."
+    )
+
+
+def require_ocr_key(x_ocr_key: Optional[str] = Header(default=None, alias="X-OCR-Key")):
+    """FastAPI dependency enforcing the shared-secret header on scan endpoints."""
+    if OCR_SHARED_SECRET:
+        if not x_ocr_key or not hmac.compare_digest(x_ocr_key, OCR_SHARED_SECRET):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        return
+    if not OCR_ALLOW_UNAUTHENTICATED:
+        raise HTTPException(status_code=503, detail="OCR service authentication is not configured")
+
+
+def _decode_image(contents: bytes):
+    """Validate raw upload bytes and return a numpy array, or raise HTTPException."""
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    try:
+        image = Image.open(io.BytesIO(contents))
+        image.load()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=415, detail="Unsupported or invalid image file")
+    if image.format not in ALLOWED_IMAGE_FORMATS:
+        raise HTTPException(status_code=415, detail="Unsupported image format")
+    width, height = image.size
+    if width * height > MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=413, detail="Image dimensions too large")
+    return np.array(image)
 
 # ---------------------------------------------------------------------------
 # OCR engine (single-host migration, 2026-10-15)
@@ -212,56 +296,72 @@ async def root():
     return {"message": "Zapeera OCR Service is running", "status": "healthy", "engine": _ocr_engine_kind or "not-initialized"}
 
 @app.post("/scan-document", response_model=ExtractedData)
-async def scan_document(file: UploadFile = File(...)):
+async def scan_document(file: UploadFile = File(...), _: None = Depends(require_ocr_key)):
     """
-    Scan a medical rep document and extract product information
+    Scan a medical rep document and extract product information.
+    Requires the X-OCR-Key shared-secret header (see security notes above).
     """
+    # Reject non-image uploads before reading the body (the PIL format check
+    # in _decode_image is the authoritative gate; this is the cheap one).
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported file type")
+
+    contents = await file.read()
+    image_array = _decode_image(contents)
+
     try:
-        # Read image file
-        contents = await file.read()
-        
-        # Convert to PIL Image
-        image = Image.open(io.BytesIO(contents))
-        
-        # Convert to numpy array
-        image_array = np.array(image)
-        
         # Perform OCR (RapidOCR, with Tesseract fallback — see engine notes above)
         extracted_text = run_ocr(image_array)
-        
+
         # Extract entities
         entities = extract_entities(extracted_text)
-        
+
         return ExtractedData(**entities)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    except HTTPException:
+        raise
+    except Exception:
+        # Log internals server-side; callers get a generic message only.
+        logger.exception("OCR scan failed")
+        raise HTTPException(status_code=500, detail="OCR processing failed")
+
+
+class ScanBase64Request(BaseModel):
+    image: str
+
 
 @app.post("/scan-document-base64")
-async def scan_document_base64(data: dict):
+async def scan_document_base64(data: ScanBase64Request, _: None = Depends(require_ocr_key)):
     """
-    Scan a document from base64 encoded image
+    Scan a document from a base64 encoded image.
+    Requires the X-OCR-Key shared-secret header (see security notes above).
+    A missing/invalid body is a 422 from the request model, not a 500.
     """
+    if len(data.image) > MAX_BASE64_CHARS:
+        raise HTTPException(status_code=413, detail="Payload too large (max 10 MB image)")
+
     try:
-        # Decode base64
-        image_data = base64.b64decode(data['image'])
-        
-        # Convert to PIL Image
-        image = Image.open(io.BytesIO(image_data))
-        
-        # Convert to numpy array
-        image_array = np.array(image)
-        
+        image_data = base64.b64decode(data.image, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid base64 image data")
+
+    image_array = _decode_image(image_data)
+
+    try:
         # Perform OCR (RapidOCR, with Tesseract fallback — see engine notes above)
         extracted_text = run_ocr(image_array)
-        
+
         # Extract entities
         entities = extract_entities(extracted_text)
-        
+
         return ExtractedData(**entities)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    except HTTPException:
+        raise
+    except Exception:
+        # Log internals server-side; callers get a generic message only.
+        logger.exception("OCR scan failed")
+        raise HTTPException(status_code=500, detail="OCR processing failed")
 
 if __name__ == "__main__":
     import uvicorn

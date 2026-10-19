@@ -2,6 +2,19 @@ import axios from 'axios';
 
 const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8000';
 
+// Shared secret for the OCR service (QA fix 2026-10-19, Track A A-11).
+// The OCR service requires header `X-OCR-Key` matching its OCR_SHARED_SECRET
+// env var; both sides must be configured with the SAME value (set
+// OCR_SHARED_SECRET in the deployment .env / docker-compose environment for
+// both the backend and ocr services). When unset here, no header is sent and
+// the OCR service will refuse scan requests unless it runs in its explicit
+// unauthenticated dev mode (OCR_ALLOW_UNAUTHENTICATED=1).
+const OCR_SHARED_SECRET = process.env.OCR_SHARED_SECRET || '';
+
+function ocrAuthHeaders(): Record<string, string> {
+  return OCR_SHARED_SECRET ? { 'X-OCR-Key': OCR_SHARED_SECRET } : {};
+}
+
 export interface ExtractedData {
   productName?: string;
   category?: string;
@@ -27,6 +40,7 @@ export class OCRService {
 
       const response = await axios.post(`${OCR_SERVICE_URL}/scan-document`, formData, {
         timeout: 30000, // 30 second timeout
+        headers: { ...ocrAuthHeaders() },
       });
 
       return response.data;
@@ -47,6 +61,7 @@ export class OCRService {
         { image: base64Image },
         {
           timeout: 30000,
+          headers: { ...ocrAuthHeaders() },
         }
       );
 
