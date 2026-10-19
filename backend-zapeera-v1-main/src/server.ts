@@ -118,7 +118,7 @@ import { ensurePostgresSchemaCompatibility } from './utils/postgres-schema-compa
 import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled, ensureFreshInstallPolicyBaseline } from './utils/modules.util';
 
 // Import middleware
-import { errorHandler } from './middleware/error.middleware';
+import { errorHandler, sanitizeErrorResponses } from './middleware/error.middleware';
 import { notFound } from './middleware/notFound.middleware';
 
 // DATABASE_URL is already set above - no need to check again
@@ -486,9 +486,31 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: process.env.MAX_FILE_SIZE || '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: process.env.MAX_FILE_SIZE || '10mb' }));
+// Body parsing middleware — tiered limits (QA A-15).
+// The old config parsed 10 MB JSON on EVERY route, including /api/auth/login.
+// Parsers run in registration order and body-parser skips an already-parsed
+// body, so specific tiers are mounted before the small global default.
+const legacyLargeBodyLimit = process.env.MAX_FILE_SIZE || '10mb';
+// Auth payloads are tiny: 100 KB is generous and blunts payload abuse.
+app.use(
+  ['/api/auth', '/api/v1/auth', '/api/backoffice/auth'],
+  express.json({ limit: '100kb' }),
+  express.urlencoded({ extended: true, limit: '100kb' })
+);
+// Offline sync pushes whole datasets from the desktop app — keep the
+// previous ceiling for the sync surface only.
+app.use(
+  ['/api/sync', '/api/v1/sync'],
+  express.json({ limit: legacyLargeBodyLimit }),
+  express.urlencoded({ extended: true, limit: legacyLargeBodyLimit })
+);
+// OCR scan-base64 sends whole images as base64 JSON (~1.37x the file size).
+app.use(['/api/ocr', '/api/v1/ocr'], express.json({ limit: '15mb' }));
+// Product bulk import accepts catalogue-sized JSON arrays.
+app.use(['/api/products/bulk-import', '/api/v1/products/bulk-import'], express.json({ limit: '5mb' }));
+// Default for every other JSON/form route.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Compression middleware
 app.use(compression());
@@ -501,6 +523,11 @@ if (process.env.ENABLE_REQUEST_LOGGING === 'true') {
     app.use(morgan('combined'));
   }
 }
+
+// Error-response sanitizer (QA A-12): wraps res.json for every route mounted
+// below so direct controller error responses get the same ORM-leak scrubbing
+// and status mapping as the central errorHandler.
+app.use(sanitizeErrorResponses);
 
 // Health checks, info routes, and favicon — extracted to dedicated module
 import { registerHealthChecks } from './middleware/health-checks';
@@ -600,8 +627,12 @@ app.use('/api/ocr', ocrRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/barcodes', barcodeRoutes);
 
-// Static: serve uploaded receipt screenshots
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// QA A-09: uploaded files are NOT served statically any more. Payment-proof
+// screenshots (financial PII) were reachable at /uploads/payment-proofs/* by
+// anyone who could guess a filename. They are served only through the
+// authenticated, scope-checked routes in routes/payment-proof.routes.ts
+// (admin: /api/payments/manual/screenshot/:filename; business:
+// /api/payments/manual/my/screenshot/:filename).
 
 // Backoffice routes (separate admin portal)
 app.use('/api/backoffice', backofficeRoutes);

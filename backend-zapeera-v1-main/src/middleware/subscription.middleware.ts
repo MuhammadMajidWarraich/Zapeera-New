@@ -7,7 +7,19 @@ export const checkSubscription = () => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     const prisma = await getPrisma();
     const businessId = req.business_id || (req.params && (req.params.businessId || req.params.id));
-    if (!businessId) return next();
+    // QA A-17: fail CLOSED when the business context cannot be resolved.
+    // This middleware is only mounted on tenant routes that always require a
+    // business (branch create, company members, invitation send) — public /
+    // context-free routes (auth, health, registry-classified public paths)
+    // never pass through here, so denying cannot break them. The response
+    // shape mirrors the universal module-protection NO_BUSINESS_CONTEXT denial.
+    if (!businessId) {
+      return res.status(400).json({
+        success: false,
+        error: 'NO_BUSINESS_CONTEXT',
+        message: 'Business context required (X-Business-ID header)',
+      });
+    }
 
     try {
       let sub: any = null;

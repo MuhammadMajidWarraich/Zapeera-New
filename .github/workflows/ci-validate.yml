@@ -6,11 +6,21 @@ on:
     paths:
       - 'backend-zapeera-v1-main/**'
       - 'frontend-zapeera-V1/**'
+      # Single-host deployment surface (Docker Compose stack) — changes here
+      # previously triggered NO CI at all.
+      - 'docker-compose.yml'
+      - 'Caddyfile'
+      - 'ocr-service/**'
+      - '.github/workflows/ci-validate.yml'
   pull_request:
     branches: [master]
     paths:
       - 'backend-zapeera-v1-main/**'
       - 'frontend-zapeera-V1/**'
+      - 'docker-compose.yml'
+      - 'Caddyfile'
+      - 'ocr-service/**'
+      - '.github/workflows/ci-validate.yml'
   workflow_dispatch:
 
 jobs:
@@ -90,41 +100,34 @@ jobs:
         # vite) whose fixes are blind major bumps the CI cannot validate.
         run: node scripts/check-audit-baseline.js
 
-  deploy:
-    name: Deploy to Railway
-    needs: [backend-validate, frontend-validate]
+  deploy-surface:
+    name: Deployment surface (compose + Caddy + OCR image)
+    # Replaces the old Railway deploy job: the project no longer deploys to
+    # Railway — production is the single-host Docker Compose stack
+    # (docker-compose.yml + Caddyfile + ocr-service) on Oracle Cloud.
+    # This job smoke-validates that deployment surface on every change to it.
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend-zapeera-v1-main
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: backend-zapeera-v1-main/package-lock.json
+      - name: Validate docker-compose.yml
+        # env_file (.env) must exist for `docker compose config`; the
+        # committed template provides safe placeholder values.
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Validate Caddyfile
+        # Site addresses are env-driven ({$FRONTEND_DOMAIN} / {$API_DOMAIN});
+        # validate with placeholder domains.
+        run: |
+          docker run --rm \
+            -e FRONTEND_DOMAIN=example.com \
+            -e API_DOMAIN=api.example.com \
+            -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
-      - name: Build (validated — no forced flags)
-        run: npm run build:prod
-
-      - name: Deploy to Railway
-        # Official Railway CLI deploy. Runs from backend-zapeera-v1-main
-        # so `railway up` uploads the backend root (Railway builds it).
-        # Skipped (with a notice) when the Railway secrets are not configured.
-        if: env.RAILWAY_TOKEN != ''
-        run: npx --yes @railway/cli@latest up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "${{ secrets.RAILWAY_ENVIRONMENT || 'production' }}" -m "deploy ${{ github.sha }}"
-
-      - name: Railway deploy not configured
-        if: env.RAILWAY_TOKEN == ''
-        run: echo "::warning::Railway deploy SKIPPED — add RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID (and optional RAILWAY_ENVIRONMENT) repository secrets to enable automatic deploys."
+      - name: OCR service image smoke build
+        run: docker build -t zapeera-ocr-ci ./ocr-service

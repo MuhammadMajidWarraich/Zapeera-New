@@ -3,8 +3,48 @@ import { CheckCircle, XCircle, Clock, Eye, Search, X, AlertCircle, FileText } fr
 import { toast } from 'sonner';
 import { backofficeApi } from '../../services/api';
 import { PaymentProof } from '../../../types';
+import { config } from '@/lib/config';
 
 const METHOD_LABELS: Record<string, string> = { BANK_TRANSFER: 'Bank Transfer', EASYPAISA: 'EasyPaisa', JAZZCASH: 'JazzCash' };
+
+/**
+ * QA A-09: proof screenshots are no longer served from a public static
+ * path — they sit behind the admin-authenticated screenshot route. Load
+ * the bytes with the backoffice session cookie and render a blob URL.
+ */
+function ProofImage({ screenshotUrl }: { screenshotUrl: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    const filename = screenshotUrl.split('/').pop();
+    if (!filename) { setFailed(true); return; }
+    fetch(`${config.api.baseUrl}/payments/manual/screenshot/${encodeURIComponent(filename)}`, {
+      credentials: 'include',
+    })
+      .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.blob(); })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [screenshotUrl]);
+
+  if (failed) {
+    return <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">Screenshot could not be loaded.</div>;
+  }
+  if (!src) {
+    return <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">Loading screenshot…</div>;
+  }
+  return <img src={src} alt="Payment proof" className="w-full rounded-lg border border-gray-200" />;
+}
 
 export function PaymentProofsPage() {
   const [proofs, setProofs] = useState<PaymentProof[]>([]);
@@ -136,7 +176,7 @@ export function PaymentProofsPage() {
               <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span><span className={`font-medium ${selected.status === 'APPROVED' ? 'text-emerald-600' : selected.status === 'REJECTED' ? 'text-red-600' : 'text-amber-600'}`}>{selected.status}</span></div>
             </div>
             {selected.screenshotUrl && (
-              <div className="mb-4"><img src={selected.screenshotUrl} alt="Payment proof" className="w-full rounded-lg border border-gray-200" /></div>
+              <div className="mb-4"><ProofImage screenshotUrl={selected.screenshotUrl} /></div>
             )}
             {selected.status === 'PENDING' && (
               <div className="flex gap-3">

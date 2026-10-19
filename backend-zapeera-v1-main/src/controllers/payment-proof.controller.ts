@@ -29,16 +29,60 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, `proof_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`);
+    // QA A-09: 128-bit random name — the old `proof_<Date.now()>_<4 base36>`
+    // space was small and enumerable while files were publicly served.
+    cb(null, `proof_${crypto.randomBytes(16).toString('hex')}${ext}`);
   },
 });
 
+// First-pass filter only. The client-supplied mimetype is NOT trusted — the
+// real type is verified from magic bytes in submitPaymentProof (detectFileType).
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
   allowed.includes(file.mimetype)
     ? cb(null, true)
     : cb(new Error('Only JPEG, PNG, WEBP or PDF files are allowed'));
 };
+
+type DetectedFileType = { ext: string; mime: string };
+
+/**
+ * Sniff the real file type from magic bytes (QA A-09). Returns null when the
+ * content is not one of the allowed types — regardless of the filename or
+ * the client-declared mimetype. This stops e.g. an .html/.svg payload with
+ * an `image/png` mimetype from being stored and later served as an image.
+ */
+function detectFileType(filePath: string): DetectedFileType | null {
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(16);
+    const read = fs.readSync(fd, buf, 0, 16, 0);
+    const b = buf.subarray(0, read);
+    if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+      return { ext: '.jpg', mime: 'image/jpeg' };
+    }
+    if (
+      b.length >= 8 &&
+      b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 &&
+      b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a
+    ) {
+      return { ext: '.png', mime: 'image/png' };
+    }
+    if (
+      b.length >= 12 &&
+      b.toString('ascii', 0, 4) === 'RIFF' &&
+      b.toString('ascii', 8, 12) === 'WEBP'
+    ) {
+      return { ext: '.webp', mime: 'image/webp' };
+    }
+    if (b.length >= 4 && b.toString('ascii', 0, 4) === '%PDF') {
+      return { ext: '.pdf', mime: 'application/pdf' };
+    }
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 
 export const upload = multer({
   storage,
@@ -81,12 +125,39 @@ function todayStart(): string {
  *  7. Duplicate (same amount + same referenceNote) is flagged
  */
 export const submitPaymentProof = async (req: AuthRequest, res: Response): Promise<void> => {
-  const filePath = req.file?.path;
+  // `let`: the path changes when the stored file is renamed to the canonical
+  // extension for its sniffed type (see Rule 1b).
+  let filePath = req.file?.path;
   try {
     // ── Rule 1: screenshot required ──────────────────────────────────────────
     if (!req.file) {
       res.status(400).json({ success: false, message: 'Receipt screenshot is required' });
       return;
+    }
+
+    // ── Rule 1b: verify the REAL file type from magic bytes (QA A-09) ──────
+    // The multer fileFilter only sees the client-declared mimetype. Sniff the
+    // stored bytes; on mismatch delete the file and reject. On success force
+    // the canonical extension for the detected type so the stored name can
+    // never disagree with the content (kills the stored-XSS-via-extension
+    // path when the file is later downloaded).
+    const detected = detectFileType(req.file.path);
+    if (!detected) {
+      safeUnlink(filePath);
+      res.status(400).json({
+        success: false,
+        message: 'Uploaded file is not a valid JPEG, PNG, WEBP or PDF file',
+        code: 'INVALID_FILE_TYPE',
+      });
+      return;
+    }
+    if (path.extname(req.file.filename).toLowerCase() !== detected.ext) {
+      const canonicalName = req.file.filename.replace(/\.[^.]*$/, '') + detected.ext;
+      const canonicalPath = path.join(UPLOAD_DIR, canonicalName);
+      fs.renameSync(req.file.path, canonicalPath);
+      req.file.filename = canonicalName;
+      req.file.path = canonicalPath;
+      filePath = canonicalPath;
     }
 
     const { businessId, planId, amount, method, referenceNote } = req.body;
@@ -278,6 +349,26 @@ export const getMyPaymentProofs = async (req: AuthRequest, res: Response): Promi
     }
 
     const prisma = await getPrisma();
+
+    // QA A-09 follow-up: this list was readable for ANY businessId. Apply
+    // the same scope rule as serveMyScreenshot — ACTIVE member or the
+    // business creator; anyone else gets an empty list (no existence leak).
+    const userId = String(req.user?.id || '');
+    const membership = await prisma.membership.findFirst({
+      where: { userId, businessId: String(businessId), status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!membership) {
+      const business = await prisma.business.findUnique({
+        where: { id: String(businessId) },
+        select: { createdBy: true },
+      });
+      if (!business?.createdBy || String(business.createdBy) !== userId) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+    }
+
     const rows = await prisma.$queryRaw<any[]>`
       SELECT pp.id, pp."businessId", pp."planId", pp.amount, pp.currency,
              pp.method, pp."referenceNote", pp."screenshotUrl",
@@ -633,9 +724,23 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
 // ─── Screenshot serving ────────────────────────────────────────────────────────
 
 /**
- * GET /api/payments/manual/screenshot/:filename  (admin-only)
- * GET /uploads/payment-proofs/:filename           (static, admin-only behind auth)
+ * QA A-09: proof files are NEVER served statically. The old public static
+ * mount on /uploads exposed bank-transfer
+ * screenshots (financial PII) to anyone who could guess a filename. Files
+ * are now served only through these authenticated handlers:
+ *
+ *   GET /api/payments/manual/screenshot/:filename      platform admin only
+ *   GET /api/payments/manual/my/screenshot/:filename   business member/creator
+ *
+ * Downloads are forced as attachments with nosniff so a stored file can
+ * never be rendered inline as active content on the app origin.
  */
+function sendProofFile(res: Response, filePath: string): void {
+  res.setHeader('Content-Disposition', 'attachment');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.sendFile(filePath);
+}
+
 export const serveScreenshot = (req: Request, res: Response): void => {
   const { filename } = req.params;
   // Prevent path traversal
@@ -645,5 +750,54 @@ export const serveScreenshot = (req: Request, res: Response): void => {
     res.status(404).json({ success: false, message: 'File not found' });
     return;
   }
-  res.sendFile(filePath);
+  sendProofFile(res, filePath);
+};
+
+/**
+ * Business-facing screenshot download: the caller must be an ACTIVE member
+ * of the business that owns the proof (or its creator) — the same access
+ * rule submitPaymentProof enforces. Unknown filenames return 404 so the
+ * endpoint cannot be used to probe for other tenants' files.
+ */
+export const serveMyScreenshot = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const safe = path.basename(req.params.filename);
+    const screenshotUrl = `payment-proofs/${safe}`;
+    const prisma = await getPrisma();
+
+    const proofRows = await prisma.$queryRaw<{ businessId: string }[]>`
+      SELECT "businessId" FROM payment_proofs WHERE "screenshotUrl" = ${screenshotUrl} LIMIT 1
+    `;
+    if (!proofRows.length) {
+      res.status(404).json({ success: false, message: 'File not found' });
+      return;
+    }
+    const businessId = String(proofRows[0].businessId);
+    const userId = String(req.user?.id || '');
+
+    const membership = await prisma.membership.findFirst({
+      where: { userId, businessId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!membership) {
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { createdBy: true },
+      });
+      if (!business?.createdBy || String(business.createdBy) !== userId) {
+        res.status(404).json({ success: false, message: 'File not found' });
+        return;
+      }
+    }
+
+    const filePath = path.join(UPLOAD_DIR, safe);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ success: false, message: 'File not found' });
+      return;
+    }
+    sendProofFile(res, filePath);
+  } catch (error: any) {
+    console.error('[PaymentProof] serveMyScreenshot error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 };

@@ -8,19 +8,13 @@
  *   FRONTEND_URL=https://zapeera.seikho.online
  *   CORS_ORIGINS=https://zapeera.seikho.online,https://api.zapeera.seikho.online
  *
- * Behaviour when the env vars are UNSET is intentionally identical to the
- * pre-migration code: the historical production origins (app.zapeera.com,
- * www.zapeera.com, the "six" Vercel deployment), the *.zapeera.com suffix
- * rule, the localhost dev origins, Electron file:// / "null" origins, and
- * allow-all in NODE_ENV=development all still apply. Env-provided origins
- * are ADDED on top of those defaults.
+ * QA A-13/Wave-2 (2026-10-19): the historical production origins for the
+ * old zapeera domain and its wildcard subdomain-suffix rule were REMOVED.
+ * That domain is not one the owner controls, so no origin is trusted by
+ * virtue of being baked into the source. In production the ONLY browser
+ * origins allowed are the ones supplied via CORS_ORIGINS / FRONTEND_URL.
+ * Localhost dev origins (and allow-all) apply only outside production.
  */
-
-const DEFAULT_PRODUCTION_ORIGINS = [
-  'https://app.zapeera.com',
-  'https://www.zapeera.com',
-  'https://zapeera-new-six.vercel.app',
-];
 
 const DEV_ORIGINS = [
   'http://localhost:5173',
@@ -32,6 +26,10 @@ const DEV_ORIGINS = [
   'http://127.0.0.1:4100',
   'http://127.0.0.1:3000',
 ];
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
 
 function normalize(origin: string | undefined): string {
   return String(origin || '').trim().replace(/\/$/, '');
@@ -49,9 +47,14 @@ export function getEnvOrigins(): string[] {
   return [...new Set(origins)];
 }
 
-/** Full static allowlist: env origins + historical production + dev origins. */
+/**
+ * Full static allowlist: env origins always; localhost dev origins only
+ * outside production (no baked-in production domains remain).
+ */
 export function getAllowedOrigins(): string[] {
-  return [...new Set([...getEnvOrigins(), ...DEFAULT_PRODUCTION_ORIGINS, ...DEV_ORIGINS])];
+  const origins = [...getEnvOrigins()];
+  if (!isProduction()) origins.push(...DEV_ORIGINS);
+  return [...new Set(origins)];
 }
 
 /**
@@ -66,12 +69,6 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
   // cookies.
   if (origin === 'null' || origin.startsWith('file://')) return true;
   if (getAllowedOrigins().includes(origin)) return true;
-  // Legacy fallback, kept so old production keeps working with no env set:
-  // allow zapeera.com and any of its subdomains.
-  try {
-    const url = new URL(origin);
-    if (url.hostname === 'zapeera.com' || url.hostname.endsWith('.zapeera.com')) return true;
-  } catch { /* not a valid URL */ }
   if (process.env.NODE_ENV === 'development') return true;
   return false;
 }

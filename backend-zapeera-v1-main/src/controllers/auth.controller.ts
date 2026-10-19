@@ -307,6 +307,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!user) {
+      // QA A-14: count failures for unknown identifiers too — otherwise
+      // guessing/enumeration against arbitrary usernames never accumulates
+      // toward a lockout.
+      recordFailedAttempt(usernameOrEmail);
       console.log('❌ User not found for username/email:', usernameOrEmail);
       res.status(401).json({
         success: false,
@@ -342,6 +346,21 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // QA A-14: the entry check above keys on the submitted identifier, but
+    // an attacker can alternate the username and email forms of the SAME
+    // account to split the counter. Failures are therefore also recorded
+    // under the account's canonical email, and the lock is re-checked here
+    // against that canonical key before the password is compared.
+    const accountLockoutKey = String((user as any).email || '').toLowerCase().trim();
+    if (accountLockoutKey && isLocked(accountLockoutKey)) {
+      res.status(429).json({
+        success: false,
+        message: 'Account temporarily locked due to too many failed login attempts. Please try again later.',
+        error: 'ACCOUNT_LOCKED'
+      });
+      return;
+    }
+
     // Check password
     const trimmedPassword = password.trim();
 
@@ -357,7 +376,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const isPasswordValid = await bcrypt.compare(trimmedPassword, user.password);
 
     if (!isPasswordValid) {
+      // Record under both the submitted identifier and the canonical
+      // account key so the counter cannot be split across identifier forms.
       recordFailedAttempt(usernameOrEmail);
+      if (accountLockoutKey) recordFailedAttempt(accountLockoutKey);
       res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -365,8 +387,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Password correct — reset lockout counter
+    // Password correct — reset lockout counter for both keys
     clearFailedAttempts(usernameOrEmail);
+    if (accountLockoutKey) clearFailedAttempts(accountLockoutKey);
 
     // Generate unique session token for single-session enforcement
     const sessionToken = generateSessionToken();

@@ -9,6 +9,7 @@ import {
   approvePaymentProof,
   rejectPaymentProof,
   serveScreenshot,
+  serveMyScreenshot,
 } from '../controllers/payment-proof.controller';
 
 const router = Router();
@@ -18,6 +19,9 @@ const router = Router();
 // GET  /api/payments/manual/my          list own submissions + admin feedback
 router.post('/submit', authenticate, upload.single('screenshot'), submitPaymentProof);
 router.get('/my',      authenticate, getMyPaymentProofs);
+// QA A-09: business-scoped screenshot download (replaces the old public
+// /uploads static path). Scope-checked against the proof's owning business.
+router.get('/my/screenshot/:filename', authenticate, serveMyScreenshot);
 
 // ── Admin-facing ───────────────────────────────────────────────────────────────
 // GET  /api/payments/manual/admin                       list all (filterable)
