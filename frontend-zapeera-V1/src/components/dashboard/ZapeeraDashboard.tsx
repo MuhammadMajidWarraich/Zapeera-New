@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { config } from "@/lib/config";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,24 @@ import {
   UserPlus,
   LogOut,
   X,
+  Building2,
 } from "lucide-react";
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
-import { AccountStats, AccountCompletion, DesktopStatusCard, ActivityTimeline, RecentlyAccessed, FavoriteBusinesses, InvitationsWidget } from "@/components/user-dashboard/widgets";
+import {
+  InvitationsStrip,
+  BusinessHero,
+  AccountStatStrip,
+  CompletionStrip,
+  RecentActivity,
+  DesktopBanner,
+  type LaunchpadBusiness,
+} from "@/components/user-dashboard/launchpad";
 import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
 
 const ZapeeraDashboard = () => {
@@ -143,6 +153,45 @@ const ZapeeraDashboard = () => {
     [navigate]
   );
 
+  const { allCompanies, isLoading: companiesLoading } = useAdmin();
+
+  // Primary business for the hero: the most recently accessed one (the
+  // recents list the business cards maintain), else the first business
+  // in the order the account data provides.
+  const primaryBusiness = useMemo<LaunchpadBusiness | null>(() => {
+    const list = (allCompanies || []) as LaunchpadBusiness[];
+    if (list.length === 0) return null;
+    try {
+      const raw = localStorage.getItem("zapeera_recent_businesses");
+      if (raw) {
+        for (const entry of JSON.parse(raw)) {
+          const match = list.find((b) => b.id === entry?.id);
+          if (match) return match;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return list[0];
+  }, [allCompanies]);
+
+  // Same navigation + recency bookkeeping the business cards perform.
+  const openBusinessWorkspace = useCallback(
+    (b: LaunchpadBusiness) => {
+      try {
+        const raw = localStorage.getItem("zapeera_recent_businesses");
+        const list = raw ? JSON.parse(raw) : [];
+        const filtered = list.filter((x: any) => x.id !== b.id);
+        filtered.unshift({ id: b.id, name: b.name, slug: b.slug || null });
+        localStorage.setItem("zapeera_recent_businesses", JSON.stringify(filtered.slice(0, 5)));
+      } catch {
+        /* ignore */
+      }
+      openWorkspace(b.slug, b.id);
+    },
+    [openWorkspace]
+  );
+
   const canCreateBusiness = Boolean(currentUser);
 
   if (currentUser && currentUser.isActive === false) {
@@ -207,54 +256,106 @@ const ZapeeraDashboard = () => {
     );
   }
 
+  const businessCount = (allCompanies || []).length;
+
   return (
     <ZapeeraLayout>
-      <main className="mx-auto w-full max-w-[1400px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
-        {/* Quick account stats */}
-        <AccountStats />
+      <main className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+        {/* Pending invitations are actionable — surface them first */}
+        <InvitationsStrip />
 
-        {/* My Businesses + widgets */}
-        <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-4">
-          <div className="space-y-6 xl:col-span-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
-                <p className="text-[13px] text-[#8c95b0]">Owned and joined businesses — open the workspace to operate.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => navigate("/zapeera/invitations")}
-                  className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-                >
-                  <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
-                  Join a Business
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateBusiness}
-                  disabled={!canCreateBusiness}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
-                  )}
-                >
-                  <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
-                  Create New Business
-                </button>
-              </div>
-            </div>
-            <BusinessCardGrid />
-            <InvitationsWidget />
-          </div>
-
+        {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
-            <DesktopStatusCard />
-            <AccountCompletion />
-            <RecentlyAccessed onOpen={openWorkspace} />
-            <FavoriteBusinesses onOpen={openWorkspace} />
-            <ActivityTimeline compact />
+            <div className="h-[300px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div className="h-[72px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
           </div>
-        </div>
+        ) : businessCount === 0 ? (
+          <>
+            {/* Zero businesses — strong first-run state */}
+            <section className="overflow-hidden rounded-[24px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+              <div className="bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-12">
+                <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.3)]">
+                  <Building2 className="h-8 w-8" />
+                </div>
+                <h2 className="text-[24px] font-extrabold tracking-tight text-[#0a1128] sm:text-[28px]">Let's set up your first business</h2>
+                <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-[#4a5578]">
+                  Run sales, inventory and your team from one workspace. Create your business in minutes — or join one you've been invited to.
+                </p>
+                <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleCreateBusiness}
+                    disabled={!canCreateBusiness}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 text-[15px] font-bold text-white shadow-[0_6px_20px_rgba(26,82,197,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(26,82,197,0.38)] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                  >
+                    <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
+                    Create New Business
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/zapeera/invitations")}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.1)] bg-white px-7 text-[15px] font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7] sm:w-auto"
+                  >
+                    <UserPlus className="h-[18px] w-[18px] text-[#1a52c5]" />
+                    Join a Business
+                  </button>
+                </div>
+              </div>
+            </section>
+            <CompletionStrip />
+            <DesktopBanner />
+          </>
+        ) : (
+          <>
+            {/* One strong column: hero launchpad for the primary business */}
+            {primaryBusiness && (
+              <BusinessHero
+                business={primaryBusiness}
+                multiBusiness={businessCount > 1}
+                onOpenWorkspace={openBusinessWorkspace}
+                onCreateBusiness={handleCreateBusiness}
+                onJoinBusiness={() => navigate("/zapeera/invitations")}
+                canCreateBusiness={canCreateBusiness}
+              />
+            )}
+            <AccountStatStrip />
+            <CompletionStrip />
+            <RecentActivity onOpen={openWorkspace} />
+
+            {businessCount > 1 && (
+              <section className="mt-10">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">All businesses</h2>
+                    <p className="text-[13px] text-[#8c95b0]">Every business you own or have joined.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/zapeera/invitations")}
+                      className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                    >
+                      <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
+                      Join a Business
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateBusiness}
+                      disabled={!canCreateBusiness}
+                      className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
+                      Create New Business
+                    </button>
+                  </div>
+                </div>
+                <BusinessCardGrid excludeBusinessId={primaryBusiness?.id} />
+              </section>
+            )}
+
+            <DesktopBanner />
+          </>
+        )}
       </main>
 
       {/* Create business dialog */}

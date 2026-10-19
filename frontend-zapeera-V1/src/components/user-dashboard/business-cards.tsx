@@ -66,7 +66,7 @@ type BusinessCardData = {
   updatedAt?: string | null;
 };
 
-function normalizeStatus(status?: string | null): "active" | "trial" | "expired" | "inactive" | "pending" {
+export function normalizeStatus(status?: string | null): "active" | "trial" | "expired" | "inactive" | "pending" {
   const value = String(status || "").trim().toLowerCase();
   if (["active", "trial"].includes(value)) return value as "active" | "trial";
   if (["grace"].includes(value)) return "pending";
@@ -75,7 +75,7 @@ function normalizeStatus(status?: string | null): "active" | "trial" | "expired"
   return "inactive";
 }
 
-const statusStyle: Record<string, { label: string; cls: string; dot: string }> = {
+export const statusStyle: Record<string, { label: string; cls: string; dot: string }> = {
   active: { label: "Active", cls: "border-green-500/15 bg-green-500/[0.08] text-green-600", dot: "bg-green-500" },
   trial: { label: "Trial", cls: "border-orange-500/15 bg-orange-500/[0.08] text-orange-600", dot: "bg-orange-500" },
   pending: { label: "Pending", cls: "border-amber-500/15 bg-amber-500/[0.08] text-amber-600", dot: "bg-amber-500" },
@@ -83,14 +83,14 @@ const statusStyle: Record<string, { label: string; cls: string; dot: string }> =
   inactive: { label: "Inactive", cls: "border-gray-500/15 bg-gray-500/[0.08] text-gray-500", dot: "bg-gray-400" },
 };
 
-function roleFor(business: BusinessCardData, user: any): string {
+export function roleFor(business: BusinessCardData, user: any): string {
   if (business.accessType === "shared" || (business.memberRole && String(business.createdBy || "") !== String(user?.id || ""))) {
     return String(business.memberRole || "MANAGER");
   }
   return "Owner";
 }
 
-function formatDate(iso?: string | null): string {
+export function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
@@ -100,7 +100,7 @@ function formatDate(iso?: string | null): string {
 }
 
 /** Correct expiry date for a business card based on its subscription status. */
-function expiryLabel(status: string, ent: Entitlement): string {
+export function expiryLabel(status: string, ent: Entitlement): string {
   const trialDate = ent.trialEndsAt || null;
   const periodDate = ent.currentPeriodEnd || null;
   if (status === "trial") {
@@ -125,7 +125,7 @@ function lastSyncedFor(business: BusinessCardData, desktopState: DesktopBusiness
   return null;
 }
 
-export function BusinessCardGrid() {
+export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: string } = {}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { allCompanies, refreshCompanies } = useAdmin();
@@ -140,7 +140,7 @@ export function BusinessCardGrid() {
 
   const desktopByBusiness = new Map<string, DesktopBusinessState>((runtime.desktopBusinessStates || []).map((s) => [s.businessId, s]));
 
-  const businessList = allCompanies || [];
+  const businessList = (allCompanies || []).filter((c: any) => !excludeBusinessId || c.id !== excludeBusinessId);
 
   // Load favorites on mount
   useEffect(() => {
@@ -268,6 +268,10 @@ export function BusinessCardGrid() {
   }
 
   if (businessList.length === 0) {
+    // When a business is excluded (it is rendered as the page hero), an
+    // empty remainder is expected — render nothing instead of the
+    // first-run empty state.
+    if (excludeBusinessId) return null;
     return (
       <div className="rounded-2xl border border-dashed border-[rgba(15,23,60,0.12)] bg-white/60 p-10 text-center">
         <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
