@@ -173,10 +173,17 @@ export default function BusinessSlugGate({
           setExpectedBusinessId(null);
         }
       } finally {
+        // QA fix (2026-10-19): ALWAYS release the processing lock. The old
+        // code only reset it for the non-cancelled run, so when the
+        // companies list landed mid-resolution (deps change -> cleanup ->
+        // cancelled), the lock stayed engaged forever: the re-run hit the
+        // isProcessingRef guard and returned, while isResolving also
+        // stayed true from the first run — a permanent "Loading
+        // business…" spinner on workspace refresh / cold deep links.
+        isProcessingRef.current = false;
         if (!cancelled) {
           setIsResolving(false);
           setHasAttemptedLookup(true);
-          isProcessingRef.current = false;
         }
       }
     };
@@ -189,12 +196,29 @@ export default function BusinessSlugGate({
     return () => {
       clearTimeout(timeoutId);
       cancelled = true;
+      // Release the lock on unmount/re-run too (see finally note above).
+      isProcessingRef.current = false;
     };
   }, [
     normalizedSlug,
     allBusinesses.length, // Only trigger on length change, not reference
     // Remove selectedBusinessId and setSelectedBusinessId to prevent loops
   ]);
+
+  // QA fix (2026-10-19): self-heal the context sync. If the resolved
+  // business never lands in AdminContext (selection dropped or cleared
+  // by a racing effect), re-assert it once the companies list is in.
+  // When the setter drops it silently no state changes, so this cannot
+  // loop; when it accepts, `synced` flips and the effect goes quiet.
+  useEffect(() => {
+    if (
+      expectedBusinessId &&
+      allBusinesses.length > 0 &&
+      String(selectedBusinessId || "") !== String(expectedBusinessId)
+    ) {
+      setSelectedBusinessId(expectedBusinessId);
+    }
+  }, [expectedBusinessId, selectedBusinessId, allBusinesses.length, setSelectedBusinessId]);
 
   // Membership role within selected business
   const membershipRole = expectedBusinessId
