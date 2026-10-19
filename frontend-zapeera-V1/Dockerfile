@@ -26,6 +26,13 @@ FROM nginx:1.27-alpine AS zapeera-frontend-runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=zapeera-frontend-builder /app/dist /usr/share/nginx/html
 
+# QA B-1: files copied from public/ keep their source permissions, which
+# can be 0660 (group-only) depending on how the tree was extracted — the
+# nginx worker then gets 403 on favicon/logo/health.html/share-modal.js
+# while Vite-generated assets (fresh 0644) work. Make the whole tree
+# world-readable in the image, regardless of source perms.
+RUN chmod -R a+rX /usr/share/nginx/html
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -14,6 +14,23 @@
 # TLS and passes through.
 {$FRONTEND_DOMAIN} {
 	encode gzip
+
+	# QA Wave 2: baseline security headers on every response.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+	}
+
+	# Content-hashed build assets never change under the same URL —
+	# cache them hard. The SPA entry must always revalidate so a new
+	# deploy is picked up immediately.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@entry path / /index.html
+	header @entry Cache-Control "no-cache"
+
 	reverse_proxy frontend:80
 	log {
 		output stdout
@@ -26,6 +43,13 @@
 # immediate flush, correct for text/event-stream); no special block needed.
 {$API_DOMAIN} {
 	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
 	reverse_proxy backend:4200
 	log {
 		output stdout
