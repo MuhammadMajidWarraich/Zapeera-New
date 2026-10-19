@@ -27,11 +27,11 @@ import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/sup
 import {
   InvitationsStrip,
   GlobalQuickActions,
-  AccountStatStrip,
   CompletionStrip,
   RecentActivity,
   DesktopBanner,
 } from "@/components/user-dashboard/launchpad";
+import { AccountStats } from "@/components/user-dashboard/widgets";
 import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
 
 const ZapeeraDashboard = () => {
@@ -270,10 +270,13 @@ const ZapeeraDashboard = () => {
           </>
         ) : (
           <>
-            {/* Global dashboard: account-level actions and summary first,
+            {/* Global dashboard: the original stat cards lead (owner asked
+                for the old hero/stats back), then account-level actions,
                 then the portfolio — every business equal, no featured one */}
-            <GlobalQuickActions onCreateBusiness={handleCreateBusiness} canCreateBusiness={canCreateBusiness} />
-            <AccountStatStrip />
+            <AccountStats />
+            <div className="mt-6">
+              <GlobalQuickActions onCreateBusiness={handleCreateBusiness} canCreateBusiness={canCreateBusiness} />
+            </div>
 
             <section className="mt-10">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
