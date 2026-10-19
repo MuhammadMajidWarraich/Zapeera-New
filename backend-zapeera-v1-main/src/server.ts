@@ -115,7 +115,7 @@ import { getPrisma } from './utils/db.util';
 import { validateCSRF } from './middleware/csrf.middleware';
 import { applyUniversalModuleProtection } from './middleware/universal-module-protection.middleware';
 import { ensurePostgresSchemaCompatibility } from './utils/postgres-schema-compat';
-import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled } from './utils/modules.util';
+import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled, ensureFreshInstallPolicyBaseline } from './utils/modules.util';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -147,6 +147,11 @@ try {
           await ensureBusinessTypesExist();
           await ensureDefaultPlansExist();
           await ensureEmployeePortalEnabled();
+          // QA A-05: fresh-install policy baseline (business_type_modules +
+          // plan_entitlements + CONFIGURED trial policy) so a new deployment
+          // is usable without manual DB edits. Idempotent; never overwrites
+          // BackOffice-published policies.
+          await ensureFreshInstallPolicyBaseline();
           console.log('[Server] ✅ Standard modules, business types, plans, and employee portal ensured');
           startSubscriptionCron();
         } catch (modErr) {

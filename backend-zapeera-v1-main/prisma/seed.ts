@@ -1,13 +1,57 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
+
+// QA A-10: never seed accounts with a well-known password. The initial
+// password for the seeded users comes from the SEED_ADMIN_PASSWORD env var:
+//  - set + strong            → used as-is
+//  - set + well-known/short  → refused (throws)
+//  - unset in production     → credential seeding is skipped entirely
+//  - unset in development    → a random password is generated and printed
+//                              once to the console (explicit, not guessable)
+const WELL_KNOWN_SEED_PASSWORDS = new Set([
+  'password123',
+  'admin123',
+  'password',
+  'changeme',
+  'letmein',
+  'zapeera123',
+]);
+
+async function resolveSeedPassword(): Promise<string | null> {
+  const fromEnv = process.env.SEED_ADMIN_PASSWORD;
+  if (fromEnv) {
+    if (WELL_KNOWN_SEED_PASSWORDS.has(fromEnv.toLowerCase())) {
+      throw new Error('SEED_ADMIN_PASSWORD is a well-known password — refusing to seed credentials with it.');
+    }
+    if (fromEnv.length < 10) {
+      throw new Error('SEED_ADMIN_PASSWORD must be at least 10 characters.');
+    }
+    return fromEnv;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    console.log('⏭️  SEED_ADMIN_PASSWORD is not set — skipping seed entirely (no credential seeding in production without it).');
+    return null;
+  }
+  const generated = crypto.randomBytes(12).toString('base64url');
+  console.log('🔑 SEED_ADMIN_PASSWORD not set (development): generated a one-time seed password.');
+  console.log(`🔑 Seeded users (admin / manager / cashier) password: ${generated}`);
+  console.log('🔑 Store it now — it is not persisted anywhere. Set SEED_ADMIN_PASSWORD to choose your own.');
+  return generated;
+}
 
 async function main() {
   console.log('🌱 Starting database seed...');
 
+  const seedPassword = await resolveSeedPassword();
+  if (!seedPassword) {
+    return; // Production without SEED_ADMIN_PASSWORD: nothing to seed safely.
+  }
+
   // Create users first (needed for createdBy)
-  const hashedPassword = await bcrypt.hash('password123', 12);
+  const hashedPassword = await bcrypt.hash(seedPassword, 12);
 
   const users = await Promise.all([
     prisma.user.upsert({

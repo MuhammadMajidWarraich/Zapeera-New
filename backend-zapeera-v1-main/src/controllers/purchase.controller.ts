@@ -34,6 +34,25 @@ const updatePurchaseSchema = Joi.object({
   notes: Joi.string().optional().allow(''),
 });
 
+// ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
+// By-id purchase handlers previously fetched by raw id — any authenticated
+// user could read/update/delete another tenant's purchases. Scope them to
+// the resolved business context (the same chain getPurchases uses); fails
+// closed with a sentinel company id when no context resolves.
+const resolvePurchaseCompanyId = (req: AuthRequest): string =>
+  req.business_id ||
+  (req.headers['x-company-id'] as string) ||
+  req.membership?.business_id ||
+  (req.headers['x-business-id'] as string) ||
+  req.user?.selectedCompanyId ||
+  req.user?.companyId ||
+  'no-business-context';
+
+const purchaseScopeWhere = (req: AuthRequest, id: string): any => ({
+  id,
+  companyId: resolvePurchaseCompanyId(req),
+});
+
 // Get all purchases
 export const getPurchases = async (req: AuthRequest, res: Response) => {
   try {
@@ -122,8 +141,9 @@ export const getPurchaseById = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const purchase = await prisma.purchase.findUnique({
-      where: { id },
+    // Tenancy scope (A-02): only purchases of the caller's business resolve.
+    const purchase = await prisma.purchase.findFirst({
+      where: purchaseScopeWhere(req, id),
       include: {
         supplier: {
           select: {
@@ -208,9 +228,16 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Verify supplier exists
-    const supplier = await prisma.supplier.findUnique({
-      where: { id: purchaseData.supplierId },
+    // Verify supplier exists AND belongs to this branch/company (A-02)
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        id: purchaseData.supplierId,
+        OR: [
+          { companyId },
+          { branchId },
+          { branch: { companyId } },
+        ],
+      },
     });
 
     if (!supplier) {
@@ -246,9 +273,9 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
       // Create purchase items and batches
       const purchaseItems = [];
       for (const item of purchaseData.items) {
-        // Verify product exists
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
+        // Verify product exists AND belongs to this company (A-02)
+        const product = await tx.product.findFirst({
+          where: { id: item.productId, companyId },
         });
 
         if (!product) {
@@ -366,9 +393,9 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
 
     const updateData = value;
 
-    // Check if purchase exists
-    const existingPurchase = await prisma.purchase.findUnique({
-      where: { id },
+    // Check if purchase exists — scoped to the caller's business (A-02)
+    const existingPurchase = await prisma.purchase.findFirst({
+      where: purchaseScopeWhere(req, id),
     });
 
     if (!existingPurchase) {
@@ -376,6 +403,28 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
         success: false,
         message: 'Purchase not found',
       });
+    }
+
+    // Tenancy guard (A-02): re-pointing the purchase to a different supplier
+    // is only allowed within the purchase's own branch/company.
+    if (updateData.supplierId && updateData.supplierId !== existingPurchase.supplierId) {
+      const supplier = await prisma.supplier.findFirst({
+        where: {
+          id: updateData.supplierId,
+          OR: [
+            { companyId: existingPurchase.companyId },
+            { branchId: existingPurchase.branchId },
+            { branch: { companyId: existingPurchase.companyId } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!supplier) {
+        return res.status(404).json({
+          success: false,
+          message: 'Supplier not found',
+        });
+      }
     }
 
     // Calculate outstanding amount
@@ -452,8 +501,9 @@ export const deletePurchase = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const purchase = await prisma.purchase.findUnique({
-      where: { id },
+    // Tenancy scope (A-02): only purchases of the caller's business resolve.
+    const purchase = await prisma.purchase.findFirst({
+      where: purchaseScopeWhere(req, id),
       include: {
         purchaseItems: {
           include: {

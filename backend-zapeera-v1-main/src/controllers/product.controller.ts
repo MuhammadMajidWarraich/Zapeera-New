@@ -86,6 +86,27 @@ const updateProductSchema = Joi.object({
   unitsPerPack: Joi.number().min(1).default(1).optional()
 });
 
+// ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
+// By-id and bulk product handlers MUST scope to the caller's resolved
+// business (company) — the same context buildBranchWhereClause uses for
+// list queries. Previously getProduct/updateProduct/deleteProduct fetched
+// by raw id, getAllProducts/activateAllProducts ran with NO where clause at
+// all (cross-tenant read + write), and bulkDeleteProducts deleted arbitrary
+// ids. Fails closed with a sentinel company id when no context resolves.
+const resolveProductCompanyId = (req: AuthRequest): string =>
+  req.membership?.business_id ||
+  req.business_id ||
+  (req.headers['x-company-id'] as string) ||
+  (req.headers['x-business-id'] as string) ||
+  req.user?.selectedCompanyId ||
+  req.user?.companyId ||
+  'no-business-context';
+
+const productScopeWhere = (req: AuthRequest, id: string): any => ({
+  id,
+  companyId: resolveProductCompanyId(req),
+});
+
 export const getProducts = async (req: AuthRequest, res: Response) => {
   try {
     // 🔄 Pull latest products from live database (background, non-blocking)
@@ -263,8 +284,9 @@ export const getProduct = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const product = await prisma.product.findUnique({
-      where: { id },
+    // Tenancy scope (A-02): only products of the caller's business resolve.
+    const product = await prisma.product.findFirst({
+      where: productScopeWhere(req, id),
       include: {
         category: true,
         supplier: true,
@@ -386,9 +408,70 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
         });
       }
 
+      // Tenancy guard (A-02): adopting a company from a body-supplied
+      // branchId is only allowed when the middleware-validated business
+      // context (req.business_id — set after membership validation, incl.
+      // when resolved FROM this branch) confirms it is the caller's own.
+      if (String(req.business_id || '') !== String(branch.companyId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Branch not found'
+        });
+      }
+
       targetCompanyId = branch.companyId;
       targetBranchId = productData.branchId;
       console.log('🏢 Using provided branch context:', { targetCompanyId, targetBranchId });
+    }
+
+    // Tenancy guard (A-02): the referenced category and supplier must belong
+    // to the target branch/company (legacy unscoped rows created by the same
+    // admin remain usable, mirroring getCategories).
+    const category = await prisma.category.findFirst({
+      where: {
+        id: productData.categoryId,
+        OR: [
+          { branchId: targetBranchId },
+          { companyId: targetCompanyId },
+          { branch: { companyId: targetCompanyId } },
+          {
+            AND: [
+              { branchId: null },
+              { companyId: null },
+              { createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id' }
+            ]
+          }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    if (validSupplierId) {
+      const supplier = await prisma.supplier.findFirst({
+        where: {
+          id: validSupplierId,
+          OR: [
+            { companyId: targetCompanyId },
+            { branchId: targetBranchId },
+            { branch: { companyId: targetCompanyId } }
+          ]
+        },
+        select: { id: true }
+      });
+
+      if (!supplier) {
+        return res.status(400).json({
+          success: false,
+          message: 'Supplier not found'
+        });
+      }
     }
 
     // Build product data object
@@ -497,9 +580,9 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
 
     const updateData: UpdateProductData = req.body;
 
-    // Check if product exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { id }
+    // Check if product exists — scoped to the caller's business (A-02)
+    const existingProduct = await prisma.product.findFirst({
+      where: productScopeWhere(req, id)
     });
 
     if (!existingProduct) {
@@ -549,6 +632,59 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.isGenerated !== undefined) updateFields.isGenerated = updateData.isGenerated;
     if (updateData.requiresPrescription !== undefined) updateFields.requiresPrescription = updateData.requiresPrescription;
     if (updateData.isActive !== undefined) updateFields.isActive = updateData.isActive;
+
+    // Tenancy guard (A-02): re-pointing the product to a different
+    // branch/category/supplier is only allowed within its own company.
+    if (updateFields.branchId && updateFields.branchId !== existingProduct.branchId) {
+      const targetBranch = await prisma.branch.findFirst({
+        where: { id: updateFields.branchId, companyId: existingProduct.companyId },
+        select: { id: true }
+      });
+      if (!targetBranch) {
+        return res.status(404).json({
+          success: false,
+          message: 'Branch not found'
+        });
+      }
+    }
+    if (updateFields.categoryId && updateFields.categoryId !== existingProduct.categoryId) {
+      const targetCategory = await prisma.category.findFirst({
+        where: {
+          id: updateFields.categoryId,
+          OR: [
+            { companyId: existingProduct.companyId },
+            { branchId: existingProduct.branchId },
+            { branch: { companyId: existingProduct.companyId } }
+          ]
+        },
+        select: { id: true }
+      });
+      if (!targetCategory) {
+        return res.status(404).json({
+          success: false,
+          message: 'Category not found'
+        });
+      }
+    }
+    if (updateFields.supplierId && updateFields.supplierId !== existingProduct.supplierId) {
+      const targetSupplier = await prisma.supplier.findFirst({
+        where: {
+          id: updateFields.supplierId,
+          OR: [
+            { companyId: existingProduct.companyId },
+            { branchId: existingProduct.branchId },
+            { branch: { companyId: existingProduct.companyId } }
+          ]
+        },
+        select: { id: true }
+      });
+      if (!targetSupplier) {
+        return res.status(404).json({
+          success: false,
+          message: 'Supplier not found'
+        });
+      }
+    }
 
     console.log('🔍 Updating product with fields:', Object.keys(updateFields));
     console.log('🔍 Update data received:', updateData);
@@ -604,8 +740,9 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const product = await prisma.product.findUnique({
-      where: { id }
+    // Tenancy scope (A-02): only products of the caller's business resolve.
+    const product = await prisma.product.findFirst({
+      where: productScopeWhere(req, id)
     });
 
     if (!product) {
@@ -743,10 +880,20 @@ export const bulkImportProducts = async (req: AuthRequest, res: Response) => {
         // Handle category - create if it doesn't exist
         let category = null;
 
-        // If categoryId is provided and not 'auto-create', try to find it
+        // If categoryId is provided and not 'auto-create', try to find it —
+        // scoped to the caller's own tenancy (A-02): a foreign category id
+        // falls through to the find-or-create-by-name path below.
         if (productData.categoryId && productData.categoryId !== 'auto-create') {
-          category = await prisma.category.findUnique({
-            where: { id: productData.categoryId }
+          const importCompanyId = resolveProductCompanyId(req);
+          category = await prisma.category.findFirst({
+            where: {
+              id: productData.categoryId,
+              OR: [
+                { companyId: importCompanyId },
+                { branch: { companyId: importCompanyId } },
+                { createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id' }
+              ]
+            }
           });
         }
 
@@ -1073,7 +1220,10 @@ export const bulkImportProducts = async (req: AuthRequest, res: Response) => {
 export const getAllProducts = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
+    // Tenancy scope (A-02): was an unscoped findMany returning EVERY
+    // tenant's products; now limited to the caller's business.
     const products = await prisma.product.findMany({
+      where: { companyId: resolveProductCompanyId(req) },
       include: {
         category: true,
         supplier: true,
@@ -1107,8 +1257,10 @@ export const getAllProducts = async (req: AuthRequest, res: Response) => {
 export const activateAllProducts = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
+    // Tenancy scope (A-02): was updateMany({ where: {} }) — it activated
+    // every product of every tenant. Now limited to the caller's business.
     const result = await prisma.product.updateMany({
-      where: {},
+      where: { companyId: resolveProductCompanyId(req) },
       data: {
         isActive: true
       }
@@ -1145,10 +1297,15 @@ export const bulkDeleteProducts = async (req: AuthRequest, res: Response) => {
 
     console.log(`Bulk deleting ${productIds.length} products:`, productIds);
 
+    // Tenancy scope (A-02): only the caller's own products are visible to
+    // this handler — foreign ids behave exactly like non-existent ones.
+    const companyId = resolveProductCompanyId(req);
+
     // Verify all products exist
     const existingProducts = await prisma.product.findMany({
       where: {
-        id: { in: productIds }
+        id: { in: productIds },
+        companyId
       },
       select: { id: true, name: true }
     });

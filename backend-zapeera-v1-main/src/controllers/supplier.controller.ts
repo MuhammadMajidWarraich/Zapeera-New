@@ -25,6 +25,49 @@ const updateSupplierSchema = Joi.object({
   isActive: Joi.boolean()
 }).unknown(true);
 
+// ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
+// By-id supplier handlers previously isolated only by the legacy `createdBy`
+// admin chain, which predates multi-tenancy. They now scope by the resolved
+// business context — the same fallback chain getSuppliers uses: the supplier
+// must sit in the caller's company (directly, or via its branch). Suppliers
+// are always created with a branchId (and companyId) by createSupplier, so
+// this covers all current rows. When NO business context resolves (legacy
+// pre-multitenancy flows), the historical createdBy isolation is kept as a
+// fallback rather than failing open.
+const resolveSupplierCompanyId = (req: AuthRequest): string | null =>
+  (req.headers['x-company-id'] as string) ||
+  req.user?.companyId ||
+  req.business_id ||
+  req.membership?.business_id ||
+  req.user?.selectedCompanyId ||
+  (req.headers['x-business-id'] as string) ||
+  null;
+
+const supplierTenancyWhere = (req: AuthRequest, id: string): any => {
+  const companyId = resolveSupplierCompanyId(req);
+  if (companyId) {
+    return {
+      id,
+      OR: [
+        { companyId },
+        { branch: { companyId } }
+      ]
+    };
+  }
+  // Legacy fallback: no business context — keep createdBy isolation.
+  const where: any = { id };
+  if (req.user?.role === 'OWNER') {
+    where.createdBy = req.user.id;
+  } else if (req.user?.createdBy) {
+    where.createdBy = req.user.createdBy;
+  } else if (req.user?.id) {
+    where.createdBy = req.user.id;
+  } else {
+    where.createdBy = 'non-existent-admin-id';
+  }
+  return where;
+};
+
 export const getSuppliers = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -165,23 +208,9 @@ export const getSupplier = async (req: AuthRequest, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    // Build where clause with data isolation
-    const where: any = { id };
-
-    // Data isolation based on user role
-    if (req.user?.role === 'OWNER') {
-      // For OWNER users, use their own ID as createdBy (self-referencing)
-      where.createdBy = req.user.id;
-    } else if (req.user?.createdBy) {
-      // Other users see suppliers from their admin
-      where.createdBy = req.user.createdBy;
-    } else if (req.user?.id) {
-      // Fallback to user ID if no createdBy
-      where.createdBy = req.user.id;
-    } else {
-      // No access if no user context
-      where.createdBy = 'non-existent-admin-id';
-    }
+    // Tenancy scope (A-02): resolved business context first, legacy
+    // createdBy isolation only when no context exists.
+    const where: any = supplierTenancyWhere(req, id);
 
     const supplier = await prisma.supplier.findFirst({
       where,
@@ -400,23 +429,9 @@ export const updateSupplier = async (req: AuthRequest, res: Response) => {
       updateData.address = updateData.address && updateData.address.trim() !== '' ? updateData.address.trim() : null;
     }
 
-    // Build where clause with data isolation
-    const where: any = { id };
-
-    // Data isolation based on user role
-    if (req.user?.role === 'OWNER') {
-      // For OWNER users, use their own ID as createdBy (self-referencing)
-      where.createdBy = req.user.id;
-    } else if (req.user?.createdBy) {
-      // Other users see suppliers from their admin
-      where.createdBy = req.user.createdBy;
-    } else if (req.user?.id) {
-      // Fallback to user ID if no createdBy
-      where.createdBy = req.user.id;
-    } else {
-      // No access if no user context
-      where.createdBy = 'non-existent-admin-id';
-    }
+    // Tenancy scope (A-02): resolved business context first, legacy
+    // createdBy isolation only when no context exists.
+    const where: any = supplierTenancyWhere(req, id);
 
     // Check if supplier exists
     const existingSupplier = await prisma.supplier.findFirst({
@@ -471,23 +486,9 @@ export const deleteSupplier = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     console.log('🔍 Delete supplier ID:', id);
 
-    // Build where clause with data isolation
-    const where: any = { id };
-
-    // Data isolation based on user role
-    if (req.user?.role === 'OWNER') {
-      // For OWNER users, use their own ID as createdBy (self-referencing)
-      where.createdBy = req.user.id;
-    } else if (req.user?.createdBy) {
-      // Other users see suppliers from their admin
-      where.createdBy = req.user.createdBy;
-    } else if (req.user?.id) {
-      // Fallback to user ID if no createdBy
-      where.createdBy = req.user.id;
-    } else {
-      // No access if no user context
-      where.createdBy = 'non-existent-admin-id';
-    }
+    // Tenancy scope (A-02): resolved business context first, legacy
+    // createdBy isolation only when no context exists.
+    const where: any = supplierTenancyWhere(req, id);
 
     const supplier = await prisma.supplier.findFirst({
       where,

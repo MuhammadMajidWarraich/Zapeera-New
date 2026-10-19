@@ -27,6 +27,47 @@ const updateBranchSchema = Joi.object({
   isActive: Joi.boolean()
 });
 
+// ─── Tenancy guard (QA A-01) ────────────────────────────────────────────────
+// Same rule as company.controller: the business creator acts as OWNER even
+// without a memberships row; otherwise an ACTIVE membership is required,
+// with OWNER/ADMIN for writes. Returns null when the caller has no access —
+// handlers respond 404 so a foreign business/branch is indistinguishable
+// from a non-existent one.
+type BusinessAccess = { role: string | null; isCreator: boolean };
+
+const resolveBusinessAccess = async (
+  prisma: Awaited<ReturnType<typeof getPrisma>>,
+  businessId: string | undefined | null,
+  userId: string | undefined | null
+): Promise<BusinessAccess | null> => {
+  if (!businessId || !userId) return null;
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { id: true, createdBy: true }
+  });
+  if (!business) return null;
+  if (business.createdBy && String(business.createdBy) === String(userId)) {
+    return { role: 'OWNER', isCreator: true };
+  }
+  try {
+    const membership = await prisma.membership.findFirst({
+      where: { userId, businessId, status: 'ACTIVE' },
+      include: { role: { select: { name: true } } }
+    });
+    if (!membership) return null;
+    return {
+      role: membership.role?.name ? String(membership.role.name).toUpperCase() : null,
+      isCreator: false
+    };
+  } catch (error: any) {
+    if (isMissingTableError(error)) return null;
+    throw error;
+  }
+};
+
+const canWriteBusiness = (access: BusinessAccess | null): boolean =>
+  !!access && (access.isCreator || access.role === 'OWNER' || access.role === 'ADMIN');
+
 // Filter branches by user role - ADMIN only sees branches of their companies
 export const getBranches = async (req: AuthRequest, res: Response) => {
   try {
@@ -287,6 +328,16 @@ export const getBranch = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Tenancy guard (A-01): creator or ACTIVE member of the branch's company
+    // only. (The context/branch checks below stay as defense in depth.)
+    const readAccess = await resolveBusinessAccess(prisma, branch.companyId, req.user?.id);
+    if (!readAccess) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
     const selectedCompanyId =
       (req.headers['x-company-id'] as string) ||
       req.business_id ||
@@ -372,6 +423,17 @@ export const createBranch = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Tenancy guard (A-01): only the company creator or an ACTIVE OWNER/ADMIN
+    // member may create branches in it. Runs before entitlement checks so a
+    // foreign company's subscription state is never probed by strangers.
+    const createAccess = await resolveBusinessAccess(prisma, company.id, req.user?.id);
+    if (!canWriteBusiness(createAccess)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
     const companyBusinessType = String(company.businessType || 'PHARMACY').toUpperCase() as 'PHARMACY' | 'STORE' | 'HOTEL' | 'CLINIC';
     const companyOwnerId = String(company.createdBy || req.user?.id || '');
     if (!companyOwnerId) {
@@ -417,8 +479,6 @@ export const createBranch = async (req: AuthRequest, res: Response) => {
         ...((!branchAllowanceV2.allowed) ? (branchAllowanceV2 as any).details : (branchAllowance as any).details)
       });
     }
-
-    // NOTE: Removed access check - any user can create branch in any company
 
     // Check if branch name already exists for this company
     const existingBranch = await prisma.branch.findFirst({
@@ -557,6 +617,21 @@ export const updateBranch = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member of the
+    // branch's company only. Also blocks moving a branch into a foreign
+    // company via a companyId change in the payload.
+    const targetCompanyId = String(updateData.companyId || existingBranch.companyId);
+    const updateAccess = await resolveBusinessAccess(prisma, existingBranch.companyId, req.user?.id);
+    const targetAccess = targetCompanyId === String(existingBranch.companyId)
+      ? updateAccess
+      : await resolveBusinessAccess(prisma, targetCompanyId, req.user?.id);
+    if (!canWriteBusiness(updateAccess) || !canWriteBusiness(targetAccess)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
     // Check if name already exists for this admin (if being updated)
     if (updateData.name && updateData.name !== existingBranch.name) {
       const nameExists = await prisma.branch.findFirst({
@@ -670,6 +745,15 @@ export const deleteBranch = async (req: Request, res: Response) => {
     });
 
     if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Branch not found'
+      });
+    }
+
+    // Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member only.
+    const deleteAccess = await resolveBusinessAccess(prisma, branch.companyId, (req as AuthRequest).user?.id);
+    if (!canWriteBusiness(deleteAccess)) {
       return res.status(404).json({
         success: false,
         message: 'Branch not found'

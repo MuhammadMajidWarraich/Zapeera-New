@@ -162,6 +162,33 @@ const getBusinessMembershipContextV2 = async (
   }
 };
 
+// ─── Tenancy guard (QA A-01) ────────────────────────────────────────────────
+// A caller may only access a company they created (business.createdBy) or
+// hold an ACTIVE membership in — the same creator-as-OWNER synthesis the
+// multitenancy middleware and authorization service apply. Writes, deletes
+// and business-type changes additionally require the OWNER/ADMIN role.
+// Handlers respond 404 on guard failure, so a foreign company is
+// indistinguishable from a non-existent one (this file's established
+// "Company not found" style) instead of leaking its existence via 403.
+type CompanyAccess = { role: string | null; branchId: string | null; isCreator: boolean };
+
+const resolveCompanyAccess = async (
+  prisma: Awaited<ReturnType<typeof getPrisma>>,
+  company: { id: string; createdBy?: string | null } | null,
+  userId: string | undefined | null
+): Promise<CompanyAccess | null> => {
+  if (!company || !userId) return null;
+  if (company.createdBy && String(company.createdBy) === String(userId)) {
+    return { role: 'OWNER', branchId: null, isCreator: true };
+  }
+  const ctx = await getBusinessMembershipContextV2(prisma, company.id, userId);
+  if (!ctx) return null;
+  return { role: ctx.role, branchId: ctx.branchId, isCreator: false };
+};
+
+const canWriteCompany = (access: CompanyAccess | null): boolean =>
+  !!access && (access.isCreator || access.role === 'OWNER' || access.role === 'ADMIN');
+
 // Get all companies for the authenticated user
 // Filter by user role - ADMIN only sees their own companies
 export const getCompanies = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -420,7 +447,7 @@ export const getCompanyBySlug = async (req: Request, res: Response): Promise<voi
 };
 
 // Get a single company by ID
-// NOTE: Removed access check - all users can view any company
+// Tenancy guard (A-01): creator or ACTIVE member only — see resolveCompanyAccess.
 export const getCompany = async (req: Request, res: Response): Promise<void> => {
   try {
     // 🔄 PULL LATEST FROM LIVE DATABASE FIRST (company and related branches)
@@ -457,6 +484,16 @@ export const getCompany = async (req: Request, res: Response): Promise<void> => 
     });
 
     if (!company) {
+      res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+      return;
+    }
+
+    // Tenancy guard (A-01): only the creator or an ACTIVE member may view it.
+    const access = await resolveCompanyAccess(prisma, company, (req as AuthRequest).user?.id);
+    if (!access) {
       res.status(404).json({
         success: false,
         message: 'Company not found'
@@ -973,7 +1010,15 @@ export const updateCompany = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // NOTE: Removed access check - any user can update any company
+    // Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member only.
+    const writeAccess = await resolveCompanyAccess(prisma, existingCompany, (req as AuthRequest).user?.id);
+    if (!canWriteCompany(writeAccess)) {
+      res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+      return;
+    }
 
     // Check if new name conflicts with existing company
     if (name && name !== existingCompany.name) {
@@ -1043,7 +1088,7 @@ export const updateCompany = async (req: Request, res: Response): Promise<void> 
 };
 
 // Delete a company (soft delete)
-// NOTE: Removed access check - any user can delete any company
+// Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member only.
 export const deleteCompany = async (req: Request, res: Response): Promise<void> => {
   try {
     const prisma = await getPrisma();
@@ -1064,6 +1109,16 @@ export const deleteCompany = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!existingCompany) {
+      res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+      return;
+    }
+
+    // Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member only.
+    const writeAccess = await resolveCompanyAccess(prisma, existingCompany, (req as AuthRequest).user?.id);
+    if (!canWriteCompany(writeAccess)) {
       res.status(404).json({
         success: false,
         message: 'Company not found'
@@ -1156,7 +1211,15 @@ export const updateCompanyBusinessType = async (req: Request, res: Response): Pr
       return;
     }
 
-    // NOTE: Removed access check - any user can update business type
+    // Tenancy guard (A-01): creator or ACTIVE OWNER/ADMIN member only.
+    const writeAccess = await resolveCompanyAccess(prisma, existingCompany, userId);
+    if (!canWriteCompany(writeAccess)) {
+      res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+      return;
+    }
 
     const company = await prisma.business.update({
       where: { id },
@@ -1519,7 +1582,7 @@ export const removeCompanyMember = async (req: AuthRequest, res: Response): Prom
 };
 
 // Get company statistics
-// NOTE: Removed access check - any user can view company stats
+// Tenancy guard (A-01): creator or ACTIVE member only — see resolveCompanyAccess.
 export const getCompanyStats = async (req: Request, res: Response): Promise<void> => {
   try {
     // 🔄 PULL LATEST FROM LIVE DATABASE FIRST
@@ -1534,6 +1597,16 @@ export const getCompanyStats = async (req: Request, res: Response): Promise<void
     });
 
     if (!company) {
+      res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+      return;
+    }
+
+    // Tenancy guard (A-01): only the creator or an ACTIVE member may view stats.
+    const access = await resolveCompanyAccess(prisma, company, (req as AuthRequest).user?.id);
+    if (!access) {
       res.status(404).json({
         success: false,
         message: 'Company not found'

@@ -128,6 +128,26 @@ const updateBatchSchema = Joi.object({
   })
 });
 
+// ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
+// By-id batch handlers MUST scope to the caller's resolved business context
+// (the same fallback chain getBatches uses). Previously they fetched by raw
+// id, so any authenticated user could read/update/restock/delete another
+// tenant's batches by guessing an id. When no context resolves we fail
+// closed with a sentinel id that matches nothing.
+const resolveBatchCompanyId = (req: any): string =>
+  (req.headers['x-company-id'] as string) ||
+  req.user?.companyId ||
+  req.business_id ||
+  req.membership?.business_id ||
+  req.user?.selectedCompanyId ||
+  (req.headers['x-business-id'] as string) ||
+  'no-business-context';
+
+const batchScopeWhere = (req: any, id: string): any => ({
+  id,
+  companyId: resolveBatchCompanyId(req),
+});
+
 // Get low stock batches for order purchase
 export const getLowStockBatches = async (req: any, res: Response) => {
   try {
@@ -788,8 +808,9 @@ export const getBatchById = async (req: any, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    // Tenancy scope (A-02): only batches of the caller's business resolve.
+    const batch = await prisma.batch.findFirst({
+      where: batchScopeWhere(req, id),
       include: {
         product: {
           select: {
@@ -852,7 +873,11 @@ export const createBatch = async (req: any, res: Response) => {
     if (!branchId) branchId = req.branch_id;
     if (!companyId) companyId = req.business_id;
 
-    // If still no branch/company, try to get from the product
+    // If still no branch/company, try to get from the product — but ONLY when
+    // the middleware-validated business context (req.business_id) confirms the
+    // product's company is the caller's own (A-02: never adopt a foreign
+    // product's company as the request context).
+    let contextDerivedFromProduct = false;
     if (!branchId || !companyId) {
       const product = await prisma.product.findUnique({
         where: { id: batchData.productId },
@@ -862,10 +887,18 @@ export const createBatch = async (req: any, res: Response) => {
       if (product) {
         branchId = branchId || product.branchId;
         companyId = companyId || product.companyId;
+        contextDerivedFromProduct = true;
       }
     }
 
     if (!branchId || !companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Branch and company context required. Please ensure you have proper access permissions.',
+      });
+    }
+
+    if (contextDerivedFromProduct && String(req.business_id || '') !== String(companyId)) {
       return res.status(400).json({
         success: false,
         message: 'Branch and company context required. Please ensure you have proper access permissions.',
@@ -888,13 +921,15 @@ export const createBatch = async (req: any, res: Response) => {
       });
     }
 
-    // Verify product exists
+    // Verify product exists AND belongs to the resolved branch/company
+    // (A-02: a foreign tenant's product must be indistinguishable from a
+    // non-existent one).
     const product = await prisma.product.findUnique({
       where: { id: batchData.productId },
     });
 
-    if (!product) {
-      return res.status(400).json({
+    if (!product || product.companyId !== companyId || product.branchId !== branchId) {
+      return res.status(404).json({
         success: false,
         message: 'Product not found',
       });
@@ -985,19 +1020,19 @@ export const updateBatch = async (req: any, res: Response) => {
 
     const batchData = value;
 
-    // Check if batch exists
+    // Check if batch exists — scoped to the caller's business (A-02)
     // Handle case where reportReason column might not exist
     let existingBatch;
     try {
-      existingBatch = await prisma.batch.findUnique({
-      where: { id },
+      existingBatch = await prisma.batch.findFirst({
+      where: batchScopeWhere(req, id),
     });
     } catch (findError: any) {
       // If error is due to missing reportReason column, retry with explicit select
       if (findError?.message?.includes('reportReason') && findError?.message?.includes('does not exist')) {
         console.warn('⚠️ reportReason column missing. Fetching batch without reportReason...');
-        existingBatch = await prisma.batch.findUnique({
-          where: { id },
+        existingBatch = await prisma.batch.findFirst({
+          where: batchScopeWhere(req, id),
           select: {
             id: true,
             batchNo: true,
@@ -1033,6 +1068,21 @@ export const updateBatch = async (req: any, res: Response) => {
         success: false,
         message: 'Batch not found',
       });
+    }
+
+    // Tenancy guard (A-02): re-pointing the batch to a different product is
+    // only allowed within the same company.
+    if (batchData.productId && batchData.productId !== existingBatch.productId) {
+      const newProduct = await prisma.product.findFirst({
+        where: { id: batchData.productId, companyId: existingBatch.companyId },
+        select: { id: true },
+      });
+      if (!newProduct) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found',
+        });
+      }
     }
 
     // If updating batch number, check for duplicates
@@ -1213,9 +1263,9 @@ export const restockBatch = async (req: any, res: Response) => {
       });
     }
 
-    // Check if batch exists
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    // Check if batch exists — scoped to the caller's business (A-02)
+    const existingBatch = await prisma.batch.findFirst({
+      where: batchScopeWhere(req, id),
     });
 
     if (!existingBatch) {
@@ -1278,8 +1328,9 @@ export const deleteBatch = async (req: any, res: Response) => {
     const prisma = await getPrisma();
     const { id } = req.params;
 
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    // Tenancy scope (A-02): only batches of the caller's business resolve.
+    const batch = await prisma.batch.findFirst({
+      where: batchScopeWhere(req, id),
     });
 
     if (!batch) {
@@ -1360,6 +1411,15 @@ export const getNearExpiryBatches = async (req: any, res: Response) => {
       if (req.user?.createdBy) {
         whereClause.createdBy = req.user.createdBy;
       }
+    }
+
+    // Fail closed (A-02): with no branch/company/creator scope resolved, the
+    // query would otherwise return every tenant's batches.
+    if (!whereClause.branchId && !whereClause.companyId && !whereClause.createdBy) {
+      return res.status(400).json({
+        success: false,
+        message: 'Branch and company context required'
+      });
     }
 
     if (parseInt(days as string) === 0) {

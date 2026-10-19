@@ -22,6 +22,49 @@ const updateCategorySchema = Joi.object({
   color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/)
 });
 
+// ─── Tenancy guard (QA A-02) ────────────────────────────────────────────────
+// updateCategory/deleteCategory previously fetched by raw id — any
+// authenticated user could rename or delete another tenant's categories
+// (delete also reassigns the victim's products). A category belongs to the
+// caller when its company (directly, or via its branch) matches the
+// resolved business context; when no context resolves, the legacy
+// branch/createdBy rules used by getCategory apply.
+const resolveCategoryCompanyId = (req: AuthRequest): string | null =>
+  (req.headers['x-company-id'] as string) ||
+  req.business_id ||
+  req.membership?.business_id ||
+  (req.headers['x-business-id'] as string) ||
+  req.user?.selectedCompanyId ||
+  req.user?.companyId ||
+  null;
+
+const categoryBelongsToCaller = async (
+  prisma: Awaited<ReturnType<typeof getPrisma>>,
+  req: AuthRequest,
+  category: { companyId?: string | null; branchId?: string | null; createdBy?: string | null }
+): Promise<boolean> => {
+  const companyId = resolveCategoryCompanyId(req);
+  if (companyId) {
+    if (category.companyId) return String(category.companyId) === String(companyId);
+    if (category.branchId) {
+      const branch = await prisma.branch.findUnique({
+        where: { id: category.branchId },
+        select: { companyId: true }
+      });
+      return !!branch && String(branch.companyId) === String(companyId);
+    }
+    // Unscoped legacy row while a tenant context exists: hidden, exactly
+    // like the STRICT company filter in getCategories.
+    return false;
+  }
+  // No business context: legacy fallbacks (same as getCategory).
+  if (category.branchId) {
+    return category.branchId === req.user?.selectedBranchId || category.branchId === req.user?.branchId;
+  }
+  const adminId = req.user?.createdBy || req.user?.id;
+  return !!adminId && category.createdBy === adminId;
+};
+
 export const getCategories = async (req: AuthRequest, res: Response) => {
   try {
     // 🔄 PULL LATEST FROM LIVE DATABASE FIRST
@@ -446,7 +489,7 @@ export const updateCategory = async (req: AuthRequest, res: Response) => {
       where: { id }
     });
 
-    if (!existingCategory) {
+    if (!existingCategory || !(await categoryBelongsToCaller(prisma, req, existingCategory))) {
       return res.status(404).json({
         success: false,
         message: 'Category not found'
@@ -514,7 +557,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
       where: { id }
     });
 
-    if (!category) {
+    if (!category || !(await categoryBelongsToCaller(prisma, req as AuthRequest, category))) {
       return res.status(404).json({
         success: false,
         message: 'Category not found'

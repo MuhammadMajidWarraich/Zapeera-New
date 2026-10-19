@@ -21,6 +21,91 @@ const STANDARD_MODULES = [
   { name: 'employee_portal',     displayName: 'Employee Portal',      description: 'Self-service portal for employees (attendance, shifts, profile, notifications)' },
 ];
 
+// Built-in business types seeded at boot (id = UPPER_SNAKE_CASE name).
+const DEFAULT_BUSINESS_TYPES = [
+  { id: 'PHARMACY',           name: 'PHARMACY',           description: 'Pharmacy and medical stores' },
+  { id: 'DEPARTMENTAL_STORE', name: 'DEPARTMENTAL_STORE', description: 'General retail and departmental stores' },
+  { id: 'RETAIL_STORE',       name: 'RETAIL_STORE',       description: 'General retail stores' },
+  { id: 'HOTEL',              name: 'HOTEL',              description: 'Hotels and hospitality' },
+  { id: 'CLINIC',             name: 'CLINIC',             description: 'Medical clinics' },
+];
+
+// Runtime plan ids (src/config/constants.ts + ensureDefaultPlansExist).
+const RUNTIME_PLAN_IDS = ['single-trial', 'single-starter', 'single-growth', 'single-scale'];
+
+/**
+ * QA A-06: plan_module_permissions / role_module_permissions (and the
+ * sub-module tables) are created lazily by module-permissions.controller on
+ * first backoffice use — but boot code in this file queries them before
+ * that, producing 42P01 "relation does not exist" on every fresh boot.
+ * Create them up-front with DDL identical to the controller's, so the first
+ * query (boot or request) always finds them. Idempotent (IF NOT EXISTS).
+ */
+let _modulePermissionTablesEnsured = false;
+export async function ensureModulePermissionTablesExist(): Promise<void> {
+  if (_modulePermissionTablesEnsured) return;
+  const prisma = await getPrisma();
+  const ddl = [
+    `CREATE TABLE IF NOT EXISTS plan_module_permissions (
+       id TEXT PRIMARY KEY,
+       "planId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT false,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("planId", "moduleName")
+     )`,
+    `CREATE TABLE IF NOT EXISTS role_module_permissions (
+       id TEXT PRIMARY KEY,
+       "roleName" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT false,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("roleName", "moduleName")
+     )`,
+    `CREATE TABLE IF NOT EXISTS business_type_sub_module_permissions (
+       id TEXT PRIMARY KEY,
+       "businessTypeId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("businessTypeId", "moduleName", "subModuleKey")
+     )`,
+    `CREATE TABLE IF NOT EXISTS plan_sub_module_permissions (
+       id TEXT PRIMARY KEY,
+       "planId" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("planId", "moduleName", "subModuleKey")
+     )`,
+    `CREATE TABLE IF NOT EXISTS role_sub_module_permissions (
+       id TEXT PRIMARY KEY,
+       "roleName" TEXT NOT NULL,
+       "moduleName" TEXT NOT NULL,
+       "subModuleKey" TEXT NOT NULL,
+       "enabled" BOOLEAN NOT NULL DEFAULT true,
+       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       UNIQUE("roleName", "moduleName", "subModuleKey")
+     )`,
+  ];
+  for (const stmt of ddl) {
+    try {
+      await prisma.$executeRawUnsafe(stmt);
+    } catch (e: any) {
+      if (isMissingTableError(e)) return;
+      console.error('[Modules] ❌ Failed to ensure module permission table:', e?.message || e);
+    }
+  }
+  _modulePermissionTablesEnsured = true;
+}
+
 export async function ensureModulesExist(): Promise<void> {
   const prisma = await getPrisma();
   try {
@@ -53,13 +138,7 @@ export async function ensureBusinessTypesExist(): Promise<void> {
     // Seed the built-in default types (id = UPPER_SNAKE_CASE name, same convention for all types).
     // New types created by super admin via the backoffice UI follow the same convention
     // and are already persisted — we never touch those here.
-    const defaultTypes = [
-      { id: 'PHARMACY',           name: 'PHARMACY',           description: 'Pharmacy and medical stores' },
-      { id: 'DEPARTMENTAL_STORE', name: 'DEPARTMENTAL_STORE', description: 'General retail and departmental stores' },
-      { id: 'RETAIL_STORE',       name: 'RETAIL_STORE',       description: 'General retail stores' },
-      { id: 'HOTEL',              name: 'HOTEL',              description: 'Hotels and hospitality' },
-      { id: 'CLINIC',             name: 'CLINIC',             description: 'Medical clinics' },
-    ];
+    const defaultTypes = DEFAULT_BUSINESS_TYPES;
 
     for (const type of defaultTypes) {
       const existing = await prisma.businessType.findUnique({ where: { name: type.name } });
@@ -94,38 +173,61 @@ export async function ensureBusinessTypesExist(): Promise<void> {
     // Only seeds when zero rows exist — preserves any existing super admin configuration.
     // IMPORTANT: business_type_modules.moduleId has an FK to module_definitions(id), so seed
     // using module_definitions ids (NOT legacy modules ids — they differ for some modules).
+    //
+    // QA A-06 fixes applied here:
+    //  - Ordering: module_definitions are seeded FIRST (they used to be seeded
+    //    only by a lazy warm-up that ran after this function, so the lookup
+    //    below found nothing on a fresh boot).
+    //  - The old fallback to legacy `modules` ids is GONE: those ids violate
+    //    the FK (23503) on every insert. If module_definitions is still empty
+    //    we skip and log an ERROR instead of failing every insert silently.
+    //  - Honest reporting: insert failures are logged as errors and the
+    //    summary prints rows actually inserted, not rows attempted.
     try {
-      let allLegacyModules: any[] = [];
       try {
-        allLegacyModules = await (prisma.moduleDefinition as any).findMany({ select: { id: true, key: true } });
-      } catch {
-        // module_definitions may not exist yet — fall back to legacy modules table below
+        const { ensureModuleAccessV2SeedData } = await import('./modules-v2.util');
+        await ensureModuleAccessV2SeedData(prisma as any);
+      } catch (seedErr: any) {
+        console.error('[Modules] ❌ Failed to seed module definitions before business-type seeding:', seedErr?.message || seedErr);
       }
-      if (allLegacyModules.length === 0) {
-        allLegacyModules = await prisma.module.findMany({ select: { id: true, name: true } });
-      }
-      if (allLegacyModules.length > 0) {
+
+      const moduleDefinitions: any[] = await (prisma.moduleDefinition as any).findMany({ select: { id: true, key: true } });
+
+      if (moduleDefinitions.length === 0) {
+        console.error('[Modules] ❌ module_definitions is empty — skipping business_type_modules seeding (legacy module ids would violate the FK).');
+      } else {
         for (const type of defaultTypes) {
           const rowCount = await prisma.$queryRaw<{ cnt: number }[]>`SELECT COUNT(*) as cnt FROM business_type_modules WHERE "businessTypeId" = ${type.id}`;
           if (Number(rowCount?.[0]?.cnt ?? 0) > 0) continue;
 
           const now = new Date();
-          for (const mod of allLegacyModules) {
+          let inserted = 0;
+          let insertErrors = 0;
+          for (const mod of moduleDefinitions) {
             try {
-              await prisma.$executeRaw`
+              inserted += await prisma.$executeRaw`
                 INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
                 VALUES (${type.id}, ${mod.id}, true, 0, ${now}, ${now})
                 ON CONFLICT ("businessTypeId", "moduleId") DO NOTHING
               `;
-            } catch {
-              // ignore individual insert errors (table may not exist yet)
+            } catch (insertErr: any) {
+              insertErrors++;
+              console.error(`[Modules] ❌ Failed to seed business_type_modules for ${type.name}/${mod.key}:`, insertErr?.message || insertErr);
             }
           }
-          console.log(`[Modules] Auto-seeded ${allLegacyModules.length} module entries for business type ${type.name}`);
+          if (insertErrors > 0) {
+            console.error(`[Modules] ❌ business_type_modules seeding for ${type.name} incomplete: ${inserted} inserted, ${insertErrors} failed`);
+          } else if (inserted > 0) {
+            console.log(`[Modules] Auto-seeded ${inserted} module entries for business type ${type.name}`);
+          }
         }
       }
-    } catch {
-      // business_type_modules table may not exist yet — that's fine
+    } catch (seedBlockErr: any) {
+      if (isMissingTableError(seedBlockErr)) {
+        console.error('[Modules] ❌ business_type_modules seeding skipped — table missing:', seedBlockErr?.message || seedBlockErr);
+      } else {
+        console.error('[Modules] ❌ business_type_modules seeding failed:', seedBlockErr?.message || seedBlockErr);
+      }
     }
 
   } catch (error: any) {
@@ -372,6 +474,12 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
   const MODULE_NAME = 'employee_portal';
 
   try {
+    // QA A-06: steps 2/3 below query plan_module_permissions /
+    // role_module_permissions, which otherwise only exist after the first
+    // backoffice request (lazy DDL in module-permissions.controller) — that
+    // ordering produced 42P01 on every fresh boot. Create them up-front.
+    await ensureModulePermissionTablesExist();
+
     // Ensure the legacy modules row exists (drives business_type_modules + backoffice lists)
     await (prisma.module as any).upsert({
       where: { name: MODULE_NAME },
@@ -417,15 +525,16 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
     if (moduleId) {
       const typeRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`SELECT id FROM business_types`);
       const now = new Date();
+      let typesInserted = 0;
       for (const type of typeRows || []) {
-        await prisma.$executeRawUnsafe(
+        typesInserted += await prisma.$executeRawUnsafe(
           `INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
            VALUES ($1, $2, true, 0, $3, $3)
            ON CONFLICT ("businessTypeId", "moduleId") DO NOTHING`,
           type.id, moduleId, now
         );
       }
-      console.log(`[Modules] ✅ Employee Portal enabled for ${(typeRows || []).length} business types`);
+      console.log(`[Modules] ✅ Employee Portal business_type_modules: ${typesInserted} row(s) inserted across ${(typeRows || []).length} business types`);
     }
 
     // 2) Plans: for every plan that has an explicit config, ensure employee_portal is enabled.
@@ -433,8 +542,9 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
       const planRows = await prisma.$queryRawUnsafe<Array<{ planId: string }>>(
         `SELECT DISTINCT "planId" FROM plan_module_permissions`
       );
+      let plansInserted = 0;
       for (const plan of planRows || []) {
-        await prisma.$executeRawUnsafe(
+        plansInserted += await prisma.$executeRawUnsafe(
           `INSERT INTO plan_module_permissions (id, "planId", "moduleName", enabled, "createdAt", "updatedAt")
            VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            ON CONFLICT ("planId", "moduleName") DO NOTHING`,
@@ -442,33 +552,45 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
         );
       }
       if ((planRows || []).length > 0) {
-        console.log(`[Modules] ✅ Employee Portal enabled for ${planRows.length} plans`);
+        console.log(`[Modules] ✅ Employee Portal plan_module_permissions: ${plansInserted} row(s) inserted across ${planRows.length} plans`);
       }
-    } catch {
-      // plan_module_permissions may not exist yet — ignore
+    } catch (planPermErr: any) {
+      console.error('[Modules] ❌ Employee Portal plan_module_permissions seeding failed:', planPermErr?.message || planPermErr);
     }
 
     // 2b) Plans with entitlements: ensure employee_portal is entitled for EVERY plan.
     //     plan_module_permissions (step 2) only covers plans that have explicit rows there;
     //     plans gated purely via plan_entitlements (e.g. "single-scale") need this row too,
     //     otherwise the module is denied at the subscription layer.
+    //     QA A-06: the ON CONFLICT target must match the schema's only unique
+    //     constraint on this table, @@unique([planId, moduleKey, pageKey]) —
+    //     the old 2-column target raised 42P10 on every boot. Because pageKey
+    //     is NULL for module-level rows (and Postgres treats NULLs as
+    //     distinct in unique indexes), idempotency is enforced with an
+    //     existence check before inserting.
     try {
       const allPlans = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM platform_plans`
       );
+      let entitlementsInserted = 0;
       for (const plan of allPlans || []) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO plan_entitlements (id, "planId", "moduleKey", "entitlementLevel", "createdAt", "updatedAt")
-           VALUES ($1, $2, $3, 'FULL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-           ON CONFLICT ("planId", "moduleKey") DO NOTHING`,
+        const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM plan_entitlements WHERE "planId" = $1 AND "moduleKey" = $2 AND "pageKey" IS NULL LIMIT 1`,
+          plan.id, MODULE_NAME
+        );
+        if (existing && existing.length > 0) continue;
+        entitlementsInserted += await prisma.$executeRawUnsafe(
+          `INSERT INTO plan_entitlements (id, "planId", "moduleKey", "pageKey", "entitlementLevel", "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, NULL, 'FULL', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT ("planId", "moduleKey", "pageKey") DO NOTHING`,
           `ent:${plan.id}:${MODULE_NAME}`, plan.id, MODULE_NAME
         );
       }
       if ((allPlans || []).length > 0) {
-        console.log(`[Modules] ✅ Employee Portal entitled for ${allPlans.length} plans`);
+        console.log(`[Modules] ✅ Employee Portal plan_entitlements: ${entitlementsInserted} row(s) inserted across ${allPlans.length} plans`);
       }
-    } catch {
-      // plan_entitlements may not exist yet — ignore
+    } catch (entitlementErr: any) {
+      console.error('[Modules] ❌ Employee Portal plan_entitlements seeding failed:', entitlementErr?.message || entitlementErr);
     }
 
     // 3) Roles: for every role that has an explicit config, ensure employee_portal is enabled.
@@ -476,8 +598,9 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
       const roleRows = await prisma.$queryRawUnsafe<Array<{ roleName: string }>>(
         `SELECT DISTINCT "roleName" FROM role_module_permissions`
       );
+      let rolesInserted = 0;
       for (const role of roleRows || []) {
-        await prisma.$executeRawUnsafe(
+        rolesInserted += await prisma.$executeRawUnsafe(
           `INSERT INTO role_module_permissions (id, "roleName", "moduleName", enabled, "createdAt", "updatedAt")
            VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            ON CONFLICT ("roleName", "moduleName") DO NOTHING`,
@@ -485,14 +608,129 @@ export async function ensureEmployeePortalEnabled(): Promise<void> {
         );
       }
       if ((roleRows || []).length > 0) {
-        console.log(`[Modules] ✅ Employee Portal enabled for ${roleRows.length} roles`);
+        console.log(`[Modules] ✅ Employee Portal role_module_permissions: ${rolesInserted} row(s) inserted across ${roleRows.length} roles`);
       }
-    } catch {
-      // role_module_permissions may not exist yet — ignore
+    } catch (rolePermErr: any) {
+      console.error('[Modules] ❌ Employee Portal role_module_permissions seeding failed:', rolePermErr?.message || rolePermErr);
     }
   } catch (error: any) {
     if (isMissingTableError(error)) return;
     console.error('[ensureEmployeePortalEnabled] Error:', error.message);
+  }
+}
+
+/**
+ * QA A-05 — fresh-install policy baseline.
+ *
+ * On a brand-new database the authorization resolver default-denies EVERY
+ * module: business_type_modules had no rows, plan_entitlements was empty,
+ * and every plan shipped permissionState=UNCONFIGURED ("no published policy
+ * → deny"), so even a company OWNER with an ACTIVE TRIAL subscription got
+ * 403 on all core POS flows. This baseline makes a fresh deployment usable
+ * with zero manual steps:
+ *
+ *   1. business_type_modules: fills any missing (seeded business type ×
+ *      module_definitions) rows as enabled. Existing rows are never touched
+ *      (an admin-disabled module stays disabled — we only fill gaps).
+ *   2. plan_entitlements: for each runtime plan (single-*) that is still
+ *      UNCONFIGURED, writes a module-level FULL entitlement (pageKey NULL =
+ *      whole module, per authorization.service checkPlanEntitles) for every
+ *      module in module_definitions, then flips the plan to CONFIGURED once
+ *      its entitlements are complete.
+ *
+ * Safety: plans that are already CONFIGURED (i.e. a BackOffice-published
+ * policy exists) are skipped entirely — later boots never overwrite
+ * published policy changes. Fully idempotent across restarts.
+ */
+export async function ensureFreshInstallPolicyBaseline(): Promise<void> {
+  const prisma = await getPrisma();
+  try {
+    // 0) module_definitions must exist first (canonical seed: legacy modules
+    //    + module hierarchy config).
+    try {
+      const { ensureModuleAccessV2SeedData } = await import('./modules-v2.util');
+      await ensureModuleAccessV2SeedData(prisma as any);
+    } catch (seedErr: any) {
+      console.error('[PolicyBaseline] ❌ Module definition seeding failed:', seedErr?.message || seedErr);
+    }
+
+    const moduleDefinitions: any[] = await (prisma.moduleDefinition as any).findMany({
+      select: { id: true, key: true },
+    });
+    if (moduleDefinitions.length === 0) {
+      console.error('[PolicyBaseline] ❌ module_definitions is empty — cannot seed the policy baseline.');
+      return;
+    }
+
+    // 1) business_type_modules gap-fill for the seeded (default) types.
+    let btmInserted = 0;
+    for (const type of DEFAULT_BUSINESS_TYPES) {
+      const bt = await prisma.businessType.findUnique({
+        where: { id: type.id },
+        select: { id: true },
+      });
+      if (!bt) continue;
+      for (const mod of moduleDefinitions) {
+        const existing = await (prisma.businessTypeModule as any).findFirst({
+          where: { businessTypeId: bt.id, moduleId: mod.id },
+          select: { businessTypeId: true },
+        });
+        if (existing) continue;
+        await (prisma.businessTypeModule as any).create({
+          data: { businessTypeId: bt.id, moduleId: mod.id, isEnabled: true, sortOrder: 0 },
+        });
+        btmInserted++;
+      }
+    }
+    if (btmInserted > 0) {
+      console.log(`[PolicyBaseline] ✅ business_type_modules: filled ${btmInserted} missing row(s)`);
+    }
+
+    // 2) plan_entitlements + permissionState for runtime plans that have no
+    //    published policy yet (UNCONFIGURED only — see safety note above).
+    const plans: any[] = await (prisma.plan as any).findMany({
+      where: { id: { in: RUNTIME_PLAN_IDS } },
+      select: { id: true, permissionState: true },
+    });
+    for (const plan of plans) {
+      const state = String(plan.permissionState || 'UNCONFIGURED').toUpperCase();
+      if (state === 'CONFIGURED') continue;
+
+      let entInserted = 0;
+      for (const mod of moduleDefinitions) {
+        const moduleKey = String(mod.key);
+        const existing = await (prisma.planEntitlement as any).findFirst({
+          where: { planId: plan.id, moduleKey, pageKey: null },
+          select: { id: true },
+        });
+        if (existing) continue;
+        await (prisma.planEntitlement as any).create({
+          data: { planId: plan.id, moduleKey, pageKey: null, entitlementLevel: 'FULL' },
+        });
+        entInserted++;
+      }
+
+      // Flip to CONFIGURED only once the plan actually entitles every
+      // module — an incomplete baseline must not masquerade as published.
+      const entitledCount = await (prisma.planEntitlement as any).count({
+        where: { planId: plan.id, pageKey: null },
+      });
+      if (entitledCount >= moduleDefinitions.length) {
+        await (prisma.plan as any).update({
+          where: { id: plan.id },
+          data: { permissionState: 'CONFIGURED', policyVersion: { increment: 1 } },
+        });
+        console.log(`[PolicyBaseline] ✅ Plan ${plan.id}: ${entInserted} entitlement row(s) added, permissionState → CONFIGURED`);
+      } else {
+        console.error(`[PolicyBaseline] ❌ Plan ${plan.id}: only ${entitledCount}/${moduleDefinitions.length} module entitlements present — leaving permissionState=${state}`);
+      }
+    }
+  } catch (error: any) {
+    if (isMissingTableError(error)) {
+      console.error('[PolicyBaseline] ❌ Skipped — a required table is missing:', error?.message || error);
+      return;
+    }
+    console.error('[PolicyBaseline] ❌ Failed:', error?.message || error);
   }
 }
 
@@ -501,5 +739,7 @@ export default {
   ensureBusinessTypesExist,
   ensureDefaultPlansExist,
   ensureEmployeePortalEnabled,
+  ensureModulePermissionTablesExist,
+  ensureFreshInstallPolicyBaseline,
   enableDefaultModulesForBusiness,
 };
