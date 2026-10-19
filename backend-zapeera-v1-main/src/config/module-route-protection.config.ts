@@ -53,17 +53,19 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/sales': { module: 'sales', page: 'invoices' },
   '/api/pos': { module: 'sales', page: 'pos' },
   '/api/refunds': { module: 'sales', page: 'refunds' },
-  '/api/customers': { module: 'customers', page: 'customers' },
+  '/api/customers': { module: 'sales', page: 'customers' },
 
   // Purchases
   '/api/purchases': { module: 'purchases', page: 'order-purchase' },
 
-  // Staff Management (employees, attendance, shifts, commissions)
-  '/api/staff': { module: 'staff', page: 'staff' },
-  '/api/attendance': { module: 'staff', page: 'attendance' },
-  '/api/shifts': { module: 'staff', page: 'shifts' },
-  '/api/scheduled-shifts': { module: 'staff', page: 'shifts' },
-  '/api/commissions': { module: 'staff', page: 'commissions' },
+  // Staff Management (employees, attendance, shifts, commissions) — mapped
+  // to the canonical V2 modules: staff administration lives under
+  // business_management, self-service attendance/shifts under employee_portal.
+  '/api/staff': { module: 'business_management', page: 'staff' },
+  '/api/attendance': { module: 'employee_portal', page: 'attendance' },
+  '/api/shifts': { module: 'business_management', page: 'shifts' },
+  '/api/scheduled-shifts': { module: 'employee_portal', page: 'shifts' },
+  '/api/commissions': { module: 'business_management', page: 'staff' },
 
   // Reports & Analytics
   '/api/reports': { module: 'reports', page: 'reports' },

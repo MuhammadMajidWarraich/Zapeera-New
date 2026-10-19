@@ -101,18 +101,24 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/pos', policy: { kind: 'module', resourceKey: 'sales.pos' } },
   { prefix: '/api/refunds', policy: { kind: 'module', resourceKey: 'sales.refunds' } },
 
-  // ── Customers module ──────────────────────────────────────────────────────
-  { prefix: '/api/customers', policy: { kind: 'module', resourceKey: 'customers.customers' } },
+  // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
+  // There is no standalone 'customers' module in module_definitions; the
+  // hierarchy models Customers as sales::customers. Mapping this prefix to
+  // 'customers.customers' denied every request with BUSINESS_TYPE_DENIED.
+  { prefix: '/api/customers', policy: { kind: 'module', resourceKey: 'sales.customers' } },
 
   // ── Purchases module ──────────────────────────────────────────────────────
   { prefix: '/api/purchases', policy: { kind: 'module', resourceKey: 'purchases.order-purchase' } },
 
-  // ── Staff module ──────────────────────────────────────────────────────────
-  { prefix: '/api/staff', policy: { kind: 'module', resourceKey: 'staff.staff' } },
-  { prefix: '/api/attendance', policy: { kind: 'module', resourceKey: 'staff.attendance' } },
-  { prefix: '/api/shifts', policy: { kind: 'module', resourceKey: 'staff.shifts' } },
-  { prefix: '/api/scheduled-shifts', policy: { kind: 'module', resourceKey: 'staff.shifts' } },
-  { prefix: '/api/commissions', policy: { kind: 'module', resourceKey: 'staff.commissions' } },
+  // ── Staff / HR (no standalone 'staff' module exists in the V2 model; ─────
+  // staff pages live under business_management, attendance/shift self-service
+  // under employee_portal — the same split the module hierarchy uses.
+  // 'staff.*' keys could never resolve and denied every request.)
+  { prefix: '/api/staff', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
+  { prefix: '/api/attendance', policy: { kind: 'module', resourceKey: 'employee_portal.attendance' } },
+  { prefix: '/api/shifts', policy: { kind: 'module', resourceKey: 'business_management.shifts' } },
+  { prefix: '/api/scheduled-shifts', policy: { kind: 'module', resourceKey: 'employee_portal.shifts' } },
+  { prefix: '/api/commissions', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
 
   // ── Reports module ────────────────────────────────────────────────────────
   { prefix: '/api/reports', policy: { kind: 'module', resourceKey: 'reports.reports' } },
