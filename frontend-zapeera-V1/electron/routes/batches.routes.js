@@ -672,8 +672,14 @@ function registerBatchesRoutes(app, authMiddleware, deps) {
             return res.status(500).json({ success: false, message: 'Failed to create batch: ' + errorMsg });
           }
     
-          // Note: Product quantity is now managed through batches, not directly on products
-          // Don't update product quantity - batches handle stock
+          // QA fix 2026-10-20 (Agent B2, B-10): batches are the stock truth,
+          // but products.quantity must MIRROR their sum — sales, purchases and
+          // refunds all maintain it, and the product list's low-stock filter
+          // (quantity <= minStock) reads it. Batch create/update/delete
+          // previously never touched it, so it drifted (negative after sales).
+          // Recompute it from the batches table: exact and self-healing.
+          run('UPDATE products SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM batches WHERE productId = ? AND isActive = 1), updatedAt = ? WHERE id = ?',
+            [productId, now(), productId]);
     
           // Query the created batch
           let batch = query('SELECT * FROM batches WHERE id = ?', [id])[0];
@@ -834,7 +840,15 @@ function registerBatchesRoutes(app, authMiddleware, deps) {
           updateValues.push(id);
     
           run(`UPDATE batches SET ${updateFields.join(', ')} WHERE id = ?`, updateValues);
-    
+
+          // QA fix 2026-10-20 (Agent B2, B-10): keep products.quantity equal
+          // to the active-batch sum after any batch change (incl. quantity
+          // edits and activation toggles).
+          if (existingBatch && existingBatch.productId) {
+            run('UPDATE products SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM batches WHERE productId = ? AND isActive = 1), updatedAt = ? WHERE id = ?',
+              [existingBatch.productId, now(), existingBatch.productId]);
+          }
+
           // Get updated batch with related data (match backend)
           const batch = query('SELECT * FROM batches WHERE id = ?', [id])[0];
           if (!batch) {
@@ -897,7 +911,14 @@ function registerBatchesRoutes(app, authMiddleware, deps) {
             return res.status(500).json({ success: false, message: lastDbError || 'Failed to delete batch in database' });
           }
           console.log('[Batches] ✅ Delete query executed successfully (hard delete)');
-    
+
+          // QA fix 2026-10-20 (Agent B2, B-10): removing a batch removes its
+          // stock — recompute the products.quantity mirror for its product.
+          if (batch.productId) {
+            run('UPDATE products SET quantity = (SELECT COALESCE(SUM(quantity), 0) FROM batches WHERE productId = ? AND isActive = 1), updatedAt = ? WHERE id = ?',
+              [batch.productId, now(), batch.productId]);
+          }
+
           // Save database immediately after delete
           saveDatabase();
           console.log('[Batches] ✅ Database saved after delete');

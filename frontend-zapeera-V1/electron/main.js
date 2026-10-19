@@ -682,7 +682,18 @@ async function initializeDatabase() {
       try {
         db.exec(`ALTER TABLE users ADD COLUMN mustChangePassword INTEGER DEFAULT 0`);
       } catch (e) { /* column already exists */ }
-      const KNOWN_DEFAULT_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+      // QA fix 2026-10-20 (Agent B2, B-2): the previously shipped constant
+      // was NOT bcrypt('admin123') (proven by bcryptjs comparison), so
+      // accounts seeded with it could never log in. Repair any such rows to
+      // the TRUE default hash below (generated with the app's bcryptjs and
+      // verified), then flag every default-password account for a forced
+      // change. The embedded server's database.service.js performs the same
+      // repair for installs where this better-sqlite3 path never runs.
+      const LEGACY_BROKEN_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+      const KNOWN_DEFAULT_PASSWORD_HASH = '$2b$10$6R80a9IPRnzCDTqU24D57uJvr0mx.Tz1S6LEiSvpiQMZDWnen9SeG';
+      db.prepare(
+        'UPDATE users SET password = ?, mustChangePassword = 1 WHERE password = ?'
+      ).run(KNOWN_DEFAULT_PASSWORD_HASH, LEGACY_BROKEN_PASSWORD_HASH);
       const flagResult = db.prepare(
         'UPDATE users SET mustChangePassword = 1 WHERE password = ? AND COALESCE(mustChangePassword, 0) = 0'
       ).run(KNOWN_DEFAULT_PASSWORD_HASH);
@@ -703,10 +714,14 @@ async function initializeDatabase() {
       if (!userCount || userCount.count === 0) {
         log('INFO', '🌱 No users found, seeding default admin user...');
 
-        // Generate a simple hashed password for 'admin123'
-        // Using bcrypt format: $2a$10$... (rounds=10)
-        // Pre-hashed password for 'admin123' with 10 rounds
-        const hashedPassword = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+        // Pre-hashed password for 'admin123' (bcrypt, 10 rounds).
+        // QA fix 2026-10-20 (Agent B2, B-2): the constant previously shipped
+        // here was NOT a bcrypt of 'admin123' — login with the documented
+        // default credential could never succeed. This value was generated
+        // with the app's own bcryptjs (hashSync('admin123', 10)) and verified
+        // with compareSync; it is identical to DEFAULT_ADMIN_PASSWORD_HASH
+        // in services/database.service.js — keep both copies in sync.
+        const hashedPassword = '$2b$10$6R80a9IPRnzCDTqU24D57uJvr0mx.Tz1S6LEiSvpiQMZDWnen9SeG';
 
         // Create a unique ID
         const adminId = 'local-admin-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);

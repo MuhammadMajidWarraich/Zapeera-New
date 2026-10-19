@@ -211,6 +211,15 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
     });
 
     let subscription;
+    // A direct admin assignment is an administrative grant: the admin is
+    // the payment authority, so a non-trial assignment must be marked PAID.
+    // Without this the row kept the schema default billingStatus PENDING,
+    // the authorization gate resolved the business as PAST_DUE, and every
+    // module write was rejected with SUBSCRIPTION_INACTIVE — the business
+    // was silently read-only despite an ACTIVE plan (E2E P4-1, reproduced
+    // live). The tenant-initiated path (payment-proof approval) already
+    // sets PAID in applyApprovedPaymentProofSubscription.
+    const assignedBillingStatus = isTrial ? 'PENDING' : 'PAID';
     if (existingSubscription) {
       // Update existing subscription
       subscription = await prisma.businessSubscription.update({
@@ -218,6 +227,7 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
         data: {
           planId,
           status: isTrial ? 'TRIAL' : 'ACTIVE',
+          billingStatus: assignedBillingStatus,
           currentPeriodEnd: endDate
         }
       });
@@ -228,6 +238,7 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
           businessId,
           planId,
           status: isTrial ? 'TRIAL' : 'ACTIVE',
+          billingStatus: assignedBillingStatus,
           currentPeriodEnd: endDate
         }
       });

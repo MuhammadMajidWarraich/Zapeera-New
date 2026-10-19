@@ -134,6 +134,8 @@ model Business {
   batches                   Batch[]
   purchases                 Purchase[]
   categories                Category[]
+  expenses                  Expense[]
+  expenseCategories         ExpenseCategory[]
   memberships               Membership[]             @relation("memberships")
   roles                     Role[]                   @relation("roles")
   businessModules           BusinessModule[]         @relation("businessModules")
@@ -177,6 +179,8 @@ model Branch {
   batches            Batch[]
   purchases          Purchase[]
   categories         Category[]
+  expenses           Expense[]
+  expenseCategories  ExpenseCategory[]
   manufacturers      Manufacturer[]
   suppliers          Supplier[]
   shelves            Shelf[]
@@ -208,6 +212,53 @@ model Category {
   @@index([companyId], name: "idx_category_company")
   @@index([branchId], name: "idx_category_branch")
   @@map("categories")
+}
+
+model ExpenseCategory {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  companyId   String
+  branchId    String?
+  isActive    Boolean   @default(true)
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  company     Business  @relation(fields: [companyId], references: [id])
+  branch      Branch?   @relation(fields: [branchId], references: [id])
+  expenses    Expense[]
+
+  @@unique([name, companyId, branchId], name: "expense_category_name_per_scope")
+  @@index([companyId], name: "idx_expense_category_company")
+  @@index([branchId], name: "idx_expense_category_branch")
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  vendor        String?
+  amount        Float
+  expenseDate   DateTime
+  paymentMethod String         @default("CASH")
+  reference     String?
+  status        String         @default("PENDING")
+  companyId     String
+  branchId      String?
+  categoryId    String?
+  createdBy     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  company       Business       @relation(fields: [companyId], references: [id])
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([companyId], name: "idx_expense_company")
+  @@index([branchId], name: "idx_expense_branch")
+  @@index([categoryId], name: "idx_expense_category")
+  @@index([expenseDate], name: "idx_expense_date")
+  @@map("expenses")
 }
 
 model Manufacturer {
@@ -1308,10 +1359,47 @@ model SupportTicket {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  messages SupportTicketMessage[]
+
   @@index([status])
   @@index([priority])
   @@index([businessId])
   @@map("support_tickets")
+}
+
+// One message in a support-ticket thread. The ticket's original description
+// is the opening message; replies from the tenant user and from backoffice
+// admins both live here. authorId is a ZapeeraUser id when authorType is
+// TENANT and a BackOfficeUser id when authorType is ADMIN.
+model SupportTicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorType String   @default("TENANT") // TENANT, ADMIN
+  authorId   String?
+  body       String
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_messages")
+}
+
+// ─── Backoffice: Content Pages ──────────────────────────────────────────────
+// Minimal CMS: platform-managed static pages (legal, help, landing copy)
+// edited from the backoffice and served publicly when PUBLISHED.
+model ContentPage {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  body      String
+  status    String   @default("DRAFT") // DRAFT, PUBLISHED
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("content_pages")
 }
 
 // â”€â”€â”€ Backoffice: Announcements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

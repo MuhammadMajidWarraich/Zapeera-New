@@ -82,6 +82,12 @@ const ENTRIES: RegistryEntry[] = [
 
   // ── Cross-module helpers / notifications / sync (authenticated) ──────────
   { prefix: '/api/notifications', policy: { kind: 'auth' } },
+  // Support tickets: authenticated, deliberately NOT module/billing gated —
+  // support is how a locked-out tenant asks for help. Tenancy is enforced in
+  // the controller (creator or ACTIVE member of the ticket's business).
+  { prefix: '/api/support', policy: { kind: 'auth' } },
+  // Public read of backoffice-managed content pages (PUBLISHED only).
+  { prefix: '/api/content', policy: { kind: 'public' } },
   { prefix: '/api/ocr', policy: { kind: 'auth' } },
   { prefix: '/api/sync', policy: { kind: 'auth' } },
   { prefix: '/api/sse', policy: { kind: 'public' } },

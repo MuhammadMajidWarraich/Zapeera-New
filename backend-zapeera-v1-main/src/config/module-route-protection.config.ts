@@ -117,6 +117,11 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/notifications',
   '/api/barcodes',
 
+  // Support tickets + public content pages (no module gate; auth/public
+  // handling lives in the route-policy registry and the routers)
+  '/api/support',
+  '/api/content',
+
   // System
   '/api/sync',
   '/api/sse',

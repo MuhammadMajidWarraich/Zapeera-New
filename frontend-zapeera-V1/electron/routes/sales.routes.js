@@ -174,9 +174,11 @@ function registerSalesRoutes(app, authMiddleware, deps) {
             if (item.quantity === undefined || item.quantity === null || typeof item.quantity !== 'number' || item.quantity < 1) {
               itemErrors.push(`items[${index}].quantity must be a number greater than 0`);
             }
-            if (item.unitPrice === undefined || item.unitPrice === null || typeof item.unitPrice !== 'number' || item.unitPrice <= 0) {
-              itemErrors.push(`items[${index}].unitPrice must be a positive number`);
-            }
+            // QA fix 2026-10-20 (Agent B2, B-9): item.unitPrice is NO LONGER
+            // validated or used — prices are resolved from the database
+            // (batch/product selling price) in the resolution phase below,
+            // mirroring the web backend's server-side pricing rule. A
+            // client-sent unitPrice is ignored entirely.
           });
     
           if (itemErrors.length > 0) {
@@ -367,361 +369,236 @@ function registerSalesRoutes(app, authMiddleware, deps) {
             }
           }
     
-          let subtotal = 0;
-          items.forEach(i => {
-            const price = i.unitPrice || i.price || i.sellingPrice || 0;
-            subtotal += (i.quantity || 1) * price;
-          });
-    
-          const finalDiscount = discountAmount || (discountPercentage ? (subtotal * discountPercentage / 100) : discount);
-          const taxAmount = tax || 0;
-          const grandTotal = subtotal - finalDiscount + taxAmount;
-    
-          console.log('[Sales] Creating sale:', { id, invoiceNumber, subtotal, grandTotal, itemsCount: items.length, customerId: finalCustomerId });
-    
-          // CRITICAL FIX: Use paymentStatus from request or default to COMPLETED, match backend logic
-          const finalPaymentStatus = paymentStatus ? paymentStatus.toUpperCase() : 'COMPLETED';
-          const finalSaleStatus = finalPaymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
-    
-          // Calculate paidAmount and returnedAmount
-          const paidAmount = req.body.paidAmount || (finalPaymentStatus === 'COMPLETED' ? grandTotal : 0);
-          const returnedAmount = req.body.returnedAmount || Math.max(0, paidAmount - grandTotal);
-    
-          const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-            [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, subtotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp]);
-    
-          if (!success) {
-            console.error('[Sales] Failed to insert sale');
-            return res.status(500).json({ success: false, message: 'Failed to create sale' });
-          }
-    
-          // Check stock availability for all items before creating sale (match backend)
+          // ============================================================
+          // QA fix 2026-10-20 (Agent B2, B-7 + B-9): RESOLUTION PHASE.
+          // Everything is validated and priced BEFORE any row is written:
+          //  - unit prices come from the DATABASE (the pinned batch's
+          //    sellingPrice, else the product's sellingPrice/unitPrice) —
+          //    client-sent unitPrice and totals are ignored (B-9), mirroring
+          //    the web backend's server-side pricing rule;
+          //  - stock availability is checked for every item up front,
+          //    reserving batch quantities across items of the same sale;
+          //  - each item gets a concrete batch-deduction plan (pinned batch,
+          //    batchNumber match, or FEFO/FIFO across the branch's batches).
+          // The previous code inserted the sale row FIRST and checked stock
+          // afterwards, and its item loop referenced `batchToUpdate` before
+          // its `let` declaration (TDZ) — a sale without batchId crashed
+          // with a 500 AND left a phantom COMPLETED sale with zero items and
+          // no stock movement (B-7).
+          // ============================================================
+          const isBatchExpired = (expireDate) => {
+            if (!expireDate) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return new Date(expireDate) < today;
+          };
+          const isBatchReported = (b) => b.isReported === 1 || b.isReported === true || b.isReported === 'true';
+          const reservedByBatch = new Map(); // batchId -> qty reserved by earlier items of this sale
+          const reservedOf = (batchId) => reservedByBatch.get(batchId) || 0;
+          const resolvedItems = [];
+
           for (const item of items) {
             // CRITICAL FIX: Use unitsDeducted if available (actual pieces to deduct), otherwise use quantity
             const quantity = item.unitsDeducted || item.quantity || 1;
-            const product = query('SELECT id, name FROM products WHERE id = ?', [item.productId])[0];
-    
+            const product = query('SELECT id, name, unitPrice, sellingPrice FROM products WHERE id = ?', [item.productId])[0];
+
             if (!product) {
               return res.status(400).json({
                 success: false,
                 message: `Product with ID ${item.productId} not found`
               });
             }
-    
-            // Check stock availability through batches (match backend)
-            // CRITICAL FIX: Handle batch lookup by batchId, batchNumber, or find available batch
-            let totalAvailableStock = 0;
-            let foundBatch = null;
-    
+
+            const productPrice = (product.sellingPrice && product.sellingPrice > 0) ? product.sellingPrice : (product.unitPrice || 0);
+            let unitPrice = productPrice;
+            let primaryBatchId = null;
+            let pinned = false;
+            const deductions = []; // [{ batchId, qty }]
+
             if (item.batchId) {
-              // CRITICAL: Check specific batch by ID - exclude reported/expired batches
-              foundBatch = query('SELECT id, quantity, branchId, isReported, expireDate FROM batches WHERE id = ? AND isActive = 1', [item.batchId])[0];
-              if (!foundBatch) {
+              // Pinned batch by ID — same checks/messages as the previous code.
+              const batch = query('SELECT id, productId, quantity, branchId, isReported, expireDate, sellingPrice FROM batches WHERE id = ? AND isActive = 1', [item.batchId])[0];
+              if (!batch) {
                 return res.status(400).json({
                   success: false,
                   message: `Batch with ID ${item.batchId} not found`
                 });
               }
-    
-              // CRITICAL: Check if batch is reported
-              if (foundBatch.isReported === 1 || foundBatch.isReported === true || foundBatch.isReported === 'true') {
+              if (isBatchReported(batch)) {
                 return res.status(400).json({
                   success: false,
                   message: `Batch ${item.batchId} is reported and cannot be sold`
                 });
               }
-    
-              // CRITICAL: Check if batch is expired
-              if (foundBatch.expireDate) {
-                const expireDate = new Date(foundBatch.expireDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (expireDate < today) {
+              if (isBatchExpired(batch.expireDate)) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Batch ${item.batchId} is expired (expiry: ${batch.expireDate}) and cannot be sold`
+                });
+              }
+              if (batch.branchId && batch.branchId !== finalBranchId) {
+                console.warn(`[Sales] Batch ${item.batchId} belongs to different branch (${batch.branchId} vs ${finalBranchId}), but allowing sale`);
+              }
+              const available = (batch.quantity || 0) - reservedOf(batch.id);
+              if (available < quantity) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Insufficient stock for ${product.name}. Available: ${available}, Required: ${quantity}`
+                });
+              }
+              deductions.push({ batchId: batch.id, qty: quantity });
+              reservedByBatch.set(batch.id, reservedOf(batch.id) + quantity);
+              primaryBatchId = batch.id;
+              if (batch.sellingPrice && batch.sellingPrice > 0) unitPrice = batch.sellingPrice;
+              pinned = true;
+            } else if (item.batchNumber) {
+              // Pinned by batch number for this product (FEFO order), as before.
+              let batch = query('SELECT id, productId, quantity, branchId, isReported, expireDate, sellingPrice FROM batches WHERE batchNo = ? AND productId = ? AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
+                [item.batchNumber, item.productId])[0];
+              if (batch && isBatchExpired(batch.expireDate)) batch = null;
+              if (batch) {
+                const available = (batch.quantity || 0) - reservedOf(batch.id);
+                if (available < quantity) {
                   return res.status(400).json({
                     success: false,
-                    message: `Batch ${item.batchId} is expired (expiry: ${foundBatch.expireDate}) and cannot be sold`
+                    message: `Insufficient stock for ${product.name}. Available: ${available}, Required: ${quantity}`
                   });
                 }
+                deductions.push({ batchId: batch.id, qty: quantity });
+                reservedByBatch.set(batch.id, reservedOf(batch.id) + quantity);
+                primaryBatchId = batch.id;
+                if (batch.sellingPrice && batch.sellingPrice > 0) unitPrice = batch.sellingPrice;
+                pinned = true;
               }
-    
-              // CRITICAL FIX: Verify batch belongs to correct branch
-              if (foundBatch.branchId && foundBatch.branchId !== finalBranchId) {
-                console.warn(`[Sales] Batch ${item.batchId} belongs to different branch (${foundBatch.branchId} vs ${finalBranchId}), but allowing sale`);
-              }
-              totalAvailableStock = foundBatch.quantity || 0;
-            } else if (item.batchNumber) {
-              // CRITICAL: Find batch by batch number and product - exclude reported/expired batches
-              // Try to find batch in the correct branch first, then fallback to any branch
-              foundBatch = query('SELECT id, quantity, branchId, isReported, expireDate FROM batches WHERE batchNo = ? AND productId = ? AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
-                [item.batchNumber, item.productId])[0];
-    
-              // CRITICAL: Check if found batch is expired
-              if (foundBatch && foundBatch.expireDate) {
-                const expireDate = new Date(foundBatch.expireDate);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                if (expireDate < today) {
-                  foundBatch = null; // Mark as not found if expired
-                }
-              }
-    
-              if (!foundBatch) {
-                // If not found, try without branch restriction (for backward compatibility)
-                console.warn(`[Sales] Batch ${item.batchNumber} not found for product ${item.productId} in branch ${finalBranchId}, checking all branches`);
-                foundBatch = query('SELECT id, quantity, branchId, isReported, expireDate FROM batches WHERE batchNo = ? AND productId = ? AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
-                  [item.batchNumber, item.productId])[0];
-    
-                // Check if found batch is expired
-                if (foundBatch && foundBatch.expireDate) {
-                  const expireDate = new Date(foundBatch.expireDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (expireDate < today) {
-                    foundBatch = null;
-                  }
-                }
-              }
-    
-              if (foundBatch) {
-                totalAvailableStock = foundBatch.quantity || 0;
-              } else {
-                // If batch not found by number, check all batches for this product (excluding reported/expired)
-                console.warn(`[Sales] Batch ${item.batchNumber} not found, checking all batches for product ${item.productId}`);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const availableBatches = query('SELECT quantity, expireDate, isReported FROM batches WHERE productId = ? AND quantity > 0 AND isActive = 1 AND (isReported IS NULL OR isReported = 0)',
-                  [item.productId]);
-                // Filter out expired batches
-                const validBatches = availableBatches.filter(batch => {
-                  if (batch.expireDate) {
-                    const expireDate = new Date(batch.expireDate);
-                    return expireDate >= today;
-                  }
-                  return true; // No expiry date means not expired
+              // If the number does not resolve, fall through to FIFO below —
+              // the same availability fallback the previous code applied.
+            }
+
+            if (!pinned) {
+              // No pinned batch: FEFO/FIFO across the branch's valid batches
+              // (not reported, not expired), exactly the pool the previous
+              // code deducted from.
+              const candidates = query('SELECT id, quantity, expireDate, sellingPrice FROM batches WHERE productId = ? AND (branchId = ? OR branchId IS NULL) AND quantity > 0 AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC',
+                [item.productId, finalBranchId]).filter(b => !isBatchExpired(b.expireDate));
+              const totalAvailable = candidates.reduce((sum, b) => sum + Math.max(0, (b.quantity || 0) - reservedOf(b.id)), 0);
+              if (totalAvailable < quantity) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Insufficient stock for ${product.name}. Available: ${totalAvailable}, Required: ${quantity}`
                 });
-                totalAvailableStock = validBatches.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
               }
-            } else {
-              // CRITICAL: No batch specified - check all batches for this product in this branch (match backend FIFO logic)
-              // Exclude reported and expired batches
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const availableBatches = query('SELECT quantity, expireDate, isReported FROM batches WHERE productId = ? AND (branchId = ? OR branchId IS NULL) AND quantity > 0 AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC',
-                [item.productId, finalBranchId]);
-              // Filter out expired batches
-              const validBatches = availableBatches.filter(batch => {
-                if (batch.expireDate) {
-                  const expireDate = new Date(batch.expireDate);
-                  return expireDate >= today;
-                }
-                return true; // No expiry date means not expired
-              });
-              totalAvailableStock = validBatches.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
+              let remaining = quantity;
+              for (const b of candidates) {
+                if (remaining <= 0) break;
+                const free = (b.quantity || 0) - reservedOf(b.id);
+                if (free <= 0) continue;
+                const take = Math.min(remaining, free);
+                deductions.push({ batchId: b.id, qty: take });
+                reservedByBatch.set(b.id, reservedOf(b.id) + take);
+                if (!primaryBatchId) primaryBatchId = b.id;
+                remaining -= take;
+              }
             }
-    
-            if (totalAvailableStock < quantity) {
-              return res.status(400).json({
-                success: false,
-                message: `Insufficient stock for ${product.name}. Available: ${totalAvailableStock}, Required: ${quantity}`
-              });
-            }
+
+            resolvedItems.push({
+              productId: item.productId,
+              productName: product.name,
+              quantity,
+              unitPrice,
+              discount: item.discount || 0,
+              total: quantity * unitPrice,
+              batchId: primaryBatchId,
+              deductions
+            });
           }
-    
-          const saleItems = items.map(i => {
-            const itemId = uuid();
-            const price = i.unitPrice || i.price || i.sellingPrice || 0;
-            // CRITICAL FIX: Use unitsDeducted if available (actual pieces to deduct), otherwise use quantity
-            // unitsDeducted is the actual number of pieces/units to deduct from batch
-            const quantity = i.unitsDeducted || i.quantity || 1;
-            const total = quantity * price;
-    
-            // CRITICAL FIX: Include batchId in sale_items if available
-            // Check if batchId column exists in sale_items table
-            let batchIdForItem = null;
-            if (i.batchId) {
-              batchIdForItem = i.batchId;
-            } else if (batchToUpdate) {
-              batchIdForItem = batchToUpdate.id;
+
+          const subtotal = resolvedItems.reduce((sum, r) => sum + r.total, 0);
+
+          const finalDiscount = discountAmount || (discountPercentage ? (subtotal * discountPercentage / 100) : discount);
+          const taxAmount = tax || 0;
+          const grandTotal = subtotal - finalDiscount + taxAmount;
+
+          console.log('[Sales] Creating sale:', { id, invoiceNumber, subtotal, grandTotal, itemsCount: resolvedItems.length, customerId: finalCustomerId });
+
+          // CRITICAL FIX: Use paymentStatus from request or default to COMPLETED, match backend logic
+          const finalPaymentStatus = paymentStatus ? paymentStatus.toUpperCase() : 'COMPLETED';
+          const finalSaleStatus = finalPaymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
+
+          // Calculate paidAmount and returnedAmount
+          const paidAmount = req.body.paidAmount || (finalPaymentStatus === 'COMPLETED' ? grandTotal : 0);
+          const returnedAmount = req.body.returnedAmount || Math.max(0, paidAmount - grandTotal);
+
+          // ============================================================
+          // APPLY PHASE — all-or-nothing (B-7). The sale row is written
+          // only now, after every validation passed. If any write fails,
+          // the compensating rollback restores batch/product stock and
+          // deletes the partial sale + items, so a failed sale can never
+          // leave phantom revenue behind.
+          // ============================================================
+          const saleItems = [];
+          const appliedBatchDeductions = [];
+          const appliedProductDeductions = [];
+          let saleRowInserted = false;
+          try {
+            const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, subtotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp]);
+
+            if (!success) {
+              throw new Error('Failed to insert sale');
             }
-    
-            // Try to insert with batchId if column exists, otherwise insert without it
-            try {
-              // First try with batchId
-              run('INSERT INTO sale_items (id, saleId, productId, batchId, quantity, unitPrice, discount, total, createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
-                [itemId, id, i.productId, batchIdForItem, quantity, price, i.discount || 0, total, timestamp]);
-            } catch (e) {
-              // If batchId column doesn't exist, insert without it
-              if (e.message && e.message.includes('no such column: batchId')) {
-                console.log('[Sales] batchId column not found in sale_items, inserting without it');
-                run('INSERT INTO sale_items (id, saleId, productId, quantity, unitPrice, discount, total, createdAt) VALUES (?,?,?,?,?,?,?,?)',
-                  [itemId, id, i.productId, quantity, price, i.discount || 0, total, timestamp]);
-              } else {
-                throw e; // Re-throw if it's a different error
+            saleRowInserted = true;
+
+            for (const r of resolvedItems) {
+              const itemId = uuid();
+              const itemOk = run('INSERT INTO sale_items (id, saleId, productId, batchId, quantity, unitPrice, discount, total, createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
+                [itemId, id, r.productId, r.batchId, r.quantity, r.unitPrice, r.discount, r.total, timestamp]);
+              if (!itemOk) throw new Error(`Failed to insert sale item for product ${r.productId}`);
+
+              // Product stock mirror (B-10: products.quantity tracks the stock)
+              const productOk = run('UPDATE products SET quantity = quantity - ? WHERE id = ?', [r.quantity, r.productId]);
+              if (!productOk) throw new Error(`Failed to deduct product stock for product ${r.productId}`);
+              appliedProductDeductions.push({ productId: r.productId, qty: r.quantity });
+              console.log('[Sales] ✅ Deducted', r.quantity, 'units from product', r.productId);
+
+              for (const d of r.deductions) {
+                const batchOk = run('UPDATE batches SET quantity = quantity - ? WHERE id = ?', [d.qty, d.batchId]);
+                if (!batchOk) throw new Error(`Failed to deduct batch stock for batch ${d.batchId}`);
+                appliedBatchDeductions.push(d);
+                console.log('[Sales] ✅ Deducted', d.qty, 'units from batch', d.batchId);
               }
+
+              // Stock movement. The desktop stock_movements schema uses
+              // referenceId/referenceType — the previous insert named a
+              // non-existent `reference` column, so movements silently never
+              // recorded (run() swallows SQL errors).
+              run('INSERT INTO stock_movements (id, productId, type, quantity, reason, referenceId, referenceType, branchId, companyId, createdBy, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                [uuid(), r.productId, 'OUT', r.quantity, 'Sale', id, 'SALE', finalBranchId || null, finalCompanyId || null, req.user?.id || null, timestamp]);
+
+              const product = query('SELECT id, name, unitPrice, sellingPrice FROM products WHERE id = ?', [r.productId])[0];
+              saleItems.push({
+                id: itemId,
+                productId: r.productId,
+                quantity: r.quantity,
+                unitPrice: r.unitPrice,
+                totalPrice: r.total,
+                product: product || { id: r.productId, name: r.productName || 'Unknown', unitType: 'PIECE' }
+              });
             }
-    
-            // CRITICAL: Update product stock - ensure quantity is parsed as number
-            const saleQuantity = parseFloat(quantity) || 0;
-            if (saleQuantity > 0) {
-              const productUpdate = run('UPDATE products SET quantity = quantity - ? WHERE id = ?', [saleQuantity, i.productId]);
-              if (productUpdate) {
-                console.log('[Sales] ✅ Deducted', saleQuantity, 'units from product', i.productId);
-              } else {
-                console.error('[Sales] ❌ Failed to deduct product stock for productId:', i.productId, 'quantity:', saleQuantity);
-              }
-            } else {
-              console.warn('[Sales] ⚠️ Invalid quantity for sale item:', i);
+          } catch (applyError) {
+            console.error('[Sales] ❌ Apply phase failed, rolling back sale', id, '-', applyError.message);
+            for (const d of appliedBatchDeductions) {
+              run('UPDATE batches SET quantity = quantity + ? WHERE id = ?', [d.qty, d.batchId]);
             }
-    
-            // Update batch stock (match backend - FIFO logic)
-            // CRITICAL FIX: Use the batch we found during stock check, or find it again
-            let batchToUpdate = null;
-    
-            if (i.batchId) {
-              // CRITICAL: Use provided batch ID - verify it's not reported or expired
-              batchToUpdate = query('SELECT id, quantity, isReported, expireDate FROM batches WHERE id = ? AND isActive = 1', [i.batchId])[0];
-              if (batchToUpdate) {
-                // CRITICAL: Check if batch is reported
-                if (batchToUpdate.isReported === 1 || batchToUpdate.isReported === true || batchToUpdate.isReported === 'true') {
-                  console.error(`[Sales] ❌ Batch ${i.batchId} is reported and cannot be sold`);
-                  throw new Error(`Batch ${i.batchId} is reported and cannot be sold`);
-                }
-    
-                // CRITICAL: Check if batch is expired
-                if (batchToUpdate.expireDate) {
-                  const expireDate = new Date(batchToUpdate.expireDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (expireDate < today) {
-                    console.error(`[Sales] ❌ Batch ${i.batchId} is expired (expiry: ${batchToUpdate.expireDate}) and cannot be sold`);
-                    throw new Error(`Batch ${i.batchId} is expired and cannot be sold`);
-                  }
-                }
-    
-                const batchUpdate = run('UPDATE batches SET quantity = quantity - ? WHERE id = ?', [saleQuantity, i.batchId]);
-                if (batchUpdate) {
-                  console.log('[Sales] ✅ Deducted', saleQuantity, 'units from batch', i.batchId);
-                } else {
-                  console.error('[Sales] ❌ Failed to deduct batch stock for batchId:', i.batchId);
-                }
-              } else {
-                console.warn(`[Sales] Batch ${i.batchId} not found for update, skipping batch update`);
-              }
-            } else if (i.batchNumber) {
-              // CRITICAL: Find batch by batch number - exclude reported/expired batches
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              // Try to find in correct branch first, then fallback
-              batchToUpdate = query('SELECT id, quantity, isReported, expireDate FROM batches WHERE batchNo = ? AND productId = ? AND (branchId = ? OR branchId IS NULL) AND quantity >= ? AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
-                [i.batchNumber, i.productId, finalBranchId, quantity])[0];
-    
-              // Check if found batch is expired
-              if (batchToUpdate && batchToUpdate.expireDate) {
-                const expireDate = new Date(batchToUpdate.expireDate);
-                if (expireDate < today) {
-                  batchToUpdate = null; // Mark as not found if expired
-                }
-              }
-    
-              if (!batchToUpdate) {
-                // Try without branch restriction
-                batchToUpdate = query('SELECT id, quantity, isReported, expireDate FROM batches WHERE batchNo = ? AND productId = ? AND quantity >= ? AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
-                  [i.batchNumber, i.productId, quantity])[0];
-    
-                // Check if found batch is expired
-                if (batchToUpdate && batchToUpdate.expireDate) {
-                  const expireDate = new Date(batchToUpdate.expireDate);
-                  if (expireDate < today) {
-                    batchToUpdate = null;
-                  }
-                }
-              }
-    
-              if (batchToUpdate) {
-                const batchUpdate = run('UPDATE batches SET quantity = quantity - ? WHERE id = ?', [saleQuantity, batchToUpdate.id]);
-                if (batchUpdate) {
-                  console.log('[Sales] ✅ Deducted', saleQuantity, 'units from batch', batchToUpdate.id);
-                } else {
-                  console.error('[Sales] ❌ Failed to deduct batch stock for batchId:', batchToUpdate.id);
-                }
-              } else {
-                console.warn(`[Sales] Batch ${i.batchNumber} not found for product ${i.productId} (may be reported/expired), using FIFO`);
-                // Fall through to FIFO logic
-              }
+            for (const d of appliedProductDeductions) {
+              run('UPDATE products SET quantity = quantity + ? WHERE id = ?', [d.qty, d.productId]);
             }
-    
-            // CRITICAL: FIFO: Use first available batch if no batch was found/specified
-            // Exclude reported and expired batches
-            if (!batchToUpdate) {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const batch = query('SELECT id, quantity, isReported, expireDate FROM batches WHERE productId = ? AND (branchId = ? OR branchId IS NULL) AND quantity > 0 AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC LIMIT 1',
-                [i.productId, finalBranchId])[0];
-    
-              // Check if batch is expired
-              let validBatch = batch;
-              if (batch && batch.expireDate) {
-                const expireDate = new Date(batch.expireDate);
-                if (expireDate < today) {
-                  validBatch = null; // Mark as not found if expired
-                }
-              }
-    
-              if (validBatch) {
-                const batchQuantity = validBatch.quantity || 0;
-                if (batchQuantity >= saleQuantity) {
-                  const batchUpdate = run('UPDATE batches SET quantity = quantity - ? WHERE id = ?', [saleQuantity, validBatch.id]);
-                  if (batchUpdate) {
-                    console.log('[Sales] ✅ Deducted', saleQuantity, 'units from batch', validBatch.id, '(FIFO)');
-                  } else {
-                    console.error('[Sales] ❌ Failed to deduct batch stock for batchId:', validBatch.id);
-                  }
-                  batchToUpdate = validBatch;
-                } else {
-                  // Use multiple batches if needed (excluding reported/expired)
-                  let remaining = saleQuantity;
-                  const batches = query('SELECT id, quantity, isReported, expireDate FROM batches WHERE productId = ? AND (branchId = ? OR branchId IS NULL) AND quantity > 0 AND isActive = 1 AND (isReported IS NULL OR isReported = 0) ORDER BY expireDate ASC',
-                    [i.productId, finalBranchId]);
-                  // Filter out expired batches
-                  const validBatches = batches.filter(b => {
-                    if (b.expireDate) {
-                      const expireDate = new Date(b.expireDate);
-                      return expireDate >= today;
-                    }
-                    return true; // No expiry date means not expired
-                  });
-    
-                  for (const b of validBatches) {
-                    if (remaining <= 0) break;
-                    const useQty = Math.min(remaining, b.quantity);
-                    const batchUpdate = run('UPDATE batches SET quantity = quantity - ? WHERE id = ?', [useQty, b.id]);
-                    if (batchUpdate) {
-                      console.log('[Sales] ✅ Deducted', useQty, 'units from batch', b.id, '(FIFO multi-batch)');
-                    } else {
-                      console.error('[Sales] ❌ Failed to deduct batch stock for batchId:', b.id);
-                    }
-                    remaining -= useQty;
-                  }
-                }
-              }
-            }
-    
-            // Create stock movement (match backend)
-            const stockMovementId = uuid();
-            run('INSERT INTO stock_movements (id, productId, type, quantity, reason, reference, createdBy, createdAt) VALUES (?,?,?,?,?,?,?,?)',
-              [stockMovementId, i.productId, 'OUT', saleQuantity, 'Sale', id, req.user?.id || null, timestamp]);
-    
-            const product = query('SELECT id, name, unitPrice, sellingPrice FROM products WHERE id = ?', [i.productId])[0];
-            return {
-              id: itemId,
-              productId: i.productId,
-              quantity: quantity,
-              unitPrice: price,
-              totalPrice: total,
-              product: product || { id: i.productId, name: i.name || 'Unknown', unitType: 'PIECE' }
-            };
-          });
+            run('DELETE FROM stock_movements WHERE referenceId = ?', [id]);
+            run('DELETE FROM sale_items WHERE saleId = ?', [id]);
+            if (saleRowInserted) run('DELETE FROM sales WHERE id = ?', [id]);
+            saveDatabase();
+            return res.status(500).json({ success: false, message: 'Failed to create sale: ' + applyError.message });
+          }
     
           // CRITICAL: Update customer data after sale
           if (finalCustomerId) {

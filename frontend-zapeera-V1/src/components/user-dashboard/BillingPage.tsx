@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ function fmtDate(iso?: string | null): string {
 
 const BillingPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user } = useAuth();
   const { allCompanies } = useAdmin();
   const [history, setHistory] = useState<BillingRecord[]>([]);
@@ -100,12 +102,14 @@ const BillingPage = () => {
 
   const handleDownload = async (invoiceId: string) => {
     try {
-      const res = await apiService.downloadInvoice(invoiceId);
-      if (res.success && res.data?.downloadUrl) {
-        window.open(res.data.downloadUrl, "_blank", "noopener,noreferrer");
-      }
-    } catch (e) {
+      await apiService.downloadInvoiceFile(invoiceId);
+    } catch (e: any) {
       console.error("Failed to download invoice:", e);
+      toast({
+        title: "Invoice download failed",
+        description: e?.message || "Could not download this invoice. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

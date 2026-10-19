@@ -482,7 +482,7 @@ const SubscriptionManagement = () => {
       const response = await apiService.addPaymentMethod(newCardData);
 
       if (response.success) {
-        setPaymentMethods((prev) => [...prev, response.data as PaymentMethod]);
+        setPaymentMethods((prev) => [...prev, { ...(response.data as PaymentMethod), holderName: newCardData.holderName }]);
         setNewCardData({
           type: "card",
           last4: "",
@@ -532,17 +532,34 @@ const SubscriptionManagement = () => {
     if (!editingCard) return;
 
     try {
-      setPaymentMethods((prev) =>
-        prev.map((method) => (method.id === editingCard.id ? { ...method, ...newCardData } : method))
-      );
+      const response = await apiService.updatePaymentMethod(editingCard.id, newCardData);
 
-      setIsEditCardOpen(false);
-      setEditingCard(null);
+      if (response.success && response.data) {
+        const updated = response.data as unknown as PaymentMethod;
+        setPaymentMethods((prev) =>
+          prev.map((method) =>
+            method.id === editingCard.id
+              ? { ...method, ...updated, holderName: method.holderName }
+              : updated.isDefault
+                ? { ...method, isDefault: false }
+                : method
+          )
+        );
 
-      toast({
-        title: "Success",
-        description: "Payment method updated successfully",
-      });
+        setIsEditCardOpen(false);
+        setEditingCard(null);
+
+        toast({
+          title: "Success",
+          description: "Payment method updated successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update payment method",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error updating payment method:", error);
       toast({
@@ -612,11 +629,21 @@ const SubscriptionManagement = () => {
     }
   };
 
-  const handleDownloadInvoice = (invoiceNumber: string) => {
-    toast({
-      title: "Download Invoice",
-      description: `Downloading ${invoiceNumber}...`,
-    });
+  const handleDownloadInvoice = async (payment: PaymentHistory) => {
+    try {
+      await apiService.downloadInvoiceFile(payment.id);
+      toast({
+        title: "Download Invoice",
+        description: `Invoice ${payment.invoiceNumber} downloaded`,
+      });
+    } catch (error: any) {
+      console.error("Error downloading invoice:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to download invoice",
+        variant: "destructive",
+      });
+    }
   };
 
   const openAddBilling = () => {
@@ -1143,7 +1170,7 @@ const SubscriptionManagement = () => {
                         <td className="px-6 py-4 text-right">
                           <button
                             type="button"
-                            onClick={() => handleDownloadInvoice(payment.invoiceNumber)}
+                            onClick={() => handleDownloadInvoice(payment)}
                             className="inline-flex items-center gap-1 text-sm font-bold text-[#007bff] transition-colors hover:text-blue-700"
                           >
                             <Download className="h-4 w-4" />

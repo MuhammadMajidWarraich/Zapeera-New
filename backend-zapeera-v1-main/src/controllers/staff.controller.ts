@@ -5,6 +5,7 @@ import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middlewa
 import { isBusinessCreator } from '../utils/membership-bridge.util';
 import Joi from 'joi';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import logger from '../utils/logger';
 
 const createStaffSchema = Joi.object({
@@ -336,6 +337,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     }
 
     let user: any = null;
+    let generatedStaffPassword: string | null = null;
 
     if (userId) {
       // Existing user selected from the search step
@@ -354,9 +356,17 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       user = await prisma.zapeeraUser.findUnique({ where: { email } });
 
       if (!user) {
-        const hashedPassword = password
-          ? await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || '12'))
-          : await bcrypt.hash('Staff@123', parseInt(process.env.BCRYPT_ROUNDS || '12'));
+        // SECURITY (E2E C-4): never fall back to a known default password.
+        // When the creator supplies none, generate a one-time random
+        // password and return it once in the creation response so the
+        // owner can hand it to the staff member personally.
+        generatedStaffPassword = password
+          ? null
+          : randomBytes(12).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + '@1';
+        const hashedPassword = await bcrypt.hash(
+          password || (generatedStaffPassword as string),
+          parseInt(process.env.BCRYPT_ROUNDS || '12')
+        );
 
         user = await prisma.zapeeraUser.create({
           data: {
@@ -538,6 +548,9 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     return res.status(201).json({
       success: true,
       data: flatData,
+      // Present only when the server generated the staff member's first
+      // password (E2E C-4) — shown once so the owner can hand it over.
+      ...(generatedStaffPassword ? { temporaryPassword: generatedStaffPassword } : {}),
       message: 'Staff created successfully'
     });
   } catch (error) {

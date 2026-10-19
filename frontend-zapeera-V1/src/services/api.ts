@@ -23,6 +23,31 @@ interface ApiResponse<T> {
   message?: string;
 }
 
+export interface SupportTicketMessageItem {
+  id: string;
+  ticketId: string;
+  authorType: 'TENANT' | 'ADMIN';
+  authorId?: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  businessId?: string | null;
+  businessName?: string | null;
+  userId?: string | null;
+  subject: string;
+  description: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  assignedTo?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages?: SupportTicketMessageItem[];
+  _count?: { messages: number };
+}
+
 export class ApiService {
   private baseURL: string;
   private timeout: number;
@@ -1611,36 +1636,262 @@ export class ApiService {
     endDate?: string;
     branchId?: string;
     companyId?: string;
+    categoryId?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    omitBranchContext?: boolean;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
+        if (value !== undefined && key !== 'omitBranchContext') {
           queryParams.append(key, value.toString());
         }
       });
     }
 
     const query = queryParams.toString();
+    const requestOptions: RequestInit & { headers?: Record<string, string> } = params?.omitBranchContext
+      ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+      : {};
     return this.request<{
       expenses: Array<{
         id: string;
+        title: string;
         amount: number;
         category: string;
-        description: string;
+        categoryId?: string | null;
+        categoryRef?: { id: string; name: string } | null;
+        description?: string | null;
+        vendor?: string | null;
         date: string;
-        branchId?: string;
+        expenseDate: string;
+        paymentMethod: string;
+        reference?: string | null;
+        status: string;
+        branchId?: string | null;
         companyId?: string;
+        branch?: { id: string; name: string } | null;
+        createdBy?: string | null;
+        createdAt: string;
+        updatedAt: string;
       }>;
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
       summary: {
         totalExpenses: number;
         byCategory: Array<{
+          categoryId?: string | null;
           category: string;
           total: number;
           count: number;
         }>;
       };
-    }>(`/expenses${query ? `?${query}` : ''}`);
+    }>(`/expenses${query ? `?${query}` : ''}`, requestOptions);
+  }
+
+  async createExpense(expenseData: {
+    title?: string;
+    description?: string;
+    vendor?: string;
+    amount: number;
+    expenseDate: string;
+    paymentMethod?: string;
+    reference?: string;
+    status?: string;
+    categoryId?: string | null;
+    branchId?: string | null;
+  }) {
+    return this.request<{
+      id: string;
+      title: string;
+      description?: string | null;
+      vendor?: string | null;
+      amount: number;
+      expenseDate: string;
+      date: string;
+      paymentMethod: string;
+      reference?: string | null;
+      status: string;
+      categoryId?: string | null;
+      branchId?: string | null;
+      companyId: string;
+      createdAt: string;
+      updatedAt: string;
+    }>('/expenses', {
+      method: 'POST',
+      body: JSON.stringify(expenseData),
+      // An explicit null branchId means a company-level expense: stop the
+      // request helper from attaching the globally selected branch instead.
+      ...(expenseData.branchId === null
+        ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+        : {}),
+    });
+  }
+
+  async updateExpense(expenseId: string, expenseData: {
+    title?: string;
+    description?: string;
+    vendor?: string;
+    amount?: number;
+    expenseDate?: string;
+    paymentMethod?: string;
+    reference?: string;
+    status?: string;
+    categoryId?: string | null;
+    branchId?: string | null;
+  }) {
+    return this.request<{
+      id: string;
+      title: string;
+      description?: string | null;
+      vendor?: string | null;
+      amount: number;
+      expenseDate: string;
+      date: string;
+      paymentMethod: string;
+      reference?: string | null;
+      status: string;
+      categoryId?: string | null;
+      branchId?: string | null;
+      companyId: string;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/expenses/${expenseId}`, {
+      method: 'PUT',
+      body: JSON.stringify(expenseData),
+    });
+  }
+
+  async deleteExpense(expenseId: string) {
+    return this.request<{ success: boolean; message: string }>(`/expenses/${expenseId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getExpenseCategories(params?: {
+    search?: string;
+    branchId?: string;
+    isActive?: boolean;
+    omitBranchContext?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && key !== 'omitBranchContext') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const query = queryParams.toString();
+    const requestOptions: RequestInit & { headers?: Record<string, string> } = params?.omitBranchContext
+      ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+      : {};
+    return this.request<{
+      categories: Array<{
+        id: string;
+        name: string;
+        description?: string | null;
+        companyId: string;
+        branchId?: string | null;
+        isActive: boolean;
+        createdAt: string;
+        updatedAt: string;
+        _count?: { expenses: number };
+      }>;
+    }>(`/expenses/categories${query ? `?${query}` : ''}`, requestOptions);
+  }
+
+  async createExpenseCategory(categoryData: {
+    name: string;
+    description?: string;
+    branchId?: string | null;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string | null;
+      companyId: string;
+      branchId?: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>('/expenses/categories', {
+      method: 'POST',
+      body: JSON.stringify(categoryData),
+    });
+  }
+
+  async updateExpenseCategory(categoryId: string, categoryData: {
+    name?: string;
+    description?: string;
+    branchId?: string | null;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string | null;
+      companyId: string;
+      branchId?: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/expenses/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(categoryData),
+    });
+  }
+
+  async deleteExpenseCategory(categoryId: string) {
+    return this.request<{ success: boolean; message: string }>(`/expenses/categories/${categoryId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ─── Support tickets ─────────────────────────────────────────────────────
+  // Backed by /api/support/tickets (see backend controllers/support.controller.ts).
+  // Tenancy is resolved server-side from the authenticated user + the
+  // business context this service attaches — no businessId is ever sent.
+
+  async getSupportTickets(params?: { status?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<{
+      tickets: SupportTicketItem[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>(`/support/tickets${query ? `?${query}` : ''}`);
+  }
+
+  async createSupportTicket(ticketData: { subject: string; description: string; priority?: string }) {
+    return this.request<SupportTicketItem>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(ticketData),
+    });
+  }
+
+  async getSupportTicket(ticketId: string) {
+    return this.request<SupportTicketItem>(`/support/tickets/${ticketId}`);
+  }
+
+  async replyToSupportTicket(ticketId: string, body: string) {
+    return this.request<SupportTicketMessageItem>(`/support/tickets/${ticketId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    });
   }
 
   private buildAdvancedReportQuery(params?: any) {
@@ -4442,6 +4693,29 @@ export class ApiService {
     });
   }
 
+  async updatePaymentMethod(methodId: string, paymentMethodData: {
+    last4?: string;
+    brand?: string;
+    expiryMonth?: number;
+    expiryYear?: number;
+    holderName?: string;
+    isDefault?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      type: string;
+      last4: string;
+      brand: string;
+      expiryMonth: number;
+      expiryYear: number;
+      isDefault: boolean;
+      createdAt: string;
+    }>(`/subscription/payment-methods/${methodId}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentMethodData),
+    });
+  }
+
   async setDefaultPaymentMethod(methodId: string) {
     return this.request<{ message: string }>(`/subscription/payment-methods/${methodId}/default`, {
       method: 'PUT',
@@ -4466,11 +4740,55 @@ export class ApiService {
     }>>('/subscription/billing-history');
   }
 
-  async downloadInvoice(invoiceId: string) {
-    return this.request<{
-      invoiceId: string;
-      downloadUrl: string;
-    }>(`/subscription/invoices/${invoiceId}/download`);
+  /**
+   * Download a real invoice document for a billing-history record.
+   * The endpoint returns an HTML file (not JSON), so this uses a raw fetch
+   * with the same auth headers as submitPaymentProof, saves the blob via an
+   * anchor download, and throws an Error carrying the server's message when
+   * the invoice does not exist or is not accessible.
+   */
+  async downloadInvoiceFile(invoiceId: string): Promise<void> {
+    const headers = new Headers();
+    const token = this._accessToken
+      || (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    try {
+      const ctx = this.contextGetter ? this.contextGetter() : null;
+      if (ctx?.companyId) headers.set('X-Business-ID', String(ctx.companyId));
+    } catch { /* ignore */ }
+
+    const response = await fetch(`${this.baseURL}/subscription/invoices/${invoiceId}/download`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let message = `Failed to download invoice (${response.status})`;
+      try {
+        const data = await response.json();
+        if (data?.message) message = data.message;
+      } catch { /* non-JSON error body */ }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match?.[1] || `invoice-${invoiceId}.html`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
   async getPricingPlans() {

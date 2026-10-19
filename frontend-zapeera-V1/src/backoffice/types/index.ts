@@ -209,16 +209,40 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface SupportTicketMessage {
+  id: string;
+  ticketId: string;
+  authorType: 'TENANT' | 'ADMIN';
+  authorId?: string | null;
+  body: string;
+  createdAt: string;
+}
+
 export interface SupportTicket {
   id: string;
-  businessId?: string;
-  userId?: string;
+  businessId?: string | null;
+  businessName?: string | null;
+  userId?: string | null;
+  user?: { id: string; name: string; email: string; username: string } | null;
   subject: string;
   description: string;
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-  assignedTo?: string;
-  createdBy: string;
+  assignedTo?: string | null;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: SupportTicketMessage[];
+  _count?: { messages: number };
+}
+
+export interface ContentPage {
+  id: string;
+  slug: string;
+  title: string;
+  body: string;
+  status: 'DRAFT' | 'PUBLISHED';
+  createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -228,7 +252,9 @@ export interface Announcement {
   title: string;
   content: string;
   type: 'INFO' | 'WARNING' | 'MAINTENANCE' | 'UPDATE';
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  // Status vocabulary follows the backend Announcement model
+  // (ACTIVE = visible, INACTIVE = hidden/draft, ARCHIVED = retired).
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
   publishedAt?: string;
   createdBy: string;
   createdAt: string;

@@ -736,18 +736,69 @@ export const getAdvancedExpenseReport = async (req: AuthRequest, res: Response) 
     const scope = buildBranchWhereClause(req, {});
     const { branchId } = req.query as any;
 
-    // No expense model exists yet; expenses come from purchases outstanding as proxy
-    const purchaseWhere: any = { createdAt: { gte: dateFilter.gte, lte: dateFilter.lte } };
-    if (scope.companyId) purchaseWhere.companyId = scope.companyId;
-    if (branchId) purchaseWhere.branchId = branchId;
-    else if (scope.branchId) purchaseWhere.branchId = scope.branchId;
+    // Real Expense table (A-1/A-5 fix): expenses are no longer proxied from
+    // purchases. Scope/branch handling matches the other advanced reports;
+    // the date range applies to expenseDate (when the cost was incurred).
+    const expenseWhere: any = { expenseDate: { gte: dateFilter.gte, lte: dateFilter.lte } };
+    if (scope.companyId) expenseWhere.companyId = scope.companyId;
+    if (branchId) expenseWhere.branchId = branchId;
+    else if (scope.branchId) expenseWhere.branchId = scope.branchId;
 
-    const [purchases, sales] = await Promise.all([
-      prisma.purchase.aggregate({ where: purchaseWhere, _sum: { totalAmount: true, outstanding: true }, _count: { id: true } }),
-      prisma.sale.aggregate({ where: buildSaleWhere(req, dateFilter), _sum: { discountAmount: true } }),
+    const [totalAggregate, groupedByCategory, expensesInRange] = await Promise.all([
+      prisma.expense.aggregate({ where: expenseWhere, _sum: { amount: true }, _count: { id: true } }),
+      prisma.expense.groupBy({
+        by: ['categoryId'],
+        where: expenseWhere,
+        _sum: { amount: true },
+        _count: { id: true }
+      }),
+      prisma.expense.findMany({
+        where: expenseWhere,
+        select: { expenseDate: true, amount: true },
+        orderBy: { expenseDate: 'asc' }
+      })
     ]);
 
-    const totalExpenses = (purchases._sum?.totalAmount || 0);
+    const totalExpenses = totalAggregate._sum?.amount || 0;
+
+    // Totals by category (names resolved from the ExpenseCategory table).
+    const categoryIds = groupedByCategory
+      .map((g: any) => g.categoryId)
+      .filter((id: any): id is string => typeof id === 'string' && id !== '');
+    const categoryRows = categoryIds.length > 0
+      ? await prisma.expenseCategory.findMany({
+          where: { id: { in: categoryIds } },
+          select: { id: true, name: true }
+        })
+      : [];
+    const categoryNameById = new Map(categoryRows.map((c: any) => [c.id, c.name]));
+    const byCategory = groupedByCategory
+      .map((g: any) => ({
+        categoryId: g.categoryId || null,
+        category: g.categoryId ? (categoryNameById.get(g.categoryId) || 'Uncategorized') : 'Uncategorized',
+        total: g._sum?.amount || 0,
+        count: g._count?.id || 0
+      }))
+      .sort((a: any, b: any) => b.total - a.total);
+
+    // Totals by period (calendar month, YYYY-MM).
+    const periodMap: Record<string, { total: number; count: number }> = {};
+    expensesInRange.forEach((expense: any) => {
+      const d = new Date(expense.expenseDate);
+      if (isNaN(d.getTime())) return;
+      const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!periodMap[period]) periodMap[period] = { total: 0, count: 0 };
+      periodMap[period].total += expense.amount || 0;
+      periodMap[period].count += 1;
+    });
+    const byPeriod = Object.entries(periodMap)
+      .map(([period, values]) => ({ period, total: values.total, count: values.count }))
+      .sort((a: any, b: any) => a.period.localeCompare(b.period));
+
+    // Response shape preserved for the frontend (AdvancedReports expense
+    // tab reads summary.*). Recorded expenses are operating costs; the data
+    // model has no fixed/variable classification, so fixedCosts stays 0 and
+    // variableCosts carries the total — now from real expense rows.
     const operatingCosts = totalExpenses;
     const fixedCosts = 0;
     const variableCosts = totalExpenses;
@@ -756,6 +807,8 @@ export const getAdvancedExpenseReport = async (req: AuthRequest, res: Response) 
       success: true,
       data: {
         summary: { totalExpenses, operatingCosts, fixedCosts, variableCosts },
+        byCategory,
+        byPeriod,
       },
     });
   } catch (error: any) {

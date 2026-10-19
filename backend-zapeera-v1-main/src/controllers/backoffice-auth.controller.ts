@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getPrisma } from '../utils/db.util';
-import { logAdminLogin } from '../middleware/admin-auth.middleware';
+import { logAdminLogin, logAdminAction } from '../middleware/admin-auth.middleware';
 import { isLocked, recordFailedAttempt, clearFailedAttempts } from '../utils/account-lockout.util';
 import { generateCSRFToken } from '../middleware/csrf.middleware';
 
@@ -260,6 +260,139 @@ export const getAdminProfile = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Get admin profile error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+/**
+ * Update current admin profile (PUT /backoffice/auth/profile)
+ *
+ * The BackOfficeUser model has no display-name field, so the only profile
+ * fields are email and password. Any change requires the caller to prove
+ * possession of the current password. The change is persisted to the
+ * BackOfficeUser row and written to the admin action log.
+ */
+export const updateAdminProfile = async (req: Request, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const adminId = (req as any).admin?.id;
+
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+    }
+
+    const { email, currentPassword, newPassword } = req.body || {};
+
+    const wantsEmailChange = typeof email === 'string' && email.trim().length > 0;
+    const wantsPasswordChange = typeof newPassword === 'string' && newPassword.length > 0;
+
+    if (!wantsEmailChange && !wantsPasswordChange) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nothing to update: provide a new email and/or a new password'
+      });
+    }
+
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required to update your profile'
+      });
+    }
+
+    const admin = await prisma.backOfficeUser.findUnique({
+      where: { id: adminId }
+    });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, admin.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(403).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    const data: { email?: string; password?: string } = {};
+    const changes: string[] = [];
+
+    if (wantsEmailChange) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid email address'
+        });
+      }
+      if (normalizedEmail !== admin.email) {
+        const existing = await prisma.backOfficeUser.findUnique({
+          where: { email: normalizedEmail }
+        });
+        if (existing && existing.id !== adminId) {
+          return res.status(409).json({
+            success: false,
+            message: 'Another admin account already uses this email'
+          });
+        }
+        data.email = normalizedEmail;
+        changes.push('email');
+      }
+    }
+
+    if (wantsPasswordChange) {
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 8 characters long'
+        });
+      }
+      // Keep backoffice hashing aligned with the rest of the backend (12 rounds)
+      const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+      data.password = await bcrypt.hash(newPassword, rounds);
+      changes.push('password');
+    }
+
+    if (changes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No changes detected'
+      });
+    }
+
+    const updated = await prisma.backOfficeUser.update({
+      where: { id: adminId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true
+      }
+    });
+
+    await logAdminAction(adminId, 'UPDATE_PROFILE', 'BackOfficeUser', adminId, { changes });
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updated
+    });
+  } catch (error: any) {
+    console.error('Update admin profile error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

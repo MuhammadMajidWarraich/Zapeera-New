@@ -870,11 +870,36 @@ export const updateBusinessEntitlements = async (req: AuthRequest, res: Response
 };
 
 
-// Add payment method
+const updatePaymentMethodSchema = Joi.object({
+  last4: Joi.string().length(4).optional(),
+  brand: Joi.string().optional(),
+  expiryMonth: Joi.number().min(1).max(12).optional(),
+  expiryYear: Joi.number().min(new Date().getFullYear()).optional(),
+  holderName: Joi.string().optional(), // accepted for client compatibility; not persisted (no column)
+  isDefault: Joi.boolean().optional()
+});
+
+// Shape a persisted card_details row for API responses. Only fields that are
+// actually stored are returned — nothing is fabricated.
+const toPaymentMethodResponse = (card: any) => ({
+  id: card.id,
+  type: 'card' as const,
+  last4: card.last4,
+  brand: card.brand,
+  expiryMonth: card.expiryMonth,
+  expiryYear: card.expiryYear,
+  isDefault: card.isDefault,
+  createdAt: card.createdAt instanceof Date ? card.createdAt.toISOString() : card.createdAt
+});
+
+// Add payment method — persisted to the card_details table (the same store
+// billing profiles reference). Only card methods can be saved: there is no
+// storage model for bank/mobile wallets, and no card gateway is integrated,
+// so this records card metadata (last4/brand/expiry) only, never PAN data.
 export const addPaymentMethod = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
-    const { error } = addPaymentMethodSchema.validate(req.body);
+  try {
+    const prisma = await getPrisma();
+    const { error, value } = addPaymentMethodSchema.validate(req.body);
     if (error) {
       res.status(400).json({
         success: false,
@@ -885,19 +910,53 @@ try {
     }
 
     const userId = (req as any).user?.id;
-    const paymentMethodData = req.body;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+      return;
+    }
 
-    // In real app, this would add the payment method to a payment service
-    const newPaymentMethod = {
-      id: `pm_${Date.now()}`,
-      ...paymentMethodData,
-      createdAt: new Date().toISOString()
-    };
+    if (value.type !== 'card') {
+      res.status(400).json({
+        success: false,
+        message: 'Only card payment methods can be saved. Bank transfer, EasyPaisa and JazzCash payments are made per invoice via the payment-proof flow.',
+        code: 'UNSUPPORTED_PAYMENT_METHOD_TYPE'
+      });
+      return;
+    }
+
+    if (value.isDefault) {
+      await prisma.cardDetails.updateMany({
+        where: { userId },
+        data: { isDefault: false, updatedAt: new Date() }
+      });
+    }
+
+    const now = new Date();
+    const card = await prisma.cardDetails.create({
+      data: {
+        id: `card_${crypto.randomUUID()}`,
+        userId,
+        last4: value.last4,
+        brand: value.brand,
+        expiryMonth: value.expiryMonth,
+        expiryYear: value.expiryYear,
+        isDefault: Boolean(value.isDefault),
+        createdAt: now,
+        updatedAt: now
+      }
+    });
+
+    await syncAfterOperation('cardDetails', 'create', card).catch(err =>
+      console.warn('[Sync] CardDetails create sync failed:', err.message)
+    );
 
     res.status(201).json({
       success: true,
       message: 'Payment method added successfully',
-      data: newPaymentMethod
+      data: toPaymentMethodResponse(card)
     });
   } catch (error) {
     console.error('Add payment method error:', error);
@@ -908,10 +967,10 @@ try {
   }
 };
 
-// Set default payment method
-export const setDefaultPaymentMethod = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
+// Update payment method — persisted to card_details (owner only)
+export const updatePaymentMethod = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const prisma = await getPrisma();
     const { methodId } = req.params;
     const userId = (req as any).user?.id;
 
@@ -923,10 +982,108 @@ try {
       return;
     }
 
-    // In real app, this would update the default payment method in a payment service
+    const { error, value } = updatePaymentMethodSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(detail => detail.message)
+      });
+      return;
+    }
+
+    const existing = await prisma.cardDetails.findFirst({
+      where: { id: methodId, userId }
+    });
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        message: 'Payment method not found'
+      });
+      return;
+    }
+
+    if (value.isDefault) {
+      await prisma.cardDetails.updateMany({
+        where: { userId, id: { not: methodId } },
+        data: { isDefault: false, updatedAt: new Date() }
+      });
+    }
+
+    const card = await prisma.cardDetails.update({
+      where: { id: methodId },
+      data: {
+        ...(value.last4 !== undefined ? { last4: value.last4 } : {}),
+        ...(value.brand !== undefined ? { brand: value.brand } : {}),
+        ...(value.expiryMonth !== undefined ? { expiryMonth: value.expiryMonth } : {}),
+        ...(value.expiryYear !== undefined ? { expiryYear: value.expiryYear } : {}),
+        ...(value.isDefault !== undefined ? { isDefault: Boolean(value.isDefault) } : {}),
+        updatedAt: new Date()
+      }
+    });
+
+    await syncAfterOperation('cardDetails', 'update', card).catch(err =>
+      console.warn('[Sync] CardDetails update sync failed:', err.message)
+    );
+
     res.json({
       success: true,
-      message: 'Default payment method updated successfully'
+      message: 'Payment method updated successfully',
+      data: toPaymentMethodResponse(card)
+    });
+  } catch (error) {
+    console.error('Update payment method error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Set default payment method — persisted to card_details (owner only)
+export const setDefaultPaymentMethod = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const prisma = await getPrisma();
+    const { methodId } = req.params;
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+      return;
+    }
+
+    const existing = await prisma.cardDetails.findFirst({
+      where: { id: methodId, userId }
+    });
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        message: 'Payment method not found'
+      });
+      return;
+    }
+
+    await prisma.cardDetails.updateMany({
+      where: { userId, id: { not: methodId } },
+      data: { isDefault: false, updatedAt: new Date() }
+    });
+
+    const card = await prisma.cardDetails.update({
+      where: { id: methodId },
+      data: { isDefault: true, updatedAt: new Date() }
+    });
+
+    await syncAfterOperation('cardDetails', 'update', card).catch(err =>
+      console.warn('[Sync] CardDetails default sync failed:', err.message)
+    );
+
+    res.json({
+      success: true,
+      message: 'Default payment method updated successfully',
+      data: toPaymentMethodResponse(card)
     });
   } catch (error) {
     console.error('Set default payment method error:', error);
@@ -937,10 +1094,10 @@ try {
   }
 };
 
-// Delete payment method
+// Delete payment method — removes the card_details row (owner only)
 export const deletePaymentMethod = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
+  try {
+    const prisma = await getPrisma();
     const { methodId } = req.params;
     const userId = (req as any).user?.id;
 
@@ -952,7 +1109,25 @@ try {
       return;
     }
 
-    // In real app, this would delete the payment method from a payment service
+    const existing = await prisma.cardDetails.findFirst({
+      where: { id: methodId, userId }
+    });
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        message: 'Payment method not found'
+      });
+      return;
+    }
+
+    await prisma.cardDetails.delete({
+      where: { id: methodId }
+    });
+
+    await syncAfterOperation('cardDetails', 'delete', { id: methodId }).catch(err =>
+      console.warn('[Sync] CardDetails delete sync failed:', err.message)
+    );
+
     res.json({
       success: true,
       message: 'Payment method deleted successfully'
@@ -1072,11 +1247,16 @@ export const getBillingHistory = async (req: Request, res: Response): Promise<vo
 };
 
 // Process payment
+//
+// No online payment gateway (card / EasyPaisa / JazzCash API) is integrated
+// with this platform. Subscriptions are paid manually: the customer transfers
+// the amount and uploads a receipt through the payment-proof flow
+// (POST /api/payments/manual/submit), and an admin approves it. This endpoint
+// previously fabricated a "completed" payment and a premium subscription out
+// of thin air; it now refuses honestly instead of returning fake success.
 export const processPayment = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
+  try {
     const userId = (req as any).user?.id;
-    const { method, phoneNumber, amount, transactionId } = req.body;
 
     if (!userId) {
       res.status(401).json({
@@ -1086,51 +1266,10 @@ try {
       return;
     }
 
-    // Validate payment data
-    if (!method || !phoneNumber || !amount) {
-      res.status(400).json({
-        success: false,
-        message: 'Missing required payment information'
-      });
-      return;
-    }
-
-    // Generate payment record
-    const paymentRecord = {
-      id: `pay_${Date.now()}`,
-      userId,
-      method,
-      phoneNumber,
-      amount,
-      transactionId: transactionId || `TXN_${Date.now()}`,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      plan: 'premium' // This would be determined based on amount
-    };
-
-    // In real app, this would:
-    // 1. Verify payment with EasyPaisa/JazzCash API
-    // 2. Update subscription status
-    // 3. Send confirmation email
-    // 4. Generate invoice
-
-    // Mock successful payment processing
-    res.json({
-      success: true,
-      message: 'Payment processed successfully',
-      data: {
-        paymentId: paymentRecord.id,
-        transactionId: paymentRecord.transactionId,
-        amount: paymentRecord.amount,
-        method: paymentRecord.method,
-        status: 'completed',
-        subscription: {
-          plan: 'premium',
-          status: 'active',
-          startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
-        }
-      }
+    res.status(501).json({
+      success: false,
+      code: 'PAYMENTS_NOT_CONFIGURED',
+      message: 'Online payment processing is not configured on this platform. Please pay by bank transfer, EasyPaisa or JazzCash and upload your payment proof for verification — your subscription is activated once an admin approves the proof.'
     });
   } catch (error) {
     console.error('Process payment error:', error);
@@ -1141,10 +1280,13 @@ try {
   }
 };
 
-// Get payment methods for EasyPaisa and JazzCash
+// Get the caller's saved payment methods (card_details rows).
+// This previously returned a hardcoded catalog of payment "options"
+// (EasyPaisa/JazzCash/Bank) dressed up as saved methods; it now returns only
+// methods the user actually saved.
 export const getPaymentMethods = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
+  try {
+    const prisma = await getPrisma();
     const userId = (req as any).user?.id;
 
     if (!userId) {
@@ -1155,55 +1297,14 @@ try {
       return;
     }
 
-    // Return available payment methods
-    const paymentMethods = [
-      {
-        id: 'easypaisa',
-        name: 'EasyPaisa',
-        type: 'mobile',
-        icon: 'smartphone',
-        description: 'Pay using your EasyPaisa account',
-        features: ['Instant payment', 'Secure', 'Easy to use'],
-        instructions: [
-          'Open EasyPaisa app',
-          'Go to Send Money',
-          'Enter amount and recipient',
-          'Complete transaction'
-        ]
-      },
-      {
-        id: 'jazzcash',
-        name: 'JazzCash',
-        type: 'mobile',
-        icon: 'smartphone',
-        description: 'Pay using your JazzCash account',
-        features: ['Quick payment', 'Reliable', 'Bank-level security'],
-        instructions: [
-          'Open JazzCash app',
-          'Go to Send Money',
-          'Enter amount and recipient',
-          'Complete transaction'
-        ]
-      },
-      {
-        id: 'bank_transfer',
-        name: 'Bank Transfer',
-        type: 'bank',
-        icon: 'building',
-        description: 'Traditional bank transfer',
-        features: ['Secure', 'Traditional', 'Bank guarantee'],
-        instructions: [
-          'Transfer to provided account',
-          'Use reference number',
-          'Upload receipt',
-          'Wait for confirmation'
-        ]
-      }
-    ];
+    const cards = await prisma.cardDetails.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }]
+    });
 
     res.json({
       success: true,
-      data: paymentMethods
+      data: cards.map(toPaymentMethodResponse)
     });
   } catch (error) {
     console.error('Get payment methods error:', error);
@@ -1214,10 +1315,93 @@ try {
   }
 };
 
-// Download invoice
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+// Access rule mirrors the payment-proof flow: an ACTIVE membership in the
+// business, or being the business creator.
+const hasBusinessAccess = async (prisma: any, userId: string, businessId: string): Promise<boolean> => {
+  const membership = await prisma.membership.findFirst({
+    where: { userId, businessId, status: 'ACTIVE' },
+    select: { id: true }
+  });
+  if (membership) return true;
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { createdBy: true }
+  });
+  return !!business?.createdBy && String(business.createdBy) === String(userId);
+};
+
+const renderInvoiceHtml = (invoice: {
+  invoiceNumber: string;
+  businessName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  method: string;
+  status: string;
+  date: Date;
+  referenceNote?: string | null;
+}): string => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Invoice ${escapeHtml(invoice.invoiceNumber)}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #1a2233; margin: 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a52c5; padding-bottom: 16px; }
+  .brand { font-size: 26px; font-weight: 800; color: #1a52c5; }
+  .inv { text-align: right; }
+  .inv .num { font-size: 20px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e8f0; font-size: 14px; }
+  th { background: #f4f6fb; }
+  .total { font-size: 16px; font-weight: 700; }
+  .meta { margin-top: 24px; font-size: 13px; color: #4a5578; line-height: 1.7; }
+  .status { font-weight: 700; text-transform: uppercase; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">Zapeera</div>
+      <div>Subscription Invoice</div>
+    </div>
+    <div class="inv">
+      <div class="num">${escapeHtml(invoice.invoiceNumber)}</div>
+      <div>${escapeHtml(invoice.date.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }))}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div><strong>Billed to:</strong> ${escapeHtml(invoice.businessName)}</div>
+    <div><strong>Status:</strong> <span class="status">${escapeHtml(invoice.status)}</span></div>
+    <div><strong>Payment method:</strong> ${escapeHtml(invoice.method)}</div>
+    ${invoice.referenceNote ? `<div><strong>Reference:</strong> ${escapeHtml(invoice.referenceNote)}</div>` : ''}
+  </div>
+  <table>
+    <thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>
+      <tr><td>${escapeHtml(invoice.planName)} subscription</td><td style="text-align:right">${escapeHtml(invoice.currency)} ${Number(invoice.amount).toLocaleString()}</td></tr>
+      <tr><td class="total">Total</td><td class="total" style="text-align:right">${escapeHtml(invoice.currency)} ${Number(invoice.amount).toLocaleString()}</td></tr>
+    </tbody>
+  </table>
+  <p class="meta">This invoice was generated from the payment record stored in Zapeera. Payments are verified manually via the payment-proof flow.</p>
+</body>
+</html>`;
+
+// Download invoice — returns a real invoice document rendered from the
+// stored record. The :invoiceId is the billing-history record id: either a
+// PaymentProof id or a BusinessSubscription id (same ids getBillingHistory
+// returns). Previously this returned JSON pointing back at itself.
 export const downloadInvoice = async (req: Request, res: Response): Promise<void> => {
-      const prisma = await getPrisma();
-try {
+  try {
+    const prisma = await getPrisma();
     const { invoiceId } = req.params;
     const userId = (req as any).user?.id;
 
@@ -1229,14 +1413,72 @@ try {
       return;
     }
 
-    // In real app, this would generate and return the actual invoice PDF
-    res.json({
-      success: true,
-      message: 'Invoice download initiated',
-      data: {
-        invoiceId,
-        downloadUrl: `/api/subscription/invoices/${invoiceId}/download`
+    // 1. Payment-proof backed invoice
+    const proof = await prisma.paymentProof.findUnique({
+      where: { id: invoiceId },
+      include: {
+        plan: { select: { name: true } },
+        business: { select: { name: true } }
       }
+    });
+
+    if (proof) {
+      if (!(await hasBusinessAccess(prisma, userId, proof.businessId))) {
+        res.status(403).json({ success: false, message: 'You do not have access to this invoice' });
+        return;
+      }
+      const invoiceNumber = `INV-${proof.id.slice(-8).toUpperCase()}`;
+      const html = renderInvoiceHtml({
+        invoiceNumber,
+        businessName: proof.business?.name || 'Business',
+        planName: proof.plan?.name || 'Subscription',
+        amount: proof.amount,
+        currency: proof.currency || 'PKR',
+        method: proof.method || 'BANK_TRANSFER',
+        status: proof.status,
+        date: proof.createdAt,
+        referenceNote: proof.referenceNote
+      });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceNumber}.html"`);
+      res.send(html);
+      return;
+    }
+
+    // 2. Subscription backed invoice
+    const subscription = await prisma.businessSubscription.findUnique({
+      where: { id: invoiceId },
+      include: {
+        plan: { select: { name: true, price: true } },
+        business: { select: { name: true } }
+      }
+    });
+
+    if (subscription) {
+      if (!(await hasBusinessAccess(prisma, userId, subscription.businessId))) {
+        res.status(403).json({ success: false, message: 'You do not have access to this invoice' });
+        return;
+      }
+      const invoiceNumber = `SUB-${subscription.id.slice(-8).toUpperCase()}`;
+      const html = renderInvoiceHtml({
+        invoiceNumber,
+        businessName: subscription.business?.name || 'Business',
+        planName: subscription.plan?.name || 'Subscription',
+        amount: subscription.plan?.price ? Number(subscription.plan.price) : 0,
+        currency: 'PKR',
+        method: 'System',
+        status: subscription.status,
+        date: subscription.createdAt
+      });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoiceNumber}.html"`);
+      res.send(html);
+      return;
+    }
+
+    res.status(404).json({
+      success: false,
+      message: 'Invoice not found'
     });
   } catch (error) {
     console.error('Download invoice error:', error);

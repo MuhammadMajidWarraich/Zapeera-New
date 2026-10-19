@@ -3,7 +3,8 @@ import {
   adminLogin,
   adminLogout,
   createInitialAdmin,
-  getAdminProfile
+  getAdminProfile,
+  updateAdminProfile
 } from '../controllers/backoffice-auth.controller';
 import {
   getAllPlans,
@@ -78,12 +79,24 @@ import {
   rejectPaymentProof as rejectBackofficePaymentProof,
 } from '../controllers/payment-proof.controller';
 import {
-  getSupportTickets,
   getAnnouncements,
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
 } from '../controllers/backoffice-support.controller';
+import {
+  getSupportTicketsAdmin,
+  getSupportTicketAdmin,
+  replyToSupportTicketAdmin,
+  updateSupportTicketAdmin,
+} from '../controllers/backoffice-support-tickets.controller';
+import {
+  getContentPages,
+  getContentPage,
+  createContentPage,
+  updateContentPage,
+  deleteContentPage,
+} from '../controllers/backoffice-content.controller';
 import {
   getFeatureFlags,
   createFeatureFlag,
@@ -105,6 +118,7 @@ router.post('/auth/logout', adminAuthenticate, adminLogout);
  * Protected by admin authentication
  */
 router.get('/auth/profile', adminAuthenticate, getAdminProfile);
+router.put('/auth/profile', adminAuthenticate, updateAdminProfile);
 
 /**
  * Admin Setup Routes
@@ -228,8 +242,23 @@ router.post('/payment-proofs/:id/reject', adminAuthenticate, adminRoleGuard('SUP
 
 /**
  * Support Tickets Routes
+ * Handlers live in backoffice-support-tickets.controller.ts (Prisma models,
+ * filters, thread replies, status updates). The legacy raw-SQL placeholder
+ * list in backoffice-support.controller.ts is no longer routed.
  */
-router.get('/support/tickets', adminAuthenticate, getSupportTickets);
+router.get('/support/tickets', adminAuthenticate, getSupportTicketsAdmin);
+router.get('/support/tickets/:id', adminAuthenticate, getSupportTicketAdmin);
+router.post('/support/tickets/:id/reply', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'SUPPORT'), replyToSupportTicketAdmin);
+router.patch('/support/tickets/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'SUPPORT'), updateSupportTicketAdmin);
+
+/**
+ * Content Pages Routes (minimal CMS — public read is GET /api/content/:slug)
+ */
+router.get('/content/pages', adminAuthenticate, getContentPages);
+router.get('/content/pages/:id', adminAuthenticate, getContentPage);
+router.post('/content/pages', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'SUPPORT'), createContentPage);
+router.patch('/content/pages/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'SUPPORT'), updateContentPage);
+router.delete('/content/pages/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), deleteContentPage);
 
 /**
  * Announcements Routes

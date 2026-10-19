@@ -18,12 +18,17 @@ import {
   assignSubscription,
   cancelSubscription
 } from '../controllers/admin.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { adminAuthenticate } from '../middleware/admin-auth.middleware';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticate);
+// SECURITY (E2E C-1): these are PLATFORM administration routes (plans,
+// subscriptions, owner data, admin CRUD, migrations). They were guarded
+// only by tenant `authenticate`, so ANY signed-in business user could
+// read every tenant's data and manage plans/subscriptions. Platform
+// administration now lives in the backoffice (BackOfficeUser + JWT with
+// an isAdmin claim); require that here. Tenant tokens are rejected.
+router.use(adminAuthenticate);
 
 router.get('/', getAdmins);
 router.get('/stats', getSuperAdminStats);

@@ -1,88 +1,92 @@
-import { useState } from 'react';
-import { Settings, Bell, Shield, Mail, Database, Save } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Settings, Server, Database, RefreshCw, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { backofficeApi } from '../../services/api';
+import { config } from '@/lib/config';
 
+type Health = Awaited<ReturnType<typeof backofficeApi.getSystemHealth>>;
+
+// There is no platform-settings store or settings endpoint in the backend:
+// platform behaviour is configured through server environment variables
+// (.env on the host — database mode, email provider, JWT secret, CORS
+// origins, …). This page therefore shows the REAL live server configuration
+// reported by the API's /health endpoint instead of editable controls that
+// would silently save nothing.
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('general');
-  const [saving, setSaving] = useState(false);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const tabs = [
-    { id: 'general', label: 'General', icon: Settings },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'email', label: 'Email', icon: Mail },
-    { id: 'system', label: 'System', icon: Database },
-  ];
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const h = await backofficeApi.getSystemHealth();
+      setHealth(h);
+      if (h.status !== 'ok') setError('The API reports a degraded status — see the database details below.');
+    } catch (e: any) {
+      setError(e?.message || 'Could not reach the API health endpoint');
+      toast.error('Failed to load server status');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleSave = async () => { setSaving(true); await new Promise(r => setTimeout(r, 800)); setSaving(false); toast.success('Settings saved successfully'); };
+  useEffect(() => { load(); }, [load]);
+
+  const rows: Array<{ label: string; value: string }> = health ? [
+    { label: 'API Status', value: health.status === 'ok' ? 'Healthy' : `Degraded (${health.status})` },
+    { label: 'Last Checked', value: health.timestamp ? new Date(health.timestamp).toLocaleString() : '—' },
+    { label: 'Database Type', value: health.database?.type || '—' },
+    { label: 'Database Mode', value: health.database?.modeLabel || health.database?.mode || '—' },
+    { label: 'Prisma Provider', value: health.database?.provider || '—' },
+    { label: 'Database Connection', value: health.database?.status || '—' },
+    { label: 'PostgreSQL Connected', value: health.database ? (health.database.postgresql.connected ? 'Yes' : health.database.postgresql.configured ? 'No' : 'Not configured') : '—' },
+    { label: 'SQLite Connected', value: health.database ? (health.database.sqlite.connected ? 'Yes' : 'No') : '—' },
+    { label: 'Server Mode', value: health.database ? (health.database.isOnline ? 'Online' : 'Offline') : '—' },
+  ] : [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">Settings</h1><p className="text-sm text-gray-500 mt-1">Manage backoffice preferences and configurations</p></div>
-        <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-medium rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25 disabled:opacity-50">
-          {saving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Changes</>}
-        </button>
+        <div><h1 className="text-2xl font-bold text-gray-900">Settings</h1><p className="text-sm text-gray-500 mt-1">Live server configuration (read-only)</p></div>
+        <button onClick={load} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            <tab.icon className="w-4 h-4" /> {tab.label}
-          </button>
-        ))}
+      <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
+        <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-800">
+          Platform configuration is managed through server environment variables on the host (database mode, email provider,
+          CORS origins, JWT secret). There is no in-app settings store, so nothing on this page is editable — the values below
+          are read live from the API's health endpoint.
+        </p>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        {activeTab === 'general' && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-gray-900">General Settings</h3>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Platform Name</label><input defaultValue="Zapeera" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Support Email</label><input defaultValue="support@zapeera.com" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Support Phone</label><input defaultValue="+923107100663" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Default Timezone</label><select defaultValue="Asia/Karachi" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50"><option>Asia/Karachi</option><option>UTC</option></select></div>
-          </div>
-        )}
-        {activeTab === 'notifications' && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-gray-900">Notification Settings</h3>
-            {['Email notifications for new signups', 'Payment proof alerts', 'Subscription expiry reminders', 'System health alerts', 'Daily summary digest'].map((item, i) => (
-              <label key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                <span className="text-sm text-gray-700">{item}</span>
-                <div className={`w-11 h-6 rounded-full transition-colors ${i < 3 ? 'bg-blue-500' : 'bg-gray-300'} relative cursor-pointer`}><div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform shadow ${i < 3 ? 'translate-x-[22px]' : 'translate-x-0.5'}`} /></div>
-              </label>
-            ))}
-          </div>
-        )}
-        {activeTab === 'security' && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-gray-900">Security Settings</h3>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Session Timeout (minutes)</label><input type="number" defaultValue={60} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Max Login Attempts</label><input type="number" defaultValue={5} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Password Minimum Length</label><input type="number" defaultValue={8} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-          </div>
-        )}
-        {activeTab === 'email' && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-gray-900">Email Configuration</h3>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label><input placeholder="smtp.zapeera.com" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">SMTP Port</label><input defaultValue={587} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Encryption</label><select className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"><option>TLS</option><option>SSL</option><option>None</option></select></div>
-            </div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">From Address</label><input defaultValue="noreply@zapeera.com" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-          </div>
-        )}
-        {activeTab === 'system' && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-gray-900">System Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              {[{ label: 'App Version', value: '1.0.0' }, { label: 'Node.js', value: typeof process !== 'undefined' ? process.version : 'N/A' }, { label: 'Database', value: 'SQLite / PostgreSQL' }, { label: 'Environment', value: import.meta.env.MODE || 'development' }].map(item => (
-                <div key={item.label} className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">{item.label}</p><p className="text-sm font-medium text-gray-900">{item.value}</p></div>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4"><Server className="w-5 h-5 text-gray-400" /> Server Status</h3>
+        {loading ? (
+          <p className="text-sm text-gray-400">Loading server status…</p>
+        ) : error && !health ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <>
+            {error && <p className="text-sm text-amber-600 mb-4">{error}</p>}
+            <div className="grid grid-cols-2 gap-4 max-w-3xl">
+              {rows.map(row => (
+                <div key={row.label} className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">{row.label}</p><p className="text-sm font-medium text-gray-900">{row.value}</p></div>
               ))}
             </div>
-          </div>
+          </>
         )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4"><Database className="w-5 h-5 text-gray-400" /> This Admin Panel</h3>
+        <div className="grid grid-cols-2 gap-4 max-w-3xl">
+          <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">Backoffice API</p><p className="text-sm font-medium text-gray-900 break-all">{config.backoffice.baseUrl}</p></div>
+          <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">Build Mode</p><p className="text-sm font-medium text-gray-900">{import.meta.env.MODE}</p></div>
+        </div>
+        <p className="text-xs text-gray-400 mt-4 flex items-center gap-1"><Settings className="w-3.5 h-3.5" /> To change platform configuration, update the server .env and restart the backend.</p>
       </div>
     </div>
   );

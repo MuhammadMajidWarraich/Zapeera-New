@@ -5,6 +5,7 @@ import {
   updateSubscription,
   getPaymentMethods,
   addPaymentMethod,
+  updatePaymentMethod,
   setDefaultPaymentMethod,
   deletePaymentMethod,
   getBillingHistory,
@@ -39,6 +40,7 @@ router.put('/entitlements/business/:companyId', updateBusinessEntitlements);
 // Payment method routes
 router.get('/payment-methods', getPaymentMethods);
 router.post('/payment-methods', addPaymentMethod);
+router.put('/payment-methods/:methodId', updatePaymentMethod);
 router.put('/payment-methods/:methodId/default', setDefaultPaymentMethod);
 router.delete('/payment-methods/:methodId', deletePaymentMethod);
 

@@ -460,6 +460,21 @@ export const createBranch = async (req: AuthRequest, res: Response) => {
       v2Message: branchAllowanceV2.allowed ? 'OK' : (branchAllowanceV2 as any).message,
     });
     
+    // A hard branch-limit denial from the entitlements summary (V1) is
+    // authoritative and must never be overridden by the V2 pass: V2 only
+    // proves an active subscription exists, and for plans missing from its
+    // hardcoded limit map it allows unconditionally — which let businesses
+    // create branches past their plan limit (E2E D-11). The V2 override
+    // below exists solely for the case where the settings-based lookup
+    // finds no subscription while business_subscriptions has an active one.
+    if (!branchAllowance.allowed && (branchAllowance as any).details?.code === 'BRANCH_LIMIT_REACHED') {
+      return res.status((branchAllowance as any).statusCode || 403).json({
+        success: false,
+        message: (branchAllowance as any).message,
+        ...((branchAllowance as any).details || {})
+      });
+    }
+
     // CRITICAL FIX: If V2 passes (active subscription found), allow creation even if V1 fails
     // This handles case where subscription exists in business_subscriptions but plan not in settings
     if (branchAllowanceV2.allowed) {

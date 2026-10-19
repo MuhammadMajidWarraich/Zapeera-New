@@ -12,6 +12,8 @@ import {
   PaymentProof,
   AuditLog,
   SupportTicket,
+  SupportTicketMessage,
+  ContentPage,
   Announcement,
   FeatureFlag,
   SystemHealth,
@@ -74,6 +76,9 @@ export const backofficeApi = {
 
   getProfile: (): Promise<{ success: boolean; data: BackofficeAdmin }> =>
     request('/auth/profile'),
+
+  updateProfile: (data: { email?: string; currentPassword: string; newPassword?: string }): Promise<{ success: boolean; data: BackofficeAdmin; message?: string }> =>
+    request('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
 
   logout: () =>
     fetch(`${BASE_URL}/auth/logout`, {
@@ -204,6 +209,61 @@ export const backofficeApi = {
     request('/impersonate/validate', { method: 'POST', body: JSON.stringify({ token }) }),
 
   // Support
-  getTickets: (): Promise<{ success: boolean; data: SupportTicket[] }> => request('/support/tickets'),
+  getTickets: (params?: string): Promise<{ success: boolean; data: { tickets: SupportTicket[]; pagination: { page: number; limit: number; total: number; pages: number } } }> =>
+    request(`/support/tickets${params ? `?${params}` : ''}`),
+  getTicket: (id: string): Promise<{ success: boolean; data: SupportTicket }> =>
+    request(`/support/tickets/${id}`),
+  replyToTicket: (id: string, body: string): Promise<{ success: boolean; data: SupportTicketMessage }> =>
+    request(`/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ body }) }),
+  updateTicket: (id: string, data: Partial<{ status: SupportTicket['status']; priority: SupportTicket['priority']; assignedTo: string | null }>): Promise<{ success: boolean; data: SupportTicket }> =>
+    request(`/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Content pages (minimal CMS; public read is GET /api/content/:slug)
+  getContentPages: (params?: string): Promise<{ success: boolean; data: ContentPage[] }> =>
+    request(`/content/pages${params ? `?${params}` : ''}`),
+  getContentPage: (id: string): Promise<{ success: boolean; data: ContentPage }> =>
+    request(`/content/pages/${id}`),
+  createContentPage: (data: { slug: string; title: string; body: string; status?: ContentPage['status'] }): Promise<{ success: boolean; data: ContentPage }> =>
+    request('/content/pages', { method: 'POST', body: JSON.stringify(data) }),
+  updateContentPage: (id: string, data: Partial<{ slug: string; title: string; body: string; status: ContentPage['status'] }>): Promise<{ success: boolean; data: ContentPage }> =>
+    request(`/content/pages/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContentPage: (id: string): Promise<{ success: boolean }> =>
+    request(`/content/pages/${id}`, { method: 'DELETE' }),
   getAnnouncements: (): Promise<{ success: boolean; data: Announcement[] }> => request('/announcements'),
+  createAnnouncement: (data: { title: string; content: string; type: Announcement['type']; status: Announcement['status'] }): Promise<{ success: boolean; data: Announcement }> =>
+    request('/announcements', { method: 'POST', body: JSON.stringify(data) }),
+  updateAnnouncement: (id: string, data: Partial<{ title: string; content: string; type: Announcement['type']; status: Announcement['status'] }>): Promise<{ success: boolean; data: Announcement }> =>
+    request(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAnnouncement: (id: string): Promise<{ success: boolean }> =>
+    request(`/announcements/${id}`, { method: 'DELETE' }),
+
+  // Feature Flags
+  getFeatureFlags: (): Promise<{ success: boolean; data: FeatureFlag[] }> => request('/feature-flags'),
+  createFeatureFlag: (data: { key: string; name: string; description?: string; enabled?: boolean }): Promise<{ success: boolean; data: FeatureFlag }> =>
+    request('/feature-flags', { method: 'POST', body: JSON.stringify(data) }),
+  updateFeatureFlag: (id: string, data: Partial<{ key: string; name: string; description: string; enabled: boolean }>): Promise<{ success: boolean; data: FeatureFlag }> =>
+    request(`/feature-flags/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFeatureFlag: (id: string): Promise<{ success: boolean }> =>
+    request(`/feature-flags/${id}`, { method: 'DELETE' }),
+
+  // System health — served by the main API's public /health endpoint
+  // (middleware/health-checks.ts), which reports live database status.
+  getSystemHealth: async (): Promise<{
+    status: string;
+    timestamp: string;
+    database?: {
+      type: string;
+      mode: string;
+      modeLabel: string;
+      provider: string;
+      status: string;
+      isOnline: boolean;
+      postgresql: { connected: boolean; configured: boolean };
+      sqlite: { connected: boolean; path: string };
+    };
+  }> => {
+    const apiBase = config.api.baseUrl.replace(/\/$/, '');
+    const res = await fetch(`${apiBase}/health`, { credentials: 'include' });
+    return res.json();
+  },
 };

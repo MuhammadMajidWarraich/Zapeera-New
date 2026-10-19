@@ -272,6 +272,7 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
 
       // Create purchase items and batches
       const purchaseItems = [];
+      let purchaseItemSeq = 1;
       for (const item of purchaseData.items) {
         // Verify product exists AND belongs to this company (A-02)
         const product = await tx.product.findFirst({
@@ -282,12 +283,16 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
           throw new Error(`Product not found: ${item.productId}`);
         }
 
-        // Create batch if batchNo is provided
+        // Stock is managed through batches, so EVERY purchase line must
+        // land in a batch. When the caller provides no batchNo (typical for
+        // general/non-batch-tracked goods), auto-generate one — previously
+        // such lines were recorded and paid for but never entered stock,
+        // silently losing the inventory (E2E D-17).
         let batchId = null;
-        if (item.batchNo) {
+        {
           const batch = await tx.batch.create({
             data: {
-              batchNo: item.batchNo,
+              batchNo: item.batchNo || `AUTO-${purchase.id.slice(0, 8)}-${purchaseItemSeq++}`,
               productId: item.productId,
               branchId,
               companyId,

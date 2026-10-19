@@ -79,8 +79,8 @@ Create `.env` in this directory. Typical keys:
 PORT=4200
 NODE_ENV=development
 USE_POSTGRESQL=true
-POSTGRESQL_URL=postgresql://user:password@localhost:5432/zapeera?schema=public
-REMOTE_DATABASE_URL=postgresql://user:password@host:5432/zapeera?schema=public
+POSTGRESQL_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+REMOTE_DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 JWT_SECRET=replace-with-strong-secret
 FRONTEND_URL=http://localhost:4100
 ```

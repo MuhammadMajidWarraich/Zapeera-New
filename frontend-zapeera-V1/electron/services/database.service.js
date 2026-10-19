@@ -13,6 +13,21 @@ let db = null;
 let SQL = null;
 let lastDbError = null;
 
+// QA fix 2026-10-20 (Agent B2, B-1/B-2): first-run default-admin seeding.
+// DEFAULT_ADMIN_PASSWORD_HASH is a TRUE bcrypt('admin123') hash, generated
+// with the app's own bcryptjs (hashSync('admin123', 10)) and verified with
+// compareSync. The identical constant is used in electron/main.js for its
+// (better-sqlite3) seed inserts and as the forced-change fingerprint in both
+// files — keep all copies in sync.
+// LEGACY_BROKEN_PASSWORD_HASH is the constant older builds shipped while
+// CLAIMING it was bcrypt('admin123'); bcryptjs comparison proves it is not
+// (B-2), so any account still carrying it can never log in. initDatabase()
+// repairs such rows on sight (reset to the true default hash + forced
+// password change), which is safe: a bcrypt string equality match can only
+// come from the shipped seed, never from a user-chosen password.
+const DEFAULT_ADMIN_PASSWORD_HASH = '$2b$10$6R80a9IPRnzCDTqU24D57uJvr0mx.Tz1S6LEiSvpiQMZDWnen9SeG';
+const LEGACY_BROKEN_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+
 async function loadSqlJs() {
   if (SQL) return SQL;
 
@@ -420,13 +435,21 @@ async function initDatabase() {
   // account whose stored hash is still the shipped default password's bcrypt
   // hash (a public constant) must change its password at next login. The
   // hash is used here ONLY as a detection fingerprint.
+  // QA fix 2026-10-20 (Agent B2, B-2): the fingerprint is now the TRUE
+  // bcrypt('admin123') hash, and rows still carrying the LEGACY BROKEN
+  // constant are repaired first — their password is reset to the true
+  // default hash so the documented admin/admin123 login works, with the
+  // forced-change flag set so C-03 still gates the first real session.
   try {
-    const KNOWN_DEFAULT_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+    db.run(
+      'UPDATE users SET password = ?, mustChangePassword = 1 WHERE password = ?',
+      [DEFAULT_ADMIN_PASSWORD_HASH, LEGACY_BROKEN_PASSWORD_HASH]
+    );
     db.run(
       'UPDATE users SET mustChangePassword = 1 WHERE password = ? AND (mustChangePassword IS NULL OR mustChangePassword = 0)',
-      [KNOWN_DEFAULT_PASSWORD_HASH]
+      [DEFAULT_ADMIN_PASSWORD_HASH]
     );
-    console.log('[DB] ✅ Default-password accounts flagged for forced password change (if any)');
+    console.log('[DB] ✅ Default-password accounts repaired/flagged for forced password change (if any)');
   } catch (e) {
     console.log('[DB] Default-password flagging skipped:', e.message);
   }
@@ -454,6 +477,63 @@ async function initDatabase() {
 
   // Create default admin user
   createDefaultAdmin();
+}
+
+/**
+ * Seed the first-run company / branch / admin / superadmin on a FRESH
+ * database (QA fix 2026-10-20, Agent B2, B-1/B-3).
+ *
+ * This function was called at the end of initDatabase() but never defined,
+ * so the embedded server's own seeding threw "createDefaultAdmin is not
+ * defined" and a fresh install had NO login-able account. main.js performs
+ * the same seed when better-sqlite3 is available, but the packaged app
+ * cannot rely on that module (it is not packaged — B-3), so the server
+ * seeds its own database here using sql.js, the runtime it actually loads.
+ *
+ * The seed mirrors main.js exactly (same company/branch names, same
+ * accounts) and is idempotent: it runs only when the users table is empty,
+ * and every insert is INSERT OR IGNORE, so whichever process seeds first
+ * (main.js or this server) wins and the other no-ops — no duplicate-admin
+ * crash when both run. Both accounts are created active with
+ * mustChangePassword = 1, preserving the C-03 forced-change gate.
+ */
+function createDefaultAdmin() {
+  try {
+    const existing = query('SELECT COUNT(*) as count FROM users');
+    const userCount = existing[0]?.count || 0;
+    if (userCount > 0) {
+      console.log(`[DB] ℹ️ ${userCount} user(s) already exist — skipping default admin seed`);
+      return;
+    }
+
+    console.log('[DB] 🌱 Fresh database — seeding default company, branch, admin and superadmin...');
+    const timestamp = now();
+    const companyId = uuid();
+    const branchId = uuid();
+    const adminId = uuid();
+    const superadminId = uuid();
+
+    run(`INSERT OR IGNORE INTO companies (id, name, description, address, phone, email, businessType, createdBy, isActive, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [companyId, 'My Pharmacy', 'Local pharmacy business', '123 Main Street', '+1234567890', 'admin@pharmacy.local', 'PHARMACY', adminId, timestamp, timestamp]);
+
+    run(`INSERT OR IGNORE INTO branches (id, name, address, phone, email, companyId, isActive, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [branchId, 'Main Branch', '123 Main Street', '+1234567890', 'branch@pharmacy.local', companyId, timestamp, timestamp]);
+
+    run(`INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, mustChangePassword, createdBy, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)`,
+      [adminId, 'admin', 'admin@pharmacy.local', DEFAULT_ADMIN_PASSWORD_HASH, 'Administrator', 'ADMIN', branchId, companyId, adminId, timestamp, timestamp]);
+
+    run(`INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, mustChangePassword, createdBy, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)`,
+      [superadminId, 'superadmin', 'superadmin@pharmacy.local', DEFAULT_ADMIN_PASSWORD_HASH, 'Super Administrator', 'SUPERADMIN', branchId, companyId, superadminId, timestamp, timestamp]);
+
+    saveDatabase();
+    console.log('[DB] ✅ Default admin + superadmin seeded (username: admin) — password change REQUIRED at first login');
+  } catch (e) {
+    console.error('[DB] ❌ createDefaultAdmin failed:', e.message);
+  }
 }
 
 function saveDatabase() {
@@ -1164,6 +1244,7 @@ function getSQL() {
 module.exports = {
   loadSqlJs,
   initDatabase,
+  createDefaultAdmin,
   saveDatabase,
   query,
   run,

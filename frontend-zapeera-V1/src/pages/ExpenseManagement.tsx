@@ -35,6 +35,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/contexts/useAdmin";
+import { apiService } from "@/services/api";
 
 type ExpenseStatus = "Pending" | "Approved" | "Rejected";
 
@@ -73,12 +74,51 @@ const thisMonthStart = () => {
   return formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
 };
 
+// The API stores statuses uppercase (PENDING/APPROVED/REJECTED); the UI
+// works with title-case labels.
+const toUiStatus = (status?: string | null): ExpenseStatus => {
+  switch ((status || "").toUpperCase()) {
+    case "APPROVED":
+      return "Approved";
+    case "REJECTED":
+      return "Rejected";
+    default:
+      return "Pending";
+  }
+};
+
+const toApiStatus = (status: ExpenseStatus): string => status.toUpperCase();
+
+const mapCategory = (category: any): ExpenseCategory => ({
+  id: category.id,
+  name: category.name,
+  description: category.description || "",
+  createdAt: category.createdAt || "",
+});
+
+const mapExpense = (expense: any): BusinessExpense => ({
+  id: expense.id,
+  date: expense.date || (expense.expenseDate ? String(expense.expenseDate).slice(0, 10) : ""),
+  categoryId: expense.categoryId || "",
+  amount: Number(expense.amount) || 0,
+  // Company-level expenses have no branch; the UI represents them as "all".
+  branchId: expense.branchId || "all",
+  vendor: expense.vendor || "",
+  notes: expense.description || "",
+  receiptName: expense.reference || "",
+  status: toUiStatus(expense.status),
+  createdAt: expense.createdAt || "",
+});
+
 const ExpenseManagement = () => {
   const { toast } = useToast();
   const { selectedCompanyId, selectedBranchId, allCompanies, allBranches } = useAdmin();
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<BusinessExpense[]>([]);
-  const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
   const [expenseForm, setExpenseForm] = useState({
@@ -102,7 +142,38 @@ const ExpenseManagement = () => {
 
   const activeCompanyName =
     allCompanies.find((company: any) => company.id === selectedCompanyId)?.name || "Selected business";
-  // Cache reading/writing disabled - expenses will load fresh from API
+
+  const loadData = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      // Company-wide load (no branch header): the branch filter below is
+      // applied client-side across all of the business's branches.
+      const [categoriesResponse, expensesResponse] = await Promise.all([
+        apiService.getExpenseCategories({ omitBranchContext: true }),
+        apiService.getExpenses({ limit: 1000, omitBranchContext: true }),
+      ]);
+
+      if (!categoriesResponse.success || !categoriesResponse.data) {
+        throw new Error(categoriesResponse.message || "Failed to load expense categories");
+      }
+      if (!expensesResponse.success || !expensesResponse.data) {
+        throw new Error(expensesResponse.message || "Failed to load expenses");
+      }
+
+      setCategories((categoriesResponse.data.categories || []).map(mapCategory));
+      setExpenses((expensesResponse.data.expenses || []).map(mapExpense));
+    } catch (error: any) {
+      setLoadError(error?.message || "Failed to load expenses");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     setExpenseForm((current) => ({
@@ -161,7 +232,7 @@ const ExpenseManagement = () => {
     return { total, pending, approved };
   }, [filteredExpenses]);
 
-  const handleAddCategory = (event: FormEvent) => {
+  const handleAddCategory = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedName = categoryName.trim();
     if (!trimmedName) {
@@ -175,21 +246,30 @@ const ExpenseManagement = () => {
       return;
     }
 
-    const newCategory: ExpenseCategory = {
-      id: `cat_${Date.now()}`,
-      name: trimmedName,
-      description: categoryDescription.trim(),
-      createdAt: new Date().toISOString(),
-    };
+    setSavingCategory(true);
+    try {
+      const response = await apiService.createExpenseCategory({
+        name: trimmedName,
+        description: categoryDescription.trim() || undefined,
+      });
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Failed to add category");
+      }
 
-    setCategories((current) => [...current, newCategory]);
-    setExpenseForm((current) => ({ ...current, categoryId: current.categoryId || newCategory.id }));
-    setCategoryName("");
-    setCategoryDescription("");
-    toast({ title: "Expense category added" });
+      const newCategory = mapCategory(response.data);
+      setCategories((current) => [...current, newCategory]);
+      setExpenseForm((current) => ({ ...current, categoryId: current.categoryId || newCategory.id }));
+      setCategoryName("");
+      setCategoryDescription("");
+      toast({ title: "Expense category added" });
+    } catch (error: any) {
+      toast({ title: "Failed to add category", description: error?.message, variant: "destructive" });
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
-  const handleAddExpense = (event: FormEvent) => {
+  const handleAddExpense = async (event: FormEvent) => {
     event.preventDefault();
     if (categories.length === 0) {
       toast({ title: "Add an expense category first" });
@@ -202,44 +282,69 @@ const ExpenseManagement = () => {
       return;
     }
 
-    const newExpense: BusinessExpense = {
-      id: `exp_${Date.now()}`,
-      date: expenseForm.date,
-      categoryId: expenseForm.categoryId,
-      amount,
-      branchId: expenseForm.branchId || "all",
-      vendor: expenseForm.vendor.trim(),
-      notes: expenseForm.notes.trim(),
-      receiptName: expenseForm.receiptName.trim(),
-      status: expenseForm.status,
-      createdAt: new Date().toISOString(),
-    };
+    setSavingExpense(true);
+    try {
+      const response = await apiService.createExpense({
+        title: expenseForm.vendor.trim() || undefined,
+        expenseDate: expenseForm.date,
+        categoryId: expenseForm.categoryId,
+        amount,
+        branchId: expenseForm.branchId && expenseForm.branchId !== "all" ? expenseForm.branchId : null,
+        vendor: expenseForm.vendor.trim() || undefined,
+        description: expenseForm.notes.trim() || undefined,
+        reference: expenseForm.receiptName.trim() || undefined,
+        status: toApiStatus(expenseForm.status),
+      });
+      if (!response.success || !response.data) {
+        throw new Error(response.message || "Failed to record expense");
+      }
 
-    setExpenses((current) => [newExpense, ...current]);
-    setExpenseForm((current) => ({
-      ...current,
-      amount: "",
-      vendor: "",
-      notes: "",
-      receiptName: "",
-      status: "Pending",
-    }));
-    toast({ title: "Expense recorded" });
-  };
-
-  const handleDeleteCategory = (categoryId: string) => {
-    const categoryIsUsed = expenses.some((expense) => expense.categoryId === categoryId);
-    if (categoryIsUsed) {
-      toast({ title: "Category is used by expenses", variant: "destructive" });
-      return;
+      setExpenses((current) => [mapExpense(response.data), ...current]);
+      setExpenseForm((current) => ({
+        ...current,
+        amount: "",
+        vendor: "",
+        notes: "",
+        receiptName: "",
+        status: "Pending",
+      }));
+      toast({ title: "Expense recorded" });
+    } catch (error: any) {
+      toast({ title: "Failed to record expense", description: error?.message, variant: "destructive" });
+    } finally {
+      setSavingExpense(false);
     }
-    setCategories((current) => current.filter((category) => category.id !== categoryId));
-    toast({ title: "Category deleted successfully" });
   };
 
-  const handleDeleteExpense = (expenseId: string) => {
-    setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
-    toast({ title: "Expense deleted successfully" });
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      const response = await apiService.deleteExpenseCategory(categoryId);
+      if (!response.success) {
+        throw new Error(response.message || "Failed to delete category");
+      }
+      setCategories((current) => current.filter((category) => category.id !== categoryId));
+      // The API clears the category on affected expenses (they become
+      // "Uncategorized"); mirror that locally.
+      setExpenses((current) =>
+        current.map((expense) => (expense.categoryId === categoryId ? { ...expense, categoryId: "" } : expense))
+      );
+      toast({ title: "Category deleted successfully" });
+    } catch (error: any) {
+      toast({ title: "Failed to delete category", description: error?.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    try {
+      const response = await apiService.deleteExpense(expenseId);
+      if (!response.success) {
+        throw new Error(response.message || "Failed to delete expense");
+      }
+      setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+      toast({ title: "Expense deleted successfully" });
+    } catch (error: any) {
+      toast({ title: "Failed to delete expense", description: error?.message, variant: "destructive" });
+    }
   };
 
   const exportCsv = () => {
@@ -292,6 +397,15 @@ const ExpenseManagement = () => {
           </Button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <span>Could not load expenses: {loadError}</span>
+          <Button variant="outline" size="sm" onClick={loadData}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-0 shadow-sm">
@@ -351,14 +465,18 @@ const ExpenseManagement = () => {
                   placeholder="What this category is used for"
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={savingCategory}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Category
               </Button>
             </form>
 
             <div className="space-y-2">
-              {categories.length === 0 ? (
+              {loading ? (
+                <div className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                  Loading categories…
+                </div>
+              ) : categories.length === 0 ? (
                 <div className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
                   Add at least one category before recording expenses.
                 </div>
@@ -509,7 +627,7 @@ const ExpenseManagement = () => {
                 />
               </div>
               <div className="md:col-span-2">
-                <Button type="submit" disabled={categories.length === 0} className="w-full md:w-auto">
+                <Button type="submit" disabled={categories.length === 0 || savingExpense} className="w-full md:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Expense
                 </Button>
@@ -610,7 +728,19 @@ const ExpenseManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredExpenses.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-28 text-center text-slate-500">
+                    Loading expenses…
+                  </TableCell>
+                </TableRow>
+              ) : loadError ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-28 text-center text-red-600">
+                    Failed to load expenses: {loadError}
+                  </TableCell>
+                </TableRow>
+              ) : filteredExpenses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-28 text-center text-slate-500">
                     No expenses match the current filters.

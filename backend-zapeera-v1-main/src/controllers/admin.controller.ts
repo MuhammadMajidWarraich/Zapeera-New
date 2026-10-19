@@ -1198,6 +1198,22 @@ export const getBillingSummary = async (req: Request, res: Response): Promise<vo
       where: { createdAt: { gte: thirtyDaysAgo } }
     });
 
+    // Subscription growth: subscriptions created in the last 30 days vs the
+    // 30 days before that, computed from real BusinessSubscription rows.
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const [currentPeriodSubs, previousPeriodSubs] = await Promise.all([
+      prisma.businessSubscription.count({
+        where: { createdAt: { gte: thirtyDaysAgo } }
+      }),
+      prisma.businessSubscription.count({
+        where: { createdAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } }
+      })
+    ]);
+    const growthPercentage = previousPeriodSubs === 0
+      ? (currentPeriodSubs > 0 ? 100 : 0)
+      : Math.round(((currentPeriodSubs - previousPeriodSubs) / previousPeriodSubs) * 1000) / 10;
+
     res.json({
       success: true,
       data: {
@@ -1206,7 +1222,7 @@ export const getBillingSummary = async (req: Request, res: Response): Promise<vo
         trialCount,
         expiredCount,
         newBusinessesCount,
-        growthPercentage: 15.2
+        growthPercentage
       }
     });
   } catch (error) {

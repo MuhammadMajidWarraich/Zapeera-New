@@ -619,7 +619,14 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     });
 
     const subtotal = itemTotals.reduce((sum, total) => sum + total, 0);
-    const discountAmount = saleData.discountAmount || 0; // Global discount
+    // Global discount: a sale-level discountPercentage takes precedence and
+    // is converted against the (already item-discounted) subtotal — the same
+    // rule the update-sale flow applies. Previously the percentage was stored
+    // on the sale record but ignored when computing totals, so a 10% sale
+    // discount silently billed the full amount (E2E D-20).
+    const discountAmount = saleData.discountPercentage && saleData.discountPercentage > 0
+      ? subtotal * (saleData.discountPercentage / 100)
+      : (saleData.discountAmount || 0);
     const subtotalAfterDiscount = subtotal - discountAmount;
     const taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
     const totalAmount = subtotalAfterDiscount + taxAmount;

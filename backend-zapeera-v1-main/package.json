@@ -13,7 +13,7 @@
     "build:prod:force": "npm run setup:web && tsc --skipLibCheck",
     "start": "node dist/server.js",
     "start:web": "cross-env USE_POSTGRESQL=true node dist/server.js",
-    "start:online": "cross-env NODE_ENV=production REMOTE_DATABASE_URL=\"postgresql://user:pass@host:port/db\" node start-server.js start",
+    "start:online": "cross-env NODE_ENV=production node start-server.js start",
     "start:offline": "cross-env NODE_ENV=production node start-server.js start",
     "sync": "ts-node scripts/sync.ts",
     "test:staff": "ts-node scripts/test-staff-flow.ts",

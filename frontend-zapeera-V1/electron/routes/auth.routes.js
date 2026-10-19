@@ -1254,18 +1254,22 @@ function registerAuthRoutes(app, authMiddleware, deps) {
       });
 
   // GET /api/auth/me (line 1419)
+  // QA fix 2026-10-20 (Agent B2, B-5): the desktop users table has NO phone
+  // column; selecting it made the query fail and the handler answer 404
+  // "User not found" for every valid session. Select only real columns.
       app.get('/api/auth/me', authMiddleware, (req, res) => {
         try {
-          const users = query('SELECT id, email, name, role, phone, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
+          const users = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
           if (!users.length) return res.status(404).json({ success: false, message: 'User not found' });
           res.json({ success: true, data: users[0] });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
   // GET /api/auth/profile (line 1428)
+  // QA fix 2026-10-20 (Agent B2, B-5): same phantom `phone` column as /me.
       app.get('/api/auth/profile', authMiddleware, (req, res) => {
         try {
-          const users = query('SELECT id, email, name, role, phone, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
+          const users = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
           if (!users.length) return res.status(404).json({ success: false, message: 'User not found' });
           res.json({ success: true, data: users[0] });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -1446,10 +1450,13 @@ function registerAuthRoutes(app, authMiddleware, deps) {
   // PUT /api/auth/update-profile (line 1578)
       app.put('/api/auth/update-profile', authMiddleware, (req, res) => {
         try {
-          const { name, phone } = req.body;
-          run('UPDATE users SET name = COALESCE(?, name), phone = COALESCE(?, phone), updatedAt = ? WHERE id = ?',
-            [name, phone, now(), req.user.id]);
-          const user = query('SELECT id, email, name, role, phone, companyId, branchId FROM users WHERE id = ?', [req.user.id])[0];
+          // QA fix 2026-10-20 (Agent B2, B-5): no `phone` column exists on the
+          // desktop users table — writing/selecting it silently broke profile
+          // updates. A client-sent phone is accepted but not persisted.
+          const { name } = req.body;
+          run('UPDATE users SET name = COALESCE(?, name), updatedAt = ? WHERE id = ?',
+            [name, now(), req.user.id]);
+          const user = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id])[0];
     
           // 🔄 TWO-WAY SYNC: Queue for sync to PostgreSQL
           if (user) handleDataChange('users', 'update', user);

@@ -639,16 +639,11 @@ export const getBatches = async (req: any, res: Response) => {
             take: parseInt(limit as string),
           });
           
-          // Use raw SQL for count
-          const countResult: any = await prisma.$executeRawUnsafe(
-            `SELECT COUNT(*) as count FROM batches WHERE "isActive" = ${where.isActive === true ? 'true' : 'false'}${where.branchId ? ` AND "branchId" = '${where.branchId}'` : ''}${where.productId ? ` AND "productId" = '${where.productId}'` : ''}${where.isReported !== undefined ? ` AND "isReported" = ${where.isReported === true ? 'true' : 'false'}` : ''}`
-          );
-          
-          if (Array.isArray(countResult) && countResult.length > 0) {
-            total = Number(countResult[0].count || countResult[0]?.COUNT || 0);
-          } else {
-            total = batches.length;
-          }
+          // Count via Prisma with the same `where` object (fully
+          // parameterized). The previous implementation interpolated
+          // branchId/productId from request headers/query into raw SQL —
+          // an authenticated SQL injection (E2E C-3).
+          total = await prisma.batch.count({ where });
           
           // Add null reportReason
           batches = batches.map((batch: any) => ({
