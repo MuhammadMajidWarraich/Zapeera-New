@@ -155,13 +155,29 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({ moduleName, children }
 
     // Check if module is locked (business type + subscription plan restrictions)
     if (moduleName && moduleName.toLowerCase() !== 'subscription' && isModuleLocked(moduleName)) {
-      setIsLocked(true);
-      // Get disabled reason from hook getter
-      const reason = typeof getModuleDisabledReason === 'function' ? getModuleDisabledReason(moduleName) : null;
-      setDisabledReason(reason || null);
-      setIsChecking(false);
-      // Show error message (don't redirect to prevent navigation loops)
-      guardModule(moduleName, { showToast: true });
+      // A lock verdict computed the instant loading flips can be stale: the
+      // hook's module map may still hold its all-locked default because the
+      // enabled-modules response has not been applied yet (or one fetch of
+      // the pair settled first). Acting on it immediately flashed a false
+      // "not available in your subscription plan" toast + locked screen on
+      // modules the tenant actually has. Only trust a lock that is STILL
+      // locked after a short settle window; stay on the checking spinner
+      // meanwhile.
+      setIsChecking(true);
+      const timer = setTimeout(() => {
+        if (isModuleLocked(moduleName)) {
+          setIsLocked(true);
+          // Get disabled reason from hook getter
+          const reason = typeof getModuleDisabledReason === 'function' ? getModuleDisabledReason(moduleName) : null;
+          setDisabledReason(reason || null);
+          // Show error message (don't redirect to prevent navigation loops)
+          guardModule(moduleName, { showToast: true });
+        } else {
+          setIsLocked(false);
+        }
+        setIsChecking(false);
+      }, 1200);
+      return () => clearTimeout(timer);
     } else {
       setIsLocked(false);
       setIsChecking(false);
