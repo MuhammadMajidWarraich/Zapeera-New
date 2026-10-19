@@ -110,7 +110,7 @@ async function initDatabase() {
   const tables = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, username TEXT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, name TEXT NOT NULL,
-      role TEXT DEFAULT 'ADMIN', isActive INTEGER DEFAULT 0, companyId TEXT, branchId TEXT,
+      role TEXT DEFAULT 'ADMIN', isActive INTEGER DEFAULT 0, mustChangePassword INTEGER DEFAULT 0, companyId TEXT, branchId TEXT,
       createdBy TEXT, sessionToken TEXT, passwordResetToken TEXT, passwordResetExpires TEXT, lastLoginAt TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -399,6 +399,9 @@ async function initDatabase() {
     'ALTER TABLE companies ADD COLUMN website TEXT',
     // Users
     'ALTER TABLE users ADD COLUMN profileImage TEXT',
+    // QA fix 2026-10-19 (Track C C-03): forced password change flag for the
+    // seeded default admin accounts and any account still on a known password
+    'ALTER TABLE users ADD COLUMN mustChangePassword INTEGER DEFAULT 0',
     // Sales
     'ALTER TABLE sales ADD COLUMN receiptNumber TEXT',
     // Batches
@@ -412,6 +415,21 @@ async function initDatabase() {
   columnMigrations.forEach(sql => {
     try { db.run(sql); } catch (e) { /* Column might already exist */ }
   });
+
+  // QA fix 2026-10-19 (Track C C-03): auto-flag EXISTING installs — any
+  // account whose stored hash is still the shipped default password's bcrypt
+  // hash (a public constant) must change its password at next login. The
+  // hash is used here ONLY as a detection fingerprint.
+  try {
+    const KNOWN_DEFAULT_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+    db.run(
+      'UPDATE users SET mustChangePassword = 1 WHERE password = ? AND (mustChangePassword IS NULL OR mustChangePassword = 0)',
+      [KNOWN_DEFAULT_PASSWORD_HASH]
+    );
+    console.log('[DB] ✅ Default-password accounts flagged for forced password change (if any)');
+  } catch (e) {
+    console.log('[DB] Default-password flagging skipped:', e.message);
+  }
 
   saveDatabase();
   console.log('[DB] ✅ Migrations applied');

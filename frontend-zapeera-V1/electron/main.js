@@ -386,6 +386,7 @@ async function initializeDatabase() {
         "branchId" TEXT,
         "companyId" TEXT,
         "isActive" INTEGER DEFAULT 1,
+        "mustChangePassword" INTEGER DEFAULT 0,
         "sessionToken" TEXT,
         "lastLoginAt" DATETIME,
         "createdAt" DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -670,6 +671,29 @@ async function initializeDatabase() {
     }
 
     // ============================================================
+    // MIGRATION + AUTO-FLAG (QA fix 2026-10-19, Track C C-03)
+    // Existing installs: add mustChangePassword if missing, and flag every
+    // account still using the shipped default password (its bcrypt hash is
+    // a public constant) so the next login is forced through a password
+    // change. Detection compares the stored hash against the known default
+    // hash — the hash stays here ONLY as a detection fingerprint.
+    // ============================================================
+    try {
+      try {
+        db.exec(`ALTER TABLE users ADD COLUMN mustChangePassword INTEGER DEFAULT 0`);
+      } catch (e) { /* column already exists */ }
+      const KNOWN_DEFAULT_PASSWORD_HASH = '$2a$10$K.0HwpsoPDGaB/atFBmmXOGTw4ceeg33.WrxJx/FeC9.gOMXeIBbi';
+      const flagResult = db.prepare(
+        'UPDATE users SET mustChangePassword = 1 WHERE password = ? AND COALESCE(mustChangePassword, 0) = 0'
+      ).run(KNOWN_DEFAULT_PASSWORD_HASH);
+      if (flagResult && flagResult.changes > 0) {
+        log('INFO', `🔒 Flagged ${flagResult.changes} account(s) still using the shipped default password — a password change will be required at next login`);
+      }
+    } catch (flagError) {
+      log('WARN', `Default-password flagging warning: ${flagError.message}`);
+    }
+
+    // ============================================================
     // SEED DEFAULT ADMIN USER (for first-time local use)
     // ============================================================
     try {
@@ -724,10 +748,14 @@ async function initializeDatabase() {
         );
         log('INFO', '✅ Default branch created');
 
-        // Create admin user with isActive=TRUE (1)
+        // Create admin user with isActive=TRUE (1).
+        // QA fix (C-03): the seeded password is a known constant, so the
+        // account is seeded with mustChangePassword = 1 — the first login
+        // receives only a restricted token that can set a new password,
+        // and the auth middleware blocks everything else until it is done.
         db.prepare(`
-          INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, createdBy, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+          INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, mustChangePassword, createdBy, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
         `).run(
           adminId,
           'admin',
@@ -742,16 +770,13 @@ async function initializeDatabase() {
           now
         );
 
-        log('INFO', '✅ Default admin user created');
-        log('INFO', '🔑 Login credentials:');
-        log('INFO', '   Username: admin');
-        log('INFO', '   Password: admin123');
+        log('INFO', '✅ Default admin user created (username: admin) — password change REQUIRED at first login');
 
-        // Also create a SUPERADMIN for full access
+        // Also create a SUPERADMIN for full access (same forced-change flag)
         const superadminId = 'local-superadmin-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
         db.prepare(`
-          INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, createdBy, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+          INSERT OR IGNORE INTO users (id, username, email, password, name, role, branchId, companyId, isActive, mustChangePassword, createdBy, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
         `).run(
           superadminId,
           'superadmin',
@@ -766,10 +791,7 @@ async function initializeDatabase() {
           now
         );
 
-        log('INFO', '✅ Default superadmin user created');
-        log('INFO', '🔑 Superadmin Login credentials:');
-        log('INFO', '   Username: superadmin');
-        log('INFO', '   Password: admin123');
+        log('INFO', '✅ Default superadmin user created (username: superadmin) — password change REQUIRED at first login');
       } else {
         log('INFO', `Found ${userCount.count} existing users, skipping seed`);
       }
@@ -785,6 +807,35 @@ async function initializeDatabase() {
     log('ERROR', `Database initialization failed: ${error.message}`);
     return false;
   }
+}
+
+/**
+ * Per-install JWT secret (QA fix 2026-10-19, Track C C-02).
+ * ONE secret for the whole install: generated once with crypto.randomBytes,
+ * persisted to jwt-secret.txt in the app data dir (mode 0600), and shared
+ * with the embedded server via global.__ZAPEERA_JWT_SECRET__ and
+ * process.env.JWT_SECRET. There is NO hardcoded fallback — if no secret
+ * exists yet, this creates one. Never returns a constant.
+ */
+function ensureJwtSecret() {
+  if (global.__ZAPEERA_JWT_SECRET__) {
+    return global.__ZAPEERA_JWT_SECRET__;
+  }
+  const jwtSecretPath = path.join(APP_DATA_DIR, 'jwt-secret.txt');
+  let secret = null;
+  if (fs.existsSync(jwtSecretPath)) {
+    secret = fs.readFileSync(jwtSecretPath, 'utf8').trim();
+    if (secret) log('INFO', 'Using existing JWT secret');
+  }
+  if (!secret) {
+    secret = crypto.randomBytes(64).toString('hex');
+    fs.writeFileSync(jwtSecretPath, secret, { encoding: 'utf8', mode: 0o600 });
+    log('INFO', 'Generated new JWT secret');
+  }
+  global.__ZAPEERA_JWT_SECRET__ = secret;
+  // Also set process.env so the embedded server (in-process) uses the same value
+  process.env.JWT_SECRET = secret;
+  return secret;
 }
 
 /**
@@ -809,23 +860,8 @@ async function startBackend() {
     return true;
   }
 
-  // Generate JWT secret (persists across app restarts) — store in global scope for IPC handlers
-  const jwtSecretPath = path.join(APP_DATA_DIR, 'jwt-secret.txt');
-  global.__ZAPEERA_JWT_SECRET__ = global.__ZAPEERA_JWT_SECRET__ || (() => {
-    let secret;
-    if (fs.existsSync(jwtSecretPath)) {
-      secret = fs.readFileSync(jwtSecretPath, 'utf8').trim();
-      log('INFO', 'Using existing JWT secret');
-    } else {
-      secret = crypto.randomBytes(64).toString('hex');
-      fs.writeFileSync(jwtSecretPath, secret, 'utf8');
-      log('INFO', 'Generated new JWT secret');
-    }
-    // Also set process.env so embedded server (in-process) can use it
-    process.env.JWT_SECRET = secret;
-    return secret;
-  })();
-  const jwtSecret = global.__ZAPEERA_JWT_SECRET__;
+  // Per-install JWT secret (persists across app restarts) — see ensureJwtSecret()
+  const jwtSecret = ensureJwtSecret();
 
   const backendPath = getBackendPath();
   const backendDir = path.dirname(path.dirname(backendPath));
@@ -1453,7 +1489,7 @@ function setupIPC() {
         iat: Date.now(),
         exp: Date.now() + 60000 // 60 seconds
       })).toString('base64');
-      const jwtSecret = global.__ZAPEERA_JWT_SECRET__ || process.env.JWT_SECRET || 'zapeera-secret';
+      const jwtSecret = ensureJwtSecret();
       const signature = crypto.createHmac('sha256', jwtSecret).update(`${header}.${payload}`).digest('base64');
       const provisionToken = `${header}.${payload}.${signature}`;
 

@@ -1,83 +1,22 @@
 /**
- * Debug Routes
- * Extracted from routes/index.js
+ * Debug Routes — REMOVED (QA fix 2026-10-19, Track C 1.6)
+ *
+ * This module previously registered GET /api/debug/postgresql WITHOUT the
+ * auth middleware. The handler returned the remote database URL (password
+ * masked), connectivity state, and sample cloud user rows (id / email /
+ * username / role) pulled live from PostgreSQL — readable by any local
+ * process and, combined with the old reflect-any-origin CORS, by any web
+ * page the user visited. No caller exists in the frontend or the main
+ * process (verified by grep), so the endpoint is removed outright rather
+ * than gated.
+ *
+ * The registration call in routes/index.js has been removed as well. This
+ * stub keeps the module importable (no-op) so any stale require elsewhere
+ * fails safe instead of crashing the server.
  */
 
-function registerDebugRoutes(app, authMiddleware, deps) {
-  const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
-          queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
-          handleDataChange, getDataFilter, uuid, now, hashPassword, generateToken,
-          verifyToken, getDeviceId, getDeviceInfo, REMOTE_DATABASE_URL, SYNC_CONFIG,
-          connectPostgreSQL, checkPostgreSQLConnection, syncAllToPostgreSQL,
-          pullAllFromPostgreSQL, processOfflineQueue, startPeriodicSync,
-          markTableForPush, queueOfflineOperation, loadOfflineQueue, saveOfflineQueue,
-          createRecordPostgreSQLFirst, mapRowForPostgreSQL, getPostgreSQLColumns,
-          getSQLiteColumns, pgRowToSqlite, normalizeValue, getWeekNumber, getDateFromWeek,
-          getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
-          saveDatabase, initDatabase } = deps;
-
-// GET /api/debug/postgresql (line 95)
-      app.get('/api/debug/postgresql', async (req, res) => {
-        try {
-          const result = {
-            remoteDatabaseUrl: REMOTE_DATABASE_URL ? REMOTE_DATABASE_URL.replace(/:[^:@]+@/, ':****@') : 'NOT SET',
-            isOnline: getIsOnline(),
-            bcryptjsAvailable: !!bcryptjs,
-            connectionTest: null,
-            users: [],
-            error: null
-          };
-    
-          if (!REMOTE_DATABASE_URL) {
-            return res.json({ success: false, ...result, error: 'REMOTE_DATABASE_URL not configured' });
-          }
-    
-          // Try to connect
-          try {
-            let Client;
-            try {
-              const pg = require('pg');
-              Client = pg.Client;
-            } catch (e) {
-              return res.json({ success: false, ...result, error: 'pg module not available: ' + e.message });
-            }
-    
-            const testClient = new (require('pg').Client)({
-              connectionString: REMOTE_DATABASE_URL,
-              connectionTimeoutMillis: 5000
-            });
-    
-            await Promise.race([
-              testClient.connect(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 5000))
-            ]);
-    
-            await testClient.query('SELECT 1');
-            result.connectionTest = 'SUCCESS';
-    
-            // List users
-            const usersResult = await testClient.query('SELECT id, email, username, name, role, "isActive" FROM users LIMIT 2');
-            result.users = usersResult.rows.map(u => ({
-              id: u.id,
-              email: u.email,
-              username: u.username,
-              name: u.name,
-              role: u.role,
-              isActive: u.isActive
-            }));
-    
-            await testClient.end();
-            res.json({ success: true, ...result });
-          } catch (connError) {
-            result.connectionTest = 'FAILED';
-            result.error = connError.message;
-            res.json({ success: false, ...result });
-          }
-        } catch (e) {
-          res.status(500).json({ success: false, error: e.message });
-        }
-      });
-
+function registerDebugRoutes(/* app, authMiddleware, deps */) {
+  // Intentionally registers nothing.
 }
 
 module.exports = {

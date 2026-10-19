@@ -88,7 +88,25 @@ async function startServer(port = 4201, userDataPath = null) {
   // Setup Express
   console.log('[Server] Setting up Express...');
   app = express();
-  app.use(cors({ origin: true, credentials: true }));
+  // CORS (QA fix 2026-10-19, Track C 1.1/1.6): the previous config reflected
+  // ANY Origin with credentials, so any web page open in the shop's browser
+  // could call this local API cross-origin. The desktop renderer is loaded
+  // via loadFile (Origin "null" / file://) in production and from a loopback
+  // dev server in development; the main process calls over loopback with no
+  // Origin header. Allowlist exactly those — nothing else gets CORS access.
+  const LOOPBACK_ORIGIN = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/;
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || origin === 'null' || origin === 'file://') {
+        return callback(null, true); // local non-browser clients + file:// renderer
+      }
+      if (LOOPBACK_ORIGIN.test(origin)) {
+        return callback(null, true); // loopback dev servers / local tooling
+      }
+      return callback(null, false); // any other web origin: no CORS grant
+    },
+    credentials: true
+  }));
   app.use(express.json({ limit: '50mb' }));
 
   // Health check
@@ -121,33 +139,11 @@ async function startServer(port = 4201, userDataPath = null) {
     }
   });
 
-  // Debug endpoint - cloud connectivity
-  app.get('/api/debug/cloud', async (req, res) => {
-    try {
-      const connState = syncService.getConnectionState();
-      const cloudApi = syncService.getCloudApi && syncService.getCloudApi();
-      
-      const result = {
-        connectionState: connState,
-        cloudApiUrl: process.env.CLOUD_API_URL || 'not configured',
-        healthResult: null,
-        error: null
-      };
-
-      if (cloudApi) {
-        try {
-          const health = await cloudApi.checkHealth();
-          result.healthResult = health;
-        } catch (e) {
-          result.healthResult = { reachable: false, error: e.message };
-        }
-      }
-
-      res.json({ success: true, ...result });
-    } catch (e) {
-      res.status(500).json({ success: false, error: e.message });
-    }
-  });
+  // REMOVED (QA fix 2026-10-19, Track C 1.6): the unauthenticated
+  // GET /api/debug/cloud endpoint. It exposed cloud connectivity state and
+  // the configured cloud API URL to any local process or (via the old
+  // reflect-any-origin CORS) any web page. No legitimate flow calls it —
+  // the /health endpoint above covers liveness checks.
 
   // Create auth middleware
   const { createAuthMiddleware } = authService;

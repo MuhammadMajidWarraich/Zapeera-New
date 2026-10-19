@@ -7,6 +7,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
           handleDataChange, getDataFilter, uuid, now, hashPassword, generateToken,
+          verifyPassword, hashPasswordBcrypt,
           verifyToken, verifyProvisioningToken, getDeviceId, getDeviceInfo, REMOTE_DATABASE_URL, SYNC_CONFIG,
           connectPostgreSQL, checkPostgreSQLConnection, syncAllToPostgreSQL,
           pullAllFromPostgreSQL, processOfflineQueue, startPeriodicSync,
@@ -38,7 +39,9 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           }
     
           const id = uuid();
-          const hashedPassword = hashPassword(password);
+          // QA fix (Track C 1.4): new passwords are stored as bcrypt only —
+          // the legacy unsalted SHA-256 hashPassword() must never store a password.
+          const hashedPassword = hashPasswordBcrypt(password);
           const timestamp = now();
     
           // Check which database to use (PostgreSQL if available, SQLite otherwise)
@@ -305,7 +308,9 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                     }
     
                     if (matchedUser) {
-                      // Verify password with bcrypt
+                      // Verify password (QA fix, Track C 1.4): bcrypt is the only
+                      // accepted format. A legacy unsalted SHA-256 hash is accepted
+                      // exactly once and immediately migrated to bcrypt below.
                       if (!bcryptjs) {
                         logDebug('⚠️ bcryptjs not available');
                         await loginPgClient.end();
@@ -315,61 +320,23 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                           debug: { logs: debugLogs }
                         });
                       }
-    
+
                       logDebug('🔐 Verifying password...');
-                      logDebug('🔐 Input password length: ' + password.length);
-                      logDebug('🔐 Stored password hash length: ' + (matchedUser.password ? matchedUser.password.length : 0));
-                      logDebug('🔐 Stored password hash starts with: ' + (matchedUser.password ? matchedUser.password.substring(0, 10) : 'NULL'));
-    
-                      // CRITICAL: Check if password is bcrypt (starts with $2a$, $2b$, $2y$) or SHA256 (64 chars hex)
-                      const isBcrypt = matchedUser.password && (matchedUser.password.startsWith('$2a$') || matchedUser.password.startsWith('$2b$') || matchedUser.password.startsWith('$2y$'));
-                      const isSha256 = matchedUser.password && matchedUser.password.length === 64 && /^[a-f0-9]{64}$/i.test(matchedUser.password);
-    
-                      logDebug('🔐 Password hash type: ' + (isBcrypt ? 'bcrypt' : (isSha256 ? 'SHA256' : 'unknown')));
-    
-                      if (isBcrypt) {
-                        // Verify with bcrypt
-                        if (!bcryptjs) {
-                          logDebug('⚠️ bcryptjs not available');
-                          await loginPgClient.end();
-                          return res.status(401).json({
-                            success: false,
-                            message: 'Password verification unavailable. Please check server logs.',
-                            debug: { logs: debugLogs }
-                          });
+                      const pgVerify = await verifyPassword(password, matchedUser.password);
+                      passwordMatches = pgVerify.valid;
+                      logDebug('🔐 Password verification: ' + (passwordMatches ? '✅ MATCH' : '❌ NO MATCH'));
+
+                      if (passwordMatches && pgVerify.legacySha256) {
+                        // Migrate-on-login: overwrite the legacy SHA-256 hash with
+                        // bcrypt in PostgreSQL; it is never accepted again.
+                        try {
+                          await loginPgClient.query('UPDATE users SET password = $1 WHERE id = $2', [hashPasswordBcrypt(password), matchedUser.id]);
+                          logDebug('🔐 Legacy SHA-256 password migrated to bcrypt (PostgreSQL)');
+                        } catch (migErr) {
+                          logDebug('⚠️ PostgreSQL password migration failed (non-critical): ' + migErr.message);
                         }
-                        passwordMatches = await bcryptjs.compare(password, matchedUser.password);
-                        logDebug('🔐 Bcrypt verification: ' + (passwordMatches ? '✅ MATCH' : '❌ NO MATCH'));
-                      } else if (isSha256) {
-                        // Verify with SHA256
-                        const inputHash = hashPassword(password);
-                        passwordMatches = (inputHash === matchedUser.password);
-                        logDebug('🔐 SHA256 verification: ' + (passwordMatches ? '✅ MATCH' : '❌ NO MATCH'));
-                        logDebug('🔐 Input hash: ' + inputHash.substring(0, 20) + '...');
-                        logDebug('🔐 Stored hash: ' + matchedUser.password.substring(0, 20) + '...');
-                      } else {
-                        // Try both methods
-                        logDebug('⚠️ Unknown password format, trying both methods...');
-                        let bcryptMatch = false;
-                        let sha256Match = false;
-    
-                        if (bcryptjs) {
-                          try {
-                            bcryptMatch = await bcryptjs.compare(password, matchedUser.password);
-                            logDebug('🔐 Bcrypt attempt: ' + (bcryptMatch ? '✅ MATCH' : '❌ NO MATCH'));
-                          } catch (e) {
-                            logDebug('🔐 Bcrypt attempt failed: ' + e.message);
-                          }
-                        }
-    
-                        const inputHash = hashPassword(password);
-                        sha256Match = (inputHash === matchedUser.password);
-                        logDebug('🔐 SHA256 attempt: ' + (sha256Match ? '✅ MATCH' : '❌ NO MATCH'));
-    
-                        passwordMatches = bcryptMatch || sha256Match;
-                        logDebug('🔐 Final verification: ' + (passwordMatches ? '✅ MATCH' : '❌ NO MATCH'));
                       }
-    
+
                       if (passwordMatches) {
                         // Check isActive
                         const isActive = matchedUser.isActive === true || matchedUser.isActive === 1 || matchedUser.isActive === 'true' || matchedUser.isActive === '1';
@@ -385,7 +352,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                         }
     
                         // Create user in SQLite for future logins
-                        const sqlitePasswordHash = hashPassword(password);
+                        const syncedPasswordHash = hashPasswordBcrypt(password); // bcrypt copy for SQLite (QA fix 1.4: no SHA-256 downgrade)
                         const userId = matchedUser.id;
                         const timestamp = now();
     
@@ -397,7 +364,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                           userId,
                           matchedUser.username || matchedUser.email,
                           matchedUser.email,
-                          sqlitePasswordHash,
+                          syncedPasswordHash,
                           matchedUser.name,
                           matchedUser.role,
                           matchedUser.branchId || null,
@@ -421,7 +388,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                               id: matchedUser.id,
                               email: matchedUser.email,
                               username: matchedUser.username || matchedUser.email,
-                              password: sqlitePasswordHash,
+                              password: syncedPasswordHash,
                               name: matchedUser.name,
                               role: matchedUser.role,
                               branchId: matchedUser.branchId,
@@ -440,7 +407,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                             id: matchedUser.id,
                             email: matchedUser.email,
                             username: matchedUser.username || matchedUser.email,
-                            password: sqlitePasswordHash,
+                            password: syncedPasswordHash,
                             name: matchedUser.name,
                             role: matchedUser.role,
                             branchId: matchedUser.branchId,
@@ -554,15 +521,15 @@ function registerAuthRoutes(app, authMiddleware, deps) {
               });
             }
     
-            // Check password if user found in SQLite
+            // Check password if user found in SQLite (bcrypt, with one-time
+            // legacy SHA-256 acceptance — migration happens in the final check)
             if (users.length > 0) {
-              const u = users[0];
-              const inputHash = hashPassword(password);
-              passwordMatches = (u.password && u.password === inputHash);
+              const sqliteVerify = await verifyPassword(password, users[0].password);
+              passwordMatches = sqliteVerify.valid;
               logDebug('SQLite password check: ' + (passwordMatches ? 'MATCH' : 'NO MATCH'));
             }
           }
-    
+
           // User found and password verified - continue to login
           // (PostgreSQL already checked first, SQLite checked second if needed)
     
@@ -749,43 +716,29 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             });
           }
     
-          // Check password - if user was synced from PostgreSQL, password might be bcrypt hash
-          // So we need to check both SHA256 (SQLite) and bcrypt (PostgreSQL)
-          const inputHash = hashPassword(password);
+          // Check password (QA fix, Track C 1.4): bcrypt only. A legacy
+          // unsalted SHA-256 hash is accepted exactly once and immediately
+          // re-hashed to bcrypt (migrate-on-login) — the old code did the
+          // opposite and DOWNGRADED bcrypt hashes to SHA-256 after login.
           const storedHash = u.password;
-    
-          console.log('[Auth] Input hash:', inputHash.substring(0, 10) + '...');
-          console.log('[Auth] Stored hash:', storedHash ? storedHash.substring(0, 10) + '...' : 'NULL');
-    
           let passwordValid = false;
-    
-          // First check if it's SHA256 hash (SQLite format)
-          if (storedHash && storedHash === inputHash) {
-            passwordValid = true;
-            console.log('[Auth] Password match (SHA256/SQLite)');
-          } else if (storedHash && storedHash.startsWith('$2')) {
-            // Looks like bcrypt hash - verify with bcrypt
-            if (bcryptjs) {
+          {
+            const localVerify = await verifyPassword(password, storedHash);
+            passwordValid = localVerify.valid;
+            console.log('[Auth] Password check:', passwordValid ? 'MATCH' : 'NO MATCH');
+            if (passwordValid && localVerify.legacySha256) {
               try {
-                passwordValid = await bcryptjs.compare(password, storedHash);
-                console.log('[Auth] Password check (bcrypt):', passwordValid ? 'MATCH' : 'NO MATCH');
-    
-                // If password matches but it's bcrypt, convert to SHA256 for SQLite
-                if (passwordValid) {
-                  console.log('[Auth] Converting bcrypt password to SHA256 for SQLite...');
-                  run('UPDATE users SET password = ? WHERE id = ?', [inputHash, u.id]);
-                  saveDatabase();
-                  u.password = inputHash; // Update local object
-                }
-              } catch (bcryptError) {
-                console.log('[Auth] Bcrypt comparison error:', bcryptError.message);
-                passwordValid = false;
+                const upgradedHash = hashPasswordBcrypt(password);
+                run('UPDATE users SET password = ? WHERE id = ?', [upgradedHash, u.id]);
+                saveDatabase();
+                u.password = upgradedHash;
+                console.log('[Auth] 🔐 Legacy SHA-256 password migrated to bcrypt');
+              } catch (migErr) {
+                console.log('[Auth] ⚠️ Password migration failed (non-critical):', migErr.message);
               }
-            } else {
-              console.log('[Auth] ⚠️ bcryptjs not available, cannot verify bcrypt password');
             }
           }
-    
+
           if (!passwordValid) {
             console.log('[Auth] Password mismatch - checking PostgreSQL as fallback...');
     
@@ -809,7 +762,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                     if (pgPasswordValid) {
                       console.log('[Auth] ✅ Password verified in PostgreSQL, updating SQLite...');
                       // Update SQLite user with correct password hash
-                      run('UPDATE users SET password = ?, updatedAt = datetime("now") WHERE id = ?', [inputHash, u.id]);
+                      run('UPDATE users SET password = ?, updatedAt = datetime("now") WHERE id = ?', [hashPasswordBcrypt(password), u.id]);
                       saveDatabase();
                       passwordValid = true;
                     }
@@ -826,6 +779,43 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             }
           }
     
+          // QA fix (Track C C-03): accounts flagged mustChangePassword (seeded
+          // default admins / accounts still on the shipped default password)
+          // receive ONLY a restricted token whose single allowed use is
+          // POST /api/auth/change-password — enforced by the auth middleware.
+          const mustChangePassword = u.mustChangePassword === 1 || u.mustChangePassword === true || u.mustChangePassword === '1';
+          if (mustChangePassword) {
+            logDebug('🔒 Password change required for: ' + u.email);
+            const restrictedToken = generateToken({ id: u.id, email: u.email, name: u.name, role: u.role, companyId: u.companyId, branchId: u.branchId, restricted: true, purpose: 'password-change' });
+            res.cookie('zapeera_token', restrictedToken, {
+              httpOnly: true,
+              secure: false,
+              sameSite: 'lax',
+              maxAge: 7 * 24 * 60 * 60 * 1000,
+              path: '/'
+            });
+            return res.json({
+              success: true,
+              mustChangePassword: true,
+              data: {
+                user: {
+                  id: u.id,
+                  email: u.email,
+                  username: u.email,
+                  name: u.name,
+                  role: u.role,
+                  phone: u.phone || null,
+                  companyId: u.companyId,
+                  branchId: u.branchId,
+                  isActive: u.isActive
+                },
+                token: restrictedToken,
+                sessionToken: null
+              },
+              message: 'Password change required. Please set a new password to continue.'
+            });
+          }
+
           logDebug('✅✅✅ LOGIN SUCCESSFUL for: ' + u.email);
           
           // CRITICAL FIX: After successful login, ALWAYS sync all data from PostgreSQL to SQLite
@@ -1078,10 +1068,10 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                     const apiUrl = REMOTE_DATABASE_URL.replace(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/,
                       (match, user, pass, host, port, db) => {
                         // Try to construct API URL from PostgreSQL URL
-                        return `https://api.zapeera.com`; // Default API URL
+                        return `https://api.zapeera.seikho.online`; // Default API URL — current single-host deployment (test host until the owner has his own domain); override via API_URL env / cloud settings
                       });
                     // Try to call backend API if available
-                    const backendUrl = process.env.API_URL || 'https://api.zapeera.com';
+                    const backendUrl = process.env.API_URL || 'https://api.zapeera.seikho.online';
                     const forgotPasswordUrl = `${backendUrl}/api/auth/forgot-password`;
     
                     // Fire and forget - don't wait for response
@@ -1190,7 +1180,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           const user = users[0];
     
           // Hash new password
-          const hashedPassword = hashPassword(newPassword);
+          const hashedPassword = hashPasswordBcrypt(newPassword); // bcrypt only (QA fix 1.4)
     
           // Update password and clear reset token
           run('UPDATE users SET password = ?, passwordResetToken = NULL, passwordResetExpires = NULL, sessionToken = NULL, updatedAt = ? WHERE id = ?',
@@ -1243,7 +1233,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           }
     
           // Reset password
-          const hashedPassword = hashPassword(newPassword);
+          const hashedPassword = hashPasswordBcrypt(newPassword); // bcrypt only (QA fix 1.4)
           run('UPDATE users SET password = ?, updatedAt = ? WHERE id = ?', [hashedPassword, now(), targetUser.id]);
     
           console.log(`[Auth] Password reset by ${req.user.email} for user: ${targetUser.email}`);
@@ -1282,20 +1272,51 @@ function registerAuthRoutes(app, authMiddleware, deps) {
       });
 
   // POST /api/auth/change-password (line 1437)
-      app.post('/api/auth/change-password', authMiddleware, (req, res) => {
+  // QA fix (Track C C-03/1.4): this is the ONLY route a mustChangePassword
+  // account (or restricted token) may call. Verifies the current password
+  // (bcrypt; a legacy SHA-256 stored hash is accepted here once because this
+  // very call replaces it), enforces the new-password policy, stores bcrypt
+  // only, clears the mustChangePassword flag, and returns a full token.
+      app.post('/api/auth/change-password', authMiddleware, async (req, res) => {
         try {
-          const { currentPassword, newPassword } = req.body;
+          const { currentPassword, newPassword } = req.body || {};
+          if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Current password and new password are required' });
+          }
+          if (typeof newPassword !== 'string' || newPassword.length < 10) {
+            return res.status(400).json({ success: false, message: 'New password must be at least 10 characters long' });
+          }
+          if (newPassword === 'admin123') {
+            return res.status(400).json({ success: false, message: 'New password must not be the default password' });
+          }
           const users = query('SELECT password FROM users WHERE id = ?', [req.user.id]);
-          if (!users.length || users[0].password !== hashPassword(currentPassword)) {
+          if (!users.length) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+          }
+          const currentVerify = await verifyPassword(currentPassword, users[0].password);
+          if (!currentVerify.valid) {
             return res.status(400).json({ success: false, message: 'Current password is incorrect' });
           }
-          run('UPDATE users SET password = ?, updatedAt = ? WHERE id = ?', [hashPassword(newPassword), now(), req.user.id]);
+          run('UPDATE users SET password = ?, mustChangePassword = 0, updatedAt = ? WHERE id = ?', [hashPasswordBcrypt(newPassword), now(), req.user.id]);
           const updatedUser = query('SELECT * FROM users WHERE id = ?', [req.user.id])[0];
-    
+
           // 🔄 TWO-WAY SYNC: Queue for sync to PostgreSQL
           if (updatedUser) handleDataChange('users', 'update', updatedUser);
-    
-          res.json({ success: true, message: 'Password changed successfully' });
+
+          // Issue a fresh unrestricted token so a forced-change login can
+          // continue straight into the app.
+          const freshToken = updatedUser ? generateToken({ id: updatedUser.id, email: updatedUser.email, name: updatedUser.name, role: updatedUser.role, companyId: updatedUser.companyId, branchId: updatedUser.branchId }) : null;
+          if (freshToken) {
+            res.cookie('zapeera_token', freshToken, {
+              httpOnly: true,
+              secure: false,
+              sameSite: 'lax',
+              maxAge: 7 * 24 * 60 * 60 * 1000,
+              path: '/'
+            });
+          }
+
+          res.json({ success: true, message: 'Password changed successfully', data: freshToken ? { token: freshToken } : undefined });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
