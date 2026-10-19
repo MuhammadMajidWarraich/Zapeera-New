@@ -259,9 +259,9 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
 
   if (loading && businessList.length === 0) {
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-[220px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+          <div key={i} className="h-[190px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white md:h-[118px]" />
         ))}
       </div>
     );
@@ -305,7 +305,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4">
         {businessList.map((b: any) => {
           const ent = entitlements[b.id] || {};
           const status = normalizeStatus(ent.subscriptionStatus);
@@ -319,8 +319,9 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
           return (
             <div
               key={b.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_44px_rgba(0,0,0,0.09)]"
+              className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_44px_rgba(0,0,0,0.09)] md:flex-row md:items-center md:gap-6"
             >
+              <div className="min-w-0 md:flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-[15px] font-bold text-white">
@@ -394,7 +395,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                 </DropdownMenu>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#4a5578]">
                   <UserMinus className="h-3 w-3 opacity-60" /> {role}
                 </span>
@@ -403,8 +404,10 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                   {ent.plan?.name ? `${ent.plan.name} · ${style.label}` : style.label}
                 </span>
               </div>
+              </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
+              <div className="shrink-0 md:w-72">
+              <div className="grid grid-cols-2 gap-3 text-[13px] md:flex md:flex-col md:gap-2">
                 <div className="flex items-center gap-2 text-[#4a5578]">
                   <Layers className="h-4 w-4 text-[#8c95b0]" />
                   {branchCount} {branchCount === 1 ? "Branch" : "Branches"}
@@ -442,12 +445,13 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                   </>
                 )}
               </div>
+              </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="flex gap-2 md:shrink-0">
                 <button
                   type="button"
                   onClick={() => openWorkspace(b)}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)] md:w-52 md:flex-none"
                 >
                   Open Workspace
                   <ArrowRight className="h-4 w-4" />
