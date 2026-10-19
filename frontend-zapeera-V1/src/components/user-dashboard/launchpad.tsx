@@ -185,7 +185,7 @@ export function AccountStatStrip() {
         </span>
         <span className="min-w-0">
           <span className="block text-[15px] font-extrabold leading-tight text-[#0a1128]">{owned}</span>
-          <span className="block truncate text-[11.5px] font-medium text-[#8c95b0]">Businesses Owned</span>
+          <span className="block text-[11.5px] font-medium leading-tight text-[#8c95b0]">Businesses Owned</span>
         </span>
       </div>
       <div className={itemCls}>
@@ -194,7 +194,7 @@ export function AccountStatStrip() {
         </span>
         <span className="min-w-0">
           <span className="block text-[15px] font-extrabold leading-tight text-[#0a1128]">{joined}</span>
-          <span className="block truncate text-[11.5px] font-medium text-[#8c95b0]">Businesses Joined</span>
+          <span className="block text-[11.5px] font-medium leading-tight text-[#8c95b0]">Businesses Joined</span>
         </span>
       </div>
       <button type="button" onClick={() => navigate("/zapeera/invitations")} className={cn(itemCls, "text-left transition-colors hover:bg-[#f0f2f7]/70")}>
@@ -203,7 +203,7 @@ export function AccountStatStrip() {
         </span>
         <span className="min-w-0">
           <span className="block text-[15px] font-extrabold leading-tight text-[#0a1128]">{invites.length}</span>
-          <span className="block truncate text-[11.5px] font-medium text-[#8c95b0]">Pending Invitations</span>
+          <span className="block text-[11.5px] font-medium leading-tight text-[#8c95b0]">Pending Invitations</span>
         </span>
       </button>
       <div className={itemCls}>
@@ -219,7 +219,7 @@ export function AccountStatStrip() {
               </span>
             )}
           </span>
-          <span className="block truncate text-[11.5px] font-medium text-[#8c95b0]">Desktop Connected</span>
+          <span className="block text-[11.5px] font-medium leading-tight text-[#8c95b0]">Desktop Connected</span>
         </span>
       </div>
     </section>
