@@ -137,6 +137,21 @@ export interface AuthContext {
   businessType: any;
   businessTypeModules: Map<string, { isEnabled: boolean; moduleKey: string }>;
   businessTypeDisabledPages: Set<string>; // pageIds explicitly disabled
+  // Backoffice "module permissions" matrix tables (plan_module_permissions,
+  // plan_sub_module_permissions, role_module_permissions,
+  // role_sub_module_permissions, business_type_sub_module_permissions).
+  // These are DENY-ONLY gates layered on top of the published policies:
+  // an explicit enabled=false row denies; a missing or enabled row is
+  // "no opinion" and never grants anything the policies don't already
+  // grant. (Round-2 module sync: the Backoffice UI writes only these
+  // tables, so the resolver must honor them or admin toggles do nothing.)
+  backofficeGates: {
+    planModules: Map<string, boolean>;
+    planSubModules: Map<string, boolean>;
+    roleModules: Map<string, boolean>;
+    roleSubModules: Map<string, boolean>;
+    businessTypeSubModules: Map<string, boolean>;
+  };
   overrides: Map<string, boolean>; // moduleId → enabled
   moduleDefs: Map<string, any>;
   pagesByModule: Map<string, any[]>;
@@ -174,7 +189,7 @@ async function computePolicyFingerprint(prisma: any, businessId: string, userId:
 
   const membership = await prisma.membership.findUnique({
     where: { unique_user_business: { userId, businessId } },
-    select: { status: true, updatedAt: true, roleId: true, role: { select: { permissionState: true, policyVersion: true, updatedAt: true } } },
+    select: { status: true, updatedAt: true, roleId: true, role: { select: { name: true, permissionState: true, policyVersion: true, updatedAt: true } } },
   });
 
   const plan = business.businessSubscription?.planId
@@ -199,6 +214,19 @@ async function computePolicyFingerprint(prisma: any, businessId: string, userId:
   }
 
   const overrideMax = await prisma.$queryRaw<any[]>`SELECT MAX("updatedAt") as m FROM business_module_overrides WHERE "businessId" = ${businessId}`;
+  // Backoffice matrix gates freshness (missing tables -> null -> stable part)
+  let gatePart = '';
+  try {
+    const planIdForGates = business.businessSubscription?.planId || null;
+    const roleNameForGates = membership?.role?.name ? String(membership.role.name).toUpperCase() : null;
+    const planGateMax = planIdForGates
+      ? await prisma.$queryRaw<any[]>`SELECT GREATEST((SELECT MAX("updatedAt") FROM plan_module_permissions WHERE "planId" = ${planIdForGates}), (SELECT MAX("updatedAt") FROM plan_sub_module_permissions WHERE "planId" = ${planIdForGates})) as m`
+      : null;
+    const roleGateMax = roleNameForGates
+      ? await prisma.$queryRaw<any[]>`SELECT GREATEST((SELECT MAX("updatedAt") FROM role_module_permissions WHERE UPPER("roleName") = ${roleNameForGates}), (SELECT MAX("updatedAt") FROM role_sub_module_permissions WHERE UPPER("roleName") = ${roleNameForGates})) as m`
+      : null;
+    gatePart = `${nowMs(planGateMax?.[0]?.m)}:${nowMs(roleGateMax?.[0]?.m)}`;
+  } catch { gatePart = ''; }
   const moduleDefMax = await prisma.$queryRaw<any[]>`SELECT MAX("updatedAt") as m FROM module_definitions`;
   const modulePageMax = await prisma.$queryRaw<any[]>`SELECT MAX("updatedAt") as m FROM module_pages`;
 
@@ -211,6 +239,7 @@ async function computePolicyFingerprint(prisma: any, businessId: string, userId:
     `m${membership ? `${membership.status}:${nowMs(membership.updatedAt)}` : 'none'}`,
     `r${membership?.role ? `${membership.role.permissionState}:${membership.role.policyVersion}:${nowMs(membership.role.updatedAt)}` : 'none'}`,
     `o${nowMs(overrideMax?.[0]?.m)}`,
+    `g${gatePart}`,
     `d${nowMs(moduleDefMax?.[0]?.m)}:${nowMs(modulePageMax?.[0]?.m)}`,
   ];
 
@@ -286,6 +315,7 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
 
   // Business type (id or case-insensitive name match)
   let businessType: any = null;
+  let businessTypeIdForGates: string | null = null;
   let businessTypeModules = new Map<string, { isEnabled: boolean; moduleKey: string }>();
   let businessTypeDisabledPages = new Set<string>();
   if (business.businessType) {
@@ -297,6 +327,7 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
         LIMIT 1`;
       if (btRows && btRows.length > 0) {
         const btId = btRows[0].id;
+        businessTypeIdForGates = String(btId);
         businessType = btRows[0];
 
         const rawBtModules = await prisma.$queryRaw<any[]>`
@@ -352,6 +383,38 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
     dependencies = [];
   }
 
+  // ── Backoffice matrix gates (deny-only) ─────────────────────────────
+  const backofficeGates = {
+    planModules: new Map<string, boolean>(),
+    planSubModules: new Map<string, boolean>(),
+    roleModules: new Map<string, boolean>(),
+    roleSubModules: new Map<string, boolean>(),
+    businessTypeSubModules: new Map<string, boolean>(),
+  };
+  try {
+    if (plan?.id) {
+      const rows = await prisma.$queryRaw<any[]>`SELECT "moduleName", enabled FROM plan_module_permissions WHERE "planId" = ${String(plan.id)}`;
+      for (const r of rows || []) backofficeGates.planModules.set(normalizeKey(String(r.moduleName || '')), !!r.enabled);
+      const subRows = await prisma.$queryRaw<any[]>`SELECT "moduleName", "subModuleKey", enabled FROM plan_sub_module_permissions WHERE "planId" = ${String(plan.id)}`;
+      for (const r of subRows || []) backofficeGates.planSubModules.set(`${normalizeKey(String(r.moduleName || ''))}::${normalizeKey(String(r.subModuleKey || ''))}`, !!r.enabled);
+    }
+  } catch { /* tables may not exist yet — gates stay empty (no opinion) */ }
+  try {
+    const gateRoleName = String(role?.name || '').toUpperCase();
+    if (gateRoleName) {
+      const rows = await prisma.$queryRaw<any[]>`SELECT "moduleName", enabled FROM role_module_permissions WHERE UPPER("roleName") = ${gateRoleName}`;
+      for (const r of rows || []) backofficeGates.roleModules.set(normalizeKey(String(r.moduleName || '')), !!r.enabled);
+      const subRows = await prisma.$queryRaw<any[]>`SELECT "moduleName", "subModuleKey", enabled FROM role_sub_module_permissions WHERE UPPER("roleName") = ${gateRoleName}`;
+      for (const r of subRows || []) backofficeGates.roleSubModules.set(`${normalizeKey(String(r.moduleName || ''))}::${normalizeKey(String(r.subModuleKey || ''))}`, !!r.enabled);
+    }
+  } catch { /* tables may not exist yet */ }
+  try {
+    if (businessTypeIdForGates) {
+      const subRows = await prisma.$queryRaw<any[]>`SELECT "moduleName", "subModuleKey", enabled FROM business_type_sub_module_permissions WHERE "businessTypeId" = ${businessTypeIdForGates}`;
+      for (const r of subRows || []) backofficeGates.businessTypeSubModules.set(`${normalizeKey(String(r.moduleName || ''))}::${normalizeKey(String(r.subModuleKey || ''))}`, !!r.enabled);
+    }
+  } catch { /* tables may not exist yet */ }
+
   const context: AuthContext = {
     business,
     membership,
@@ -364,6 +427,7 @@ export async function loadAuthContext(prisma: any, businessId: string, userId: s
     businessType,
     businessTypeModules,
     businessTypeDisabledPages,
+    backofficeGates,
     overrides,
     moduleDefs,
     pagesByModule,
@@ -445,6 +509,11 @@ export async function evaluateModuleLayers(
     // ── Plan entitlement gate (empty/UNCONFIGURED = deny) ───────────────────
     const planAllows = checkPlanEntitles(context, module);
     if (!planAllows) {
+      return { allowed: false, reason: 'PLAN_NOT_ENTITLED', moduleKey, scope };
+    }
+
+    // ── Backoffice plan matrix gate (deny-only) ─────────────────────────────
+    if (context.backofficeGates.planModules.get(moduleKey) === false) {
       return { allowed: false, reason: 'PLAN_NOT_ENTITLED', moduleKey, scope };
     }
 
@@ -699,6 +768,30 @@ export async function authorizeBusinessAction(
         return deny('PLAN_NOT_ENTITLED');
       }
 
+      // ── Layer 4b: Backoffice matrix gates (deny-only) ─────────────────────
+      // The Backoffice module-permissions screens write these tables; an
+      // explicit enabled=false there must deny here too, or admin toggles
+      // silently do nothing. Precedence mirrors the payload: type, plan,
+      // role. OWNER is exempt from role gates (protected system role).
+      const gateKey = `${moduleKey}::${pageKey}`;
+      if (context.backofficeGates.businessTypeSubModules.get(gateKey) === false) {
+        return deny('BUSINESS_TYPE_DENIED');
+      }
+      if (context.backofficeGates.planModules.get(moduleKey) === false) {
+        return deny('PLAN_NOT_ENTITLED');
+      }
+      if (context.backofficeGates.planSubModules.get(gateKey) === false) {
+        return deny('PLAN_NOT_ENTITLED');
+      }
+      if (String(context.role?.name || '').toUpperCase() !== 'OWNER') {
+        if (context.backofficeGates.roleModules.get(moduleKey) === false) {
+          return deny('ROLE_DENIED');
+        }
+        if (context.backofficeGates.roleSubModules.get(gateKey) === false) {
+          return deny('ROLE_DENIED');
+        }
+      }
+
       // ── Layer 5: business override ────────────────────────────────────────
       if (context.overrides.get(String(module.id)) === false) {
         return deny('BUSINESS_OVERRIDE_DENIED');
@@ -762,6 +855,9 @@ export async function evaluateModuleEffectiveAccess(
   const roleName = String(context.role?.name || '').toUpperCase();
   if (roleName !== 'OWNER') {
     if (!context.role || String(context.role.permissionState || 'UNCONFIGURED').toUpperCase() !== 'CONFIGURED') {
+      return { allowed: false, reason: 'ROLE_DENIED', moduleKey: normalizeKey(moduleKey), scope: 'BUSINESS' };
+    }
+    if (context.backofficeGates.roleModules.get(normalizeKey(moduleKey)) === false) {
       return { allowed: false, reason: 'ROLE_DENIED', moduleKey: normalizeKey(moduleKey), scope: 'BUSINESS' };
     }
   }

@@ -509,9 +509,18 @@ export async function getModuleAccessV2(
         page = (context.pagesByModule.get(String(parentModuleDef.id)) || []).find((p) => normalizeModuleKey(p.key) === subKey) || null;
       }
 
-      const businessTypeAllowed = page ? !context.businessTypeDisabledPages.has(String(page.id)) : true;
-      const planEntitled = checkPlanEntitlesResource(context, parentKey, subKey) !== 'DENIED';
-      const roleAllowed = subModuleRoleAllows(context, page);
+      const gateKey = `${parentKey}::${subKey}`;
+      const businessTypeAllowed =
+        (page ? !context.businessTypeDisabledPages.has(String(page.id)) : true) &&
+        context.backofficeGates.businessTypeSubModules.get(gateKey) !== false;
+      const planEntitled =
+        checkPlanEntitlesResource(context, parentKey, subKey) !== 'DENIED' &&
+        context.backofficeGates.planModules.get(parentKey) !== false &&
+        context.backofficeGates.planSubModules.get(gateKey) !== false;
+      const roleAllowed =
+        subModuleRoleAllows(context, page) &&
+        (String(context.role?.name || '').toUpperCase() === 'OWNER' ||
+          context.backofficeGates.roleSubModules.get(gateKey) !== false);
 
       const enabled = businessTypeAllowed && planEntitled && roleAllowed;
 
@@ -611,6 +620,12 @@ async function evaluateModuleForPayload(
         const page = context.pageById.get(String(p.modulePageId));
         return page && String(page.moduleId) === String(moduleDef.id) && !!p.allowed;
       });
+    // Backoffice role matrix (deny-only): an explicit enabled=false for
+    // this role+module in role_module_permissions locks the module even
+    // when page permissions would allow it.
+    if (context.backofficeGates.roleModules.get(moduleKey) === false) {
+      roleAllowed = false;
+    }
   }
 
   if (!roleAllowed) {
