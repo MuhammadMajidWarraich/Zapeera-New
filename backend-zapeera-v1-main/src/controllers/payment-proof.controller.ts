@@ -101,10 +101,10 @@ function safeUnlink(filePath?: string) {
   if (filePath) try { fs.unlinkSync(filePath); } catch {}
 }
 
-function todayStart(): string {
+function todayStart(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return d;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -239,12 +239,11 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
     }
 
     // ── Rule 4: only one pending proof per business ───────────────────────────
-    const pending = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM payment_proofs
-      WHERE "businessId" = ${businessId} AND status = 'PENDING'
-      LIMIT 1
-    `;
-    if (pending.length > 0) {
+    const pending = await prisma.paymentProof.findFirst({
+      where: { businessId: String(businessId), status: 'PENDING' },
+      select: { id: true }
+    });
+    if (pending) {
       safeUnlink(filePath);
       res.status(409).json({
         success: false,
@@ -255,12 +254,12 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
     }
 
     // ── Rule 5: max 3 submissions per day ────────────────────────────────────
-    const todayRows = await prisma.$queryRaw<{ cnt: number }[]>`
-      SELECT COUNT(*) as cnt FROM payment_proofs
-      WHERE "businessId" = ${businessId}
-        AND "createdAt" >= ${todayStart()}
-    `;
-    const todayCount = Number(todayRows[0]?.cnt ?? 0);
+    // (Prisma model query — the old raw tagged query bound the day-start as
+    // TEXT and Postgres rejected `timestamp >= text` with 42883, so EVERY
+    // submission failed with 500. Same text-date disease as P3-1/P4-5.)
+    const todayCount = await prisma.paymentProof.count({
+      where: { businessId: String(businessId), createdAt: { gte: todayStart() } }
+    });
     if (todayCount >= MAX_SUBMISSIONS_PER_DAY) {
       safeUnlink(filePath);
       res.status(429).json({
@@ -273,12 +272,11 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
 
     // ── Rule 6: screenshot hash duplicate check ───────────────────────────────
     const fileHash = hashFile(req.file.path);
-    const hashDup = await prisma.$queryRaw<{ id: string }[]>`
-      SELECT id FROM payment_proofs
-      WHERE "screenshotHash" = ${fileHash}
-      LIMIT 1
-    `;
-    if (hashDup.length > 0) {
+    const hashDup = await prisma.paymentProof.findFirst({
+      where: { screenshotHash: fileHash },
+      select: { id: true }
+    });
+    if (hashDup) {
       safeUnlink(filePath);
       res.status(409).json({
         success: false,
@@ -290,14 +288,11 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
 
     // ── Rule 7: duplicate reference + amount ──────────────────────────────────
     if (referenceNote) {
-      const refDup = await prisma.$queryRaw<{ id: string }[]>`
-        SELECT id FROM payment_proofs
-        WHERE "referenceNote" = ${String(referenceNote)}
-          AND amount = ${parsedAmount}
-          AND status != 'REJECTED'
-        LIMIT 1
-      `;
-      if (refDup.length > 0) {
+      const refDup = await prisma.paymentProof.findFirst({
+        where: { referenceNote: String(referenceNote), amount: parsedAmount, status: { not: 'REJECTED' } },
+        select: { id: true }
+      });
+      if (refDup) {
         safeUnlink(filePath);
         res.status(409).json({
           success: false,
@@ -310,17 +305,22 @@ export const submitPaymentProof = async (req: AuthRequest, res: Response): Promi
 
     // ── Insert proof ──────────────────────────────────────────────────────────
     const screenshotUrl = `payment-proofs/${req.file.filename}`;
-    const now = new Date().toISOString();
     const id = `pp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO payment_proofs
-         (id, "businessId", "planId", amount, currency, method, "referenceNote",
-          "screenshotUrl", "screenshotHash", status, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, 'PKR', $5, $6, $7, $8, 'PENDING', $9, $10)`,
-      id, businessId, planId, parsedAmount, method,
-      referenceNote || null, screenshotUrl, fileHash, now, now
-    );
+    await prisma.paymentProof.create({
+      data: {
+        id,
+        businessId: String(businessId),
+        planId: String(planId),
+        amount: parsedAmount,
+        currency: 'PKR',
+        method: String(method),
+        referenceNote: referenceNote || null,
+        screenshotUrl,
+        screenshotHash: fileHash,
+        status: 'PENDING'
+      }
+    });
 
     console.log(`[PaymentProof] ✅ Submitted id=${id} biz=${businessId} plan=${planId} method=${method} amount=${parsedAmount}`);
 
@@ -369,17 +369,24 @@ export const getMyPaymentProofs = async (req: AuthRequest, res: Response): Promi
       }
     }
 
-    const rows = await prisma.$queryRaw<any[]>`
-      SELECT pp.id, pp."businessId", pp."planId", pp.amount, pp.currency,
-             pp.method, pp."referenceNote", pp."screenshotUrl",
-             pp.status, pp."rejectionReason", pp."reviewedAt",
-             pp."createdAt", pp."updatedAt",
-             p.name as "planName", p.price as "planPrice"
-      FROM payment_proofs pp
-      JOIN platform_plans p ON p.id = pp."planId"
-      WHERE pp."businessId" = ${String(businessId)}
-      ORDER BY pp."createdAt" DESC
-    `;
+    const proofs = await prisma.paymentProof.findMany({
+      where: { businessId: String(businessId) },
+      orderBy: { createdAt: 'desc' }
+    });
+    const planIds = [...new Set(proofs.map((p) => p.planId))];
+    const plans = planIds.length
+      ? await prisma.plan.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true, price: true } })
+      : [];
+    const planById = new Map(plans.map((p) => [p.id, p]));
+    const rows = proofs.map((pp) => ({
+      id: pp.id, businessId: pp.businessId, planId: pp.planId, amount: pp.amount,
+      currency: pp.currency, method: pp.method, referenceNote: pp.referenceNote,
+      screenshotUrl: pp.screenshotUrl, status: pp.status,
+      rejectionReason: pp.rejectionReason, reviewedAt: pp.reviewedAt,
+      createdAt: pp.createdAt, updatedAt: pp.updatedAt,
+      planName: planById.get(pp.planId)?.name ?? null,
+      planPrice: planById.get(pp.planId)?.price ?? null
+    }));
 
     res.json({ success: true, data: rows });
   } catch (error: any) {
@@ -401,33 +408,41 @@ export const getAllPaymentProofs = async (req: Request, res: Response): Promise<
     const { status, businessId, dateFrom, dateTo } = req.query;
     const prisma = await getPrisma();
 
-    // Build WHERE clauses dynamically using raw
-    let where = '1=1';
-    const params: any[] = [];
-    let paramIdx = 1;
+    // Prisma model query + JS enrichment (the old hand-built raw SQL bound
+    // the date filters as TEXT — same 42883 failure class as submit).
+    const where: any = {};
+    if (status) where.status = String(status);
+    if (businessId) where.businessId = String(businessId);
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(String(dateFrom));
+      if (dateTo) where.createdAt.lte = new Date(String(dateTo));
+    }
 
-    if (status)     { where += ` AND pp.status = $${paramIdx++}`; params.push(String(status)); }
-    if (businessId) { where += ` AND pp."businessId" = $${paramIdx++}`; params.push(String(businessId)); }
-    if (dateFrom)   { where += ` AND pp."createdAt" >= $${paramIdx++}`; params.push(String(dateFrom)); }
-    if (dateTo)     { where += ` AND pp."createdAt" <= $${paramIdx++}`; params.push(String(dateTo)); }
-
-    const sql = `
-      SELECT pp.id, pp."businessId", pp."planId", pp.amount, pp.currency,
-             pp.method, pp."referenceNote", pp."screenshotUrl",
-             pp.status, pp."rejectionReason", pp."reviewedBy", pp."reviewedAt",
-             pp."createdAt",
-             c.name  as "businessName",
-             c.email as "businessEmail",
-             p.name  as "planName",
-             p.price as "planPrice"
-      FROM payment_proofs pp
-      JOIN businesses c ON c.id = pp."businessId"
-      JOIN platform_plans p ON p.id = pp."planId"
-      WHERE ${where}
-      ORDER BY pp."createdAt" DESC
-    `;
-
-    const rows = await prisma.$queryRawUnsafe<any[]>(sql, ...params);
+    const proofs = await prisma.paymentProof.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const bizIds = [...new Set(proofs.map((p) => p.businessId))];
+    const planIds = [...new Set(proofs.map((p) => p.planId))];
+    const [bizList, planList] = await Promise.all([
+      bizIds.length
+        ? prisma.business.findMany({ where: { id: { in: bizIds } }, select: { id: true, name: true, email: true } })
+        : Promise.resolve([] as any[]),
+      planIds.length
+        ? prisma.plan.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true, price: true } })
+        : Promise.resolve([] as any[])
+    ]);
+    const bizById = new Map(bizList.map((b: any) => [b.id, b]));
+    const planById = new Map(planList.map((p: any) => [p.id, p]));
+    const rows = proofs.map((pp) => ({
+      id: pp.id, businessId: pp.businessId, planId: pp.planId, amount: pp.amount,
+      currency: pp.currency, method: pp.method, referenceNote: pp.referenceNote,
+      screenshotUrl: pp.screenshotUrl, status: pp.status,
+      rejectionReason: pp.rejectionReason, reviewedBy: pp.reviewedBy,
+      reviewedAt: pp.reviewedAt, createdAt: pp.createdAt,
+      businessName: bizById.get(pp.businessId)?.name ?? null,
+      businessEmail: bizById.get(pp.businessId)?.email ?? null,
+      planName: planById.get(pp.planId)?.name ?? null,
+      planPrice: planById.get(pp.planId)?.price ?? null
+    }));
 
     // Summary counts
     const allRows = rows as any[];
@@ -457,14 +472,11 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
     const nowIso = now.toISOString();
 
     // Load proof
-    const proofRows = await prisma.$queryRaw<any[]>`
-      SELECT * FROM payment_proofs WHERE id = ${proofId} LIMIT 1
-    `;
-    if (!proofRows.length) {
+    const proof = await prisma.paymentProof.findUnique({ where: { id: proofId } });
+    if (!proof) {
       res.status(404).json({ success: false, message: 'Payment proof not found' });
       return;
     }
-    const proof = proofRows[0];
 
     if (proof.status !== 'PENDING') {
       res.status(409).json({ success: false, message: `Proof is already ${proof.status}` });
@@ -484,12 +496,10 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
 
     // 1. Touch proof only. It is marked APPROVED after all subscription writes succeed.
     try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE payment_proofs
-         SET "updatedAt" = $1
-         WHERE id = $2 AND status = 'PENDING'`,
-        nowIso, proofId
-      );
+      await prisma.paymentProof.update({
+        where: { id: proofId },
+        data: { updatedAt: now }
+      });
       console.log(`[PaymentProof] Step 1: Payment proof validated for approval`);
     } catch (error) {
       console.error('[PaymentProof] Step 1 failed:', error);
@@ -523,13 +533,15 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
 
     // 5. Link proof → subscription
     try {
-      await prisma.$executeRawUnsafe(
-        `UPDATE payment_proofs
-         SET status = 'APPROVED', "reviewedBy" = $1, "reviewedAt" = $2,
-             "subscriptionId" = $3, "updatedAt" = $4
-         WHERE id = $5`,
-        req.admin!.id, nowIso, subId, nowIso, proofId
-      );
+      await prisma.paymentProof.update({
+        where: { id: proofId },
+        data: {
+          status: 'APPROVED',
+          reviewedBy: req.admin!.id,
+          reviewedAt: now,
+          subscriptionId: subId
+        }
+      });
       console.log(`[PaymentProof] Step 3: Payment proof approved and linked to subscription`);
     } catch (error) {
       console.error('[PaymentProof] Step 3 failed:', error);
@@ -632,27 +644,29 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
     }
 
     const prisma = await getPrisma();
-    const nowIso = new Date().toISOString();
 
-    const proofRows = await prisma.$queryRaw<any[]>`
-      SELECT id, status FROM payment_proofs WHERE id = ${proofId} LIMIT 1
-    `;
-    if (!proofRows.length) {
+    const proof = await prisma.paymentProof.findUnique({
+      where: { id: proofId },
+      select: { id: true, status: true, businessId: true, planId: true, amount: true }
+    });
+    if (!proof) {
       res.status(404).json({ success: false, message: 'Payment proof not found' });
       return;
     }
-    if (proofRows[0].status !== 'PENDING') {
-      res.status(409).json({ success: false, message: `Proof is already ${proofRows[0].status}` });
+    if (proof.status !== 'PENDING') {
+      res.status(409).json({ success: false, message: `Proof is already ${proof.status}` });
       return;
     }
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE payment_proofs
-       SET status = 'REJECTED', "reviewedBy" = $1, "reviewedAt" = $2,
-           "rejectionReason" = $3, "updatedAt" = $4
-       WHERE id = $5`,
-      req.admin!.id, nowIso, String(reason).trim(), nowIso, proofId
-    );
+    await prisma.paymentProof.update({
+      where: { id: proofId },
+      data: {
+        status: 'REJECTED',
+        reviewedBy: req.admin!.id,
+        reviewedAt: new Date(),
+        rejectionReason: String(reason).trim()
+      }
+    });
 
     await logAdminAction(req.admin!.id, 'REJECT_PAYMENT_PROOF', 'PaymentProof', proofId, { reason });
 
@@ -661,17 +675,17 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
     // Send email notification to business owner with rejection reason
     try {
       const business = await prisma.business.findUnique({
-        where: { id: proofRows[0].businessId },
+        where: { id: proof.businessId },
         select: { name: true, email: true }
       });
       if (business?.email) {
-        const plan = await prisma.plan.findUnique({ where: { id: proofRows[0].planId } });
+        const plan = await prisma.plan.findUnique({ where: { id: proof.planId } });
         await emailService.sendPaymentProofRejectionEmail(
           business.email,
           business.name,
           business.name,
           (plan as any)?.name || 'Unknown Plan',
-          proofRows[0].amount,
+          proof.amount,
           String(reason).trim()
         );
       }
@@ -682,14 +696,14 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
 
     // Send SSE notification to business owner
     try {
-      const plan = await prisma.plan.findUnique({ where: { id: proofRows[0].planId } });
+      const plan = await prisma.plan.findUnique({ where: { id: proof.planId } });
       notifyPaymentProofStatusChange(
-        proofRows[0].businessId,
+        proof.businessId,
         'REJECTED',
         {
           id: proofId,
           planName: (plan as any)?.name || 'Unknown Plan',
-          amount: proofRows[0].amount
+          amount: proof.amount
         },
         String(reason).trim()
       );
@@ -699,7 +713,7 @@ export const rejectPaymentProof = async (req: AdminAuthRequest, res: Response): 
     }
 
     // Notify business owner
-    const proofBusinessId = proofRows[0]?.businessId;
+    const proofBusinessId = proof?.businessId;
     if (proofBusinessId) {
       const ownerUser = await prisma.business.findUnique({ where: { id: proofBusinessId }, select: { createdBy: true } });
       if (ownerUser?.createdBy) {
@@ -765,14 +779,15 @@ export const serveMyScreenshot = async (req: AuthRequest, res: Response): Promis
     const screenshotUrl = `payment-proofs/${safe}`;
     const prisma = await getPrisma();
 
-    const proofRows = await prisma.$queryRaw<{ businessId: string }[]>`
-      SELECT "businessId" FROM payment_proofs WHERE "screenshotUrl" = ${screenshotUrl} LIMIT 1
-    `;
-    if (!proofRows.length) {
+    const proof = await prisma.paymentProof.findFirst({
+      where: { screenshotUrl },
+      select: { businessId: true }
+    });
+    if (!proof) {
       res.status(404).json({ success: false, message: 'File not found' });
       return;
     }
-    const businessId = String(proofRows[0].businessId);
+    const businessId = String(proof.businessId);
     const userId = String(req.user?.id || '');
 
     const membership = await prisma.membership.findFirst({
