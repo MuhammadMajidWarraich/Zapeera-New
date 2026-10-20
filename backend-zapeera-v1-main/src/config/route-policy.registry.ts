@@ -64,6 +64,13 @@ const ENTRIES: RegistryEntry[] = [
   // ── Subscription / billing (account lifecycle — reachable in any state) ─
   { prefix: '/api/subscription', policy: { kind: 'billing' } },
   { prefix: '/api/payments/manual', policy: { kind: 'auth' } },
+  // The payment-proof ADMIN subpaths live under the tenant prefix but are
+  // backoffice-cookie routes (adminAuthenticate + role guard run in the
+  // router). Classified 'auth', the universal gate demanded a TENANT JWT
+  // and the whole admin proof flow (list/approve/reject/screenshot) was
+  // unreachable — E2E P4-7. Longest-prefix wins, so these take precedence.
+  { prefix: '/api/payments/manual/admin', policy: { kind: 'backoffice' } },
+  { prefix: '/api/payments/manual/screenshot', policy: { kind: 'backoffice' } },
 
   // ── Company / branch / invitation (tenant core) ──────────────────────────
   { prefix: '/api/companies', policy: { kind: 'auth' } },
