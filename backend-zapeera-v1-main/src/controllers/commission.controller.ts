@@ -35,16 +35,34 @@ const commissionStaffInclude = {
 export const calculateCommission = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { error } = calculateCommissionSchema.validate(req.body);
+    // E2E P4-3: destructure the Joi-VALIDATED value — reading raw req.body
+    // dropped the schema defaults (bonusRate/periodType/baseRate), which
+    // produced NaN amounts and a Prisma validation failure (HTTP 500) on
+    // every calculate call that omitted an optional field.
+    const { error, value } = calculateCommissionSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ success: false, message: 'Validation error', errors: error.details.map(d => d.message) });
     }
 
-    const { staffProfileId, branchId, period, periodType, baseRate, bonusRate, notes } = req.body;
+    const { staffProfileId, branchId, period, periodType, baseRate, bonusRate, notes } = value;
 
-    const staffProfile = await prisma.staffProfile.findUnique({ where: { id: staffProfileId } });
+    const staffProfile = await prisma.staffProfile.findUnique({
+      where: { id: staffProfileId },
+      include: { membership: { select: { id: true, userId: true, businessId: true } } }
+    });
     if (!staffProfile) return res.status(404).json({ success: false, message: 'Staff not found' });
     if (!staffProfile.isActive) return res.status(400).json({ success: false, message: 'Staff is not active' });
+
+    // Tenancy: the staff member and the branch must belong to the
+    // caller's business (fail closed, C-6 family).
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz && String(staffProfile.membership.businessId) !== String(callerBiz)) {
+      return res.status(404).json({ success: false, message: 'Staff not found' });
+    }
+    const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { id: true, companyId: true } });
+    if (!branch || String(branch.companyId) !== String(staffProfile.membership.businessId)) {
+      return res.status(400).json({ success: false, message: 'Invalid branch for this staff member' });
+    }
 
     const existingCommission = await prisma.commission.findFirst({ where: { staffProfileId, period, periodType } });
     if (existingCommission) return res.status(400).json({ success: false, message: 'Commission already calculated for this period' });
@@ -76,8 +94,11 @@ export const calculateCommission = async (req: Request, res: Response) => {
         return res.status(400).json({ success: false, message: 'Invalid period type' });
     }
 
+    // Sales are recorded against the seller's USER id — the old code
+    // filtered by membershipId, which never matches a Sale.userId, so
+    // commissions always computed over zero sales (P4-3).
     const salesData = await prisma.sale.aggregate({
-      where: { userId: staffProfile.membershipId, branchId, createdAt: { gte: startDate, lte: endDate }, status: 'COMPLETED' },
+      where: { userId: staffProfile.membership.userId, branchId, createdAt: { gte: startDate, lte: endDate }, status: 'COMPLETED' },
       _sum: { totalAmount: true },
       _count: { id: true }
     });
@@ -91,10 +112,14 @@ export const calculateCommission = async (req: Request, res: Response) => {
 
     const commission = await prisma.commission.create({
       data: {
-        staffProfileId,
-        membershipId: staffProfile.membershipId,
-        branchId, period, periodType, totalSales, totalTransactions, averageSale,
-        baseRate, bonusRate, totalCommission, bonusAmount, totalAmount, notes
+        period, periodType, totalSales, totalTransactions, averageSale,
+        baseRate, bonusRate, totalCommission, bonusAmount, totalAmount, notes,
+        // Relation connects — the previous scalar-FK create failed with a
+        // Prisma validation error demanding the `branch` relation argument
+        // (P4-3, live log); connects are the canonical create shape.
+        branch: { connect: { id: branchId } },
+        staffProfile: { connect: { id: staffProfileId } },
+        membership: { connect: { id: staffProfile.membershipId } }
       },
       include: commissionStaffInclude
     });
@@ -118,6 +143,10 @@ export const getCommissions = async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * Number(limit);
     const take = Number(limit);
     const where: any = {};
+
+    // Tenancy scope (C-6 family): only the caller's business.
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz) where.staffProfile = { membership: { businessId: String(callerBiz) } };
 
     if (staffProfileId) where.staffProfileId = staffProfileId;
     if (branchId) where.branchId = branchId;
@@ -151,6 +180,10 @@ export const getCommission = async (req: Request, res: Response) => {
     const { id } = req.params;
     const commission = await prisma.commission.findUnique({ where: { id }, include: commissionStaffInclude });
     if (!commission) return res.status(404).json({ success: false, message: 'Commission not found' });
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz && String((commission as any).staffProfile?.membership?.businessId || '') !== String(callerBiz)) {
+      return res.status(404).json({ success: false, message: 'Commission not found' });
+    }
     return res.json({ success: true, data: commission });
   } catch (error) {
     logger.error('Error fetching commission:', { error: String(error) });
@@ -167,9 +200,20 @@ export const updateCommission = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Validation error', errors: error.details.map(d => d.message) });
     }
 
-    const updateData = req.body;
-    const existingCommission = await prisma.commission.findUnique({ where: { id } });
+    // Only validated fields may be written (never raw req.body).
+    const { status: nextStatus, notes: nextNotes } = req.body;
+    const updateData: any = {};
+    if (nextStatus !== undefined) updateData.status = nextStatus;
+    if (nextNotes !== undefined) updateData.notes = nextNotes;
+    const existingCommission = await prisma.commission.findUnique({
+      where: { id },
+      include: { staffProfile: { include: { membership: { select: { businessId: true } } } } }
+    });
     if (!existingCommission) return res.status(404).json({ success: false, message: 'Commission not found' });
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz && String((existingCommission as any).staffProfile?.membership?.businessId || '') !== String(callerBiz)) {
+      return res.status(404).json({ success: false, message: 'Commission not found' });
+    }
 
     if (updateData.status === 'PAID' && existingCommission.status !== 'PAID') {
       updateData.paidAt = new Date();
@@ -193,6 +237,8 @@ export const getCommissionStats = async (req: Request, res: Response) => {
     const prisma = await getPrisma();
     const { branchId, startDate, endDate } = req.query;
     const where: any = {};
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz) where.staffProfile = { membership: { businessId: String(callerBiz) } };
     if (branchId) where.branchId = branchId;
     if (startDate || endDate) {
       where.createdAt = {};
@@ -227,7 +273,10 @@ export const getCommissionStats = async (req: Request, res: Response) => {
 export const getStaffPerformance = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { staffProfileId } = req.params;
+    // The route param is :staffId (the old code read req.params.staffProfileId,
+    // which is always undefined — the "performance" then silently aggregated
+    // every staff member's commissions).
+    const staffProfileId = (req.params as any).staffId || (req.params as any).staffProfileId;
     const { startDate, endDate } = req.query;
 
     const where: any = { staffProfileId };
@@ -237,7 +286,14 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
       if (endDate) { const e = new Date(endDate as string); e.setHours(23, 59, 59, 999); where.createdAt.lte = e; }
     }
 
-    const staffProfile = await prisma.staffProfile.findUnique({ where: { id: staffProfileId }, select: { membershipId: true } });
+    const staffProfile = await prisma.staffProfile.findUnique({
+      where: { id: staffProfileId },
+      select: { membershipId: true, membership: { select: { userId: true, businessId: true } } }
+    });
+    const callerBiz = (req as any).business_id || (req as any).membership?.business_id || null;
+    if (callerBiz && staffProfile && String(staffProfile.membership.businessId) !== String(callerBiz)) {
+      return res.status(404).json({ success: false, message: 'Staff not found' });
+    }
 
     const commissionData = await prisma.commission.aggregate({
       where, _sum: { totalAmount: true, totalCommission: true, bonusAmount: true }, _count: { id: true }
@@ -251,7 +307,8 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
       by: ['productId'],
       where: {
         sale: {
-          userId: staffProfile?.membershipId || '',
+          // Sales key on the seller's USER id, not the membership id (P4-3).
+          userId: staffProfile?.membership?.userId || '',
           status: 'COMPLETED',
           ...(startDate || endDate ? { createdAt: { ...(startDate ? { gte: new Date(startDate as string) } : {}), ...(endDate ? { lte: new Date(endDate as string) } : {}) } } : {})
         }
