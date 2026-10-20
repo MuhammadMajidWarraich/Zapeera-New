@@ -95,6 +95,22 @@ if (recommendations.length > 0) {
   console.log('💡 Environment recommendations:', recommendations);
 }
 
+// Stale-tab recovery: after a redeploy, a tab opened earlier still
+// references old hashed chunks that no longer exist on the server.
+// Vite fires "vite:preloadError" when such a lazy chunk fails to load —
+// reload ONCE (flag-guarded) to pick up the fresh build instead of
+// dead-ending on the error boundary. The flag clears shortly after a
+// successful boot so a later deploy in the same session can recover
+// again.
+const CHUNK_RELOAD_KEY = 'zapeera-chunk-reload';
+window.addEventListener('vite:preloadError', (() => {
+  if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+    window.location.reload();
+  }
+}) as EventListener);
+window.setTimeout(() => sessionStorage.removeItem(CHUNK_RELOAD_KEY), 10000);
+
 const rootEl = document.getElementById('root');
 if (!rootEl) {
   console.error('❌ #root element not found — cannot mount React app');
