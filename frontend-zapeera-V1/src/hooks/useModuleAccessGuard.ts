@@ -14,7 +14,7 @@ interface ModuleAccessGuardOptions {
  *        guardModule('reports', { showToast: true });
  */
 export const useModuleAccessGuard = () => {
-  const { isModuleLocked, getModuleInfo, getModuleDisabledReason: getDisabledReason, loading } = useBusinessModules();
+  const { isModuleLocked, getModuleInfo, getModuleDisabledReason: getDisabledReason, loading, refetch } = useBusinessModules();
   const { selectedCompanyId, selectedCompany } = useAdmin();
 
   // Create a safe version of isModuleLocked that returns false during loading
@@ -91,5 +91,6 @@ export const useModuleAccessGuard = () => {
     getModuleInfo,
     getModuleDisabledReason: getDisabledReason,
     loading,
+    refetch,
   };
 };

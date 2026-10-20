@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useBusinessModules } from '@/hooks/useBusinessModules';
 import { useModuleAccessGuard } from '@/hooks/useModuleAccessGuard';
@@ -188,11 +188,12 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
 export const ModuleGuard: React.FC<ModuleGuardProps> = ({ moduleName, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isModuleLocked, guardModule, getModuleDisabledReason, loading } = useModuleAccessGuard();
+  const { isModuleLocked, guardModule, getModuleDisabledReason, loading, refetch } = useModuleAccessGuard();
   const { user } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const [disabledReason, setDisabledReason] = useState<string | null>(null);
+  const retriedRef = useRef(false);
 
   useEffect(() => {
     // Don't block during initial loading to prevent flickering
@@ -212,20 +213,46 @@ export const ModuleGuard: React.FC<ModuleGuardProps> = ({ moduleName, children }
       // locked after a short settle window; stay on the checking spinner
       // meanwhile.
       setIsChecking(true);
+      let secondTimer: ReturnType<typeof setTimeout> | undefined;
+      const showLock = () => {
+        setIsLocked(true);
+        // Get disabled reason from hook getter
+        const reason = typeof getModuleDisabledReason === 'function' ? getModuleDisabledReason(moduleName) : null;
+        setDisabledReason(reason || null);
+        // Show error message (don't redirect to prevent navigation loops)
+        guardModule(moduleName, { showToast: true });
+        setIsChecking(false);
+      };
       const timer = setTimeout(() => {
         if (isModuleLocked(moduleName)) {
-          setIsLocked(true);
-          // Get disabled reason from hook getter
-          const reason = typeof getModuleDisabledReason === 'function' ? getModuleDisabledReason(moduleName) : null;
-          setDisabledReason(reason || null);
-          // Show error message (don't redirect to prevent navigation loops)
-          guardModule(moduleName, { showToast: true });
+          // A lock can also mean the enablement fetch failed (e.g. a
+          // transient 503 left the hook on its all-locked default).
+          // Refetch once and re-check before believing it — a false
+          // "Module Locked" screen for an entitled user is worse than
+          // two extra seconds of spinner.
+          if (!retriedRef.current && typeof refetch === 'function') {
+            retriedRef.current = true;
+            Promise.resolve(refetch()).catch(() => undefined);
+            secondTimer = setTimeout(() => {
+              if (isModuleLocked(moduleName)) {
+                showLock();
+              } else {
+                setIsLocked(false);
+                setIsChecking(false);
+              }
+            }, 2500);
+            return;
+          }
+          showLock();
         } else {
           setIsLocked(false);
+          setIsChecking(false);
         }
-        setIsChecking(false);
       }, 1200);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        if (secondTimer) clearTimeout(secondTimer);
+      };
     } else {
       setIsLocked(false);
       setIsChecking(false);

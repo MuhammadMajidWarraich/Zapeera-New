@@ -126,17 +126,17 @@ export function AccountStats() {
             type="button"
             onClick={s.onClick}
             className={cn(
-              "group flex items-center gap-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
+              "group flex items-center gap-3 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white px-4 py-5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
               s.onClick && "cursor-pointer"
             )}
           >
-            <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", s.tint)}>
+            <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", s.tint)}>
               <Icon className="h-6 w-6" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[26px] font-extrabold leading-none tracking-tight text-[#0a1128]">{s.value}</span>
-              <span className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-[#8c95b0]">
-                <span className="min-w-0 truncate">{s.label}</span>
+              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] font-medium leading-tight tracking-[-0.01em] text-[#8c95b0]">
+                <span className="min-w-0">{s.label}</span>
                 {s.desktop ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-1.5 py-px text-[10px] font-bold text-green-600">
                     <Wifi className="h-2.5 w-2.5" /> Online
