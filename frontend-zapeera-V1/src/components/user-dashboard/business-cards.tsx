@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MoreVertical,
@@ -143,7 +143,15 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
 
   const desktopByBusiness = new Map<string, DesktopBusinessState>((runtime.desktopBusinessStates || []).map((s) => [s.businessId, s]));
 
-  const businessList = (allCompanies || []).filter((c: any) => !excludeBusinessId || c.id !== excludeBusinessId);
+  // Memoized on purpose: the entitlements effect below depends on this
+  // array's identity. A fresh .filter() result every render refired the
+  // effect after every render, and its setEntitlements(new map) caused
+  // the next render — an endless fetch/render loop (~1 request/sec,
+  // measured live 2026-10-20; it made the tab grind and Chrome hang).
+  const businessList = useMemo(
+    () => (allCompanies || []).filter((c: any) => !excludeBusinessId || c.id !== excludeBusinessId),
+    [allCompanies, excludeBusinessId]
+  );
 
   // Load favorites on mount
   useEffect(() => {
