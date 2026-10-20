@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { ensureRoleWithPolicy } from '../services/standard-roles.service';
 import { getPrisma } from '../utils/db.util';
 import { isBusinessCreator } from '../utils/membership-bridge.util';
 import { ROLE_PERMISSIONS, getRolePermissions as getRolePermissionsConfig, getAccessibleResources as getAccessibleResourcesConfig, getAllowedActions as getAllowedActionsConfig, hasPermission } from '../config/permissions';
@@ -285,22 +286,10 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
     // Update membership role instead of user table
     // First, find or create the role
     
-    // First, find or create the role
-    let roleRecord = await prisma.role.findFirst({
-      where: {
-        businessId: businessId,
-        name: role
-      }
-    });
-    
-    if (!roleRecord) {
-      roleRecord = await prisma.role.create({
-        data: {
-          businessId: businessId,
-          name: role
-        }
-      });
-    }
+    // Find or create the role — and for standard roles make sure a
+    // default policy exists, otherwise the assignee is denied
+    // everything by the authorization layer (Round-2 fix).
+    const roleRecord = await ensureRoleWithPolicy(prisma, businessId, role);
 
     // Update the membership with the new role
     const updatedMembership = await prisma.membership.update({

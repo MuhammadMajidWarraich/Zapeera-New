@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { ensureRoleWithPolicy } from '../services/standard-roles.service';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
@@ -414,12 +415,11 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     if (!membership) {
       // Business creator must always be OWNER, regardless of the submitted role.
       const effectiveRole = (await isBusinessCreator(prisma, businessId, user.id)) ? 'OWNER' : roleStr;
-      const role = await prisma.role.findFirst({
-        where: {
-          businessId,
-          name: effectiveRole
-        }
-      });
+      // Find-or-create (with default policy for standard roles). The old
+      // lookup-only code linked roleId = null whenever the business had
+      // no such Role row yet — which was every business for staff roles,
+      // leaving staff denied everywhere (Round-2 fix).
+      const role = await ensureRoleWithPolicy(prisma, businessId, effectiveRole).catch(() => null);
 
       membership = await prisma.membership.create({
         data: {
@@ -435,12 +435,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       const canChangeRole =
         String(roleStr).toUpperCase() === 'OWNER' ||
         !(await isBusinessCreator(prisma, businessId, user.id));
-      const role = await prisma.role.findFirst({
-        where: {
-          businessId,
-          name: roleStr
-        }
-      });
+      const role = await ensureRoleWithPolicy(prisma, businessId, roleStr).catch(() => null);
       if (role && canChangeRole && membership.roleId !== role.id) {
         await prisma.membership.update({
           where: { id: membership.id },

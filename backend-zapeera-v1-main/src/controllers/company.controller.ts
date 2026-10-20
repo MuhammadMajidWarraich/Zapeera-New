@@ -6,6 +6,7 @@ import { getPrisma } from '../utils/db.util';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { validateStaffCreationAllowance } from '../utils/subscription-entitlements.util';
+import { ensureStandardRoles } from '../services/standard-roles.service';
 import {
   deleteMembershipByUserBusiness,
   ensureBusinessRole,
@@ -869,6 +870,15 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
           console.warn('[Memberships] ⚠️ Could not link owner to branch:', memErr?.message || memErr);
         }
       }
+    }
+
+    // Standard roles (OWNER/MANAGER/CASHIER) with default policies —
+    // without these, staff added later link to no role and are denied
+    // everything by the authorization layer (Round-2 fix).
+    try {
+      await ensureStandardRoles(prisma, company.id);
+    } catch (roleSeedErr: any) {
+      console.warn('[Company] Standard role seeding failed (non-fatal):', roleSeedErr?.message || roleSeedErr);
     }
 
     console.log('✅ Company created successfully:', {
