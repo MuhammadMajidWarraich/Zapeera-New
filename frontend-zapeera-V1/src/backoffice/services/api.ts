@@ -258,6 +258,9 @@ export const backofficeApi = {
       provider: string;
       status: string;
       isOnline: boolean;
+      isOffline?: boolean;
+      modeMatch?: boolean;
+      select1?: string;
       postgresql: { connected: boolean; configured: boolean };
       sqlite: { connected: boolean; path: string };
     };

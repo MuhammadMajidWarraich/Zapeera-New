@@ -1,71 +1,84 @@
-import { useState, useEffect } from 'react';
-import { Activity, Database, Wifi, HardDrive, Cpu, MemoryStick, Server, RefreshCw, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Database, Wifi, Server, RefreshCw, CheckCircle, XCircle, Info } from 'lucide-react';
+import { backofficeApi } from '../../services/api';
 
-interface SystemHealth {
-  status: string;
-  uptime: number;
-  database: { status: string; latency: number };
-  queue: { pending: number; processing: number; failed: number };
-  storage: { used: number; total: number };
-  memory: { used: number; total: number };
-  cpu: { usage: number };
+type Health = Awaited<ReturnType<typeof backofficeApi.getSystemHealth>>;
+
+function StatusDot({ ok }: { ok: boolean | null }) {
+  if (ok === null) return <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />;
+  return ok
+    ? <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+    : <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />;
 }
 
-function StatusDot({ status }: { status: string }) {
-  if (status === 'healthy' || status === 'ok' || status === 'connected') return <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />;
-  if (status === 'degraded' || status === 'warning') return <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />;
-  return <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />;
-}
-
-function ProgressBar({ value, color = 'blue' }: { value: number; color?: string }) {
-  const colorMap: Record<string, string> = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-emerald-500 to-emerald-600',
-    amber: 'from-amber-500 to-amber-600',
-    red: 'from-red-500 to-red-600',
-  };
-  const c = value > 90 ? 'red' : value > 70 ? 'amber' : color;
-  return (
-    <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-      <div className={`bg-gradient-to-r ${colorMap[c]} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.min(value, 100)}%` }} />
-    </div>
-  );
-}
-
+// A-8: this page previously rendered fully simulated data (hardcoded CPU,
+// memory, uptime and queue numbers). It now shows only what the live API
+// actually reports via GET /health, plus a client-measured round-trip time.
+// Host-level metrics (CPU / memory / disk) and background-queue depths are
+// not exposed by the API yet, so they are stated as unavailable instead of
+// being invented.
 export function MonitoringPage() {
-  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Simulated health data since the real endpoint may not exist yet
-    setHealth({
-      status: 'healthy',
-      uptime: 99.9,
-      database: { status: 'connected', latency: 12 },
-      queue: { pending: 0, processing: 2, failed: 0 },
-      storage: { used: 2.3, total: 50 },
-      memory: { used: 512, total: 2048 },
-      cpu: { usage: 23 },
-    });
-    setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const started = performance.now();
+    try {
+      const h = await backofficeApi.getSystemHealth();
+      setLatencyMs(Math.round(performance.now() - started));
+      setHealth(h);
+    } catch (e: any) {
+      setLatencyMs(null);
+      setError(e?.message || 'Could not reach the API health endpoint');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const formatBytes = (gb: number) => `${gb.toFixed(1)} GB`;
-  const formatUptime = (pct: number) => `${pct}%`;
+  useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="space-y-4"><div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" /><div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[...Array(6)].map((_, i) => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div></div>;
+  if (loading && !health) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[...Array(3)].map((_, i) => <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      </div>
+    );
+  }
+
+  const db = health?.database;
+  const apiOk = health?.status === 'ok';
+  const dbOk = !!db?.isOnline && db?.status === 'online';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold text-gray-900">System Health</h1><p className="text-sm text-gray-500 mt-1">Platform infrastructure monitoring</p></div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">System Health</h1>
+          <p className="text-sm text-gray-500 mt-1">Live status reported by the API health endpoint</p>
+        </div>
+        <button onClick={load} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+          <XCircle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <StatusDot status={health?.status || 'unknown'} />
-          <h2 className="text-lg font-semibold text-gray-900 capitalize">{health?.status || 'Unknown'}</h2>
-          <span className="text-sm text-gray-400">&middot; Uptime: {formatUptime(health?.uptime || 0)}</span>
+        <div className="flex items-center gap-3">
+          <StatusDot ok={health ? apiOk : null} />
+          <h2 className="text-lg font-semibold text-gray-900">{health ? (apiOk ? 'Healthy' : `Degraded (${health.status})`) : 'Unreachable'}</h2>
+          {health?.timestamp && (
+            <span className="text-sm text-gray-400">&middot; Last checked {new Date(health.timestamp).toLocaleString()}</span>
+          )}
         </div>
       </div>
 
@@ -74,69 +87,44 @@ export function MonitoringPage() {
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-50 rounded-lg"><Database className="w-5 h-5 text-blue-600" /></div>
             <div className="flex items-center gap-2">
-              <StatusDot status={health?.database.status || 'unknown'} />
+              <StatusDot ok={health ? dbOk : null} />
               <h3 className="font-semibold text-gray-900">Database</h3>
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span><span className="font-medium text-emerald-600">{health?.database.status}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Latency</span><span className="font-medium">{health?.database.latency}ms</span></div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-violet-50 rounded-lg"><Server className="w-5 h-5 text-violet-600" /></div>
-            <h3 className="font-semibold text-gray-900">Background Queue</h3>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Pending</span><span className="font-medium">{health?.queue.pending}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Processing</span><span className="font-medium text-blue-600">{health?.queue.processing}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">Failed</span><span className={`font-medium ${(health?.queue.failed || 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{health?.queue.failed}</span></div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-emerald-50 rounded-lg"><Cpu className="w-5 h-5 text-emerald-600" /></div>
-            <h3 className="font-semibold text-gray-900">CPU Usage</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="text-2xl font-bold text-gray-900">{health?.cpu.usage}%</div>
-            <ProgressBar value={health?.cpu.usage || 0} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg"><MemoryStick className="w-5 h-5 text-amber-600" /></div>
-            <h3 className="font-semibold text-gray-900">Memory</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="text-sm text-gray-600">{formatBytes((health?.memory.used || 0) / 1024)} / {formatBytes((health?.memory.total || 0) / 1024)}</div>
-            <ProgressBar value={((health?.memory.used || 0) / (health?.memory.total || 1)) * 100} color="amber" />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-cyan-50 rounded-lg"><HardDrive className="w-5 h-5 text-cyan-600" /></div>
-            <h3 className="font-semibold text-gray-900">Storage</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="text-sm text-gray-600">{formatBytes(health?.storage.used || 0)} / {formatBytes(health?.storage.total || 0)}</div>
-            <ProgressBar value={((health?.storage.used || 0) / (health?.storage.total || 1)) * 100} />
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span><span className="font-medium">{db?.status || '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Type</span><span className="font-medium">{db?.modeLabel || db?.type || '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Provider</span><span className="font-medium">{db?.provider || '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Connectivity check (SELECT 1)</span><span className="font-medium">{db?.select1 || '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">PostgreSQL connected</span><span className="font-medium">{db?.postgresql ? (db.postgresql.connected ? 'Yes' : 'No') : '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">PostgreSQL configured</span><span className="font-medium">{db?.postgresql ? (db.postgresql.configured ? 'Yes' : 'No') : '—'}</span></div>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-indigo-50 rounded-lg"><Wifi className="w-5 h-5 text-indigo-600" /></div>
-            <h3 className="font-semibold text-gray-900">Network</h3>
+            <h3 className="font-semibold text-gray-900">API</h3>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm"><CheckCircle className="w-4 h-4 text-emerald-500" /><span>All endpoints responding</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-500">API Status</span><span className="font-medium text-emerald-600">Healthy</span></div>
+            <div className="flex items-center gap-2 text-sm">
+              {apiOk ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
+              <span>{apiOk ? 'Health endpoint responding' : 'Health endpoint not reporting ok'}</span>
+            </div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Status</span><span className="font-medium">{health?.status || '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Health-check round-trip</span><span className="font-medium">{latencyMs !== null ? `${latencyMs} ms` : '—'}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Mode match</span><span className="font-medium">{db ? (db.modeMatch ? 'Yes' : 'No') : '—'}</span></div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-violet-50 rounded-lg"><Server className="w-5 h-5 text-violet-600" /></div>
+            <h3 className="font-semibold text-gray-900">Host Metrics</h3>
+          </div>
+          <div className="flex gap-2 text-sm text-gray-500">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>CPU, memory, disk and background-queue metrics are not exposed by the API yet. This card will show them once a metrics endpoint exists — no values are simulated.</span>
           </div>
         </div>
       </div>
