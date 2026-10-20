@@ -52,8 +52,13 @@ jobs:
       - name: Publish GitHub Release with the installer
         uses: softprops/action-gh-release@v2
         with:
+          # No latest.yml: electron-builder only emits one when a publish
+          # provider is configured, and listing it here with
+          # fail_on_unmatched_files failed run 39455862761 AFTER the
+          # installer (Zapeera-Setup-1.0.1.exe, 264,794,172 bytes) had
+          # already built successfully.
           files: |
             frontend-zapeera-V1/release/Zapeera-Setup-*.exe
-            frontend-zapeera-V1/release/latest.yml
+            frontend-zapeera-V1/release/Zapeera-Setup-*.exe.blockmap
           fail_on_unmatched_files: true
           generate_release_notes: true
