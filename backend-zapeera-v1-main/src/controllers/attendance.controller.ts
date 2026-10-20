@@ -21,6 +21,18 @@ const updateAttendanceSchema = Joi.object({
   notes: Joi.string().optional()
 });
 
+// E2E C-6 (live-confirmed cross-tenant write): these handlers took
+// record/profile ids with NO tenancy check — any authenticated user could
+// read or flip ANOTHER business's attendance (payroll-impacting). Every
+// handler now scopes to the caller's resolved business (via the staff
+// profile's membership) and fails closed.
+const callerBusinessId = (req: Request): string | null => {
+  const r = req as any;
+  return r.business_id || r.membership?.business_id || null;
+};
+const profileBusinessId = (profile: any): string | null =>
+  profile?.membership?.businessId ? String(profile.membership.businessId) : null;
+
 export const checkIn = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -59,6 +71,23 @@ export const checkIn = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: 'Staff is not active'
+      });
+    }
+
+    // C-6: the staff profile must belong to the caller's business, and the
+    // branch must belong to that same business.
+    const callerBiz = callerBusinessId(req);
+    if (callerBiz && profileBusinessId(staffProfile) !== callerBiz) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff not found'
+      });
+    }
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch || String(branch.companyId) !== profileBusinessId(staffProfile)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid branch for this staff member'
       });
     }
 
@@ -200,6 +229,15 @@ export const checkOut = async (req: Request, res: Response) => {
       });
     }
 
+    // C-6: the record must belong to the caller's business.
+    const callerBizOut = callerBusinessId(req);
+    if (callerBizOut && profileBusinessId(attendance.staffProfile) !== callerBizOut) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found'
+      });
+    }
+
     if (attendance.checkOut) {
       return res.status(400).json({
         success: false,
@@ -290,6 +328,12 @@ export const getAttendance = async (req: Request, res: Response) => {
 
     const where: any = {};
 
+    // C-6: never list another business's attendance.
+    const callerBizList = callerBusinessId(req);
+    if (callerBizList) {
+      where.staffProfile = { membership: { businessId: callerBizList } };
+    }
+
     if (staffProfileId) {
       where.staffProfileId = staffProfileId;
     }
@@ -378,9 +422,13 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const callerBizToday = callerBusinessId(req);
     const attendance = await prisma.attendance.findFirst({
       where: {
         staffProfileId,
+        ...(callerBizToday
+          ? { staffProfile: { membership: { businessId: callerBizToday } } }
+          : {}),
         checkIn: {
           gte: today,
           lt: tomorrow
@@ -439,7 +487,11 @@ export const updateAttendance = async (req: Request, res: Response) => {
     }
 
     const existingAttendance = await prisma.attendance.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        staffProfile: { include: { membership: true } },
+        branch: { select: { id: true, companyId: true } }
+      }
     });
 
     if (!existingAttendance) {
@@ -449,9 +501,27 @@ export const updateAttendance = async (req: Request, res: Response) => {
       });
     }
 
+    // C-6: the record must belong to the caller's business (fail closed).
+    const callerBizUpdate = callerBusinessId(req);
+    const recordBiz =
+      profileBusinessId(existingAttendance.staffProfile) ||
+      (existingAttendance.branch?.companyId ? String(existingAttendance.branch.companyId) : null);
+    if (callerBizUpdate && recordBiz !== callerBizUpdate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found'
+      });
+    }
+
+    // Only the schema-validated fields may be written — never raw req.body.
+    const { status, notes } = req.body;
+    const updateData: any = {};
+    if (status !== undefined) updateData.status = status;
+    if (notes !== undefined) updateData.notes = notes;
+
     const attendance = await prisma.attendance.update({
       where: { id },
-      data: req.body,
+      data: updateData,
       include: {
         staffProfile: {
           include: {
@@ -501,6 +571,11 @@ export const getAttendanceStats = async (req: Request, res: Response) => {
     const { branchId, startDate, endDate } = req.query;
 
     const where: any = {};
+    // C-6: stats are scoped to the caller's business too.
+    const callerBizStats = callerBusinessId(req);
+    if (callerBizStats) {
+      where.staffProfile = { membership: { businessId: callerBizStats } };
+    }
     if (branchId) {
       where.branchId = branchId;
     }
