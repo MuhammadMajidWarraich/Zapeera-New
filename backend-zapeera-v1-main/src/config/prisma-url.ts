@@ -22,11 +22,16 @@ export function buildPrismaUrl(url?: string): string {
     const hostname = parsed.hostname || '';
     const isPooled = hostname.includes('pooler') || hostname.includes('pgbouncer');
 
-    if (!isPooled) return raw;
-
-    if (!parsed.searchParams.has('pgbouncer')) {
+    if (isPooled && !parsed.searchParams.has('pgbouncer')) {
       parsed.searchParams.set('pgbouncer', 'true');
     }
+    // ALWAYS bound the pool — pooled or direct. Prisma's default limit
+    // (2 x detected CPUs + 1, and container CPU detection can see the
+    // physical host's many cores) let the several PrismaClient instances
+    // in this codebase pin ALL of Postgres' connections (observed live
+    // 2026-10-20, Round 2: 100/100 slots ESTABLISHED, psql refused with
+    // "too many clients", intermittent API 503s under load). An explicit
+    // connection_limit in the URL is always respected, never overridden.
     if (!parsed.searchParams.has('connection_limit')) {
       parsed.searchParams.set('connection_limit', process.env.PG_CONNECTION_LIMIT || '10');
     }
