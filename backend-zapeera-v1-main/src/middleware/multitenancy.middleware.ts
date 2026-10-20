@@ -389,14 +389,28 @@ export const checkPermission = (permissionName: string) => {
 
     const prisma = await getPrisma();
     try {
-      const rows = await prisma.$queryRaw<any[]>`
-        SELECT 1 as allowed
-        FROM role_permissions rp
-        INNER JOIN permissions p ON p.id = rp."permissionId"
-        WHERE rp."roleId" = ${req.membership.role_id}
-          AND p.name = ${permissionName}
-        LIMIT 1
-      `;
+      // The legacy role_permissions/permissions tables do not exist in
+      // the PostgreSQL deployment (the canonical store is
+      // role_permissions_v2, enforced by the authorization service).
+      // A missing legacy table must mean "no legacy grant" — falling
+      // through to the configured-permission check below — NOT a 503:
+      // the old code threw here, so the standard-role fallback never
+      // ran and every role-linked staff request died fail-secure
+      // (Round-2 fix; surfaced once staff memberships gained roleIds).
+      let rows: any[] = [];
+      try {
+        rows = await prisma.$queryRaw<any[]>`
+          SELECT 1 as allowed
+          FROM role_permissions rp
+          INNER JOIN permissions p ON p.id = rp."permissionId"
+          WHERE rp."roleId" = ${req.membership.role_id}
+            AND p.name = ${permissionName}
+          LIMIT 1
+        `;
+      } catch (legacyErr: any) {
+        if (!isMissingTableError(legacyErr)) throw legacyErr;
+        rows = [];
+      }
 
       if (!rows[0]) {
         const configuredPermission = permissionNameToResourceAction(permissionName);
