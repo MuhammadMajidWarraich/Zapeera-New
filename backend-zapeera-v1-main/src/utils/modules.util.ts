@@ -374,13 +374,13 @@ export async function ensureDefaultPlansExist(): Promise<void> {
         maxBranches: 1,
         maxUsers: 5,
         maxCounters: 1,
-        features: JSON.stringify([
+        features: [
           "Core Features",
           "Sales & invoicing",
           "Inventory management",
           "Basic reporting",
           "1 business, 1 branch, 1 POS counter included"
-        ])
+        ]
       },
       {
         id: "single-starter",
@@ -391,7 +391,7 @@ export async function ensureDefaultPlansExist(): Promise<void> {
         maxBranches: 1,
         maxUsers: 1,
         maxCounters: 1,
-        features: JSON.stringify([
+        features: [
           "Core Features",
           "1 Business",
           "1 Branch",
@@ -400,7 +400,7 @@ export async function ensureDefaultPlansExist(): Promise<void> {
           "Sales & invoicing",
           "Inventory management",
           "Basic reports"
-        ])
+        ]
       },
       {
         id: "single-growth",
@@ -411,13 +411,13 @@ export async function ensureDefaultPlansExist(): Promise<void> {
         maxBranches: 3,
         maxUsers: 20,
         maxCounters: 3,
-        features: JSON.stringify([
+        features: [
           "Core + Growth Features",
           "Includes all Core features",
           "Staff roles (Owner, Manager, Cashier)",
           "Advanced reports",
           "Multi-branch dashboard"
-        ])
+        ]
       },
       {
         id: "single-scale",
@@ -428,13 +428,13 @@ export async function ensureDefaultPlansExist(): Promise<void> {
         maxBranches: 10,
         maxUsers: 100,
         maxCounters: 999,
-        features: JSON.stringify([
+        features: [
           "Core + Growth + Scale Features",
           "Includes all Core and Growth features",
           "API access",
           "Advanced analytics",
           "Priority support"
-        ])
+        ]
       }
     ];
 

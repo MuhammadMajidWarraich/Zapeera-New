@@ -405,7 +405,7 @@ export const normalizePricingPlan = (raw: unknown): PricingPlanDefinition | null
   const price = Number(plan.price);
   const priceUnit = typeof plan.priceUnit === 'string' && plan.priceUnit.trim() ? plan.priceUnit.trim() : 'per month';
   const ctaLabel = typeof plan.ctaLabel === 'string' && plan.ctaLabel.trim() ? plan.ctaLabel.trim() : 'Get Started';
-  const features = Array.isArray(plan.features) ? plan.features.filter((f): f is string => typeof f === 'string').map(f => f.trim()).filter(Boolean) : [];
+  const features = normalizePlanFeatures(plan.features);
   const modules = Array.isArray(plan.modules) ? plan.modules.filter((m): m is string => typeof m === 'string').map(m => m.trim().toLowerCase()).filter(Boolean) : [];
 
   if (!id || !name || !Number.isFinite(price)) {
@@ -489,17 +489,37 @@ export const normalizePricingPlans = (rawPlans: unknown): PricingPlanDefinition[
   return mergedArray.length > 0 ? sortRequiredSinglePlans(mergedArray) : defaultPlans;
 };
 
+const parseFeaturesString = (raw: string): string[] => {
+  const trimmed = raw.trim();
+  // Legacy rows (and the pre-fix seeder) stored the feature list as a
+  // JSON-encoded STRING (P2-2 double-encoding). Unwrap it back to a list.
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((x): x is string => typeof x === 'string')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    } catch {
+      /* fall through to line-split */
+    }
+  }
+  return trimmed
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => Boolean(item));
+};
+
 const normalizePlanFeatures = (features: unknown): string[] => {
   if (Array.isArray(features)) {
-    return features
-      .map((item) => (typeof item === 'string' ? item.trim() : ''))
-      .filter((item): item is string => Boolean(item));
+    return features.flatMap((item) =>
+      typeof item === 'string' ? parseFeaturesString(item) : []
+    );
   }
   if (typeof features === 'string') {
-    return features
-      .split('\n')
-      .map((item) => item.trim())
-      .filter((item) => Boolean(item));
+    return parseFeaturesString(features);
   }
   return [];
 };
