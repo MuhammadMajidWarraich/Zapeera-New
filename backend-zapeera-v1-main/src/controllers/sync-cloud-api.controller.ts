@@ -123,7 +123,7 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
         branches: {
           where: { isActive: true },
           include: {
-            categories: { where: { isActive: { not: false } } },
+            categories: true, // Category has no isActive column — the old { isActive: { not: false } } filter made Prisma reject the whole provision query (P5-1: /sync/business/provision 400 for everyone)
             manufacturers: { where: { isActive: true } },
             suppliers: { where: { isActive: true } },
             shelves: true,
