@@ -275,14 +275,14 @@ export function DesktopBanner() {
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_4px_14px_rgba(26,82,197,0.25)]">
           <Laptop className="h-5 w-5" />
         </span>
-        <p className="min-w-0 flex-1 text-[13.5px] text-[#4a5578]">
+        <p className="min-w-[170px] flex-1 text-[13.5px] text-[#4a5578]">
           <b className="font-bold text-[#0a1128]">Get the Zapeera desktop app</b> — work offline at the counter, your data syncs automatically.
         </p>
         <a
           href={DESKTOP_DOWNLOAD_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+          className="inline-flex shrink-0 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] max-sm:w-full max-sm:justify-center"
         >
           <Laptop className="h-4 w-4 text-[#1a52c5]" />
           Download Desktop App

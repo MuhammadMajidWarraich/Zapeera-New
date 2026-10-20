@@ -976,7 +976,7 @@ const BusinessManagement = () => {
 
   return (
     <>
-      <div className="px-11 pb-14 pt-9">
+      <div className="px-4 pb-10 pt-6 sm:px-6 lg:px-11 lg:pb-14 lg:pt-9">
         {loading ? (
           <div className="flex min-h-[40vh] items-center justify-center">
             <div className="text-center">
@@ -986,7 +986,7 @@ const BusinessManagement = () => {
           </div>
         ) : (
           <>
-            <section className="zv3-page-hero relative mb-7 flex flex-col gap-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1a52c5] via-[#1f8ac8] to-[#28c2ce] px-8 py-9 sm:flex-row sm:items-center sm:justify-between lg:px-10">
+            <section className="zv3-page-hero relative mb-7 flex flex-col gap-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1a52c5] via-[#1f8ac8] to-[#28c2ce] px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-9 lg:px-10">
               <div
                 className="pointer-events-none absolute -right-[10%] -top-1/2 h-[400px] w-[400px] rounded-full"
                 style={{ background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%)" }}
@@ -995,8 +995,8 @@ const BusinessManagement = () => {
                 className="pointer-events-none absolute bottom-[-40%] left-[20%] h-[300px] w-[300px] rounded-full"
                 style={{ background: "radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 60%)" }}
               />
-              <div className="relative z-[1] flex items-center gap-5">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur-md">
+              <div className="relative z-[1] flex items-center gap-4 sm:gap-5">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 backdrop-blur-md sm:h-14 sm:w-14">
                   <Home className="h-[26px] w-[26px] text-white" strokeWidth={2} />
                 </div>
                 <div>
@@ -1151,37 +1151,37 @@ const BusinessManagement = () => {
                   <table className="w-full min-w-full border-collapse">
                     <thead>
                       <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                        <th className="px-6 py-3.5 pl-8 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:pl-8">
+                        <th className="px-3 py-3 pl-4 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 sm:pl-8">
                           Business
                         </th>
-                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5">
                           Business Type
                         </th>
                         {showOwnershipTabs && businessListTab === "shared" && (
-                          <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
                             Role
                           </th>
                         )}
-                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5">
                           Subscription
                         </th>
-                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
                           Contact
                         </th>
                         {showBranchesCol && (
-                          <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
                             Branches
                           </th>
                         )}
                         {showStaffCol && (
-                          <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
                             Staff
                           </th>
                         )}
-                        <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
                           Created
                         </th>
-                        <th className="sticky right-0 z-10 px-6 py-3.5 pr-8 bg-white text-right text-xs font-semibold uppercase tracking-wide text-[#8c95b0] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                        <th className="sticky right-0 z-10 bg-white px-3 py-3 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-[#8c95b0] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] sm:px-6 sm:py-3.5 sm:pr-8">
                           Actions
                         </th>
                       </tr>
@@ -1210,7 +1210,7 @@ const BusinessManagement = () => {
                               key={business.id}
                               className="border-b border-[rgba(15,23,60,0.06)] transition-colors last:border-b-0 hover:bg-[#1a52c5]/[0.02]"
                             >
-                            <td className="px-6 py-5 pl-8 align-middle">
+                            <td className="px-3 py-4 pl-4 align-middle sm:px-6 sm:py-5 sm:pl-8">
                               <div className="flex items-center gap-3.5">
                                 <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5]/[0.08] to-[#28c2ce]/[0.06]">
                                   <Home className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
@@ -1233,19 +1233,19 @@ const BusinessManagement = () => {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-5 align-middle">
+                            <td className="px-3 py-4 align-middle sm:px-6 sm:py-5">
                               <span className="inline-flex max-w-full items-center rounded-full bg-[#28c2ce]/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#0f8f99]">
                                 {getBusinessTypeLabel(business.businessType)}
                               </span>
                             </td>
                             {showOwnershipTabs && businessListTab === "shared" && (
-                              <td className="px-6 py-5 align-middle">
+                              <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                                 <span className="inline-flex items-center rounded-full bg-[#0f8f99]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#0f8f99] border border-[#0f8f99]/15">
                                   {business.memberRole || "MEMBER"}
                                 </span>
                               </td>
                             )}
-                            <td className="px-6 py-5 align-middle">
+                            <td className="px-3 py-4 align-middle sm:px-6 sm:py-5">
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${subscriptionDisplay.badgeClass}`}>
                                 {subscriptionDisplay.planLabel}
                                 {subscriptionDisplay.statusLabel && (
@@ -1253,7 +1253,7 @@ const BusinessManagement = () => {
                                 )}
                               </span>
                             </td>
-                            <td className="px-6 py-5 align-middle">
+                            <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                               <div className="flex flex-col gap-1">
                                 {business.phone && (
                                   <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
@@ -1276,7 +1276,7 @@ const BusinessManagement = () => {
                               </div>
                             </td>
                             {showBranchesCol && (
-                              <td className="px-6 py-5 align-middle">
+                              <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1a52c5]/[0.06] px-3.5 py-1.5 text-[13px] font-semibold text-[#1a52c5]">
                                   <Store className="h-[15px] w-[15px]" strokeWidth={2} />
                                   {branchCount(business)}
@@ -1284,7 +1284,7 @@ const BusinessManagement = () => {
                               </td>
                             )}
                             {showStaffCol && (
-                              <td className="px-6 py-5 align-middle">
+                              <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#28c2ce]/[0.08] px-3.5 py-1.5 text-[13px] font-semibold text-[#1aa8b3]">
                                   <Users className="h-[15px] w-[15px]" strokeWidth={2} />
                                   {(business.accessType === 'shared' && business.memberRole === 'MANAGER')
@@ -1295,7 +1295,7 @@ const BusinessManagement = () => {
                                 </span>
                               </td>
                             )}
-                            <td className="px-6 py-5 align-middle">
+                            <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                               <span className="text-sm font-medium text-[#4a5578]">{formatDate(business.createdAt)}</span>
                             </td>
                             <td className="sticky right-0 z-10 px-4 py-4 pr-6 bg-white text-right align-middle whitespace-nowrap shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
