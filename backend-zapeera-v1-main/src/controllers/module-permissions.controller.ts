@@ -89,14 +89,25 @@ async function upsertModulePermission(
       id, scopeVal, moduleName, enabled
     );
   } catch (insertErr: any) {
-    const message = String(insertErr?.message || '').toLowerCase();
-    if (message.includes('unique') || message.includes('constraint')) {
-      await prisma.$executeRawUnsafe(
+    // Duplicate-row fallback. The old check matched only the words
+    // 'unique'/'constraint' in the error text — but Prisma renders a
+    // PostgreSQL 23505 as `Key (...) already exists`, which contains
+    // neither word, so every SECOND toggle of the same module (e.g.
+    // re-enabling after a disable) threw and the endpoint 500'd
+    // (Round-2 fix, log-verified 2026-10-21). Robust approach: try
+    // the UPDATE on any insert failure; only if it touched no row
+    // was the insert error genuine — rethrow it then.
+    let updated = 0;
+    try {
+      updated = await prisma.$executeRawUnsafe(
         `UPDATE ${table} SET "enabled" = $1, "updatedAt" = CURRENT_TIMESTAMP
          WHERE ${scopeQuoted} = $2 AND "moduleName" = $3`,
         enabled, scopeVal, moduleName
       );
-    } else {
+    } catch (_) {
+      throw insertErr;
+    }
+    if (!updated) {
       throw insertErr;
     }
   }
