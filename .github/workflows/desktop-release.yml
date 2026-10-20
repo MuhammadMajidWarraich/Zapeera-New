@@ -28,8 +28,14 @@ jobs:
         run: npm install -g npm@11
 
       - name: Install backend dependencies (embedded desktop backend)
+        # npm install, not npm ci: the committed backend lock has no
+        # node_modules/fsevents node (chokidar/jest-haste-map reference it
+        # as an optional darwin-only dep). npm >= 11 treats that as an
+        # out-of-sync lock and aborts npm ci with EUSAGE ("Missing:
+        # fsevents@2.3.3 from lock file", run 39454021097). npm install
+        # heals the lock in the runner and proceeds.
         working-directory: backend-zapeera-v1-main
-        run: npm ci --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Install frontend dependencies
         working-directory: frontend-zapeera-V1
