@@ -2,6 +2,23 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
 
+
+// C-14: the cloud-sync endpoints must only ever serve businesses the
+// caller actually belongs to (ACTIVE membership) or owns. Previously any
+// authenticated user could pull or push ANY business's data by id.
+async function requireBusinessAccess(prisma: any, userId: string, businessId: string): Promise<boolean> {
+  const membership = await prisma.membership.findFirst({
+    where: { userId, businessId, status: 'ACTIVE' },
+    select: { id: true }
+  });
+  if (membership) return true;
+  const owned = await prisma.business.findFirst({
+    where: { id: businessId, createdBy: userId },
+    select: { id: true }
+  });
+  return !!owned;
+}
+
 export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -136,6 +153,11 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
       return;
     }
 
+    if (!(await requireBusinessAccess(prisma, req.user!.id, businessId))) {
+      res.status(404).json({ success: false, message: 'Business not found' });
+      return;
+    }
+
     res.json({
       success: true,
       data: {
@@ -199,6 +221,11 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    if (!(await requireBusinessAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+
     const results: any[] = [];
 
     for (const op of operations) {
@@ -208,6 +235,12 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
         if (operation === 'DELETE') {
           const model = (prisma as any)[entityType];
           if (model?.delete) {
+            const existing = model.findUnique ? await model.findUnique({ where: { id: entityId } }) : null;
+            const owner = existing ? (existing.companyId ?? existing.businessId) : undefined;
+            if (existing && owner !== undefined && owner !== businessId) {
+              results.push({ id: op.id, status: 'FAILED', message: 'Entity does not belong to this business' });
+              continue;
+            }
             await model.delete({ where: { id: entityId } });
           }
           results.push({ id: op.id, status: 'ACCEPTED' });
@@ -221,6 +254,12 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
         } else if (operation === 'UPDATE' || operation === 'update') {
           const model = (prisma as any)[entityType];
           if (model?.update && payload) {
+            const existing = model.findUnique ? await model.findUnique({ where: { id: entityId } }) : null;
+            const owner = existing ? (existing.companyId ?? existing.businessId) : undefined;
+            if (existing && owner !== undefined && owner !== businessId) {
+              results.push({ id: op.id, status: 'FAILED', message: 'Entity does not belong to this business' });
+              continue;
+            }
             const { id, ...updateData } = payload;
             delete updateData.id;
             await model.update({ where: { id: entityId }, data: updateData });
@@ -249,6 +288,11 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
 
     if (!businessId) {
       res.status(400).json({ success: false, message: 'businessId is required' });
+      return;
+    }
+
+    if (!(await requireBusinessAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
       return;
     }
 
