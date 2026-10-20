@@ -298,9 +298,9 @@ export function DesktopBanner() {
     return (
       <section className="relative mt-6 overflow-hidden rounded-2xl border border-[#d9e6f7] bg-gradient-to-r from-[#e9f1fd] via-[#e9f4fb] to-[#e3f6f8] px-5 py-5 sm:px-6" aria-label="Desktop app">
         {/* Decorative laptop mock, echoing the reference banner visual */}
-        <div aria-hidden className="pointer-events-none absolute -right-8 top-1/2 hidden w-[290px] -translate-y-1/2 rotate-[-5deg] lg:block">
+        <div aria-hidden className="pointer-events-none absolute -right-6 top-1/2 hidden w-[248px] -translate-y-1/2 rotate-[-5deg] lg:block">
           <div className="overflow-hidden rounded-t-xl border-[5px] border-b-0 border-[#12234d] bg-white shadow-[0_24px_50px_rgba(10,25,60,0.22)]">
-            <div className="flex h-[118px]">
+            <div className="flex h-[94px]">
               <div className="flex w-9 shrink-0 flex-col items-center gap-1.5 bg-[#0a1633] py-2">
                 <span className="h-3.5 w-3.5 rounded-[4px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce]" />
                 <span className="mt-1 h-1.5 w-5 rounded bg-white/25" />
