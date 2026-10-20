@@ -368,6 +368,16 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
           parseInt(process.env.BCRYPT_ROUNDS || '12')
         );
 
+        // E2E P4-2: staff-created users must be able to complete their
+        // first login. Login requires a verified email, but this flow
+        // previously stored no verification token and sent no email —
+        // the staff member was stuck at the login page until they found
+        // "resend verification". Mirror the register flow: store a 24h
+        // token at creation and send the verification email.
+        const staffVerificationToken = randomBytes(32).toString('hex');
+        const staffVerificationExpires = new Date();
+        staffVerificationExpires.setHours(staffVerificationExpires.getHours() + 24);
+
         user = await prisma.zapeeraUser.create({
           data: {
             username: email,
@@ -375,9 +385,22 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
             password: hashedPassword,
             name,
             phone: phone || null,
-            isActive: true
+            isActive: true,
+            emailVerified: false,
+            emailVerificationToken: staffVerificationToken,
+            emailVerificationExpires: staffVerificationExpires
           }
         });
+
+        // Send verification email asynchronously (don't block response)
+        (async () => {
+          try {
+            const { emailService } = await import('../services/email.service');
+            await emailService.sendVerificationEmail(email, name, staffVerificationToken);
+          } catch (emailErr: any) {
+            logger.error('Failed to send staff verification email:', { message: emailErr.message });
+          }
+        })();
       }
     }
 
