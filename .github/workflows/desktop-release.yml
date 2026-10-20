@@ -1,0 +1,53 @@
+name: Desktop Release (Windows installer)
+
+# Builds the Zapeera Windows installer (NSIS) on a Windows runner and
+# publishes it as a GitHub Release asset. The website's Downloads page
+# links: releases/download/v1.0.0/Zapeera-Setup-1.0.0.exe
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Use npm 11 (matches the production frontend build)
+        run: npm install -g npm@11
+
+      - name: Install backend dependencies (embedded desktop backend)
+        working-directory: backend-zapeera-v1-main
+        run: npm ci --legacy-peer-deps
+
+      - name: Install frontend dependencies
+        working-directory: frontend-zapeera-V1
+        run: npm ci --legacy-peer-deps
+
+      - name: Build desktop app + NSIS installer
+        working-directory: frontend-zapeera-V1
+        run: npm run desktop:win
+
+      - name: List installer output
+        working-directory: frontend-zapeera-V1
+        run: dir release
+
+      - name: Publish GitHub Release with the installer
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            frontend-zapeera-V1/release/Zapeera-Setup-*.exe
+            frontend-zapeera-V1/release/latest.yml
+          fail_on_unmatched_files: true
+          generate_release_notes: true
