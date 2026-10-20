@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, ScanBarcode, Loader2 } from 'lucide-react';
+import { Search, ScanBarcode, Loader2, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import { apiService } from '@/services/api';
@@ -64,15 +64,15 @@ function ListPlaceholder({
   subtitle: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-10 text-center sm:py-12">
+    <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
       <div
-        className="mb-4 flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/12 to-[#28c2ce]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/12 to-[#28c2ce]/10"
         aria-hidden
       >
-        <Icon className="h-8 w-8 text-[#1a52c5]/75" strokeWidth={1.75} />
+        <Icon className="h-6 w-6 text-[#1a52c5]/75" strokeWidth={1.75} />
       </div>
-      <p className="text-[15px] font-semibold tracking-tight text-[#0a1128]">{title}</p>
-      <p className="mt-1.5 max-w-[260px] text-sm leading-relaxed text-[#8c95b0]">{subtitle}</p>
+      <p className="text-sm font-semibold tracking-tight text-[#0a1128]">{title}</p>
+      <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-[#8c95b0]">{subtitle}</p>
     </div>
   );
 }
@@ -207,7 +207,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
             disabled={requiresBranchSelection || isLookingUp}
             autoFocus
             className={cn(
-              'h-12 rounded-[12px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 pr-11 text-[15px] text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
+              'h-[52px] rounded-[12px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 pr-11 text-[15px] text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
               'transition-[border-color,box-shadow] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/15',
             )}
           />
@@ -218,7 +218,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
 
         <div
           className={cn(
-            'space-y-2 overflow-y-auto rounded-[14px] border border-[rgba(15,23,60,0.07)] bg-gradient-to-b from-[#fcfdff] to-[#f4f6fa] p-3 sm:p-4',
+            'space-y-3 overflow-y-auto p-0.5',
             isSplit ? 'min-h-0 flex-1' : 'max-h-80',
           )}
         >
@@ -256,11 +256,19 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               subtitle="Try another keyword or check spelling."
             />
           ) : !searchQuery.trim() ? (
-            <ListPlaceholder
-              icon={ScanBarcode}
-              title="Ready to scan"
-              subtitle="Point your barcode scanner at a product, or type to search by name, barcode, or SKU."
-            />
+            requiresBranchSelection ? (
+              <ListPlaceholder
+                icon={Building2}
+                title="Select a branch to start"
+                subtitle="Choose the branch above — products and stock for that branch will appear here."
+              />
+            ) : (
+              <ListPlaceholder
+                icon={ScanBarcode}
+                title="Ready to scan"
+                subtitle="Point your barcode scanner at a product, or type to search by name, barcode, or SKU."
+              />
+            )
           ) : (
             <ListPlaceholder
               icon={Search}

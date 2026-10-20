@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Package, Plus, Loader2 } from 'lucide-react';
+import { Package, Plus, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BatchSelectionTable from './BatchSelectionTable';
 
@@ -111,10 +111,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   </Badge>
                 )}
               </div>
-              <p className="mt-1 text-sm text-[#8c95b0]">
+              <p className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-[#8c95b0]">
                 <span className="font-medium text-[#4a5578]">
                   Stock: {selectedBatch?.quantity ?? product.stock} units
                 </span>
+                {selectedBatch?.expireDate && (
+                  <span
+                    className={cn(
+                      'ml-1 inline-flex items-center rounded-full px-2 py-px text-[11px] font-bold',
+                      selectedBatch.expiryStatus === 'CRITICAL'
+                        ? 'bg-red-500/10 text-red-600'
+                        : selectedBatch.expiryStatus === 'WARNING'
+                          ? 'bg-amber-500/10 text-amber-600'
+                          : 'bg-slate-500/10 text-slate-500',
+                    )}
+                  >
+                    Exp {new Date(selectedBatch.expireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    {selectedBatch.daysUntilExpiry !== undefined && selectedBatch.daysUntilExpiry <= 30
+                      ? ` • ${selectedBatch.daysUntilExpiry}d left`
+                      : ''}
+                  </span>
+                )}
                 {unitsPerBox > 1 ? (
                   <>
                     <span className="mx-1.5 text-[rgba(15,23,60,0.15)]">|</span>
@@ -126,6 +143,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           <div className="flex flex-wrap items-end gap-3 sm:items-center lg:shrink-0">
+            {selectedBatch && (
+              <div className="mr-1 text-right">
+                <p className="text-[17px] font-extrabold leading-tight tabular-nums text-[#0a1128]">
+                  PKR {Number(selectedBatch.sellingPrice || 0).toFixed(2)}
+                </p>
+                <p className="text-[11px] font-medium leading-tight text-[#8c95b0]">
+                  per unit{unitsPerBox > 1 ? ` • PKR ${(Number(selectedBatch.sellingPrice || 0) * unitsPerBox).toFixed(2)} / box` : ''}
+                </p>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Label
                 htmlFor={`qty-${product.id}`}
@@ -133,19 +160,41 @@ const ProductCard: React.FC<ProductCardProps> = ({
               >
                 Qty
               </Label>
-              <Input
-                id={`qty-${product.id}`}
-                type="number"
-                min={1}
-                max={maxQuantity}
-                value={quantity}
-                onChange={(e) =>
-                  setQuantity(
-                    Math.max(1, Math.min(maxQuantity, parseInt(e.target.value, 10) || 1)),
-                  )
-                }
-                className="h-10 w-[4.25rem] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-center text-sm font-bold tabular-nums text-[#0a1128] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/12"
-              />
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-8 rounded-[10px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <Input
+                  id={`qty-${product.id}`}
+                  type="number"
+                  min={1}
+                  max={maxQuantity}
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      Math.max(1, Math.min(maxQuantity, parseInt(e.target.value, 10) || 1)),
+                    )
+                  }
+                  className="h-10 w-[3.75rem] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-center text-sm font-bold tabular-nums text-[#0a1128] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/12"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-10 w-8 rounded-[10px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                  onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             <div

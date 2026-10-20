@@ -37,7 +37,7 @@ const POS = () => {
 
         {/* POS Content */}
         <div className="flex-1 overflow-auto">
-          <CreateInvoice />
+          <CreateInvoice registerLayout />
         </div>
       </div>
     </div>
