@@ -283,9 +283,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Update membership role instead of user table
-    // First, find or create the role
-    
+    // Update membership role instead of user table.
     // Find or create the role — and for standard roles make sure a
     // default policy exists, otherwise the assignee is denied
     // everything by the authorization layer (Round-2 fix).
