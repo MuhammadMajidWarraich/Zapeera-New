@@ -472,7 +472,11 @@ export function filterHierarchy(
       const moduleState = getModuleState(group.module);
       const pages = group.pages.filter((page) => {
         if (!isPageAllowed(page.module, page.key)) return false;
-        if (!page.roles.includes(role)) return false;
+        // NOTE: no static roles[] filtering here. Role access is decided
+        // ONLY by the server payload (business type x plan x role,
+        // including Backoffice matrix toggles). The hardcoded roles[]
+        // lists in MODULE_HIERARCHY are display metadata; using them as a
+        // gate let the sidebar disagree with the API (Round-2 sync fix).
 
         const pageModuleState = getModuleState(page.module);
         if (!pageModuleState.enabled && pageModuleState.disabledReason !== 'SUBSCRIPTION_PLAN') {

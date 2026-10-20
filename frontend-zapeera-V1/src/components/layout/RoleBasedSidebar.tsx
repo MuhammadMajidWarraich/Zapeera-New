@@ -490,6 +490,13 @@ export const RoleBasedSidebar: React.FC = () => {
           return false;
         }
 
+        // Plan-locked modules stay visible ONLY for the owner (the one
+        // person who can upgrade). Staff can't act on an upsell, so for
+        // them a locked module is simply not part of their workspace.
+        if (moduleState && !moduleState.enabled && moduleState.disabledReason === 'SUBSCRIPTION_PLAN' && String(effectiveRole || '').toUpperCase() !== 'OWNER') {
+          return false;
+        }
+
         // Keep plan-locked modules visible so user sees upgrade/locked state
         return true;
       });
@@ -502,6 +509,11 @@ export const RoleBasedSidebar: React.FC = () => {
           if (state) {
             // Hide business-type and role denied sub-modules entirely
             if (!state.enabled && (state.disabledReason === 'BUSINESS_TYPE' || state.disabledReason === 'ROLE' || state.disabledReason === 'PARENT_MODULE')) {
+              return false;
+            }
+            // Plan-locked sub-modules render with a lock only for the
+            // owner; staff don't see upsells they can't act on.
+            if (!state.enabled && state.disabledReason === 'SUBSCRIPTION_PLAN' && String(effectiveRole || '').toUpperCase() !== 'OWNER') {
               return false;
             }
             // Show plan-locked sub-modules (they'll render with lock icon)

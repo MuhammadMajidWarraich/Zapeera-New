@@ -30,16 +30,27 @@ interface SubModuleGuardProps {
 export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, subModuleKey, label, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSubModuleLocked, loading } = useBusinessModules();
+  const { isSubModuleLocked, isSubModuleHidden, getSubModuleDisabledReason, loading } = useBusinessModules();
   const { user } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [hiddenReason, setHiddenReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) {
       setIsChecking(false);
       return;
     }
+
+    // Role / business-type / parent-denied sub-modules are hidden from the
+    // sidebar; a direct URL must be blocked too, with an honest reason
+    // (no upgrade pitch — the user can't change their role or type).
+    if (parentModule && subModuleKey && isSubModuleHidden(parentModule, subModuleKey)) {
+      setHiddenReason(getSubModuleDisabledReason(parentModule, subModuleKey) || 'ROLE');
+      setIsChecking(false);
+      return;
+    }
+    setHiddenReason(null);
 
     if (parentModule && subModuleKey && isSubModuleLocked(parentModule, subModuleKey)) {
       setIsLocked(true);
@@ -62,7 +73,7 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
       setIsLocked(false);
       setIsChecking(false);
     }
-  }, [parentModule, subModuleKey, isSubModuleLocked, loading, label, location.pathname]);
+  }, [parentModule, subModuleKey, isSubModuleLocked, isSubModuleHidden, getSubModuleDisabledReason, loading, label, location.pathname]);
 
   if (isChecking || loading) {
     return (
@@ -70,6 +81,43 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-muted-foreground">Checking access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hiddenReason) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <h3 className="text-lg font-semibold mb-2">Feature Not Available</h3>
+          <p className="text-muted-foreground mb-4">
+            {hiddenReason === 'BUSINESS_TYPE'
+              ? `${label || subModuleKey} isn't available for this type of business.`
+              : hiddenReason === 'PARENT_MODULE'
+                ? `${label || subModuleKey} is unavailable because its parent module is disabled.`
+                : `Your role doesn't include access to ${label || subModuleKey}. Please ask your business owner if you need it.`}
+          </p>
+          <div className="space-x-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={() => {
+                const slugMatch = location.pathname.match(/^\/business\/([^\/]+)/);
+                const dashboardPath = slugMatch
+                  ? `/business/${encodeURIComponent(slugMatch[1])}/dashboard`
+                  : '/zapeera';
+                navigate(dashboardPath);
+              }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              Go to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -90,7 +138,7 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
               />
             </svg>
           </div>
