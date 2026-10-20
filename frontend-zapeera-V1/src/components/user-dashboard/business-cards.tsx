@@ -321,6 +321,12 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
           const ent = entitlements[b.id] || {};
           const status = normalizeStatus(ent.subscriptionStatus);
           const style = statusStyle[status];
+          // While this business's entitlements are still loading, the
+          // empty ent object normalizes to "inactive" — paying customers
+          // saw a false "Inactive" chip on every page load until the
+          // fetch landed. Show a neutral placeholder instead; the real
+          // status renders as soon as the fetch resolves (Round-2 fix).
+          const entLoading = loading && !entitlements[b.id];
           const desktopState = desktopByBusiness.get(b.id);
           const role = roleFor(b, user);
           const branchCount = b._count?.branches ?? b.branches?.length ?? 0;
@@ -410,10 +416,17 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#4a5578]">
                   <User className="h-3 w-3 opacity-60" /> {role}
                 </span>
-                <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", style.cls)}>
-                  {status === "trial" ? <Crown className="h-3 w-3" /> : <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />}
-                  {ent.plan?.name ? `${ent.plan.name} · ${style.label}` : style.label}
-                </span>
+                {entLoading ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-500/15 bg-gray-500/[0.06] px-2.5 py-1 text-[11px] font-semibold text-gray-400">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-300" />
+                    Checking plan…
+                  </span>
+                ) : (
+                  <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold", style.cls)}>
+                    {status === "trial" ? <Crown className="h-3 w-3" /> : <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />}
+                    {ent.plan?.name ? `${ent.plan.name} · ${style.label}` : style.label}
+                  </span>
+                )}
               </div>
               </div>
 
@@ -425,7 +438,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                 </div>
                 <div className="flex items-center gap-2 text-[#4a5578]">
                   <CalendarDays className="h-4 w-4 text-[#8c95b0]" />
-                  <span className="truncate">{expiryLabel(status, ent)}</span>
+                  <span className="truncate">{entLoading ? "Checking plan…" : expiryLabel(status, ent)}</span>
                 </div>
               </div>
 
