@@ -970,9 +970,59 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Calculate profit (assuming 30% profit margin)
-    const todayProfit = (todaySales._sum?.totalAmount || 0) * 0.3;
-    const monthProfit = (monthSales._sum?.totalAmount || 0) * 0.3;
+    // Real figures (E2E P4-6): profit was previously FABRICATED as a flat
+    // 30% of revenue ("assuming 30% profit margin") and revenue ignored
+    // refunds entirely. Profit is now cost-based per sale item —
+    // (sale totalPrice − batch purchasePrice × qty) — and both revenue and
+    // profit are net of the period's refunds (refund margin reversed at
+    // the original sale's batch cost).
+    const periodFigures = async (saleWhere: any) => {
+      const items = await prisma.saleItem.findMany({
+        where: { sale: saleWhere },
+        select: {
+          quantity: true,
+          totalPrice: true,
+          batch: { select: { purchasePrice: true } }
+        }
+      });
+      let grossProfit = 0;
+      for (const it of items) {
+        grossProfit += (it.totalPrice || 0) - (it.batch?.purchasePrice ?? 0) * it.quantity;
+      }
+
+      const { createdAt, status: _status, ...saleScope } = saleWhere;
+      const refunds = await prisma.refund.findMany({
+        where: { createdAt, originalSale: saleScope },
+        select: {
+          refundAmount: true,
+          originalSaleId: true,
+          items: { select: { productId: true, quantity: true, unitPrice: true } }
+        }
+      });
+      let refundTotal = 0;
+      let refundMargin = 0;
+      for (const r of refunds) {
+        refundTotal += r.refundAmount || 0;
+        if (r.items.length) {
+          const origItems = await prisma.saleItem.findMany({
+            where: { saleId: r.originalSaleId },
+            select: { productId: true, batch: { select: { purchasePrice: true } } }
+          });
+          const costByProduct = new Map(origItems.map((oi) => [oi.productId, oi.batch?.purchasePrice ?? 0]));
+          for (const ri of r.items) {
+            refundMargin += ((ri.unitPrice || 0) - (costByProduct.get(ri.productId) ?? 0)) * ri.quantity;
+          }
+        }
+      }
+      return { grossProfit, refundTotal, refundMargin };
+    };
+
+    const todayFigures = await periodFigures(todayWhere);
+    const monthFigures = await periodFigures(monthWhere);
+    const todayProfit = todayFigures.grossProfit - todayFigures.refundMargin;
+    const monthProfit = monthFigures.grossProfit - monthFigures.refundMargin;
+    const todayRevenueNet = (todaySales._sum?.totalAmount || 0) - todayFigures.refundTotal;
+    const monthRevenueNet = (monthSales._sum?.totalAmount || 0) - monthFigures.refundTotal;
 
     // Calculate growth percentages
     const todayGrowth = yesterdaySales._sum?.totalAmount && yesterdaySales._sum.totalAmount > 0
@@ -1228,13 +1278,13 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       success: true,
       data: {
         today: {
-          revenue: todaySales._sum?.totalAmount || 0,
+          revenue: todayRevenueNet,
           profit: todayProfit,
           transactions: todaySales._count?.id || 0,
           growth: todayGrowth
         },
         month: {
-          revenue: monthSales._sum?.totalAmount || 0,
+          revenue: monthRevenueNet,
           profit: monthProfit,
           transactions: monthSales._count?.id || 0,
           growth: monthGrowth
