@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
+import { escapeHtml, jsonForInlineScript } from '../../utils/html-escape';
 import {
   Dialog,
   DialogContent,
@@ -101,13 +102,13 @@ export function BarcodeLabelPrint({
     items.forEach((item, idx) => {
       barcodeElements += `
         <div class="label" style="width:${labelWidthMM}mm;height:${labelHeightMM}mm;">
-          ${showName ? `<div class="name">${item.name}</div>` : ''}
+          ${showName ? `<div class="name">${escapeHtml(item.name)}</div>` : ''}
           <svg class="barcode-svg" id="barcode-${idx}"></svg>
-          ${showBarcodeText ? `<div class="barcode-text">${item.barcode}</div>` : ''}
+          ${showBarcodeText ? `<div class="barcode-text">${escapeHtml(item.barcode)}</div>` : ''}
           ${showPrice && item.price ? `<div class="price">Rs. ${item.price.toFixed(2)}</div>` : ''}
-          ${showSku && item.sku ? `<div class="meta">SKU: ${item.sku}</div>` : ''}
-          ${showBatch && item.batchNo ? `<div class="meta">Batch: ${item.batchNo}</div>` : ''}
-          ${showExpiry && item.expiryDate ? `<div class="meta">Exp: ${item.expiryDate}</div>` : ''}
+          ${showSku && item.sku ? `<div class="meta">SKU: ${escapeHtml(item.sku)}</div>` : ''}
+          ${showBatch && item.batchNo ? `<div class="meta">Batch: ${escapeHtml(item.batchNo)}</div>` : ''}
+          ${showExpiry && item.expiryDate ? `<div class="meta">Exp: ${escapeHtml(item.expiryDate)}</div>` : ''}
         </div>
       `;
     });
@@ -171,7 +172,7 @@ export function BarcodeLabelPrint({
         <div class="label-grid">${barcodeElements}</div>
         <script>
           document.querySelectorAll('[id^="barcode-"]').forEach((svg, idx) => {
-            const barcodes = ${JSON.stringify(items.map((i) => i.barcode))};
+            const barcodes = ${jsonForInlineScript(items.map((i) => i.barcode))};
             try {
               JsBarcode(svg, barcodes[idx], {
                 format: 'CODE128',

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
+import { escapeHtml } from "@/utils/html-escape";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -823,7 +824,7 @@ const Invoices = () => {
       <body>
         <div class="invoice-container">
           <div class="header">
-            <h1>${invoice.branch.name}</h1>
+            <h1>${escapeHtml(invoice.branch.name)}</h1>
             <p>Your Health, Our Priority</p>
           </div>
 
@@ -834,14 +835,14 @@ const Invoices = () => {
               <div class="info-row"><strong>Date:</strong> ${invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}</div>
               <div class="info-row"><strong>Status:</strong> <span class="status status-${invoice.status.toLowerCase()}">${invoice.status}</span></div>
               <div class="info-row"><strong>Payment Method:</strong> ${invoice.paymentMethod}</div>
-              <div class="info-row"><strong>Cashier:</strong> ${invoice.user.name}</div>
-              <div class="info-row"><strong>Branch:</strong> ${invoice.branch.name}</div>
+              <div class="info-row"><strong>Cashier:</strong> ${escapeHtml(invoice.user.name)}</div>
+              <div class="info-row"><strong>Branch:</strong> ${escapeHtml(invoice.branch.name)}</div>
             </div>
 
             <div class="customer-details">
               <h3>Customer Information</h3>
               ${invoice.customer ? `
-                <div class="info-row"><strong>Name:</strong> ${invoice.customer.name}</div>
+                <div class="info-row"><strong>Name:</strong> ${escapeHtml(invoice.customer.name)}</div>
               ` : `
                 <div class="info-row"><strong>Customer Type:</strong> Walk-in Customer</div>
               `}
@@ -860,8 +861,8 @@ const Invoices = () => {
             <tbody>
               ${invoice.items.map(item => `
                 <tr>
-                  <td>${item.product.name}</td>
-                  <td>${item.quantity} ${item.product.unitType}</td>
+                  <td>${escapeHtml(item.product.name)}</td>
+                  <td>${item.quantity} ${escapeHtml(item.product.unitType)}</td>
                   <td>PKR ${item.unitPrice.toFixed(2)}</td>
                   <td>PKR ${item.totalPrice.toFixed(2)}</td>
                 </tr>
@@ -887,7 +888,7 @@ const Invoices = () => {
           </div>
 
           <div class="footer">
-            <p>Thank you for choosing ${invoice.branch.name}!</p>
+            <p>Thank you for choosing ${escapeHtml(invoice.branch.name)}!</p>
             <p>For any queries, please contact us at your nearest branch.</p>
           </div>
         </div>

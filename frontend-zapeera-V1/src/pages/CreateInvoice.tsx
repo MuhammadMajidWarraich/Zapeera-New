@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { escapeHtml } from "@/utils/html-escape";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1729,15 +1730,15 @@ const CreateInvoice = () => {
         </head>
         <body>
           <div class="receipt-header">
-            <h1>${companyName}</h1>
-            ${branchName ? `<div class="branch-name">${branchName}</div>` : ''}
+            <h1>${escapeHtml(companyName)}</h1>
+            ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
             <div class="tagline">Your Health, Our Priority</div>
 
             ${companyAddress || companyPhone || companyEmail || companyWebsite ? `
             <div class="pharmacy-info">
-              ${companyAddress ? `<div><strong>Address:</strong> ${companyAddress}</div>` : ''}
-              ${companyPhone ? `<div><strong>Phone:</strong> ${companyPhone}</div>` : ''}
-              ${companyEmail ? `<div><strong>Email:</strong> ${companyEmail}</div>` : ''}
+              ${companyAddress ? `<div><strong>Address:</strong> ${escapeHtml(companyAddress)}</div>` : ''}
+              ${companyPhone ? `<div><strong>Phone:</strong> ${escapeHtml(companyPhone)}</div>` : ''}
+              ${companyEmail ? `<div><strong>Email:</strong> ${escapeHtml(companyEmail)}</div>` : ''}
               ${companyWebsite ? `<div><strong>Website:</strong> ${companyWebsite}</div>` : ''}
             </div>
             ` : ''}
@@ -1785,9 +1786,9 @@ const CreateInvoice = () => {
               return `
               <div class="item">
                 <div>
-                  <div class="item-name">${item.name}</div>
+                  <div class="item-name">${escapeHtml(item.name)}</div>
                   <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
-                  ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
+                  ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
                 </div>
                 <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
               </div>
@@ -2091,14 +2092,14 @@ const CreateInvoice = () => {
       </head>
       <body>
         <div class="receipt-header">
-          <h1>${companyName}</h1>
-          ${branchName ? `<div class="branch-name">${branchName}</div>` : ''}
+          <h1>${escapeHtml(companyName)}</h1>
+          ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
           <p class="tagline">Your Health, Our Priority</p>
           ${companyAddress || companyPhone || companyEmail ? `
           <div class="pharmacy-info">
-            ${companyAddress ? `<div><strong>Address:</strong> ${companyAddress}</div>` : ''}
-            ${companyPhone ? `<div><strong>Phone:</strong> ${companyPhone}</div>` : ''}
-            ${companyEmail ? `<div><strong>Email:</strong> ${companyEmail}</div>` : ''}
+            ${companyAddress ? `<div><strong>Address:</strong> ${escapeHtml(companyAddress)}</div>` : ''}
+            ${companyPhone ? `<div><strong>Phone:</strong> ${escapeHtml(companyPhone)}</div>` : ''}
+            ${companyEmail ? `<div><strong>Email:</strong> ${escapeHtml(companyEmail)}</div>` : ''}
           </div>
           ` : ''}
         </div>
@@ -2110,17 +2111,17 @@ const CreateInvoice = () => {
           </div>
           <div>
             <strong>Time:</strong> ${receipt.time}<br>
-            <strong>Cashier:</strong> ${receipt.cashier}
+            <strong>Cashier:</strong> ${escapeHtml(receipt.cashier)}
           </div>
         </div>
 
         ${receipt.customer ? `
         <div class="customer-info">
           <h3>Customer Information</h3>
-          <strong>Name:</strong> ${receipt.customer.name}<br>
-          <strong>Phone:</strong> ${receipt.customer.phone}<br>
-          ${receipt.customer.email ? `<strong>Email:</strong> ${receipt.customer.email}<br>` : ''}
-          ${receipt.customer.address ? `<strong>Address:</strong> ${receipt.customer.address}` : ''}
+          <strong>Name:</strong> ${escapeHtml(receipt.customer.name)}<br>
+          <strong>Phone:</strong> ${escapeHtml(receipt.customer.phone)}<br>
+          ${receipt.customer.email ? `<strong>Email:</strong> ${escapeHtml(receipt.customer.email)}<br>` : ''}
+          ${receipt.customer.address ? `<strong>Address:</strong> ${escapeHtml(receipt.customer.address)}` : ''}
         </div>
         ` : ''}
 
@@ -2145,9 +2146,9 @@ const CreateInvoice = () => {
             return `
             <div class="item">
               <div>
-                <div class="item-name">${item.name}</div>
+                <div class="item-name">${escapeHtml(item.name)}</div>
                 <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
-                ${item.instructions ? `<div class="item-details">${item.instructions}</div>` : ''}
+                ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
               </div>
               <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
             </div>
