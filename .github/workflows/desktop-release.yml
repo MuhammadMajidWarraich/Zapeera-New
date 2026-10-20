@@ -43,6 +43,11 @@ jobs:
 
       - name: Build desktop app + NSIS installer
         working-directory: frontend-zapeera-V1
+        # The desktop renderer has no cloud-URL fallback: without
+        # VITE_CLOUD_API_URL the app cannot log in (v1.0.1 shipped broken
+        # for exactly this reason). .env.desktop carries the same value.
+        env:
+          VITE_CLOUD_API_URL: https://api.zapeera.seikho.online/api
         run: npm run desktop:win
 
       - name: List installer output

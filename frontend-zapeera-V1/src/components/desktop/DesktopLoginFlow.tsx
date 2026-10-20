@@ -30,6 +30,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
   const handleCloudLogin = useCallback(async (credentials: { usernameOrEmail: string; password: string }) => {
     setPhase('authenticating');
     setProgressLabel('Authenticating...');
+    setErrorMessage('');
     try {
       const cloud = getCloudApi();
       const result = await cloud.login(credentials);
@@ -44,6 +45,13 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
     } catch (e: any) {
       if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError') || e.message?.includes('connect')) {
         setPhase('offline-blocked');
+      } else {
+        // Any other failure (bad credentials, server error, missing
+        // configuration) must return to the sign-in form with the error
+        // visible. v1.0.1 left the phase on 'authenticating' here, which
+        // unmounted the form and stranded users on an endless spinner.
+        setErrorMessage(e.message || 'Login failed. Please try again.');
+        setPhase('sign-in');
       }
       throw e;
     }
@@ -277,5 +285,17 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
     );
   }
 
-  return <LoginForm onLogin={handlePostLogin} loginHandler={handleCloudLogin} />;
+  return (
+    <div className="relative">
+      {errorMessage && (
+        <div className="absolute inset-x-0 top-4 z-10 mx-auto w-full max-w-md px-4">
+          <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 shadow-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        </div>
+      )}
+      <LoginForm onLogin={handlePostLogin} loginHandler={handleCloudLogin} />
+    </div>
+  );
 }
