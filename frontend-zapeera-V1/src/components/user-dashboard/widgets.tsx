@@ -109,15 +109,15 @@ export function AccountStats() {
     const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
 
     return [
-      { key: "owned", label: "Businesses Owned", value: owned, icon: Building2, tint: "from-[#1a52c5] to-[#2d6ed9]" },
-      { key: "joined", label: "Businesses Joined", value: joined, icon: UserPlus, tint: "from-[#28c2ce] to-[#20a8b3]" },
-      { key: "invites", label: "Pending Invitations", value: pendingInvites, icon: AlarmClock, tint: "from-amber-500 to-orange-500", onClick: () => navigate("/zapeera/invitations") },
-      { key: "desktop", label: "Desktop Connected", value: desktopConnected ? desktopCount : 0, icon: Laptop, tint: "from-violet-500 to-purple-500", desktop: desktopConnected },
+      { key: "owned", label: "Businesses Owned", value: owned, icon: Building2, tint: "bg-[#1a52c5]/10 text-[#1a52c5]" },
+      { key: "joined", label: "Businesses Joined", value: joined, icon: UserPlus, tint: "bg-teal-500/10 text-teal-600" },
+      { key: "invites", label: "Pending Invitations", value: pendingInvites, icon: AlarmClock, tint: "bg-orange-500/10 text-orange-500", onClick: () => navigate("/zapeera/invitations") },
+      { key: "desktop", label: "Desktop Connected", value: desktopConnected ? desktopCount : 0, icon: Laptop, tint: "bg-violet-500/10 text-violet-600", desktop: desktopConnected },
     ];
   }, [allCompanies, user, runtime.isDesktop, runtime.cloudState, runtime.desktopBusinessStates]);
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((s) => {
         const Icon = s.icon;
         return (
@@ -126,22 +126,25 @@ export function AccountStats() {
             type="button"
             onClick={s.onClick}
             className={cn(
-              "group relative overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-4 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
+              "group flex items-center gap-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
               s.onClick && "cursor-pointer"
             )}
           >
-            <div className="flex items-center justify-between">
-              <div className={cn("grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br text-white shadow", s.tint)}>
-                <Icon className="h-5 w-5" />
-              </div>
-              {s.desktop ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-600">
-                  <Wifi className="h-3 w-3" /> Online
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-3 text-2xl font-extrabold tracking-tight text-[#0a1128]">{s.value}</p>
-            <p className="text-xs font-medium text-[#8c95b0]">{s.label}</p>
+            <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", s.tint)}>
+              <Icon className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[26px] font-extrabold leading-none tracking-tight text-[#0a1128]">{s.value}</span>
+              <span className="mt-1.5 flex items-center gap-1.5 truncate text-[13px] font-medium text-[#8c95b0]">
+                {s.label}
+                {s.desktop ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-1.5 py-px text-[10px] font-bold text-green-600">
+                    <Wifi className="h-2.5 w-2.5" /> Online
+                  </span>
+                ) : null}
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-[#c3cadb] transition-transform group-hover:translate-x-0.5" />
           </button>
         );
       })}

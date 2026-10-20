@@ -221,7 +221,7 @@ const ZapeeraDashboard = () => {
 
   return (
     <ZapeeraLayout>
-      <main className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         {/* Pending invitations are actionable — surface them first */}
         <InvitationsStrip />
 
@@ -269,22 +269,25 @@ const ZapeeraDashboard = () => {
           </>
         ) : (
           <>
-            {/* Global dashboard: the original stat cards lead (owner asked
-                for the old hero/stats back), then account-level actions,
-                then the portfolio — every business equal, no featured one */}
+            {/* Reference layout: page title, stat cards, then the
+                portfolio — every business equal, no featured one */}
+            <div className="mb-6">
+              <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">Dashboard</h1>
+              <p className="mt-1 text-sm text-[#8c95b0]">Manage your businesses, teams, and account from one place.</p>
+            </div>
             <AccountStats />
 
             <section className="mt-10">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
+                  <h2 className="text-xl font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
                   <p className="text-[13px] text-[#8c95b0]">Owned and joined businesses — open the workspace to operate.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => navigate("/zapeera/invitations")}
-                    className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-5 py-3 text-sm font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                   >
                     <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
                     Join a Business
@@ -293,7 +296,7 @@ const ZapeeraDashboard = () => {
                     type="button"
                     onClick={handleCreateBusiness}
                     disabled={!canCreateBusiness}
-                    className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 py-3 text-sm font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
                     Create New Business

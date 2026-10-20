@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
   Home,
   MessageCircle,
   LogOut,
@@ -18,9 +17,14 @@ import {
   Sparkles,
   Menu,
   X,
-  HelpCircle,
-  Laptop,
   RefreshCw,
+  Briefcase,
+  Users,
+  Settings,
+  Download,
+  LifeBuoy,
+  Crown,
+  ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -205,16 +209,9 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
     cn(
       "relative mb-0.5 flex w-full items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-200",
       active
-        ? "bg-gradient-to-br from-[#1a52c5]/[0.18] to-[#28c2ce]/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+        ? "bg-gradient-to-r from-[#1a52c5] to-[#1e7fd6] font-semibold text-white shadow-[0_6px_20px_rgba(26,82,197,0.45)]"
         : "text-white/80 hover:bg-white/[0.04] hover:text-white"
     );
-
-  const activeIndicator = (
-    <span
-      className="absolute left-0 top-1/2 h-[20px] w-0.5 -translate-y-1/2 rounded-r bg-gradient-to-b from-[#1a52c5] to-[#28c2ce] shadow-[0_0_12px_rgba(40,194,206,0.5)]"
-      aria-hidden
-    />
-  );
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -231,7 +228,6 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         aria-current={active ? "page" : undefined}
         className={navBtn(active)}
       >
-        {active && activeIndicator}
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
         <span className="flex-1">{item.label}</span>
         {item.badge ? (
@@ -279,21 +275,21 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       <nav className="sidebar-menu relative z-[2] flex-1 space-y-1 overflow-y-auto px-3.5 pb-4">
         <div>
           <div className="px-3.5 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Main</div>
-          {renderNavItem({ key: "dashboard", label: "Dashboard", icon: LayoutDashboard, to: "/zapeera" })}
-          {renderNavItem({ key: "businesses", label: "My Businesses", icon: Home, to: "/zapeera/my-businesses" })}
-          {renderNavItem({ key: "invitations", label: "Invitations", icon: UserPlus, to: "/zapeera/invitations", badge: pendingInvites || undefined })}
+          {renderNavItem({ key: "dashboard", label: "Dashboard", icon: Home, to: "/zapeera" })}
+          {renderNavItem({ key: "businesses", label: "My Businesses", icon: Briefcase, to: "/zapeera/my-businesses" })}
+          {renderNavItem({ key: "invitations", label: "Invitations", icon: Users, to: "/zapeera/invitations", badge: pendingInvites || undefined })}
         </div>
         <div>
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Account</div>
           {renderNavItem({ key: "settings", label: "Profile & Security", icon: ShieldCheck, to: "/settings" })}
           {renderNavItem({ key: "billing", label: "Billing & Payments", icon: CreditCard, to: "/zapeera/billing" })}
           {renderNavItem({ key: "notifications", label: "Notifications", icon: Bell, to: "/zapeera/notifications", badge: unreadCount > 0 ? unreadCount : undefined })}
-          {renderNavItem({ key: "notification-settings", label: "Notification Settings", icon: BellRing, to: "/zapeera/notification-settings" })}
-          {renderNavItem({ key: "downloads", label: "Downloads", icon: Laptop, to: "/downloads" })}
+          {renderNavItem({ key: "notification-settings", label: "Notification Settings", icon: Settings, to: "/zapeera/notification-settings" })}
+          {renderNavItem({ key: "downloads", label: "Downloads", icon: Download, to: "/downloads" })}
         </div>
         <div>
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Support</div>
-          {renderNavItem({ key: "support", label: "Support Center", icon: HelpCircle, to: "/zapeera/support" })}
+          {renderNavItem({ key: "support", label: "Support Center", icon: LifeBuoy, to: "/zapeera/support" })}
         </div>
       </nav>
 
@@ -309,18 +305,18 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <h4 className="text-[13px] font-semibold leading-snug text-white">Grow Your Business</h4>
               <p className="text-[13px] font-semibold leading-snug text-white">With Zapeera</p>
             </div>
-            <Sparkles className="h-4 w-4 shrink-0 text-[#28c2ce]" />
+            <Crown className="h-4 w-4 shrink-0 text-amber-400" />
           </div>
           <p className="relative mb-3 mt-1.5 text-[11px] leading-relaxed text-white/40">
-            Unlock more branches, staff and smarter tools with a premium plan.
+            Unlock more powerful features, higher limits, and premium support to scale with your business.
           </p>
           <button
             type="button"
             onClick={() => go("/zapeera/billing")}
             className="relative inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_12px_rgba(26,82,197,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(26,82,197,0.45)]"
           >
-            <Sparkles className="h-3 w-3" strokeWidth={2.2} />
             Explore Plans
+            <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
           </button>
         </div>
       </div>
@@ -333,7 +329,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               type="button"
               className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06]"
             >
-              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white">
+              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white">
                 {user?.profileImage ? (
                   <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -386,7 +382,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       )}
 
       <div className="ml-0 flex min-h-screen min-w-0 flex-1 flex-col lg:ml-[272px]">
-        <header className="sticky top-0 z-[90] flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-black/[0.04] bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70 sm:px-8 lg:px-11">
+        <header className="sticky top-0 z-[90] flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-black/[0.04] bg-white px-4 sm:px-8 lg:px-11">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -400,7 +396,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <p className="truncate text-sm font-semibold text-[#0a1128]">
                 {greeting}, <span className="font-extrabold">{user?.name?.split(" ")[0] || "there"}</span> <span aria-hidden>👋</span>
               </p>
-              <p className="truncate text-xs text-[#8c95b0]">Your control center for businesses, subscriptions & settings</p>
+              <p className="truncate text-xs text-[#8c95b0]">Your central hub for businesses, teams, and account settings.</p>
             </div>
           </div>
 
@@ -418,7 +414,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 onFocus={() => setSearchOpen(true)}
                 placeholder="Search businesses, invitations, support…"
                 aria-label="Search"
-                className="h-10 w-56 rounded-[10px] border border-black/[0.06] bg-white pl-9 pr-3 text-[13px] text-[#0a1128] outline-none transition-all focus:w-72 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-64"
+                className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#fbfcfe] pl-9 pr-3 text-[13px] text-[#0a1128] outline-none transition-all focus:w-80 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-[330px]"
               />
               {searchOpen && searchQuery.trim() && (
                 <div className="absolute right-0 top-11 z-[120] w-[340px] overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
@@ -456,7 +452,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 >
                   <BellRing className="h-[18px] w-[18px]" />
                   {unreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                       {unreadCount}
                     </span>
                   )}
