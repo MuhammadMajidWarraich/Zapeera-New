@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
-  Package,
   ArrowRight,
   Plus,
   Search,
@@ -18,287 +17,332 @@ import {
   Truck,
   MapPin,
   Calendar,
-  User,
   AlertCircle,
   CheckCircle,
-  Clock,
   Eye,
-  Download,
-  Printer
+  XCircle,
+  Trash2
 } from "lucide-react";
+import { apiService, StockTransferRecord } from "@/services/api";
 
-interface TransferItem {
+// Inter-branch transfers (Roadmap A9): this page is backed by the real
+// /transfers API. Creating a transfer records a PENDING request (stock is
+// validated but NOT moved); stock only moves when the transfer is
+// completed (received) — the backend decrements the source batches and
+// credits matching batches at the destination branch.
+
+interface BranchOption {
+  id: string;
+  name: string;
+  address?: string;
+}
+
+interface PickerBatch {
+  id: string;
+  batchNo: string;
+  available: number;
+  expireDate?: string;
+}
+
+interface DraftItem {
   productId: string;
   productName: string;
+  sourceBatchId: string;
+  batchNo: string;
+  available: number;
   quantity: number;
-  unitType: string;
-  currentStock: number;
 }
 
-interface InventoryTransfer {
-  id: string;
-  transferNumber: string;
-  fromBranchId: string;
-  toBranchId: string;
-  fromBranch: {
-    id: string;
-    name: string;
-    address: string;
-  };
-  toBranch: {
-    id: string;
-    name: string;
-    address: string;
-  };
-  items: TransferItem[];
-  status: 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED';
-  requestedBy: string;
-  requestedAt: string;
-  approvedBy?: string;
-  approvedAt?: string;
-  deliveredBy?: string;
-  deliveredAt?: string;
-  notes?: string;
-  totalItems: number;
-  totalValue: number;
-}
+// The ApiService request helper returns the response envelope's data in
+// slightly different shapes per endpoint; read both defensively.
+const unwrapList = (res: any, key: string): any[] => {
+  if (Array.isArray(res?.data?.[key])) return res.data[key];
+  if (Array.isArray(res?.[key])) return res[key];
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
+const batchAvailable = (b: any): number =>
+  Number(b?.quantity ?? b?.stockQuantity ?? b?.totalStock ?? 0) || 0;
 
 const InventoryTransfers = () => {
-  const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
-  const [filteredTransfers, setFilteredTransfers] = useState<InventoryTransfer[]>([]);
+  const [transfers, setTransfers] = useState<StockTransferRecord[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedTransfer, setSelectedTransfer] = useState<InventoryTransfer | null>(null);
-  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<StockTransferRecord | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
 
-  // Form states
-  const [newTransfer, setNewTransfer] = useState({
-    fromBranchId: "",
-    toBranchId: "",
-    notes: "",
-    items: [] as TransferItem[]
-  });
+  // Confirm dialog (complete / cancel)
+  const [confirmAction, setConfirmAction] = useState<{
+    kind: "complete" | "cancel";
+    transfer: StockTransferRecord;
+  } | null>(null);
 
-  const [newItem, setNewItem] = useState({
-    productId: "",
-    quantity: ""
-  });
+  // Create form state
+  const [fromBranchId, setFromBranchId] = useState("");
+  const [toBranchId, setToBranchId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Item picker state
+  const [pickerProductId, setPickerProductId] = useState("");
+  const [pickerBatches, setPickerBatches] = useState<PickerBatch[]>([]);
+  const [pickerBatchId, setPickerBatchId] = useState("");
+  const [pickerQty, setPickerQty] = useState("");
+  const [pickerLoading, setPickerLoading] = useState(false);
 
-  useEffect(() => {
-    filterTransfers();
-  }, [transfers, searchQuery, statusFilter]);
-
-  const loadData = async () => {
+  const loadTransfers = useCallback(async () => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Transfer caching disabled - will load from API
+      const res: any = await apiService.getTransfers({
+        page: currentPage,
+        limit: itemsPerPage,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+      });
+      const list: StockTransferRecord[] = Array.isArray(res?.data) ? res.data : [];
+      setTransfers(list);
+      const pagination = res?.pagination;
+      if (pagination) {
+        setTotalPages(Math.max(1, pagination.pages || 1));
+        setTotalCount(pagination.total || list.length);
+      } else {
+        setTotalPages(1);
+        setTotalCount(list.length);
+      }
+    } catch (error: any) {
+      console.error("Error loading transfers:", error);
+      toast.error("Failed to load transfers", {
+        description: error?.message || "Please try again.",
+      });
       setTransfers([]);
-
-      // Products caching disabled
-
-      // Mock branches data
-      const mockBranches = [
-        { id: "branch_001", name: "Main Branch", address: "123 Main Street, Lahore" },
-        { id: "branch_002", name: "Gulberg Branch", address: "456 Gulberg, Lahore" },
-        { id: "branch_003", name: "DHA Branch", address: "789 DHA Phase 5, Lahore" },
-        { id: "branch_004", name: "Karachi Branch", address: "321 Clifton, Karachi" }
-      ];
-      setBranches(mockBranches);
-
-    } catch (error) {
-      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, statusFilter]);
 
-  const filterTransfers = () => {
-    let filtered = [...transfers];
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(transfer =>
-        transfer.transferNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transfer.fromBranch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transfer.toBranch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transfer.requestedBy.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const loadBranches = useCallback(async () => {
+    try {
+      const res: any = await apiService.getBranches();
+      setBranches(unwrapList(res, "branches"));
+    } catch (error) {
+      console.error("Error loading branches:", error);
+      setBranches([]);
     }
+  }, []);
 
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(transfer => transfer.status === statusFilter);
+  useEffect(() => {
+    loadBranches();
+  }, [loadBranches]);
+
+  useEffect(() => {
+    loadTransfers();
+  }, [loadTransfers]);
+
+  // Load products for the picker when the source branch changes
+  useEffect(() => {
+    if (!isCreateOpen || !fromBranchId) {
+      setProducts([]);
+      return;
     }
+    (async () => {
+      try {
+        const res: any = await apiService.getProducts({
+          page: 1,
+          limit: 200,
+          branchId: fromBranchId,
+        });
+        setProducts(unwrapList(res, "products"));
+      } catch (error) {
+        console.error("Error loading products:", error);
+        setProducts([]);
+      }
+    })();
+  }, [isCreateOpen, fromBranchId]);
 
-    setFilteredTransfers(filtered);
-    setCurrentPage(1);
-  };
+  // Load batches for the picked product at the source branch
+  useEffect(() => {
+    setPickerBatches([]);
+    setPickerBatchId("");
+    if (!pickerProductId || !fromBranchId) return;
+    (async () => {
+      try {
+        setPickerLoading(true);
+        const res: any = await apiService.getBatches({
+          productId: pickerProductId,
+          branchId: fromBranchId,
+          limit: 100,
+        });
+        const batches = unwrapList(res, "batches")
+          .map((b: any) => ({
+            id: b.id,
+            batchNo: b.batchNo,
+            available: batchAvailable(b),
+            expireDate: b.expireDate,
+          }))
+          .filter((b: PickerBatch) => b.available > 0);
+        setPickerBatches(batches);
+      } catch (error) {
+        console.error("Error loading batches:", error);
+        setPickerBatches([]);
+      } finally {
+        setPickerLoading(false);
+      }
+    })();
+  }, [pickerProductId, fromBranchId]);
 
-  const addItemToTransfer = () => {
-    if (!newItem.productId || !newItem.quantity) {
+  const addDraftItem = () => {
+    const product = products.find((p) => p.id === pickerProductId);
+    const batch = pickerBatches.find((b) => b.id === pickerBatchId);
+    const quantity = parseInt(pickerQty, 10);
+
+    if (!product || !batch) {
       toast.error("Missing Information", {
-        description: "Please select a product and enter quantity",
+        description: "Please select a product and a batch",
       });
       return;
     }
-
-    const product = products.find(p => p.id === newItem.productId);
-    if (!product) {
-      toast.error("Product Not Found", {
-        description: "Product not found",
-      });
-      return;
-    }
-
-    const quantity = parseInt(newItem.quantity);
-    if (quantity <= 0) {
+    if (!quantity || quantity <= 0) {
       toast.error("Invalid Quantity", {
         description: "Quantity must be greater than 0",
       });
       return;
     }
-
-    if (quantity > product.stockQuantity) {
+    if (quantity > batch.available) {
       toast.error("Insufficient Stock", {
-        description: `Insufficient stock. Available: ${product.stockQuantity}`,
+        description: `Only ${batch.available} available in batch ${batch.batchNo}`,
+      });
+      return;
+    }
+    if (draftItems.some((item) => item.sourceBatchId === batch.id)) {
+      toast.error("Duplicate Batch", {
+        description: "This batch is already added to the transfer",
       });
       return;
     }
 
-    const existingItem = newTransfer.items.find(item => item.productId === newItem.productId);
-    if (existingItem) {
-      toast.error("Duplicate Product", {
-        description: "Product already added to transfer",
-      });
-      return;
-    }
-
-    const transferItem: TransferItem = {
-      productId: product.id,
-      productName: product.name,
-      quantity: quantity,
-      unitType: product.unitType,
-      currentStock: product.stockQuantity
-    };
-
-    setNewTransfer({
-      ...newTransfer,
-      items: [...newTransfer.items, transferItem]
-    });
-
-    setNewItem({ productId: "", quantity: "" });
+    setDraftItems((prev) => [
+      ...prev,
+      {
+        productId: product.id,
+        productName: product.name,
+        sourceBatchId: batch.id,
+        batchNo: batch.batchNo,
+        available: batch.available,
+        quantity,
+      },
+    ]);
+    setPickerProductId("");
+    setPickerBatchId("");
+    setPickerQty("");
   };
 
-  const removeItemFromTransfer = (productId: string) => {
-    setNewTransfer({
-      ...newTransfer,
-      items: newTransfer.items.filter(item => item.productId !== productId)
-    });
+  const removeDraftItem = (sourceBatchId: string) => {
+    setDraftItems((prev) => prev.filter((item) => item.sourceBatchId !== sourceBatchId));
+  };
+
+  const resetCreateForm = () => {
+    setFromBranchId("");
+    setToBranchId("");
+    setNotes("");
+    setDraftItems([]);
+    setPickerProductId("");
+    setPickerBatchId("");
+    setPickerQty("");
   };
 
   const createTransfer = async () => {
-    if (!newTransfer.fromBranchId || !newTransfer.toBranchId) {
+    if (!fromBranchId || !toBranchId) {
       toast.error("Missing Branch Selection", {
         description: "Please select both source and destination branches",
       });
       return;
     }
-
-    if (newTransfer.items.length === 0) {
+    if (fromBranchId === toBranchId) {
+      toast.error("Invalid Branch Selection", {
+        description: "Source and destination branches cannot be the same",
+      });
+      return;
+    }
+    if (draftItems.length === 0) {
       toast.error("Empty Transfer", {
         description: "Please add at least one item to transfer",
       });
       return;
     }
 
-    if (newTransfer.fromBranchId === newTransfer.toBranchId) {
-      toast.error("Invalid Branch Selection", {
-        description: "Source and destination branches cannot be the same",
-      });
-      return;
-    }
-
     try {
-      setLoading(true);
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const fromBranch = branches.find(b => b.id === newTransfer.fromBranchId);
-      const toBranch = branches.find(b => b.id === newTransfer.toBranchId);
-
-      const totalValue = newTransfer.items.reduce((sum, item) => {
-        const product = products.find(p => p.id === item.productId);
-        return sum + (product ? product.sellingPrice * item.quantity : 0);
-      }, 0);
-
-      const newTransferData: InventoryTransfer = {
-        id: `transfer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        transferNumber: `TRF-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-        fromBranchId: newTransfer.fromBranchId,
-        toBranchId: newTransfer.toBranchId,
-        fromBranch: fromBranch!,
-        toBranch: toBranch!,
-        items: newTransfer.items,
-        status: 'PENDING',
-        requestedBy: "Current User",
-        requestedAt: new Date().toISOString(),
-        notes: newTransfer.notes,
-        totalItems: newTransfer.items.length,
-        totalValue: totalValue
-      };
-
-      // Transfer caching disabled
-      setNewTransfer({ fromBranchId: "", toBranchId: "", notes: "", items: [] });
-      setIsCreateDialogOpen(false);
-      toast.success("Transfer Created", {
-        description: "Transfer request created successfully!",
+      setSubmitting(true);
+      await apiService.createTransfer({
+        fromBranchId,
+        toBranchId,
+        notes: notes || undefined,
+        items: draftItems.map((item) => ({
+          productId: item.productId,
+          sourceBatchId: item.sourceBatchId,
+          quantity: item.quantity,
+        })),
       });
-    } catch (error) {
-      console.error('Error creating transfer:', error);
+      toast.success("Transfer Created", {
+        description: "Transfer request created. Stock moves when it is completed (received).",
+      });
+      setIsCreateOpen(false);
+      resetCreateForm();
+      setCurrentPage(1);
+      await loadTransfers();
+    } catch (error: any) {
+      console.error("Error creating transfer:", error);
       toast.error("Transfer Failed", {
-        description: "Failed to create transfer. Please try again.",
+        description: error?.message || "Failed to create transfer. Please try again.",
       });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const updateTransferStatus = (transferId: string, newStatus: string) => {
-    const updatedTransfers = transfers.map(transfer =>
-      transfer.id === transferId
-        ? {
-            ...transfer,
-            status: newStatus as any,
-            approvedAt: newStatus === 'IN_TRANSIT' ? new Date().toISOString() : transfer.approvedAt,
-            deliveredAt: newStatus === 'DELIVERED' ? new Date().toISOString() : transfer.deliveredAt
-          }
-        : transfer
-    );
-    setTransfers(updatedTransfers);
-    // Transfer caching disabled
+  const runConfirmAction = async () => {
+    if (!confirmAction) return;
+    const { kind, transfer } = confirmAction;
+    try {
+      setSubmitting(true);
+      if (kind === "complete") {
+        await apiService.completeTransfer(transfer.id);
+        toast.success("Transfer Completed", {
+          description: `Stock for ${transfer.transferNumber} moved to ${transfer.toBranch.name}.`,
+        });
+      } else {
+        await apiService.cancelTransfer(transfer.id);
+        toast.success("Transfer Cancelled", {
+          description: `${transfer.transferNumber} was cancelled. No stock was moved.`,
+        });
+      }
+      setConfirmAction(null);
+      setIsDetailsOpen(false);
+      await loadTransfers();
+    } catch (error: any) {
+      console.error(`Error trying to ${kind} transfer:`, error);
+      toast.error(kind === "complete" ? "Could Not Complete Transfer" : "Could Not Cancel Transfer", {
+        description: error?.message || "Please try again.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
         return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-      case "IN_TRANSIT":
-        return <Badge className="bg-blue-100 text-blue-800">In Transit</Badge>;
-      case "DELIVERED":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>;
+      case "COMPLETED":
+        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
       case "CANCELLED":
         return <Badge className="bg-red-100 text-red-800">Cancelled</Badge>;
       default:
@@ -306,24 +350,31 @@ const InventoryTransfers = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
-  const paginatedTransfers = filteredTransfers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const visibleTransfers = transfers.filter((transfer) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      transfer.transferNumber.toLowerCase().includes(q) ||
+      transfer.fromBranch?.name.toLowerCase().includes(q) ||
+      transfer.toBranch?.name.toLowerCase().includes(q)
+    );
+  });
 
-  const totalPages = Math.ceil(filteredTransfers.length / itemsPerPage);
+  const totalUnits = (transfer: StockTransferRecord) =>
+    transfer.items.reduce((sum, item) => sum + item.quantity, 0);
 
-  if (loading) {
+  if (loading && transfers.length === 0) {
     return (
       <div className="p-6 bg-background min-h-screen">
         <div className="flex items-center justify-center h-64">
@@ -343,9 +394,11 @@ const InventoryTransfers = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-primary">Inventory Transfers</h1>
-            <p className="text-muted-foreground">Manage inventory transfers between branches</p>
+            <p className="text-muted-foreground">
+              Move stock between branches. Stock moves when a transfer is completed (received).
+            </p>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Create Transfer
           </Button>
@@ -364,21 +417,26 @@ const InventoryTransfers = () => {
                   className="pl-10"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
-                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex items-center text-sm text-muted-foreground">
                 <Filter className="w-4 h-4 mr-2" />
-                {filteredTransfers.length} transfer(s) found
+                {totalCount} transfer(s) found
               </div>
             </div>
           </CardContent>
@@ -393,7 +451,7 @@ const InventoryTransfers = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {paginatedTransfers.length === 0 ? (
+            {visibleTransfers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>No transfers found</p>
@@ -401,44 +459,38 @@ const InventoryTransfers = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {paginatedTransfers.map((transfer) => (
+                {visibleTransfers.map((transfer) => (
                   <div key={transfer.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <div>
                           <h3 className="font-semibold text-lg">{transfer.transferNumber}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {transfer.fromBranch.name} → {transfer.toBranch.name}
+                            {transfer.fromBranch?.name} → {transfer.toBranch?.name}
                           </p>
                         </div>
                         {getStatusBadge(transfer.status)}
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-primary">
-                          PKR {transfer.totalValue.toFixed(2)}
-                        </p>
+                        <p className="text-lg font-bold text-primary">{totalUnits(transfer)} units</p>
                         <p className="text-sm text-muted-foreground">
-                          {transfer.totalItems} item(s)
+                          {transfer.items.length} item(s)
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <span>Requested by: {transfer.requestedBy}</span>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                       <div className="flex items-center space-x-2 text-sm">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span>{formatDate(transfer.requestedAt)}</span>
+                        <span>{formatDate(transfer.createdAt)}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <span>From: {transfer.fromBranch.name}</span>
+                        <span>From: {transfer.fromBranch?.name}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                        <span>To: {transfer.toBranch.name}</span>
+                        <span>To: {transfer.toBranch?.name}</span>
                       </div>
                     </div>
 
@@ -449,43 +501,33 @@ const InventoryTransfers = () => {
                         size="sm"
                         onClick={() => {
                           setSelectedTransfer(transfer);
-                          setIsTransferDialogOpen(true);
+                          setIsDetailsOpen(true);
                         }}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </Button>
-                      {transfer.status === 'PENDING' && (
+                      {transfer.status === "PENDING" && (
                         <>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateTransferStatus(transfer.id, 'IN_TRANSIT')}
-                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            onClick={() => setConfirmAction({ kind: "complete", transfer })}
+                            className="text-green-600 border-green-600 hover:bg-green-50"
                           >
-                            <Truck className="w-4 h-4 mr-2" />
-                            Approve
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Complete (Receive)
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateTransferStatus(transfer.id, 'CANCELLED')}
+                            onClick={() => setConfirmAction({ kind: "cancel", transfer })}
                             className="text-red-600 border-red-600 hover:bg-red-50"
                           >
+                            <XCircle className="w-4 h-4 mr-2" />
                             Cancel
                           </Button>
                         </>
-                      )}
-                      {transfer.status === 'IN_TRANSIT' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => updateTransferStatus(transfer.id, 'DELIVERED')}
-                          className="text-green-600 border-green-600 hover:bg-green-50"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Mark Delivered
-                        </Button>
                       )}
                     </div>
                   </div>
@@ -497,13 +539,13 @@ const InventoryTransfers = () => {
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6">
                 <p className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransfers.length)} of {filteredTransfers.length} transfers
+                  Page {currentPage} of {totalPages} · {totalCount} transfer(s)
                 </p>
                 <div className="flex space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                   >
                     Previous
@@ -511,7 +553,7 @@ const InventoryTransfers = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                   >
                     Next
@@ -523,7 +565,10 @@ const InventoryTransfers = () => {
         </Card>
 
         {/* Create Transfer Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) resetCreateForm();
+        }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Inventory Transfer</DialogTitle>
@@ -534,12 +579,20 @@ const InventoryTransfers = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fromBranch">From Branch</Label>
-                  <Select value={newTransfer.fromBranchId} onValueChange={(value) => setNewTransfer({...newTransfer, fromBranchId: value})}>
+                  <Select
+                    value={fromBranchId}
+                    onValueChange={(value) => {
+                      setFromBranchId(value);
+                      setDraftItems([]);
+                      setPickerProductId("");
+                      setPickerBatchId("");
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select source branch" />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches.map(branch => (
+                      {branches.map((branch) => (
                         <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -547,14 +600,16 @@ const InventoryTransfers = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="toBranch">To Branch</Label>
-                  <Select value={newTransfer.toBranchId} onValueChange={(value) => setNewTransfer({...newTransfer, toBranchId: value})}>
+                  <Select value={toBranchId} onValueChange={setToBranchId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select destination branch" />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches.map(branch => (
-                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                      ))}
+                      {branches
+                        .filter((branch) => branch.id !== fromBranchId)
+                        .map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -563,51 +618,81 @@ const InventoryTransfers = () => {
               {/* Add Items */}
               <div className="space-y-4">
                 <Label>Add Items to Transfer</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  <Select value={newItem.productId} onValueChange={(value) => setNewItem({...newItem, productId: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name} (Stock: {product.stockQuantity})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    placeholder="Quantity"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
-                  />
-                  <Button onClick={addItemToTransfer}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Item
-                  </Button>
-                </div>
+                {!fromBranchId ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground border rounded-lg p-3">
+                    <AlertCircle className="w-4 h-4" />
+                    Select a source branch first — batches are picked from its stock.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-4">
+                    <Select value={pickerProductId} onValueChange={setPickerProductId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={pickerBatchId}
+                      onValueChange={setPickerBatchId}
+                      disabled={!pickerProductId || pickerLoading}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={pickerLoading ? "Loading batches..." : "Select batch"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pickerBatches.map((batch) => (
+                          <SelectItem key={batch.id} value={batch.id}>
+                            {batch.batchNo} — {batch.available} available
+                            {batch.expireDate ? ` · exp ${new Date(batch.expireDate).toLocaleDateString()}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      placeholder="Quantity"
+                      value={pickerQty}
+                      onChange={(e) => setPickerQty(e.target.value)}
+                    />
+                    <Button onClick={addDraftItem}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </div>
+                )}
+                {pickerProductId && !pickerLoading && pickerBatches.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No batches with available stock for this product at the source branch.
+                  </p>
+                )}
               </div>
 
               {/* Selected Items */}
-              {newTransfer.items.length > 0 && (
+              {draftItems.length > 0 && (
                 <div className="space-y-2">
                   <Label>Selected Items</Label>
                   <div className="border rounded-lg p-4 max-h-40 overflow-y-auto">
-                    {newTransfer.items.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                    {draftItems.map((item) => (
+                      <div key={item.sourceBatchId} className="flex items-center justify-between py-2 border-b last:border-b-0">
                         <div>
                           <p className="font-medium">{item.productName}</p>
                           <p className="text-sm text-muted-foreground">
-                            {item.quantity} {item.unitType} (Available: {item.currentStock})
+                            Batch {item.batchNo} · {item.quantity} units (Available: {item.available})
                           </p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => removeItemFromTransfer(item.productId)}
+                          onClick={() => removeDraftItem(item.sourceBatchId)}
                           className="text-red-600 border-red-600 hover:bg-red-50"
                         >
+                          <Trash2 className="w-4 h-4 mr-2" />
                           Remove
                         </Button>
                       </div>
@@ -622,19 +707,24 @@ const InventoryTransfers = () => {
                 <Textarea
                   id="notes"
                   placeholder="Add any notes about this transfer..."
-                  value={newTransfer.notes}
-                  onChange={(e) => setNewTransfer({...newTransfer, notes: e.target.value})}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                 />
               </div>
+
+              <p className="text-xs text-muted-foreground">
+                Creating a transfer does not move stock yet. Stock is decremented at the source and
+                credited at the destination when the transfer is completed (received).
+              </p>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={createTransfer} disabled={loading}>
-                {loading ? (
+              <Button onClick={createTransfer} disabled={submitting}>
+                {submitting ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                     Creating...
@@ -648,7 +738,7 @@ const InventoryTransfers = () => {
         </Dialog>
 
         {/* Transfer Details Dialog */}
-        <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Transfer Details - {selectedTransfer?.transferNumber}</DialogTitle>
@@ -663,42 +753,49 @@ const InventoryTransfers = () => {
                     <div className="space-y-1 text-sm">
                       <p><strong>Transfer Number:</strong> {selectedTransfer.transferNumber}</p>
                       <p><strong>Status:</strong> {selectedTransfer.status}</p>
-                      <p><strong>Requested By:</strong> {selectedTransfer.requestedBy}</p>
-                      <p><strong>Requested At:</strong> {formatDate(selectedTransfer.requestedAt)}</p>
+                      <p><strong>Created:</strong> {formatDate(selectedTransfer.createdAt)}</p>
+                      {selectedTransfer.completedAt && (
+                        <p><strong>Completed:</strong> {formatDate(selectedTransfer.completedAt)}</p>
+                      )}
+                      {selectedTransfer.cancelledAt && (
+                        <p><strong>Cancelled:</strong> {formatDate(selectedTransfer.cancelledAt)}</p>
+                      )}
                     </div>
                   </div>
                   <div>
                     <h3 className="font-semibold mb-2">Branch Information</h3>
                     <div className="space-y-1 text-sm">
-                      <p><strong>From:</strong> {selectedTransfer.fromBranch.name}</p>
-                      <p className="text-muted-foreground">{selectedTransfer.fromBranch.address}</p>
-                      <p><strong>To:</strong> {selectedTransfer.toBranch.name}</p>
-                      <p className="text-muted-foreground">{selectedTransfer.toBranch.address}</p>
+                      <p><strong>From:</strong> {selectedTransfer.fromBranch?.name}</p>
+                      <p className="text-muted-foreground">{selectedTransfer.fromBranch?.address}</p>
+                      <p><strong>To:</strong> {selectedTransfer.toBranch?.name}</p>
+                      <p className="text-muted-foreground">{selectedTransfer.toBranch?.address}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Items */}
                 <div className="space-y-3">
-                  <h3 className="font-semibold">Items to Transfer</h3>
+                  <h3 className="font-semibold">Items</h3>
                   <div className="border rounded-lg">
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="text-left py-3 px-4 font-medium">Product</th>
+                            <th className="text-left py-3 px-4 font-medium">Source Batch</th>
                             <th className="text-left py-3 px-4 font-medium">Quantity</th>
-                            <th className="text-left py-3 px-4 font-medium">Unit</th>
-                            <th className="text-left py-3 px-4 font-medium">Current Stock</th>
+                            <th className="text-left py-3 px-4 font-medium">Received Into</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedTransfer.items.map((item, index) => (
-                            <tr key={index} className="border-t">
-                              <td className="py-3 px-4">{item.productName}</td>
+                          {selectedTransfer.items.map((item) => (
+                            <tr key={item.id} className="border-t">
+                              <td className="py-3 px-4">{item.product?.name}</td>
+                              <td className="py-3 px-4">{item.sourceBatch?.batchNo}</td>
                               <td className="py-3 px-4">{item.quantity}</td>
-                              <td className="py-3 px-4">{item.unitType}</td>
-                              <td className="py-3 px-4">{item.currentStock}</td>
+                              <td className="py-3 px-4">
+                                {item.destBatch ? item.destBatch.batchNo : "—"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -712,11 +809,11 @@ const InventoryTransfers = () => {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Items</p>
-                      <p className="text-lg font-semibold">{selectedTransfer.totalItems}</p>
+                      <p className="text-lg font-semibold">{selectedTransfer.items.length}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Total Value</p>
-                      <p className="text-lg font-semibold text-primary">PKR {selectedTransfer.totalValue.toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">Total Units</p>
+                      <p className="text-lg font-semibold text-primary">{totalUnits(selectedTransfer)}</p>
                     </div>
                   </div>
                 </div>
@@ -728,8 +825,69 @@ const InventoryTransfers = () => {
                     <p className="text-sm bg-gray-50 p-3 rounded-md">{selectedTransfer.notes}</p>
                   </div>
                 )}
+
+                {/* Actions */}
+                {selectedTransfer.status === "PENDING" && (
+                  <div className="flex justify-end space-x-2 border-t pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmAction({ kind: "cancel", transfer: selectedTransfer })}
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancel Transfer
+                    </Button>
+                    <Button
+                      onClick={() => setConfirmAction({ kind: "complete", transfer: selectedTransfer })}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Complete (Receive)
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirm Action Dialog */}
+        <Dialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {confirmAction?.kind === "complete" ? "Complete Transfer?" : "Cancel Transfer?"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {confirmAction?.kind === "complete" ? (
+                  <>
+                    Receiving <strong>{confirmAction.transfer.transferNumber}</strong> will move{" "}
+                    {totalUnits(confirmAction.transfer)} units from{" "}
+                    {confirmAction.transfer.fromBranch?.name} to {confirmAction.transfer.toBranch?.name}.
+                    This cannot be undone.
+                  </>
+                ) : (
+                  <>
+                    Cancel <strong>{confirmAction?.transfer.transferNumber}</strong>? No stock has
+                    moved for this transfer, so nothing needs to be reversed.
+                  </>
+                )}
+              </p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={submitting}>
+                  Go Back
+                </Button>
+                <Button
+                  onClick={runConfirmAction}
+                  disabled={submitting}
+                  className={confirmAction?.kind === "complete" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                >
+                  {submitting ? "Working..." : confirmAction?.kind === "complete" ? "Complete Transfer" : "Cancel Transfer"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

@@ -133,6 +133,7 @@ model Business {
   sales                     Sale[]
   batches                   Batch[]
   purchases                 Purchase[]
+  stockTransfers            StockTransfer[]
   categories                Category[]
   expenses                  Expense[]
   expenseCategories         ExpenseCategory[]
@@ -178,6 +179,8 @@ model Branch {
   scheduledShifts    ScheduledShift[]
   batches            Batch[]
   purchases          Purchase[]
+  stockTransfersOut  StockTransfer[]    @relation("stockTransfersOut")
+  stockTransfersIn   StockTransfer[]    @relation("stockTransfersIn")
   categories         Category[]
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
@@ -363,6 +366,7 @@ model Product {
   stockMovements StockMovement[]
   batches        Batch[]
   purchaseItems  PurchaseItem[]
+  stockTransferItems StockTransferItem[]
 
   @@index([companyId], name: "idx_product_company")
   @@index([branchId], name: "idx_product_branch")
@@ -407,6 +411,8 @@ model Batch {
   shelf               Shelf?         @relation(fields: [shelfId], references: [id])
   supplier            Supplier?      @relation(fields: [supplierId], references: [id])
   purchaseItems       PurchaseItem[]
+  transferItemsOut    StockTransferItem[] @relation("transferSourceBatch")
+  transferItemsIn     StockTransferItem[] @relation("transferDestBatch")
   saleItems           SaleItem[]
 
   @@unique([batchNo, productId, branchId])
@@ -461,6 +467,53 @@ model PurchaseItem {
   batch      Batch?   @relation(fields: [batchId], references: [id])
 
   @@map("purchase_items")
+}
+
+model StockTransfer {
+  id             String              @id @default(cuid())
+  transferNumber String
+  companyId      String
+  fromBranchId   String
+  toBranchId     String
+  status         String              @default("PENDING") // PENDING | COMPLETED | CANCELLED
+  notes          String?
+  createdBy      String?
+  completedBy    String?
+  completedAt    DateTime?
+  cancelledBy    String?
+  cancelledAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  company        Business            @relation(fields: [companyId], references: [id])
+  fromBranch     Branch              @relation("stockTransfersOut", fields: [fromBranchId], references: [id])
+  toBranch       Branch              @relation("stockTransfersIn", fields: [toBranchId], references: [id])
+  items          StockTransferItem[]
+
+  @@index([companyId], name: "idx_stockTransfer_company")
+  @@index([fromBranchId], name: "idx_stockTransfer_fromBranch")
+  @@index([toBranchId], name: "idx_stockTransfer_toBranch")
+  @@index([status], name: "idx_stockTransfer_status")
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id            String        @id @default(cuid())
+  transferId    String
+  productId     String
+  sourceBatchId String
+  destBatchId   String?
+  quantity      Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  transfer      StockTransfer @relation(fields: [transferId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+  sourceBatch   Batch         @relation("transferSourceBatch", fields: [sourceBatchId], references: [id])
+  destBatch     Batch?        @relation("transferDestBatch", fields: [destBatchId], references: [id])
+
+  @@index([transferId], name: "idx_stockTransferItem_transfer")
+  @@index([productId], name: "idx_stockTransferItem_product")
+  @@index([sourceBatchId], name: "idx_stockTransferItem_sourceBatch")
+  @@map("stock_transfer_items")
 }
 
 model StockMovement {

@@ -32,6 +32,53 @@ export interface SupportTicketMessageItem {
   createdAt: string;
 }
 
+export interface StockTransferItemRecord {
+  id: string;
+  transferId: string;
+  productId: string;
+  sourceBatchId: string;
+  destBatchId?: string | null;
+  quantity: number;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    barcode?: string;
+  };
+  sourceBatch: {
+    id: string;
+    batchNo: string;
+    quantity: number;
+    expireDate?: string;
+  };
+  destBatch?: {
+    id: string;
+    batchNo: string;
+    quantity: number;
+    expireDate?: string;
+  } | null;
+}
+
+export interface StockTransferRecord {
+  id: string;
+  transferNumber: string;
+  companyId: string;
+  fromBranchId: string;
+  toBranchId: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  notes?: string | null;
+  createdBy?: string | null;
+  completedBy?: string | null;
+  completedAt?: string | null;
+  cancelledBy?: string | null;
+  cancelledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  fromBranch: { id: string; name: string; address: string };
+  toBranch: { id: string; name: string; address: string };
+  items: StockTransferItemRecord[];
+}
+
 export interface SupportTicketItem {
   id: string;
   businessId?: string | null;
@@ -5782,6 +5829,67 @@ export class ApiService {
       message: string;
     }>(`/purchases/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Inter-branch Stock Transfers (Roadmap A9)
+  // Lifecycle: create = PENDING (stock validated, not moved) →
+  // complete = stock moves atomically → cancel = PENDING only.
+
+  async getTransfers(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    fromBranchId?: string;
+    toBranchId?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.status) queryParams.append('status', params.status);
+    if (params.fromBranchId) queryParams.append('fromBranchId', params.fromBranchId);
+    if (params.toBranchId) queryParams.append('toBranchId', params.toBranchId);
+
+    return this.request<{
+      data: Array<StockTransferRecord>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/transfers?${queryParams.toString()}`);
+  }
+
+  async getTransferById(id: string) {
+    return this.request<StockTransferRecord>(`/transfers/${id}`);
+  }
+
+  async createTransfer(transferData: {
+    fromBranchId: string;
+    toBranchId: string;
+    notes?: string;
+    items: Array<{
+      productId: string;
+      sourceBatchId: string;
+      quantity: number;
+    }>;
+  }) {
+    return this.request<StockTransferRecord>('/transfers', {
+      method: 'POST',
+      body: JSON.stringify(transferData),
+    });
+  }
+
+  async completeTransfer(id: string) {
+    return this.request<StockTransferRecord>(`/transfers/${id}/complete`, {
+      method: 'POST',
+    });
+  }
+
+  async cancelTransfer(id: string) {
+    return this.request<StockTransferRecord>(`/transfers/${id}/cancel`, {
+      method: 'POST',
     });
   }
 
