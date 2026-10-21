@@ -12,6 +12,8 @@ import CategoryManagement from "./CategoryManagement";
 import CategoryForm from "./CategoryForm";
 import { DocumentScanner } from "./DocumentScanner";
 import { ExtractedDataReview } from "./ExtractedDataReview";
+import { BarcodeLabelPrint } from "../barcode/BarcodeLabelPrint";
+import { BarcodeGenerator } from "../barcode/BarcodeGenerator";
 import {
   Search,
   Plus,
@@ -34,7 +36,8 @@ import {
   Upload,
   FileSpreadsheet,
   Image,
-  FolderOpen
+  FolderOpen,
+  Printer
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -167,6 +170,8 @@ const Inventory = () => {
   const [isAdding, setIsAdding] = useState(false); // Separate state for adding product
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [labelProduct, setLabelProduct] = useState<Product | null>(null); // Product whose barcode label is being printed
+  const [isBarcodeGeneratorOpen, setIsBarcodeGeneratorOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [importedProducts, setImportedProducts] = useState<any[]>([]);
   const [processingImage, setProcessingImage] = useState(false);
@@ -804,11 +809,6 @@ const Inventory = () => {
     return { status: "good", color: "default" };
   };
 
-
-  const generateBarcode = () => {
-    const randomNum = Math.floor(Math.random() * 10000000000000);
-    return randomNum.toString().padStart(13, '0');
-  };
 
   const handleCreateCategory = async (formData: any) => {
     // Check if admin has selected a branch
@@ -2414,7 +2414,7 @@ const Inventory = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setNewMedicine({...newMedicine, barcode: generateBarcode()})}
+                        onClick={() => setIsBarcodeGeneratorOpen(true)}
                         >
                         Generate
                       </Button>
@@ -2574,7 +2574,7 @@ const Inventory = () => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setNewMedicine({...newMedicine, barcode: generateBarcode()})}
+                        onClick={() => setIsBarcodeGeneratorOpen(true)}
                         >
                         Generate
                       </Button>
@@ -3141,6 +3141,19 @@ const Inventory = () => {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 type="button"
+                                title={
+                                  product.barcode || product.sku
+                                    ? "Print barcode label"
+                                    : "No barcode or SKU to print"
+                                }
+                                disabled={!product.barcode && !product.sku}
+                                onClick={() => setLabelProduct(product)}
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128] disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Printer className="h-[15px] w-[15px]" strokeWidth={2} />
+                              </button>
+                              <button
+                                type="button"
                                 title="Edit"
                                 onClick={() => handleEditProduct(product)}
                                 className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
@@ -3234,6 +3247,32 @@ const Inventory = () => {
             </>
           )}
       </div>
+
+      {/* Barcode Label Printing (audit A12 — component was orphaned) */}
+      {labelProduct && (
+        <BarcodeLabelPrint
+          open={!!labelProduct}
+          onClose={() => setLabelProduct(null)}
+          barcode={labelProduct.barcode || labelProduct.sku || ''}
+          productName={labelProduct.name}
+          price={labelProduct.price}
+          sku={labelProduct.sku}
+        />
+      )}
+
+      {/* Real barcode generator (validates format / generates via the
+          barcode API) — replaces the old unvalidated random number used
+          by the product forms' Generate buttons. */}
+      <BarcodeGenerator
+        open={isBarcodeGeneratorOpen}
+        onClose={() => setIsBarcodeGeneratorOpen(false)}
+        onGenerate={(barcode) => {
+          setNewMedicine({ ...newMedicine, barcode });
+          setIsBarcodeGeneratorOpen(false);
+        }}
+        currentBarcode={newMedicine.barcode}
+        productName={newMedicine.name}
+      />
 
       {/* Import Preview Dialog */}
       <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>

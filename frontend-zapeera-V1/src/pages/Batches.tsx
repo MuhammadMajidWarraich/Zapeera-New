@@ -10,11 +10,13 @@ import { SearchableSelect } from '../components/ui/searchable-select';
 import { Textarea } from '../components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
+import { BarcodeLabelPrint } from '../components/barcode/BarcodeLabelPrint';
+import { BarcodeGenerator } from '../components/barcode/BarcodeGenerator';
 import { useToast } from '../hooks/use-toast';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/useAdmin';
-import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, Eye, Flag, RotateCcw } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, Eye, Flag, RotateCcw, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from "@/lib/utils";
 
@@ -75,6 +77,7 @@ const safeFormatDateForInput = (dateLike: string | Date | number | undefined | n
 interface Batch {
   id: string;
   batchNo: string;
+  barcode?: string | null; // Batch-level barcode from the API (may be null)
   productId: string;
   supplierId?: string;
   supplierName?: string;
@@ -180,6 +183,7 @@ const Batches = () => {
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [viewingBatch, setViewingBatch] = useState<Batch | null>(null);
   const [deletingBatch, setDeletingBatch] = useState<Batch | null>(null);
+  const [labelBatch, setLabelBatch] = useState<Batch | null>(null); // Batch whose barcode label is being printed
   const [reportingBatch, setReportingBatch] = useState<Batch | null>(null); // Batch being reported
   const [reportReason, setReportReason] = useState<string>(''); // Reason for reporting
   const [isSubmittingReport, setIsSubmittingReport] = useState(false); // Loading state for report submission
@@ -1664,6 +1668,14 @@ const Batches = () => {
                             </button>
                             <button
                               type="button"
+                              onClick={() => setLabelBatch(batch)}
+                              title="Print barcode label"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-[#1a52c5]/25 hover:bg-[rgba(26,82,197,0.06)] hover:text-[#1a52c5]"
+                            >
+                              <Printer className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleAddBatchForProduct(batch)}
                               title="Add batch for this product"
                               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-[#1a52c5]/25 hover:bg-[rgba(26,82,197,0.06)] hover:text-[#1a52c5]"
@@ -2105,6 +2117,24 @@ const Batches = () => {
         itemDetails="This will permanently remove the batch and all associated data."
         icon={<Trash2 className="w-4 h-4" />}
       />
+
+      {/* Barcode Label Printing (audit A12 — component was orphaned) */}
+      {labelBatch && (
+        <BarcodeLabelPrint
+          open={!!labelBatch}
+          onClose={() => setLabelBatch(null)}
+          barcode={labelBatch.barcode || labelBatch.product?.sku || ''}
+          productName={labelBatch.product?.name || ''}
+          price={labelBatch.sellingPricePerUnit ?? labelBatch.sellingPrice}
+          sku={labelBatch.product?.sku}
+          batchNo={labelBatch.batchNo}
+          expiryDate={
+            labelBatch.expireDate
+              ? new Date(labelBatch.expireDate).toLocaleDateString('en-GB')
+              : undefined
+          }
+        />
+      )}
 
       {/* Add New Supplier Dialog */}
       <Dialog open={isSupplierDialogOpen} onOpenChange={setIsSupplierDialogOpen}>
@@ -2675,12 +2705,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
-
-  // Generate random barcode
-  const generateBarcode = () => {
-    const randomNum = Math.floor(Math.random() * 10000000000000);
-    return randomNum.toString().padStart(13, '0');
-  };
+  const [isBarcodeGeneratorOpen, setIsBarcodeGeneratorOpen] = useState(false);
 
   // Load categories on component mount
   useEffect(() => {
@@ -2853,7 +2878,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setFormData({ ...formData, barcode: generateBarcode() })}
+              onClick={() => setIsBarcodeGeneratorOpen(true)}
             >
               Generate
             </Button>
@@ -2869,6 +2894,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           Add Product
         </Button>
       </div>
+
+      {/* Real barcode generator (validates format / generates via the
+          barcode API) — replaces the old unvalidated random number. */}
+      <BarcodeGenerator
+        open={isBarcodeGeneratorOpen}
+        onClose={() => setIsBarcodeGeneratorOpen(false)}
+        onGenerate={(barcode) => {
+          setFormData({ ...formData, barcode });
+          setIsBarcodeGeneratorOpen(false);
+        }}
+        currentBarcode={formData.barcode}
+        productName={formData.name}
+        isNewProduct
+      />
     </form>
   );
 };
