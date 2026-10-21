@@ -4558,22 +4558,26 @@ export class ApiService {
       });
     }
 
+    // Shape mirrors backend getStaffPerformance: commission aggregates for
+    // the staff member, their top products by sales value, and the most
+    // recent commission records. There is no `sales` block in the response.
     return this.request<{
-      sales: {
-        totalSales: number;
-        totalTransactions: number;
-        averageSale: number;
-      };
       commissions: {
         totalCommissions: number;
         totalAmount: number;
         totalCommission: number;
         totalBonus: number;
       };
+      topProducts: Array<{
+        productName: string;
+        quantity: number;
+        totalAmount: number;
+      }>;
       recentCommissions: Array<{
         id: string;
         period: string;
         periodType: string;
+        totalSales: number;
         totalAmount: number;
         status: string;
         createdAt: string;
