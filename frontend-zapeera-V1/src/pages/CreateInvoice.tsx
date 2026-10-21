@@ -44,14 +44,14 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
 
-// Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAYSA
+// Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAISA
 // are first-class rails alongside cash/card; MOBILE is the legacy
 // mobile-wallet label kept for older records.
 const PAYMENT_METHOD_OPTIONS = [
   { key: 'CASH', label: 'Cash', Icon: Banknote },
   { key: 'CARD', label: 'Card', Icon: CreditCard },
   { key: 'JAZZCASH', label: 'JazzCash', Icon: Smartphone },
-  { key: 'EASYPAYSA', label: 'Easypaisa', Icon: Wallet },
+  { key: 'EASYPAISA', label: 'Easypaisa', Icon: Wallet },
   { key: 'MOBILE', label: 'Mobile', Icon: Smartphone },
   { key: 'BANK_TRANSFER', label: 'Bank', Icon: Landmark },
 ] as const;
@@ -1343,7 +1343,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
         // value sent here is the largest allocation's method.
-        paymentMethod: (splitPayload ? splitPayload[0].method : paymentMethod.toUpperCase()) as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentMethod: (splitPayload ? splitPayload[0].method : paymentMethod.toUpperCase()) as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
         paymentStatus: paymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
         ...(splitPayload ? { payments: splitPayload } : {}),
         discountAmount: discountAmount, // Global discount amount
@@ -1567,7 +1567,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         customerName: (!customerId && modalInvoiceCustomer.name) ? modalInvoiceCustomer.name : undefined,
         customerPhone: (!customerId && modalInvoiceCustomer.phone) ? modalInvoiceCustomer.phone : undefined,
         branchId: branchId,
-        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
         paymentStatus: modalPaymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
         discountAmount: discountAmount,
         discountPercentage: modalDiscountPercentage || 0,
@@ -4024,10 +4024,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </Button>
                           <Button
                             type="button"
-                            variant={modalPaymentMethod === 'EASYPAYSA' ? 'default' : 'outline'}
+                            variant={modalPaymentMethod === 'EASYPAISA' ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setModalPaymentMethod('EASYPAYSA')}
-                            className={modalPaymentMethod === 'EASYPAYSA' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            onClick={() => setModalPaymentMethod('EASYPAISA')}
+                            className={modalPaymentMethod === 'EASYPAISA' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
                           >
                             Easypaisa
                           </Button>

@@ -1,9 +1,9 @@
 // Enums removed - using string types for SQLite compatibility
-// Wave B1: JAZZCASH and EASYPAYSA are first-class tender methods
+// Wave B1: JAZZCASH and EASYPAISA are first-class tender methods
 // (MOBILE stays for backward compatibility), and 'MIXED' is the stored
 // headline paymentMethod of a sale split across several tenders — it is
 // never a tender itself, so it is not part of SalePaymentMethod.
-export type SalePaymentMethod = 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'BANK_TRANSFER' | 'MOBILE';
+export type SalePaymentMethod = 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'BANK_TRANSFER' | 'MOBILE';
 export type PaymentMethod = SalePaymentMethod | 'MIXED';
 
 export interface SalePaymentData {

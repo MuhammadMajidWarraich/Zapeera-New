@@ -12,9 +12,9 @@ import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
 // Tender methods a sale (or one split-tender allocation) can be paid
-// with — Wave B1. JAZZCASH/EASYPAYSA are first-class alongside the
+// with — Wave B1. JAZZCASH/EASYPAISA are first-class alongside the
 // original four; MOBILE is kept for backward compatibility.
-export const SALE_PAYMENT_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAYSA', 'BANK_TRANSFER', 'MOBILE'] as const;
+export const SALE_PAYMENT_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAISA', 'BANK_TRANSFER', 'MOBILE'] as const;
 
 // Validation schemas
 const createSaleSchema = Joi.object({
