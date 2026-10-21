@@ -154,7 +154,7 @@ const NotificationsListPage = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/zapeera/notifications")}
+            onClick={() => navigate("/zapeera/notification-settings")}
             className="h-9 gap-1.5 rounded-[10px] border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578]"
           >
             <Settings className="h-3.5 w-3.5" />
