@@ -1250,7 +1250,31 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
     if (discountPercentage !== undefined && discountPercentage !== existingSale.discountPercentage) {
       newDiscountAmount = (existingSale.subtotal * discountPercentage) / 100;
       const subtotalAfterDiscount = existingSale.subtotal - newDiscountAmount;
-      newTaxAmount = subtotalAfterDiscount * 0; // Tax disabled - 0%
+      // Recompute tax exactly as the create path does: the admin's
+      // defaultTax setting applied to the discounted subtotal. (This used
+      // to hard-zero the tax — `subtotalAfterDiscount * 0` — silently
+      // wiping tax from every discount-edited invoice.)
+      let taxRate = 0;
+      const currentAdminId = req.user?.createdBy || req.user?.id;
+      if (currentAdminId) {
+        try {
+          const taxSetting = await prisma.settings.findUnique({
+            where: {
+              createdBy_key: {
+                createdBy: currentAdminId,
+                key: 'defaultTax'
+              }
+            }
+          });
+
+          if (taxSetting) {
+            taxRate = parseFloat(taxSetting.value);
+          }
+        } catch (error) {
+          console.warn('Could not fetch tax rate from settings, using default:', error);
+        }
+      }
+      newTaxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
       newTotalAmount = subtotalAfterDiscount + newTaxAmount;
     }
 
