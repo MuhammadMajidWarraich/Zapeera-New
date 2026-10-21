@@ -283,6 +283,11 @@ export const normalizeBusinessType = (value: unknown): SupportedBusinessType | n
   // Backwards/variant compatibility (UI + DB may store extended type values)
   if (normalized === 'DEPARTMENTAL_STORE' || normalized === 'DEPARTMENT_STORE') return BUSINESS_TYPES.STORE;
   if (normalized === 'SUPERMARKET' || normalized === 'GROCERY_STORE') return BUSINESS_TYPES.STORE;
+  // RETAIL_STORE is a canonical business type (modules.util) in the same
+  // general-retail segment as DEPARTMENTAL_STORE: resolve it to the STORE
+  // subscription segment instead of returning null (callers fall back to
+  // PHARMACY on null, which mis-entitles retail stores).
+  if (normalized === 'RETAIL_STORE' || normalized === 'RETAIL') return BUSINESS_TYPES.STORE;
 
   // Validate the normalized value is a valid business type
   const validTypes: string[] = ALL_BUSINESS_TYPES_CONSTANT;
