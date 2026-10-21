@@ -19,6 +19,31 @@ const updateSettingsSchema = Joi.object({
   pharmacyTaxNumber: Joi.string().required()
 });
 
+// Settings contract alignment (roadmap A1): settings rows are stored under
+// the canonical pharmacy* keys (existing data is untouched), but the
+// business Settings page sends/expects business* keys. The API therefore
+// accepts BOTH key styles on update (canonical pharmacy* wins when both are
+// present) and returns BOTH styles on read, so either consumer works.
+const SETTINGS_KEY_ALIASES: Record<string, string> = {
+  businessName: 'pharmacyName',
+  businessAddress: 'pharmacyAddress',
+  businessPhone: 'pharmacyPhone',
+  businessEmail: 'pharmacyEmail',
+  businessLicense: 'pharmacyLicense',
+  businessTaxNumber: 'pharmacyTaxNumber'
+};
+
+const normalizeSettingsPayload = (body: any): Record<string, unknown> => {
+  const normalized: Record<string, unknown> = { ...(body || {}) };
+  for (const [alias, canonical] of Object.entries(SETTINGS_KEY_ALIASES)) {
+    if (normalized[canonical] === undefined && normalized[alias] !== undefined) {
+      normalized[canonical] = normalized[alias];
+    }
+    delete normalized[alias];
+  }
+  return normalized;
+};
+
 export const getSettings = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const prisma = await getPrisma();
@@ -49,6 +74,12 @@ export const getSettings = async (req: AuthRequest, res: Response): Promise<void
     });
 
     // Set default values if not found
+    const pharmacyName = settingsObj.pharmacyName || process.env.DEFAULT_PHARMACY_NAME || 'Zapeera Pharmacy';
+    const pharmacyAddress = settingsObj.pharmacyAddress || 'Block A, Gulberg III, Lahore';
+    const pharmacyPhone = settingsObj.pharmacyPhone || process.env.DEFAULT_PHARMACY_PHONE || '+92 42 1234567';
+    const pharmacyEmail = settingsObj.pharmacyEmail || process.env.DEFAULT_PHARMACY_EMAIL || 'info@zapeera.com';
+    const pharmacyLicense = settingsObj.pharmacyLicense || process.env.DEFAULT_PHARMACY_LICENSE || 'PHR-LHR-2024-001';
+    const pharmacyTaxNumber = settingsObj.pharmacyTaxNumber || '1234567890123';
     const defaultSettings = {
       defaultTax: settingsObj.defaultTax || '17',
       lowStockAlert: settingsObj.lowStockAlert || '20',
@@ -56,12 +87,19 @@ export const getSettings = async (req: AuthRequest, res: Response): Promise<void
       autoSync: settingsObj.autoSync || 'true',
       offlineMode: settingsObj.offlineMode || 'true',
       receiptPrinter: settingsObj.receiptPrinter || 'EPSON TM-T20II',
-      pharmacyName: settingsObj.pharmacyName || process.env.DEFAULT_PHARMACY_NAME || 'Zapeera Pharmacy',
-      pharmacyAddress: settingsObj.pharmacyAddress || 'Block A, Gulberg III, Lahore',
-      pharmacyPhone: settingsObj.pharmacyPhone || process.env.DEFAULT_PHARMACY_PHONE || '+92 42 1234567',
-      pharmacyEmail: settingsObj.pharmacyEmail || process.env.DEFAULT_PHARMACY_EMAIL || 'info@zapeera.com',
-      pharmacyLicense: settingsObj.pharmacyLicense || process.env.DEFAULT_PHARMACY_LICENSE || 'PHR-LHR-2024-001',
-      pharmacyTaxNumber: settingsObj.pharmacyTaxNumber || '1234567890123'
+      pharmacyName,
+      pharmacyAddress,
+      pharmacyPhone,
+      pharmacyEmail,
+      pharmacyLicense,
+      pharmacyTaxNumber,
+      // business* mirrors of the same values (see SETTINGS_KEY_ALIASES)
+      businessName: pharmacyName,
+      businessAddress: pharmacyAddress,
+      businessPhone: pharmacyPhone,
+      businessEmail: pharmacyEmail,
+      businessLicense: pharmacyLicense,
+      businessTaxNumber: pharmacyTaxNumber
     };
 
     res.json({
@@ -90,7 +128,10 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { error } = updateSettingsSchema.validate(req.body);
+    // Accept both pharmacy* and business* key styles; persist canonical keys only.
+    const { error, value: settingsData } = updateSettingsSchema.validate(
+      normalizeSettingsPayload(req.body)
+    );
     if (error) {
       res.status(400).json({
         success: false,
@@ -99,8 +140,6 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
       });
       return;
     }
-
-    const settingsData = req.body;
 
     // Use transaction to update all settings
     await prisma.$transaction(async (tx: any) => {
