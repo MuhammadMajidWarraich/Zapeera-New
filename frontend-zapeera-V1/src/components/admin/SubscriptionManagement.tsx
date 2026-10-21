@@ -11,6 +11,7 @@ import { useAdmin } from "@/contexts/useAdmin";
 import PricingPlansSection from "@/components/subscription/PricingPlansSection";
 import PaymentReceiptUpload, { PaymentReceiptUploadRef } from "@/components/subscription/PaymentReceiptUpload";
 import { defaultPricingPlans, loadPricingPlans, PricingPlan, savePricingPlans, subscribeToPricingPlanChanges } from "@/lib/pricing-plans";
+import type { BillingProfileRecord } from "@/services/api";
 import {
   BarChart3,
   CheckCircle2,
@@ -31,6 +32,10 @@ import {
   Info,
   Upload,
   Clock,
+  Star,
+  Mail,
+  Phone,
+  MapPin,
 } from "lucide-react";
 
 interface EntitlementLimits {
@@ -123,11 +128,38 @@ interface PaymentHistory {
   description: string;
 }
 
-const billingDetails = {
-  name: "Zapeera Inc.",
-  addressLines: ["123 Innovation Drive, Suite 400", "San Francisco, CA 94103", "United States"],
-  taxLabel: "VAT / Tax ID",
-  taxId: "US-987654321",
+// Billing details are REAL billing profiles served by /billing-profiles
+// (Roadmap A11). The hardcoded sample profile that used to live here —
+// which the UI pretended to save/delete in local state only — is gone.
+
+interface BillingProfileFormState {
+  name: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  taxId: string;
+  isDefault: boolean;
+}
+
+const emptyBillingProfileForm: BillingProfileFormState = {
+  name: "",
+  companyName: "",
+  email: "",
+  phone: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "Pakistan",
+  taxId: "",
+  isDefault: false,
 };
 
 const SubscriptionManagement = () => {
@@ -158,7 +190,6 @@ const SubscriptionManagement = () => {
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [isEditCardOpen, setIsEditCardOpen] = useState(false);
   const [isBillingDetailsOpen, setIsBillingDetailsOpen] = useState(false);
-  const [isEditingBilling, setIsEditingBilling] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgradeStep, setUpgradeStep] = useState<"plans" | "configure" | "payment" | "final">("plans");
   const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>(defaultPricingPlans);
@@ -169,14 +200,10 @@ const SubscriptionManagement = () => {
   const [countersPerBranch, setCountersPerBranch] = useState(1);
   const [editingCard, setEditingCard] = useState<PaymentMethod | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [billingDetailsState, setBillingDetailsState] = useState(billingDetails);
-  const [billingForm, setBillingForm] = useState({
-    name: "",
-    addressLine1: "",
-    addressLine2: "",
-    addressLine3: "",
-    taxId: "",
-  });
+  const [billingProfiles, setBillingProfiles] = useState<BillingProfileRecord[]>([]);
+  const [editingBillingProfileId, setEditingBillingProfileId] = useState<string | null>(null);
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+  const [billingForm, setBillingForm] = useState<BillingProfileFormState>(emptyBillingProfileForm);
   const [newCardData, setNewCardData] = useState({
     type: "card" as "card" | "bank" | "mobile",
     last4: "",
@@ -210,16 +237,21 @@ const SubscriptionManagement = () => {
         effectiveCompanyId,
       });
 
-      const [paymentMethodsResponse, billingHistoryResponse, subscriptionResponse] = await Promise.all([
+      const [paymentMethodsResponse, billingHistoryResponse, subscriptionResponse, billingProfilesResponse] = await Promise.all([
         apiService.getPaymentMethods(),
         apiService.getBillingHistory(),
         effectiveCompanyId ? apiService.getBusinessEntitlements(effectiveCompanyId) : Promise.resolve({ success: true, data: null as any }),
+        apiService.getBillingProfiles(effectiveCompanyId || undefined).catch(() => null),
       ]);
 
       setAccountEntitlement(null); // Explicitly remove account entitlements
 
       if (paymentMethodsResponse.success) {
         setPaymentMethods(paymentMethodsResponse.data);
+      }
+
+      if (billingProfilesResponse?.success) {
+        setBillingProfiles(billingProfilesResponse.data || []);
       }
 
       if (billingHistoryResponse.success) {
@@ -522,7 +554,7 @@ const SubscriptionManagement = () => {
       brand: card.brand,
       expiryMonth: card.expiryMonth,
       expiryYear: card.expiryYear,
-      holderName: card.holderName,
+      holderName: card.holderName || "",
       isDefault: card.isDefault,
     });
     setIsEditCardOpen(true);
@@ -646,69 +678,214 @@ const SubscriptionManagement = () => {
     }
   };
 
+  const refreshBillingProfiles = useCallback(async () => {
+    try {
+      const companyId = companyByUrlSlug?.id || selectedCompanyId || allCompanies?.[0]?.id || undefined;
+      const response: any = await apiService.getBillingProfiles(companyId);
+      if (response?.success) {
+        setBillingProfiles(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error refreshing billing profiles:", error);
+    }
+  }, [companyByUrlSlug?.id, selectedCompanyId, allCompanies]);
+
   const openAddBilling = () => {
-    setIsEditingBilling(false);
+    setEditingBillingProfileId(null);
     setBillingForm({
-      name: "",
-      addressLine1: "",
-      addressLine2: "",
-      addressLine3: "",
-      taxId: "",
+      ...emptyBillingProfileForm,
+      isDefault: billingProfiles.length === 0,
     });
     setIsBillingDetailsOpen(true);
   };
 
-  const openEditBilling = () => {
-    setIsEditingBilling(true);
+  const openEditBilling = (profile: BillingProfileRecord) => {
+    setEditingBillingProfileId(profile.id);
     setBillingForm({
-      name: billingDetailsState.name,
-      addressLine1: billingDetailsState.addressLines[0] || "",
-      addressLine2: billingDetailsState.addressLines[1] || "",
-      addressLine3: billingDetailsState.addressLines[2] || "",
-      taxId: billingDetailsState.taxId,
+      name: profile.name || "",
+      companyName: profile.companyName || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      addressLine1: profile.addressLine1 || "",
+      addressLine2: profile.addressLine2 || "",
+      city: profile.city || "",
+      state: profile.state || "",
+      postalCode: profile.postalCode || "",
+      country: profile.country || "Pakistan",
+      taxId: profile.taxId || "",
+      isDefault: Boolean(profile.isDefault),
     });
     setIsBillingDetailsOpen(true);
   };
 
-  const handleSaveBilling = () => {
-    if (!billingForm.name.trim()) {
+  // Billing details persist through the real /billing-profiles API (A11) —
+  // previously Save/Delete only mutated local state seeded from a
+  // hardcoded sample company, so "saved" details vanished on reload.
+  const handleSaveBilling = async () => {
+    const required: Array<[string, string]> = [
+      [billingForm.name, "Profile name"],
+      [billingForm.email, "Email"],
+      [billingForm.addressLine1, "Address line 1"],
+      [billingForm.city, "City"],
+      [billingForm.state, "State / Province"],
+      [billingForm.postalCode, "Postal code"],
+    ];
+    const missing = required.find(([value]) => !value.trim());
+    if (missing) {
       toast({
         title: "Error",
-        description: "Business name is required",
+        description: `${missing[1]} is required`,
         variant: "destructive",
       });
       return;
     }
 
-    const lines = [billingForm.addressLine1, billingForm.addressLine2, billingForm.addressLine3]
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    setBillingDetailsState({
-      ...billingDetailsState,
+    const payload = {
       name: billingForm.name.trim(),
-      addressLines: lines.length ? lines : billingDetailsState.addressLines,
-      taxId: billingForm.taxId.trim() || billingDetailsState.taxId,
-    });
+      companyName: billingForm.companyName.trim() || undefined,
+      email: billingForm.email.trim(),
+      phone: billingForm.phone.trim() || undefined,
+      addressLine1: billingForm.addressLine1.trim(),
+      addressLine2: billingForm.addressLine2.trim() || undefined,
+      city: billingForm.city.trim(),
+      state: billingForm.state.trim(),
+      postalCode: billingForm.postalCode.trim(),
+      country: billingForm.country.trim() || "Pakistan",
+      taxId: billingForm.taxId.trim() || undefined,
+      isDefault: billingForm.isDefault,
+    };
 
-    setIsBillingDetailsOpen(false);
-    toast({
-      title: "Success",
-      description: isEditingBilling ? "Billing details updated" : "Billing details added",
-    });
+    try {
+      setIsSavingBilling(true);
+      const response: any = editingBillingProfileId
+        ? await apiService.updateBillingProfile(editingBillingProfileId, payload)
+        : await apiService.createBillingProfile({
+            ...payload,
+            businessId: effectiveCompanyId || undefined,
+          });
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Failed to save billing details");
+      }
+
+      await refreshBillingProfiles();
+      setIsBillingDetailsOpen(false);
+      setEditingBillingProfileId(null);
+      toast({
+        title: "Success",
+        description: editingBillingProfileId ? "Billing details updated" : "Billing details added",
+      });
+    } catch (error: any) {
+      console.error("Error saving billing details:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to save billing details",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingBilling(false);
+    }
   };
 
-  const handleDeleteBilling = () => {
-    setBillingDetailsState({
-      ...billingDetailsState,
-      name: "",
-      addressLines: [],
-      taxId: "",
-    });
-    toast({
-      title: "Billing details removed",
-      description: "You can add them again anytime.",
-    });
+  const handleDeleteBilling = async (profileId: string) => {
+    try {
+      const response: any = await apiService.deleteBillingProfile(profileId);
+      if (response?.success === false) {
+        throw new Error(response.message || "Failed to remove billing details");
+      }
+      await refreshBillingProfiles();
+      toast({
+        title: "Billing details removed",
+        description: "The billing profile was deleted.",
+      });
+    } catch (error: any) {
+      console.error("Error deleting billing profile:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to remove billing details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSetDefaultBilling = async (profileId: string) => {
+    try {
+      const response: any = await apiService.setDefaultBillingProfile(profileId);
+      if (response?.success === false) {
+        throw new Error(response.message || "Failed to set default billing profile");
+      }
+      await refreshBillingProfiles();
+      toast({
+        title: "Success",
+        description: "Default billing details updated",
+      });
+    } catch (error: any) {
+      console.error("Error setting default billing profile:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to set default billing details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Cancellation (Roadmap A11): there is no self-serve tenant cancel
+  // endpoint, and the old dialog faked one (a timer + success toast, no
+  // API call). Cancellation is handled by the support team, so confirming
+  // now files a REAL support ticket through /support/tickets and says
+  // exactly that — the plan is not cancelled until support confirms.
+  const handleRequestCancellation = async () => {
+    if (!cancelConfirmed || isCancelling) return;
+    setIsCancelling(true);
+    try {
+      const reasonLabels: Record<string, string> = {
+        price: "Too expensive",
+        switch: "Switching to another product",
+        features: "Feature missing",
+        no_longer_needed: "No longer needed",
+        other: "Other",
+      };
+      const businessName =
+        selectedCompanyDetails?.name ||
+        allCompanies?.find((c) => c.id === effectiveCompanyId)?.name ||
+        "my business";
+      const descriptionLines = [
+        `Cancellation requested for business "${businessName}".`,
+        `Current plan: ${businessEntitlement?.plan?.name || businessEntitlement?.planId || "unknown"}.`,
+        `Reason: ${reasonLabels[cancelReason] || cancelReason || "Not specified"}.`,
+        cancelDetails.trim() ? `Details from customer: ${cancelDetails.trim()}` : null,
+        "Customer was informed the plan stays active until the end of the current billing period and that support will confirm the cancellation.",
+      ].filter(Boolean);
+
+      const response: any = await apiService.createSupportTicket({
+        subject: `Subscription cancellation request — ${businessName}`,
+        description: descriptionLines.join("\n"),
+        priority: "MEDIUM",
+      });
+
+      if (response?.success === false) {
+        throw new Error(response.message || "Failed to send cancellation request");
+      }
+
+      setIsCancelOpen(false);
+      setCancelConfirmed(false);
+      setCancelReason("");
+      setCancelDetails("");
+      toast({
+        title: "Cancellation request sent",
+        description:
+          "Our support team will review it and confirm. Your plan stays active until the end of the current billing period.",
+      });
+    } catch (error: any) {
+      console.error("Error sending cancellation request:", error);
+      toast({
+        title: "Could not send request",
+        description: error?.message || "Please try again, or contact support directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const effectiveCompanyId = companyByUrlSlug?.id || selectedCompanyId || (businessSlug ? null : allCompanies?.[0]?.id) || null;
@@ -900,8 +1077,8 @@ const SubscriptionManagement = () => {
       : upgradeStep === "configure"
       ? "Configure Plan"
       : upgradeStep === "payment"
-      ? "Payment"
-      : "Payment Complete";
+      ? "Payment Proof"
+      : "Proof Submitted";
 
   const configuredBranchesPerBusiness = Math.max(1, branchesPerBusiness);
   const configuredCountersPerBranch = Math.max(1, countersPerBranch);
@@ -1193,8 +1370,279 @@ const SubscriptionManagement = () => {
             </div>
           )}
         </div>
+
+        {/* Payment methods + billing details (Roadmap A11): both are REAL
+            API-backed data. Saved cards store card metadata only and are
+            never charged — subscriptions are activated by payment proof. */}
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <h3 className="text-base font-bold text-slate-900">Payment Methods</h3>
+              <Button size="sm" onClick={() => setIsAddCardOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add Card
+              </Button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Card payments are not available yet — saved cards keep card details only
+                  (brand and last 4 digits) and are never charged automatically. Plans are
+                  activated by payment proof (JazzCash, Easypaisa or bank transfer).
+                </p>
+              </div>
+              {paymentMethods.length === 0 ? (
+                <p className="py-4 text-center text-sm text-slate-500">
+                  No saved cards yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {paymentMethods.map((method) => (
+                    <div
+                      key={method.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {method.brand} •••• {method.last4}
+                            {method.isDefault && (
+                              <span className="ml-2 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                Default
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Expires {String(method.expiryMonth).padStart(2, "0")}/{method.expiryYear}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!method.isDefault && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSetDefault(method.id)}
+                            title="Set as default"
+                          >
+                            <Star className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCard(method)}
+                          title="Edit card"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePaymentMethod(method.id)}
+                          title="Remove card"
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <h3 className="text-base font-bold text-slate-900">Billing Details</h3>
+              <Button size="sm" onClick={openAddBilling}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add Details
+              </Button>
+            </div>
+            <div className="px-6 py-4">
+              {billingProfiles.length === 0 ? (
+                <p className="py-4 text-center text-sm text-slate-500">
+                  No billing details saved yet. Add them so they appear on your invoices.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {billingProfiles.map((profile) => (
+                    <div key={profile.id} className="rounded-lg border border-slate-200 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 text-sm">
+                          <p className="font-semibold text-slate-900">
+                            {profile.companyName || profile.name}
+                            {profile.isDefault && (
+                              <span className="ml-2 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                Default
+                              </span>
+                            )}
+                          </p>
+                          <p className="flex items-center gap-1.5 text-slate-500">
+                            <Mail className="h-3.5 w-3.5" /> {profile.email}
+                            {profile.phone && (
+                              <>
+                                <Phone className="ml-2 h-3.5 w-3.5" /> {profile.phone}
+                              </>
+                            )}
+                          </p>
+                          <p className="flex items-start gap-1.5 text-slate-500">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>
+                              {profile.addressLine1}
+                              {profile.addressLine2 ? `, ${profile.addressLine2}` : ""},{" "}
+                              {profile.city}, {profile.state} {profile.postalCode},{" "}
+                              {profile.country}
+                            </span>
+                          </p>
+                          {profile.taxId && (
+                            <p className="text-slate-500">Tax ID (NTN): {profile.taxId}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {!profile.isDefault && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSetDefaultBilling(profile.id)}
+                              title="Set as default"
+                            >
+                              <Star className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditBilling(profile)}
+                            title="Edit billing details"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteBilling(profile.id)}
+                            title="Remove billing details"
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
+      <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Payment Method</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Only card details (brand, last 4 digits, expiry) are saved — never the full
+                card number — and saved cards are not charged. Subscriptions are paid by
+                JazzCash, Easypaisa or bank transfer with payment proof.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Card Brand</Label>
+              <select
+                className="w-full rounded-md border border-gray-300 p-2"
+                value={newCardData.brand}
+                onChange={(e) => setNewCardData((prev) => ({ ...prev, brand: e.target.value }))}
+              >
+                <option value="">Select Brand</option>
+                <option value="Visa">Visa</option>
+                <option value="Mastercard">Mastercard</option>
+                <option value="American Express">American Express</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Last 4 Digits</Label>
+              <Input
+                placeholder="1234"
+                value={newCardData.last4}
+                onChange={(e) => setNewCardData((prev) => ({ ...prev, last4: e.target.value }))}
+                maxLength={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Expiry Month</Label>
+                <select
+                  className="w-full rounded-md border border-gray-300 p-2"
+                  value={newCardData.expiryMonth}
+                  onChange={(e) =>
+                    setNewCardData((prev) => ({ ...prev, expiryMonth: Number.parseInt(e.target.value, 10) }))
+                  }
+                >
+                  <option value={0}>Select Month</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {String(i + 1).padStart(2, "0")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Expiry Year</Label>
+                <select
+                  className="w-full rounded-md border border-gray-300 p-2"
+                  value={newCardData.expiryYear}
+                  onChange={(e) =>
+                    setNewCardData((prev) => ({ ...prev, expiryYear: Number.parseInt(e.target.value, 10) }))
+                  }
+                >
+                  <option value={0}>Select Year</option>
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = new Date().getFullYear() + i;
+                    return (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Cardholder Name</Label>
+              <Input
+                placeholder="Name on card"
+                value={newCardData.holderName}
+                onChange={(e) => setNewCardData((prev) => ({ ...prev, holderName: e.target.value }))}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isDefaultAdd"
+                checked={newCardData.isDefault}
+                onChange={(e) => setNewCardData((prev) => ({ ...prev, isDefault: e.target.checked }))}
+              />
+              <Label htmlFor="isDefaultAdd">Set as default payment method</Label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddCardOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddPaymentMethod}>Save Card</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isEditCardOpen} onOpenChange={setIsEditCardOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1289,21 +1737,48 @@ const SubscriptionManagement = () => {
         </DialogContent>
       </Dialog>
       <Dialog open={isBillingDetailsOpen} onOpenChange={setIsBillingDetailsOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isEditingBilling ? "Update Billing Details" : "Add Billing Details"}</DialogTitle>
+            <DialogTitle>{editingBillingProfileId ? "Update Billing Details" : "Add Billing Details"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Business Name</Label>
-              <Input
-                placeholder="Business name"
-                value={billingForm.name}
-                onChange={(e) => setBillingForm((prev) => ({ ...prev, name: e.target.value }))}
-              />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Profile Name *</Label>
+                <Input
+                  placeholder="e.g. Primary, Head Office"
+                  value={billingForm.name}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Business / Company Name</Label>
+                <Input
+                  placeholder="Business name"
+                  value={billingForm.companyName}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, companyName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Billing Email *</Label>
+                <Input
+                  type="email"
+                  placeholder="billing@example.com"
+                  value={billingForm.email}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  placeholder="Phone number"
+                  value={billingForm.phone}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>Address Line 1</Label>
+              <Label>Address Line 1 *</Label>
               <Input
                 placeholder="Street address"
                 value={billingForm.addressLine1}
@@ -1318,27 +1793,64 @@ const SubscriptionManagement = () => {
                 onChange={(e) => setBillingForm((prev) => ({ ...prev, addressLine2: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Address Line 3</Label>
-              <Input
-                placeholder="City, region, country"
-                value={billingForm.addressLine3}
-                onChange={(e) => setBillingForm((prev) => ({ ...prev, addressLine3: e.target.value }))}
-              />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>City *</Label>
+                <Input
+                  placeholder="City"
+                  value={billingForm.city}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>State / Province *</Label>
+                <Input
+                  placeholder="State or province"
+                  value={billingForm.state}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, state: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Postal Code *</Label>
+                <Input
+                  placeholder="Postal code"
+                  value={billingForm.postalCode}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, postalCode: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input
+                  placeholder="Country"
+                  value={billingForm.country}
+                  onChange={(e) => setBillingForm((prev) => ({ ...prev, country: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-2">
-              <Label>VAT / Tax ID</Label>
+              <Label>Tax ID (NTN)</Label>
               <Input
                 placeholder="Tax ID"
                 value={billingForm.taxId}
                 onChange={(e) => setBillingForm((prev) => ({ ...prev, taxId: e.target.value }))}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="billingIsDefault"
+                checked={billingForm.isDefault}
+                onChange={(e) => setBillingForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
+              />
+              <Label htmlFor="billingIsDefault">Set as default billing details</Label>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsBillingDetailsOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveBilling}>{isEditingBilling ? "Update" : "Add"} Details</Button>
+              <Button onClick={handleSaveBilling} disabled={isSavingBilling}>
+                {isSavingBilling ? "Saving..." : editingBillingProfileId ? "Update Details" : "Add Details"}
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1600,12 +2112,12 @@ const SubscriptionManagement = () => {
                       className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1565C0] px-4 py-3 font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
                       onClick={() => setUpgradeStep("payment")}
                     >
-                      Review & Pay
+                      Review & Submit Proof
                       <TrendingUp className="h-4 w-4" />
                     </button>
                     <p className="mt-4 text-center text-xs text-slate-500">
                       <Lock className="mr-1 inline h-3.5 w-3.5 text-emerald-500" />
-                      Secure SSL Payment
+                      Payments are verified manually by our team after you upload proof.
                     </p>
                   </div>
                 </div>
@@ -1628,7 +2140,7 @@ const SubscriptionManagement = () => {
                   setUpgradeStep("payment");
                 }}
               >
-                Review & Pay
+                Review & Submit Proof
               </button>
             </div>
           </div>
@@ -1639,8 +2151,8 @@ const SubscriptionManagement = () => {
           <div className="space-y-8 px-6 pb-8 pt-6 md:px-8">
             <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <h2 className="mb-1 text-2xl font-bold text-slate-900 md:text-3xl">Complete your payment</h2>
-                <p className="text-sm text-slate-500">Review your order and choose a payment method.</p>
+                <h2 className="mb-1 text-2xl font-bold text-slate-900 md:text-3xl">Pay by transfer & upload proof</h2>
+                <p className="text-sm text-slate-500">Card payments are not available yet. Pay via Bank Transfer, JazzCash, or EasyPaisa and upload your receipt — your plan is activated once our team approves the proof.</p>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -1650,20 +2162,36 @@ const SubscriptionManagement = () => {
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[#1565C0]">1</span>
                     Billing Information
                   </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Business Name</Label>
-                      <Input placeholder="Business name" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tax ID</Label>
-                      <Input placeholder="Tax ID" />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Billing Address</Label>
-                      <Input placeholder="Street, city, country" />
-                    </div>
-                  </div>
+                  {/* Real saved billing profile (A11) — this used to be a
+                      decorative form whose inputs were wired to nothing. */}
+                  {(() => {
+                    const profile =
+                      billingProfiles.find((p) => p.isDefault) || billingProfiles[0];
+                    if (!profile) {
+                      return (
+                        <p className="text-sm text-slate-600">
+                          No billing details saved yet. You can add them under{" "}
+                          <strong>Billing Details</strong> on the subscription page — they
+                          will appear on your invoices.
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="space-y-1 text-sm text-slate-600">
+                        <p className="font-semibold text-slate-900">
+                          {profile.companyName || profile.name}
+                        </p>
+                        <p>{profile.email}</p>
+                        <p>
+                          {profile.addressLine1}
+                          {profile.addressLine2 ? `, ${profile.addressLine2}` : ""},{" "}
+                          {profile.city}, {profile.state} {profile.postalCode},{" "}
+                          {profile.country}
+                        </p>
+                        {profile.taxId && <p>Tax ID (NTN): {profile.taxId}</p>}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
@@ -1741,7 +2269,7 @@ const SubscriptionManagement = () => {
                     </button>
                     <p className="mt-4 text-center text-xs text-slate-500">
                       <Lock className="mr-1 inline h-3.5 w-3.5 text-emerald-500" />
-                      Secure SSL Payment
+                      Payments are verified manually by our team after you upload proof.
                     </p>
                   </div>
                 </div>
@@ -1855,7 +2383,7 @@ const SubscriptionManagement = () => {
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0">
           <div className="border-b border-slate-200 px-6 py-5">
             <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-slate-900">Cancel Your Subscription</DialogTitle>
+              <DialogTitle className="text-xl font-semibold text-slate-900">Request Cancellation</DialogTitle>
             </DialogHeader>
           </div>
           <div className="space-y-6 px-6 pb-6 pt-6">
@@ -1863,10 +2391,11 @@ const SubscriptionManagement = () => {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
                 <div>
-                  <p className="font-semibold text-amber-800">You are about to cancel your plan</p>
+                  <p className="font-semibold text-amber-800">Cancellation is handled by our support team</p>
                   <p className="mt-2 text-amber-700">
-                    Your plan will remain active until the end of your current billing period. After that, your account
-                    will move to a limited access state.
+                    Sending this form creates a support ticket with your cancellation request — your plan is
+                    not cancelled automatically. Our team reviews the request and confirms your cancellation.
+                    Your plan stays active until the end of your current billing period.
                   </p>
                 </div>
               </div>
@@ -1881,11 +2410,11 @@ const SubscriptionManagement = () => {
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  Future billing stops immediately
+                  A support ticket is created with your reason — you can follow it under Support
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  Data remains exportable for 30 days
+                  Our team confirms the cancellation before your plan ends
                 </li>
               </ul>
             </div>
@@ -1923,7 +2452,10 @@ const SubscriptionManagement = () => {
                   checked={cancelConfirmed}
                   onChange={(e) => setCancelConfirmed(e.target.checked)}
                 />
-                <span>I understand my plan will be canceled at the end of the current billing cycle.</span>
+                <span>
+                  I understand this sends a cancellation request to support, and my plan stays active
+                  until the end of the current billing period.
+                </span>
               </label>
             </div>
 
@@ -1938,23 +2470,11 @@ const SubscriptionManagement = () => {
                 Keep My Plan
               </Button>
               <Button
-                onClick={async () => {
-                  if (!cancelConfirmed) return;
-                  setIsCancelling(true);
-                  setTimeout(() => {
-                    setIsCancelling(false);
-                    setIsCancelOpen(false);
-                    setCancelConfirmed(false);
-                    toast({
-                      title: "Cancellation scheduled",
-                      description: "Your plan will end at the close of the billing period.",
-                    });
-                  }, 600);
-                }}
+                onClick={handleRequestCancellation}
                 disabled={!cancelConfirmed || isCancelling}
                 className="bg-red-600 text-base text-white hover:bg-red-700"
               >
-                {isCancelling ? "Processing..." : "Confirm Cancellation"}
+                {isCancelling ? "Sending..." : "Send Cancellation Request"}
               </Button>
             </div>
           </div>

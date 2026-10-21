@@ -79,6 +79,27 @@ export interface StockTransferRecord {
   items: StockTransferItemRecord[];
 }
 
+export interface BillingProfileRecord {
+  id: string;
+  userId: string;
+  businessId?: string | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  taxId?: string | null;
+  companyName?: string | null;
+  paymentMethodId?: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SupportTicketItem {
   id: string;
   businessId?: string | null;
@@ -4810,6 +4831,71 @@ export class ApiService {
   async deletePaymentMethod(methodId: string) {
     return this.request<{ message: string }>(`/subscription/payment-methods/${methodId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Billing profiles — backed by the real /billing-profiles CRUD
+  // (backend controllers/billing-profile.controller.ts). These are the
+  // name/address/tax details printed on invoices; they are NOT a payment
+  // instrument and are never charged.
+
+  async getBillingProfiles(businessId?: string) {
+    const query = businessId ? `?businessId=${encodeURIComponent(businessId)}` : '';
+    return this.request<Array<BillingProfileRecord>>(`/billing-profiles${query}`);
+  }
+
+  async createBillingProfile(profileData: {
+    name: string;
+    email: string;
+    phone?: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country?: string;
+    taxId?: string;
+    companyName?: string;
+    businessId?: string;
+    paymentMethodId?: string;
+    isDefault?: boolean;
+  }) {
+    return this.request<BillingProfileRecord>('/billing-profiles', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+  }
+
+  async updateBillingProfile(profileId: string, profileData: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    taxId?: string;
+    companyName?: string;
+    paymentMethodId?: string;
+    isDefault?: boolean;
+  }) {
+    return this.request<BillingProfileRecord>(`/billing-profiles/${profileId}`, {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+  }
+
+  async deleteBillingProfile(profileId: string) {
+    return this.request<{ message: string }>(`/billing-profiles/${profileId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async setDefaultBillingProfile(profileId: string) {
+    return this.request<BillingProfileRecord>(`/billing-profiles/${profileId}/default`, {
+      method: 'PUT',
     });
   }
 
