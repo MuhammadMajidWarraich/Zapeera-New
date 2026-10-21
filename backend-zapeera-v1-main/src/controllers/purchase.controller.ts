@@ -5,6 +5,18 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 
 // Joi schemas for validation
+// One line-item shape shared by create and update (Roadmap A10): an update
+// that carries `items` sends the SAME payload create accepts — the full
+// intended line set — and the backend reconciles stock (see updatePurchase).
+const purchaseItemSchema = Joi.object({
+  productId: Joi.string().required(),
+  quantity: Joi.number().integer().min(1).required(),
+  unitPrice: Joi.number().min(0).required(),
+  batchNo: Joi.string().optional().allow(''),
+  expireDate: Joi.date().iso().optional().allow(null),
+  productionDate: Joi.date().iso().optional().allow(null),
+});
+
 const createPurchaseSchema = Joi.object({
   supplierId: Joi.string().required(),
   invoiceNo: Joi.string().optional().allow(''),
@@ -12,16 +24,7 @@ const createPurchaseSchema = Joi.object({
   totalAmount: Joi.number().min(0).default(0),
   paidAmount: Joi.number().min(0).default(0),
   notes: Joi.string().optional().allow(''),
-  items: Joi.array().items(
-    Joi.object({
-      productId: Joi.string().required(),
-      quantity: Joi.number().integer().min(1).required(),
-      unitPrice: Joi.number().min(0).required(),
-      batchNo: Joi.string().optional().allow(''),
-      expireDate: Joi.date().iso().optional().allow(null),
-      productionDate: Joi.date().iso().optional().allow(null),
-    })
-  ).min(1).required(),
+  items: Joi.array().items(purchaseItemSchema).min(1).required(),
 });
 
 const updatePurchaseSchema = Joi.object({
@@ -32,7 +35,12 @@ const updatePurchaseSchema = Joi.object({
   paidAmount: Joi.number().min(0).optional(),
   status: Joi.string().valid('PENDING', 'COMPLETED', 'CANCELLED', 'PARTIAL').optional(),
   notes: Joi.string().optional().allow(''),
+  // Optional: when present, REPLACES the purchase's lines (full line set,
+  // same shape as create) with stock reconciliation — never additive.
+  items: Joi.array().items(purchaseItemSchema).min(1).optional(),
 });
+
+class StockConflictError extends Error {}
 
 // ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
 // By-id purchase handlers previously fetched by raw id — any authenticated
@@ -397,10 +405,17 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
     }
 
     const updateData = value;
+    // `items` is not a Purchase column — pull it out of the header payload
+    // and handle it as a line-set replacement below.
+    const replacementItems = updateData.items;
+    delete updateData.items;
 
-    // Check if purchase exists — scoped to the caller's business (A-02)
+    // Check if purchase exists — scoped to the caller's business (A-02).
+    // Lines are included because an items-carrying update must reconcile
+    // the stock the existing lines put into batches at create time.
     const existingPurchase = await prisma.purchase.findFirst({
       where: purchaseScopeWhere(req, id),
+      include: { purchaseItems: true },
     });
 
     if (!existingPurchase) {
@@ -430,6 +445,164 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
           message: 'Supplier not found',
         });
       }
+    }
+
+    // ── Line replacement (Roadmap A10) ─────────────────────────────────────
+    // CONTRACT: create lands stock in a fresh batch per line immediately,
+    // and a purchase's status is a PAYMENT status (PENDING/PARTIAL/
+    // COMPLETED), not a receiving state — there is no "not yet received"
+    // purchase whose lines could be edited for free. So an update carrying
+    // `items` REPLACES the whole line set, atomically:
+    //   1. reverse each existing line's batch quantity,
+    //   2. delete the old lines,
+    //   3. apply the new lines exactly like create (fresh batch per line),
+    //   4. recompute totalAmount/outstanding and re-derive payment status
+    //      (unless the caller set a status explicitly).
+    // Double-application is impossible: the old lines' stock is reversed
+    // in the same transaction before the new lines land. If any existing
+    // batch no longer holds its line's full quantity (units were sold),
+    // the whole update fails with 409 STOCK_CONFLICT and nothing changes.
+    // Reversed batches are left in place (possibly at zero) — sales/refund
+    // history may reference them; deletePurchase owns full batch cleanup.
+    if (replacementItems) {
+      let purchase;
+      try {
+        purchase = await prisma.$transaction(async (tx: any) => {
+          // 1. Reverse the stock effect of the existing lines
+          for (const oldItem of existingPurchase.purchaseItems) {
+            if (!oldItem.batchId) continue;
+            const batch = await tx.batch.findUnique({
+              where: { id: oldItem.batchId },
+            });
+            if (!batch) continue;
+            if ((batch.quantity || 0) < oldItem.quantity) {
+              throw new StockConflictError(
+                `Cannot replace the lines of this purchase: batch ${batch.batchNo} holds ${batch.quantity || 0} unit(s) but this purchase put ${oldItem.quantity} in — some units have already been sold. Nothing was changed.`
+              );
+            }
+            await tx.batch.update({
+              where: { id: batch.id },
+              data: { quantity: { decrement: oldItem.quantity } },
+            });
+          }
+
+          // 2. Remove the old lines
+          await tx.purchaseItem.deleteMany({ where: { purchaseId: id } });
+
+          // 3. Apply the new line set exactly like createPurchase does
+          let purchaseItemSeq = 1;
+          for (const item of replacementItems) {
+            const product = await tx.product.findFirst({
+              where: { id: item.productId, companyId: existingPurchase.companyId },
+            });
+            if (!product) {
+              throw new Error(`Product not found: ${item.productId}`);
+            }
+
+            const batch = await tx.batch.create({
+              data: {
+                batchNo: item.batchNo || `AUTO-${id.slice(0, 8)}-${purchaseItemSeq++}`,
+                productId: item.productId,
+                branchId: existingPurchase.branchId,
+                companyId: existingPurchase.companyId,
+                supplierId: updateData.supplierId || existingPurchase.supplierId,
+                quantity: item.quantity,
+                purchasePrice: item.unitPrice,
+                sellingPrice: item.unitPrice * 1.2, // Same 20% markup as create
+                expireDate: item.expireDate ? new Date(item.expireDate) : null,
+                productionDate: item.productionDate ? new Date(item.productionDate) : null,
+                createdBy: req.user?.id,
+              },
+            });
+
+            await tx.purchaseItem.create({
+              data: {
+                purchaseId: id,
+                productId: item.productId,
+                batchId: batch.id,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.quantity * item.unitPrice,
+              },
+            });
+          }
+
+          // 4. Header fields + recomputed totals/payment status
+          const newTotal = replacementItems.reduce(
+            (sum: number, item: any) => sum + item.quantity * item.unitPrice,
+            0
+          );
+          const paidAmount =
+            updateData.paidAmount !== undefined
+              ? updateData.paidAmount
+              : existingPurchase.paidAmount;
+          const headerData: any = {
+            ...updateData,
+            totalAmount: newTotal,
+            paidAmount,
+            outstanding: newTotal - paidAmount,
+          };
+          if (!headerData.status) {
+            headerData.status =
+              paidAmount >= newTotal ? 'COMPLETED' : paidAmount > 0 ? 'PARTIAL' : 'PENDING';
+          }
+
+          return tx.purchase.update({
+            where: { id },
+            data: headerData,
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  name: true,
+                  contactPerson: true,
+                  phone: true,
+                },
+              },
+              purchaseItems: {
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      name: true,
+                      sku: true,
+                      barcode: true,
+                    },
+                  },
+                  batch: {
+                    select: {
+                      id: true,
+                      batchNo: true,
+                      quantity: true,
+                      expireDate: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+        });
+      } catch (err: any) {
+        if (err instanceof StockConflictError) {
+          return res.status(409).json({
+            success: false,
+            message: err.message,
+            code: 'STOCK_CONFLICT',
+          });
+        }
+        throw err;
+      }
+
+      // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
+      syncAfterOperation('purchase', 'update', purchase).catch(err => {
+        console.error('[Sync] Purchase update sync failed:', err.message);
+      });
+
+      return res.json({
+        success: true,
+        data: purchase,
+        message: 'Purchase updated successfully',
+      });
     }
 
     // Calculate outstanding amount

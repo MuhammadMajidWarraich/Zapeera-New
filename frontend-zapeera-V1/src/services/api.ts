@@ -5778,6 +5778,17 @@ export class ApiService {
     paidAmount?: number;
     status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
     notes?: string;
+    // Roadmap A10: same line payload as createPurchase. When present, the
+    // backend REPLACES the purchase's lines and reconciles the stock the
+    // old lines put into batches (409 STOCK_CONFLICT if units were sold).
+    items?: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      batchNo?: string;
+      expireDate?: string;
+      productionDate?: string;
+    }>;
   }) {
     return this.request<{
       id: string;

@@ -57,6 +57,7 @@ interface Purchase {
       batchNo: string;
       quantity: number;
       expireDate?: string;
+      productionDate?: string;
     };
   }>;
 }
@@ -337,11 +338,13 @@ const Purchases = () => {
 
       handleCloseModal();
       loadPurchases();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving purchase:', error);
       toast({
         title: "Error",
-        description: "Failed to save purchase",
+        // Surface the server's message — e.g. the 409 STOCK_CONFLICT text
+        // when edited lines include units that were already sold (A10).
+        description: error?.message || "Failed to save purchase",
         variant: "destructive",
       });
     }
@@ -376,16 +379,34 @@ const Purchases = () => {
   };
 
   // Modal handlers
-  const handleOpenModal = (purchase?: Purchase) => {
+  const handleOpenModal = async (purchase?: Purchase) => {
     if (purchase) {
       setEditingPurchase(purchase);
+      // Roadmap A10: preload the purchase's REAL lines so editing shows and
+      // re-submits the actual line set (update replaces lines server-side
+      // with stock reconciliation). Fetch the full record first — the list
+      // payload lacks productionDate; fall back to the list record on error.
+      let full: Purchase = purchase;
+      try {
+        const response: any = await apiService.getPurchaseById(purchase.id);
+        if (response?.data) full = response.data;
+      } catch (error) {
+        console.error('Error loading purchase details for edit:', error);
+      }
       setFormData({
-        supplierId: purchase.supplierId,
-        invoiceNo: purchase.invoiceNo || '',
-        purchaseDate: new Date(purchase.purchaseDate),
-        paidAmount: purchase.paidAmount,
-        notes: purchase.notes || '',
-        items: [],
+        supplierId: full.supplierId,
+        invoiceNo: full.invoiceNo || '',
+        purchaseDate: new Date(full.purchaseDate),
+        paidAmount: full.paidAmount,
+        notes: full.notes || '',
+        items: (full.purchaseItems || []).map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          batchNo: item.batch?.batchNo || '',
+          expireDate: item.batch?.expireDate ? new Date(item.batch.expireDate) : new Date(),
+          productionDate: item.batch?.productionDate ? new Date(item.batch.productionDate) : new Date(),
+        })),
       });
     } else {
       setEditingPurchase(null);
@@ -416,6 +437,57 @@ const Purchases = () => {
 
   const handleViewPurchase = (purchase: Purchase) => {
     setViewingPurchase(purchase);
+  };
+
+  // Printable view of a SAVED purchase order (Roadmap A10) — renders only
+  // data that came back from the API for a persisted purchase.
+  const handlePrintPurchase = (purchase: Purchase) => {
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const rows = purchase.purchaseItems.map(item => `
+      <tr>
+        <td>${escapeHtml(item.product.name)}<br/><small>${escapeHtml(item.product.sku || '')}</small></td>
+        <td>${escapeHtml(item.batch?.batchNo || '-')}</td>
+        <td style="text-align:right">${item.quantity}</td>
+        <td style="text-align:right">Rs. ${item.unitPrice.toFixed(2)}</td>
+        <td style="text-align:right">Rs. ${item.totalPrice.toFixed(2)}</td>
+      </tr>`).join('');
+    const html = `<!doctype html>
+<html><head><title>Purchase Order ${escapeHtml(purchase.invoiceNo || purchase.id)}</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .meta { color: #555; font-size: 13px; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ddd; padding: 8px; font-size: 13px; text-align: left; }
+  th { background: #f5f5f5; }
+  .totals { margin-top: 16px; text-align: right; font-size: 14px; }
+</style></head><body>
+<h1>Purchase Order</h1>
+<div class="meta">
+  <div><strong>Supplier:</strong> ${escapeHtml(purchase.supplier.name)}</div>
+  <div><strong>Invoice No:</strong> ${escapeHtml(purchase.invoiceNo || '-')}</div>
+  <div><strong>Date:</strong> ${format(new Date(purchase.purchaseDate), 'PPP')}</div>
+  <div><strong>Status:</strong> ${escapeHtml(purchase.status)}</div>
+  <div><strong>Reference:</strong> ${escapeHtml(purchase.id)}</div>
+</div>
+<table>
+  <thead><tr><th>Product</th><th>Batch</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="totals">
+  <div>Total: <strong>Rs. ${purchase.totalAmount.toFixed(2)}</strong></div>
+  <div>Paid: Rs. ${purchase.paidAmount.toFixed(2)}</div>
+  <div>Outstanding: Rs. ${purchase.outstanding.toFixed(2)}</div>
+</div>
+${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>` : ''}
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -1087,6 +1159,13 @@ const Purchases = () => {
                   <p className="mt-1 p-3 bg-gray-50 rounded">{viewingPurchase.notes}</p>
                 </div>
               )}
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" onClick={() => handlePrintPurchase(viewingPurchase)}>
+                  Print Purchase Order
+                </Button>
+                <Button onClick={() => setViewingPurchase(null)}>Close</Button>
+              </div>
             </div>
           )}
         </DialogContent>
