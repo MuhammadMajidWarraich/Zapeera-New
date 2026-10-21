@@ -553,6 +553,7 @@ model Customer {
   company        Business  @relation(fields: [companyId], references: [id])
   sales          Sale[]
   ledgerEntries  CustomerLedgerEntry[]
+  loyaltyTransactions LoyaltyTransaction[]
 
   @@index([companyId], name: "idx_customer_company")
   @@index([branchId], name: "idx_customer_branch")
@@ -596,6 +597,44 @@ model CustomerLedgerEntry {
   @@map("customer_ledger_entries")
 }
 
+// Loyalty points ledger (Wave B3): one append-only row per movement of
+// a customer's points. `points` is the SIGNED delta that was applied to
+// Customer.loyaltyPoints in the same transaction:
+//   EARN     + points earned on a sale (1 per full PKR 100 of the
+//            sale's final total — the long-standing earn rule).
+//   REDEEM   − points spent at the POS in exchange for a bill discount
+//            (points × the `loyaltyPointValue` setting, in PKR).
+//   REVERSAL ± a refund or sale deletion unwinding part/all of a sale's
+//            EARN (−) or REDEEM (+); refund reversals also carry the
+//            refundId. Per-sale REVERSAL rows are summed by sign on
+//            sale deletion so nothing is ever reversed twice.
+//   ADJUST   ± manual correction (OWNER/MANAGER only, note required).
+// Customer.loyaltyPoints stays the cached balance; every code path that
+// changes it writes the matching row in the same transaction, so the
+// ledger and the balance can never diverge. `saleId`/`refundId` are
+// SetNull on delete so the history survives the source row going away.
+model LoyaltyTransaction {
+  id         String   @id @default(cuid())
+  companyId  String
+  customerId String
+  type       String // EARN | REDEEM | REVERSAL | ADJUST
+  points     Int // signed delta applied to Customer.loyaltyPoints
+  saleId     String? // originating sale for EARN / REDEEM / REVERSAL rows
+  refundId   String? // originating refund for REVERSAL rows
+  note       String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id])
+  sale       Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  refund     Refund?  @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  @@index([customerId], name: "idx_loyalty_txn_customer")
+  @@index([companyId], name: "idx_loyalty_txn_company")
+  @@index([saleId], name: "idx_loyalty_txn_sale")
+  @@index([createdAt], name: "idx_loyalty_txn_createdAt")
+  @@map("loyalty_transactions")
+}
+
 model Sale {
   id                 String    @id @default(cuid())
   invoiceNumber      String?   @unique
@@ -608,6 +647,15 @@ model Sale {
   taxAmount          Float
   discountAmount     Float     @default(0)
   discountPercentage Float?    @default(0)
+  // Loyalty redemption (Wave B3): points spent on this sale and the PKR
+  // discount they bought. The discount is a component of totalAmount
+  // (applied after the sale discount, before tax), NOT part of
+  // discountAmount. loyaltyPointsEarned records the points this sale
+  // credited, so refunds/deletion can reverse exactly. All three are
+  // null on pre-B3 sales and on walk-in sales.
+  loyaltyPointsRedeemed Int?
+  loyaltyDiscount       Float?
+  loyaltyPointsEarned   Int?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -626,6 +674,7 @@ model Sale {
   items    SaleItem[]
   payments SalePayment[]
   ledgerEntries CustomerLedgerEntry[]
+  loyaltyTransactions LoyaltyTransaction[]
   branch   Branch      @relation(fields: [branchId], references: [id])
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])
@@ -711,6 +760,7 @@ model Refund {
   createdAt      DateTime?    @default(now())
   updatedAt      DateTime?    @default(now()) @updatedAt
   items          RefundItem[]
+  loyaltyTransactions LoyaltyTransaction[]
   originalSale   Sale         @relation("SaleRefunds", fields: [originalSaleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   refundedByUser ZapeeraUser  @relation(fields: [refundedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
 

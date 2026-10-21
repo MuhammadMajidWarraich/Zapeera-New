@@ -97,6 +97,7 @@ const Settings = () => {
       receiptPrinter: "EPSON TM-T20II",
       barcodePrinter: "Zebra ZD220",
       defaultTax: 17,
+      loyaltyPointValue: 1,
       lowStockAlert: 20,
       expiryAlert: 30
     },
@@ -244,6 +245,7 @@ const Settings = () => {
             pos: {
               ...prev.pos,
               defaultTax: parseFloat(settingsData.data.defaultTax) || 17,
+              loyaltyPointValue: parseFloat(settingsData.data.loyaltyPointValue) || 1,
               autoSync: settingsData.data.autoSync === 'true',
               offlineMode: settingsData.data.offlineMode === 'true',
               receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
@@ -311,6 +313,7 @@ const Settings = () => {
         credentials: 'include',
         body: JSON.stringify({
           defaultTax: settings.pos.defaultTax,
+          loyaltyPointValue: settings.pos.loyaltyPointValue,
           lowStockAlert: settings.pos.lowStockAlert,
           expiryAlert: settings.pos.expiryAlert,
           autoSync: settings.pos.autoSync,
@@ -460,6 +463,7 @@ const Settings = () => {
         receiptPrinter: "EPSON TM-T20II",
         barcodePrinter: "Zebra ZD220",
         defaultTax: 17,
+        loyaltyPointValue: 1,
         lowStockAlert: 20,
         expiryAlert: 30
       },
@@ -1066,6 +1070,25 @@ toast({
               />
               <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
                 This tax rate will be automatically applied to all sales. Set to 0 for no tax.
+              </p>
+            </div>
+            <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="loyalty-point-value" className="mb-2 block text-sm font-bold text-[#0a1128]">
+                Loyalty Point Value (PKR)
+              </Label>
+              <Input
+                id="loyalty-point-value"
+                type="number"
+                min="0"
+                step="0.01"
+                value={settings.pos.loyaltyPointValue || ""}
+                onChange={(e) => handleSettingChange("pos", "loyaltyPointValue", parseFloat(e.target.value) || 0)}
+                disabled={!isEditingPOS}
+                placeholder="PKR value of one loyalty point (e.g., 1)"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                What one loyalty point is worth when a customer redeems points at the POS. Customers earn 1 point per PKR 100 spent.
               </p>
             </div>
           </div>

@@ -1300,6 +1300,64 @@ export class ApiService {
     });
   }
 
+  // Loyalty points (Wave B3)
+  async getCustomerLoyalty(customerId: string, params?: {
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request<{
+      customer: { id: string; name: string; phone: string };
+      balance: number;
+      pointValue: number;
+      transactions: Array<{
+        id: string;
+        type: 'EARN' | 'REDEEM' | 'REVERSAL' | 'ADJUST';
+        points: number;
+        saleId?: string | null;
+        refundId?: string | null;
+        note?: string | null;
+        sale?: { invoiceNumber?: string | null } | null;
+        createdBy?: string | null;
+        createdAt: string;
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/customers/${customerId}/loyalty${query ? `?${query}` : ''}`);
+  }
+
+  async recordLoyaltyAdjustment(customerId: string, data: {
+    points: number;
+    note: string;
+  }) {
+    return this.request<{
+      entry: {
+        id: string;
+        type: string;
+        points: number;
+        note?: string | null;
+        createdAt: string;
+      };
+      balance: number;
+    }>(`/customers/${customerId}/loyalty/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Business settings (subset the POS needs — e.g. the loyalty point
+  // value). Values come back as strings, as stored.
+  async getSettings() {
+    return this.request<Record<string, string>>('/settings');
+  }
+
   // Sales
   async createSale(saleData: {
     customerId?: string;
@@ -1321,6 +1379,10 @@ export class ApiService {
       amount: number;
       reference?: string;
     }>;
+    // Loyalty redemption (Wave B3): points to spend on this sale.
+    // Requires customerId; the server validates the balance and turns
+    // the points into a discount at the loyaltyPointValue rate.
+    loyaltyPointsToRedeem?: number;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -1357,6 +1419,13 @@ export class ApiService {
       subtotal: number;
       taxAmount: number;
       discountAmount: number;
+      // Loyalty (Wave B3): stored columns + friendly aliases the
+      // create handler returns (plain numbers, never null).
+      loyaltyPointsRedeemed?: number | null;
+      loyaltyDiscount?: number;
+      loyaltyPointsEarned?: number | null;
+      pointsRedeemed?: number;
+      pointsEarned?: number;
       totalAmount: number;
       paymentMethod: string;
       payments?: Array<{

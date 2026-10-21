@@ -6,6 +6,10 @@ import Joi from 'joi';
 
 const updateSettingsSchema = Joi.object({
   defaultTax: Joi.number().min(0).max(100).required(),
+  // Loyalty (Wave B3): PKR value of one loyalty point at redemption.
+  // Optional so existing settings clients (which never send it) keep
+  // working; the sale flow falls back to 1 when no row is stored.
+  loyaltyPointValue: Joi.number().positive().optional(),
   lowStockAlert: Joi.number().min(0).required(),
   expiryAlert: Joi.number().min(0).required(),
   autoSync: Joi.boolean().required(),
@@ -82,6 +86,7 @@ export const getSettings = async (req: AuthRequest, res: Response): Promise<void
     const pharmacyTaxNumber = settingsObj.pharmacyTaxNumber || '1234567890123';
     const defaultSettings = {
       defaultTax: settingsObj.defaultTax || '17',
+      loyaltyPointValue: settingsObj.loyaltyPointValue || '1',
       lowStockAlert: settingsObj.lowStockAlert || '20',
       expiryAlert: settingsObj.expiryAlert || '30',
       autoSync: settingsObj.autoSync || 'true',
@@ -221,6 +226,7 @@ export const getTaxRate = async (req: AuthRequest, res: Response): Promise<void>
 function getSettingDescription(key: string): string {
   const descriptions: { [key: string]: string } = {
     defaultTax: 'Default tax rate percentage for sales',
+    loyaltyPointValue: 'PKR value of one loyalty point when redeemed at the POS',
     lowStockAlert: 'Minimum stock level to trigger low stock alert',
     expiryAlert: 'Days before expiry to trigger alert',
     autoSync: 'Automatically sync data when online',

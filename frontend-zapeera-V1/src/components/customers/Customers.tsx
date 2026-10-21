@@ -30,6 +30,7 @@ import {
   BookOpen,
   Printer,
   Wallet,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api";
@@ -87,6 +88,19 @@ interface PurchaseHistory {
   total: number;
   paymentMethod: string;
   receiptNumber: string;
+}
+
+// Loyalty points ledger row (Wave B3). `points` is the signed delta
+// that was applied to the customer's balance.
+interface LoyaltyEntry {
+  id: string;
+  type: 'EARN' | 'REDEEM' | 'REVERSAL' | 'ADJUST';
+  points: number;
+  note?: string | null;
+  saleId?: string | null;
+  refundId?: string | null;
+  sale?: { invoiceNumber?: string | null } | null;
+  createdAt: string;
 }
 
 const Customers = () => {
@@ -153,6 +167,17 @@ const Customers = () => {
   });
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isRecordingAdjustment, setIsRecordingAdjustment] = useState(false);
+
+  // Loyalty points state — Wave B3 (shown inside the Khata dialog)
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
+  const [loyaltyPointValue, setLoyaltyPointValue] = useState(1);
+  const [loyaltyEntries, setLoyaltyEntries] = useState<LoyaltyEntry[]>([]);
+  const [loyaltyAdjustForm, setLoyaltyAdjustForm] = useState({
+    points: "",
+    note: ""
+  });
+  const [isAdjustingLoyalty, setIsAdjustingLoyalty] = useState(false);
 
   // Khata adjustments rewrite the meaning of the ledger (write-offs,
   // opening balances) — the backend restricts them to OWNER/MANAGER,
@@ -358,14 +383,90 @@ const Customers = () => {
     }
   }, [toast]);
 
+  const loadLoyalty = useCallback(async (customerId: string) => {
+    try {
+      setLoyaltyLoading(true);
+      const response = await apiService.getCustomerLoyalty(customerId, {
+        page: 1,
+        limit: 50
+      });
+      if (response.success && response.data) {
+        setLoyaltyBalance(response.data.balance);
+        setLoyaltyPointValue(response.data.pointValue || 1);
+        setLoyaltyEntries(response.data.transactions as LoyaltyEntry[]);
+      }
+    } catch (error: any) {
+      // Loyalty history is secondary to the khata itself — log and
+      // leave the section empty rather than blocking the dialog.
+      console.error('Error loading loyalty:', error);
+    } finally {
+      setLoyaltyLoading(false);
+    }
+  }, []);
+
   const openKhata = async (customer: Customer) => {
     setKhataCustomer(customer);
     setKhataSummary(null);
     setKhataEntries([]);
     setPaymentForm({ amount: "", method: "CASH", reference: "", note: "" });
     setAdjustmentForm({ amount: "", note: "" });
+    setLoyaltyBalance(null);
+    setLoyaltyEntries([]);
+    setLoyaltyAdjustForm({ points: "", note: "" });
     setIsKhataDialogOpen(true);
-    await loadKhata(customer.id);
+    await Promise.all([loadKhata(customer.id), loadLoyalty(customer.id)]);
+  };
+
+  const handleLoyaltyAdjustment = async () => {
+    if (!khataCustomer) return;
+    const points = Number(loyaltyAdjustForm.points);
+    if (!points || !Number.isInteger(points)) {
+      toast({
+        title: "Validation Error",
+        description: "Enter a whole number of points (negative removes points).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!loyaltyAdjustForm.note.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "A note is required for loyalty adjustments.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setIsAdjustingLoyalty(true);
+      const response = await apiService.recordLoyaltyAdjustment(khataCustomer.id, {
+        points,
+        note: loyaltyAdjustForm.note.trim()
+      });
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Loyalty points adjusted.",
+        });
+        setLoyaltyAdjustForm({ points: "", note: "" });
+        await loadLoyalty(khataCustomer.id);
+        void loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to adjust loyalty points",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error adjusting loyalty points:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to adjust loyalty points",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdjustingLoyalty(false);
+    }
   };
 
   const handleRecordPayment = async () => {
@@ -1584,6 +1685,121 @@ const Customers = () => {
                         className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
                       >
                         {isRecordingAdjustment ? "Recording…" : "Post adjustment"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Loyalty points (Wave B3) */}
+              <div className="border-t border-[rgba(15,23,60,0.06)] pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <Sparkles className="h-4 w-4 text-[#1a52c5]" />
+                    Loyalty points
+                  </h3>
+                  <div className="text-right">
+                    <span className="text-lg font-extrabold text-[#0a1128]">
+                      {(loyaltyBalance ?? khataCustomer.loyaltyPoints ?? 0).toLocaleString()} pts
+                    </span>
+                    <span className="ml-2 text-xs text-[#8c95b0]">
+                      ≈ PKR {(((loyaltyBalance ?? khataCustomer.loyaltyPoints ?? 0) * loyaltyPointValue)).toLocaleString()} at PKR {loyaltyPointValue}/point
+                    </span>
+                  </div>
+                </div>
+
+                {loyaltyLoading ? (
+                  <p className="pt-4 text-sm text-[#8c95b0]">Loading points history…</p>
+                ) : loyaltyEntries.length > 0 ? (
+                  <div className="mt-4 overflow-x-auto rounded-2xl border border-[rgba(15,23,60,0.06)]">
+                    <table className="w-full min-w-[560px] border-collapse">
+                      <thead>
+                        <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
+                          <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Date</th>
+                          <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Detail</th>
+                          <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loyaltyEntries.map((entry) => (
+                          <tr
+                            key={entry.id}
+                            className="[&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                          >
+                            <td className="px-4 py-3 text-[13px] text-[#4a5578]">
+                              {new Date(entry.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-[13px] font-semibold text-[#0a1128]">
+                                {entry.type === 'EARN' && 'Earned'}
+                                {entry.type === 'REDEEM' && 'Redeemed'}
+                                {entry.type === 'REVERSAL' && 'Reversal'}
+                                {entry.type === 'ADJUST' && 'Adjustment'}
+                                {entry.sale?.invoiceNumber ? (
+                                  <span className="font-medium text-[#8c95b0]"> — {entry.sale.invoiceNumber}</span>
+                                ) : null}
+                              </div>
+                              {entry.note ? (
+                                <div className="mt-0.5 text-xs text-[#8c95b0]">{entry.note}</div>
+                              ) : null}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-4 py-3 text-right text-[13px] font-bold",
+                                entry.points > 0 ? "text-emerald-600" : "text-[#dc2626]"
+                              )}
+                            >
+                              {entry.points > 0 ? "+" : "−"}{Math.abs(entry.points).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="pt-4 text-sm text-[#8c95b0]">
+                    No points activity yet. Points are earned at 1 per PKR 100 spent and can be spent at the POS.
+                  </p>
+                )}
+
+                {canAdjustKhata && (
+                  <div className="mt-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5">
+                    <h4 className="mb-4 text-sm font-bold text-[#0a1128]">Adjust points</h4>
+                    <div className="flex flex-col gap-3.5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="loyaltyAdjustPoints" className="text-[13px] font-semibold text-[#0a1128]">
+                          Points <span className="text-[#dc2626]">*</span>
+                        </Label>
+                        <Input
+                          id="loyaltyAdjustPoints"
+                          type="number"
+                          step="1"
+                          placeholder="Negative removes points, e.g. -50"
+                          value={loyaltyAdjustForm.points}
+                          onChange={(e) => setLoyaltyAdjustForm({ ...loyaltyAdjustForm, points: e.target.value })}
+                          className={customerFormField}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="loyaltyAdjustNote" className="text-[13px] font-semibold text-[#0a1128]">
+                          Note <span className="text-[#dc2626]">*</span>
+                        </Label>
+                        <Input
+                          id="loyaltyAdjustNote"
+                          placeholder="Why are these points being adjusted?"
+                          value={loyaltyAdjustForm.note}
+                          onChange={(e) => setLoyaltyAdjustForm({ ...loyaltyAdjustForm, note: e.target.value })}
+                          className={customerFormField}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleLoyaltyAdjustment}
+                        disabled={isAdjustingLoyalty || !loyaltyAdjustForm.points || !loyaltyAdjustForm.note.trim()}
+                        className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                      >
+                        {isAdjustingLoyalty ? "Recording…" : "Post points adjustment"}
                       </Button>
                     </div>
                   </div>

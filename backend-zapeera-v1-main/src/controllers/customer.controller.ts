@@ -6,6 +6,7 @@ import { getPrisma } from '../utils/db.util';
 import { createSearchConditions } from '../utils/query-helper';
 import { CreateCustomerData, UpdateCustomerData } from '../models/customer.model';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
+import { getLoyaltyPointValue, recordLoyaltyTransaction } from '../utils/loyalty.util';
 import { notifyCustomerChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
@@ -1037,6 +1038,194 @@ export const recordCustomerAdjustment = async (req: AuthRequest, res: Response) 
     });
   } catch (error) {
     console.error('Record customer adjustment error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// ─── Loyalty points (Wave B3) ───────────────────────────────────────
+// Customer.loyaltyPoints is the cached balance; LoyaltyTransaction is
+// its append-only ledger. Sale create (EARN/REDEEM), refunds and sale
+// deletion (REVERSAL) write their rows inside their own transactions;
+// the two endpoints below expose the history and the manual ADJUST.
+
+const loyaltyAdjustmentSchema = Joi.object({
+  // Signed whole points, never zero: + grants points, − removes them.
+  points: Joi.number().integer().invalid(0).required(),
+  note: Joi.string().trim().min(1).max(500).required()
+});
+
+// Like findLedgerCustomer, but also selects the points balance.
+const findLoyaltyCustomer = async (req: AuthRequest, res: Response, customerId: string) => {
+  const prisma = await getPrisma();
+  const businessId = req.business_id || req.headers['x-company-id'] as string;
+
+  if (!businessId) {
+    res.status(400).json({
+      success: false,
+      message: 'Business context required'
+    });
+    return null;
+  }
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, companyId: businessId },
+    select: { id: true, name: true, phone: true, loyaltyPoints: true }
+  });
+
+  if (!customer) {
+    res.status(404).json({
+      success: false,
+      message: 'Customer not found'
+    });
+    return null;
+  }
+
+  return { prisma, businessId: String(businessId), customer };
+};
+
+export const getCustomerLoyalty = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const resolved = await findLoyaltyCustomer(req, res, id);
+    if (!resolved) return;
+    const { prisma, businessId, customer } = resolved;
+
+    const take = Number(limit);
+    const skip = (Number(page) - 1) * take;
+
+    const [transactions, total] = await Promise.all([
+      prisma.loyaltyTransaction.findMany({
+        where: { customerId: id, companyId: businessId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        include: {
+          sale: {
+            select: { invoiceNumber: true }
+          }
+        }
+      }),
+      prisma.loyaltyTransaction.count({
+        where: { customerId: id, companyId: businessId }
+      })
+    ]);
+
+    // The PKR value of a point, so clients can show what the balance
+    // is worth without a second settings call.
+    const pointValue = await getLoyaltyPointValue(
+      prisma,
+      req.user?.createdBy || req.user?.id
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        customer: { id: customer.id, name: customer.name, phone: customer.phone },
+        balance: customer.loyaltyPoints,
+        pointValue,
+        transactions,
+        pagination: {
+          page: Number(page),
+          limit: take,
+          total,
+          pages: Math.ceil(total / take)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get customer loyalty error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+export const recordLoyaltyAdjustment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Manual points corrections are owner/manager territory, same
+    // gate as khata adjustments.
+    const role = getUserRole(req);
+    if (!['OWNER', 'MANAGER', 'ADMIN'].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the owner or a manager can adjust loyalty points'
+      });
+    }
+
+    const { error, value } = loyaltyAdjustmentSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+
+    const resolved = await findLoyaltyCustomer(req, res, id);
+    if (!resolved) return;
+    const { prisma, businessId, customer } = resolved;
+
+    const points = Number(value.points);
+
+    // Balance and ledger move together, or not at all: the new
+    // balance is computed and checked inside the transaction, and a
+    // negative result is refused — points are never owed.
+    const result = await prisma.$transaction(async (tx: any) => {
+      const fresh = await tx.customer.findUnique({
+        where: { id: customer.id },
+        select: { loyaltyPoints: true }
+      });
+      if (!fresh) {
+        throw new Error('Customer not found');
+      }
+      const newBalance = fresh.loyaltyPoints + points;
+      if (newBalance < 0) {
+        return { refused: true as const, balance: fresh.loyaltyPoints };
+      }
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: { loyaltyPoints: newBalance }
+      });
+      const entry = await tx.loyaltyTransaction.create({
+        data: {
+          companyId: businessId,
+          customerId: customer.id,
+          type: 'ADJUST',
+          points,
+          note: value.note,
+          createdBy: req.user?.id || null
+        }
+      });
+      return { refused: false as const, entry, balance: newBalance };
+    });
+
+    if (result.refused) {
+      return res.status(400).json({
+        success: false,
+        message: `Adjustment of ${points} points would make the balance negative (current balance: ${result.balance})`
+      });
+    }
+
+    syncAfterOperation('customer', 'update', customer).catch(err => {
+      console.error('[Sync] Customer loyalty adjustment sync failed:', err.message);
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { entry: result.entry, balance: result.balance },
+      message: 'Loyalty adjustment recorded successfully'
+    });
+  } catch (error) {
+    console.error('Record loyalty adjustment error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import { AuthRequest, buildBranchWhereClause, buildBranchWhereClauseForRelation } from '../middleware/auth.middleware';
 import { notifyRefundChange } from '../routes/sse.routes';
 import { SALE_PAYMENT_METHODS } from './sale.controller';
+import { recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
 
@@ -482,6 +483,85 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
               createdBy: actorId
             }
           });
+        }
+
+        // Loyalty (Wave B3): reverse this sale's points in proportion
+        // to the refunded VALUE — the same basis the refund amounts
+        // themselves use (the stored line totals). Targets are
+        // CUMULATIVE (this refund + all prior refunds against the
+        // sale) minus what earlier refunds already reversed, so a
+        // complete refund reverses exactly all of the sale's points
+        // and partial refunds can never overshoot. The redeemed
+        // points are re-credited FIRST; the earned-points clawback
+        // then applies to the topped-up balance and is floored at
+        // zero — points the customer already spent on other bills
+        // are gone, the balance never goes negative, and only the
+        // amounts actually applied are written to the ledger, in
+        // this same transaction.
+        const earnedTotal = loyaltyPointsEarnedForSale(originalSale);
+        const redeemedTotal = originalSale.loyaltyPointsRedeemed || 0;
+        if (earnedTotal > 0 || redeemedTotal > 0) {
+          const linesTotal = round2(originalSale.items.reduce(
+            (sum: number, si: any) => sum + Number(si.totalPrice || 0),
+            0
+          ));
+          const refundFraction = linesTotal > 0
+            ? Math.min(1, (priorRefundTotal + refundAmount) / linesTotal)
+            : 0;
+          const priorReversals = await tx.loyaltyTransaction.findMany({
+            where: { saleId: originalSale.id, type: 'REVERSAL' },
+            select: { points: true }
+          });
+          const alreadyClawed = priorReversals
+            .filter((r: any) => r.points < 0)
+            .reduce((sum: number, r: any) => sum - r.points, 0);
+          const alreadyRecredited = priorReversals
+            .filter((r: any) => r.points > 0)
+            .reduce((sum: number, r: any) => sum + r.points, 0);
+          const recreditDelta = Math.max(0, Math.round(redeemedTotal * refundFraction) - alreadyRecredited);
+          const clawTarget = Math.max(0, Math.round(earnedTotal * refundFraction) - alreadyClawed);
+          if (recreditDelta > 0 || clawTarget > 0) {
+            const loyaltyCustomer = await tx.customer.findUnique({
+              where: { id: originalSale.customerId },
+              select: { loyaltyPoints: true }
+            });
+            if (loyaltyCustomer) {
+              let balanceAfterLoyalty = loyaltyCustomer.loyaltyPoints;
+              if (recreditDelta > 0) {
+                await recordLoyaltyTransaction(tx, {
+                  companyId: originalSale.companyId,
+                  customerId: originalSale.customerId,
+                  type: 'REVERSAL',
+                  points: recreditDelta,
+                  saleId: originalSale.id,
+                  refundId: refund.id,
+                  note: `Refund on invoice ${originalSale.invoiceNumber || originalSale.id} — redeemed points restored`,
+                  createdBy: actorId
+                });
+                balanceAfterLoyalty += recreditDelta;
+              }
+              const clawDelta = Math.min(clawTarget, balanceAfterLoyalty);
+              if (clawDelta > 0) {
+                await recordLoyaltyTransaction(tx, {
+                  companyId: originalSale.companyId,
+                  customerId: originalSale.customerId,
+                  type: 'REVERSAL',
+                  points: -clawDelta,
+                  saleId: originalSale.id,
+                  refundId: refund.id,
+                  note: `Refund on invoice ${originalSale.invoiceNumber || originalSale.id} — earned points reversed`,
+                  createdBy: actorId
+                });
+                balanceAfterLoyalty -= clawDelta;
+              }
+              if (balanceAfterLoyalty !== loyaltyCustomer.loyaltyPoints) {
+                await tx.customer.update({
+                  where: { id: originalSale.customerId },
+                  data: { loyaltyPoints: balanceAfterLoyalty }
+                });
+              }
+            }
+          }
         }
       }
 

@@ -122,6 +122,11 @@ interface Receipt {
   subtotal: number;
   discountAmount?: number;
   discountPercentage?: number;
+  // Loyalty (Wave B3): discount bought with points, and the points
+  // spent/earned on this sale, as returned by the server.
+  loyaltyDiscount?: number;
+  pointsRedeemed?: number;
+  pointsEarned?: number;
   total: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -149,6 +154,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
   ];
   if (receipt.discountAmount && receipt.discountAmount > 0) {
     lines.push(`Discount: -PKR ${Number(receipt.discountAmount).toFixed(2)}`);
+  }
+  if (receipt.loyaltyDiscount && receipt.loyaltyDiscount > 0) {
+    lines.push(`Loyalty discount (${receipt.pointsRedeemed || 0} pts): -PKR ${Number(receipt.loyaltyDiscount).toFixed(2)}`);
   }
   lines.push(
     `*Total: PKR ${Number(receipt.total || 0).toFixed(2)}*`,
@@ -181,6 +189,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // controls are replaced by per-method allocation rows.
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitPayments, setSplitPayments] = useState<SplitPaymentRow[]>([]);
+  // Loyalty redemption (Wave B3): the customer resolved from the
+  // entered phone (its points balance drives the "Use points"
+  // control), the raw points input, and the PKR value of one point
+  // from the loyaltyPointValue setting (default 1).
+  const [posCustomer, setPosCustomer] = useState<{ id: string; name: string; phone: string; loyaltyPoints: number } | null>(null);
+  const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("");
+  const [loyaltyPointValue, setLoyaltyPointValue] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -634,8 +649,73 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     return mainSubtotal - mainDiscountAmount;
   }, [mainSubtotal, mainDiscountAmount]);
 
+  // Loyalty (Wave B3): the points the cashier typed, clamped to the
+  // customer's balance AND to what the discounted bill can absorb —
+  // the same two caps the server enforces — and the bill total after
+  // the loyalty discount. Everywhere the POS compares money against
+  // "the total" (split allocations, change) it must use the
+  // after-loyalty figure, because that is the server's totalAmount.
+  const loyaltyPointsRequested = Math.max(0, Math.floor(Number(loyaltyPointsInput) || 0));
+  const loyaltyMaxPoints = posCustomer
+    ? Math.min(posCustomer.loyaltyPoints, Math.floor(mainTotalAmount / (loyaltyPointValue || 1)))
+    : 0;
+  const loyaltyPointsToUse = Math.min(loyaltyPointsRequested, loyaltyMaxPoints);
+  const loyaltyDiscountValue = Math.round(loyaltyPointsToUse * loyaltyPointValue * 100) / 100;
+  const mainTotalAfterLoyalty = Math.round((mainTotalAmount - loyaltyDiscountValue) * 100) / 100;
+
+  // Fetch the loyalty point value once (settings row
+  // `loyaltyPointValue`, PKR per point; default 1 when unset).
+  useEffect(() => {
+    let cancelled = false;
+    apiService.getSettings()
+      .then((response) => {
+        if (!cancelled && response.success && response.data) {
+          const parsed = parseFloat(String((response.data as any).loyaltyPointValue ?? ''));
+          if (Number.isFinite(parsed) && parsed > 0) {
+            setLoyaltyPointValue(parsed);
+          }
+        }
+      })
+      .catch(() => { /* keep the default of 1 PKR per point */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Resolve the customer behind the entered phone so their points
+  // balance can be offered. Phone is unique per customer; the match
+  // must be exact (digits compared) so a partial number never
+  // surfaces someone else's balance. Failures leave the walk-in flow
+  // untouched.
+  useEffect(() => {
+    const phone = invoiceCustomer.phone.trim();
+    if (phone.replace(/\D/g, '').length < 7) {
+      setPosCustomer(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      apiService.getCustomers({ search: phone, limit: 10 })
+        .then((response) => {
+          if (cancelled || !response.success || !response.data) return;
+          const digits = (value: string) => value.replace(/\D/g, '');
+          const match = response.data.customers.find(
+            (c) => digits(c.phone) === digits(phone)
+          );
+          setPosCustomer(match
+            ? { id: match.id, name: match.name, phone: match.phone, loyaltyPoints: match.loyaltyPoints || 0 }
+            : null);
+        })
+        .catch(() => { if (!cancelled) setPosCustomer(null); });
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [invoiceCustomer.phone]);
+
+  // A different customer (or none) means a fresh points choice.
+  useEffect(() => {
+    setLoyaltyPointsInput("");
+  }, [posCustomer?.id]);
+
   const splitAllocated = splitPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-  const splitRemaining = Math.round((mainTotalAmount - splitAllocated) * 100) / 100;
+  const splitRemaining = Math.round((mainTotalAfterLoyalty - splitAllocated) * 100) / 100;
 
   const updateSplitRow = (index: number, patch: Partial<SplitPaymentRow>) => {
     setSplitPayments(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -655,7 +735,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setSplitPayments([]);
     } else {
       setSplitEnabled(true);
-      setSplitPayments([{ method: paymentMethod, amount: mainTotalAmount || 0, reference: '' }]);
+      setSplitPayments([{ method: paymentMethod, amount: mainTotalAfterLoyalty || 0, reference: '' }]);
     }
   };
 
@@ -1192,10 +1272,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         }
       }
 
-      // Calculate totals (using pre-calculated values from useMemo)
+      // Calculate totals (using pre-calculated values from useMemo).
+      // The total the customer actually pays is AFTER the loyalty
+      // discount (Wave B3) — the server computes the same figure —
+      // so split validation and change are reckoned against it.
       const subtotal = mainSubtotal;
       const discountAmount = mainDiscountAmount;
-      const totalAmount = mainTotalAmount;
+      const totalAmount = mainTotalAfterLoyalty;
 
       // Split tender (Wave B1): build the allocations payload. Rows
       // sharing a method are merged (references joined); the stored
@@ -1339,6 +1422,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // CRITICAL FIX: Include customer name and phone for auto-creation if customerId is not available
         customerName: (!customerId && invoiceCustomer.name) ? invoiceCustomer.name : undefined,
         customerPhone: (!customerId && invoiceCustomer.phone) ? invoiceCustomer.phone : undefined,
+        // Loyalty redemption (Wave B3): the points chosen in the rail,
+        // already clamped to the customer's balance and the bill. The
+        // server re-validates both inside the sale transaction.
+        loyaltyPointsToRedeem: loyaltyPointsToUse > 0 ? loyaltyPointsToUse : undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -1394,6 +1481,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         subtotal: subtotal,
         discountAmount: discountAmount,
         discountPercentage: discountPercentage,
+        // Loyalty (Wave B3): the server's own figures for this sale,
+        // shown on the receipt.
+        loyaltyDiscount: saleResponse.data.loyaltyDiscount || 0,
+        pointsRedeemed: saleResponse.data.pointsRedeemed || 0,
+        pointsEarned: saleResponse.data.pointsEarned || 0,
         total: totalAmount,
         paymentMethod: splitPayload ? splitPayload.map(p => p.method).join(' + ') : paymentMethod.toUpperCase(),
         paymentStatus: paymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
@@ -1413,6 +1505,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       // Reset form but keep the screen open
       setInvoiceItems([]);
       setInvoiceCustomer({ name: "", phone: "" });
+      setPosCustomer(null);
+      setLoyaltyPointsInput("");
       setDiscountPercentage(0);
       setPaymentMethod('CASH');
       setPaymentStatus('COMPLETED');
@@ -1916,6 +2010,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
             </div>
             ` : ''}
+            ${currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Loyalty Discount (${currentReceipt.pointsRedeemed || 0} pts):</span>
+              <span>-PKR ${currentReceipt.loyaltyDiscount.toFixed(2)}</span>
+            </div>
+            ` : ''}
             <div class="total-line total-final">
               <span>TOTAL:</span>
               <span>PKR ${currentReceipt.total.toFixed(2)}</span>
@@ -1925,6 +2025,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div class="payment-info">
             <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
             <strong>Status:</strong> ${currentReceipt.paymentStatus}
+            ${currentReceipt.pointsEarned ? `<br><strong>Loyalty Points Earned:</strong> ${currentReceipt.pointsEarned}` : ''}
           </div>
 
           <div class="footer">
@@ -2929,13 +3030,58 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {((invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * discountPercentage) / 100).toFixed(2)}</span>
                         </div>
                       )}
+                      {loyaltyDiscountValue > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#8c95b0]">Loyalty discount ({loyaltyPointsToUse} pts)</span>
+                          <span className="font-semibold tabular-nums text-emerald-600">−PKR {loyaltyDiscountValue.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-2">
                         <span className="text-sm font-bold text-[#0a1128]">Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
-                          PKR {(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * (1 - discountPercentage / 100)).toFixed(2)}
+                          PKR {mainTotalAfterLoyalty.toFixed(2)}
                         </span>
                       </div>
                     </div>
+
+                    {/* Loyalty redemption (Wave B3): offered only when
+                        the entered phone resolved to a customer who
+                        actually has points. */}
+                    {posCustomer && posCustomer.loyaltyPoints > 0 && (
+                      <div className="mt-3 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <Label htmlFor="loyalty-points" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                            Use loyalty points
+                          </Label>
+                          <span className="text-xs font-medium text-[#4a5578]">
+                            {posCustomer.loyaltyPoints} pts ≈ PKR {(posCustomer.loyaltyPoints * loyaltyPointValue).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Input
+                            id="loyalty-points"
+                            type="number"
+                            min="0"
+                            max={loyaltyMaxPoints}
+                            step="1"
+                            placeholder="0"
+                            value={loyaltyPointsInput}
+                            onChange={(e) => setLoyaltyPointsInput(e.target.value)}
+                            className="h-9 w-24 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-sm font-semibold tabular-nums"
+                          />
+                          <span className="text-sm font-semibold tabular-nums text-emerald-600">
+                            = −PKR {loyaltyDiscountValue.toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setLoyaltyPointsInput(String(loyaltyMaxPoints))}
+                            className="ml-auto text-xs font-bold text-[#1a52c5] hover:underline"
+                          >
+                            Use max ({loyaltyMaxPoints})
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {splitEnabled && (
                       <div className="mt-3 space-y-2">
@@ -2988,7 +3134,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </button>
                           <div className="text-right">
                             <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">
-                              Allocated PKR {splitAllocated.toFixed(2)} of PKR {mainTotalAmount.toFixed(2)}
+                              Allocated PKR {splitAllocated.toFixed(2)} of PKR {mainTotalAfterLoyalty.toFixed(2)}
                             </span>
                             <span className={cn("block text-sm font-extrabold tabular-nums", splitRemaining === 0 ? "text-green-600" : "text-red-600")}>
                               {splitRemaining === 0 ? 'Fully allocated' : splitRemaining > 0 ? `Remaining PKR ${splitRemaining.toFixed(2)}` : `Over by PKR ${Math.abs(splitRemaining).toFixed(2)}`}
@@ -3016,20 +3162,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2 text-right">
                         <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">{(() => {
                           const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-                          const finalTotal = total - (total * (discountPercentage / 100));
+                          const finalTotal = total - (total * (discountPercentage / 100)) - loyaltyDiscountValue;
                           return paidAmount >= finalTotal ? 'Change' : 'Balance due';
                         })()}</span>
                         <span className={`text-base font-extrabold tabular-nums ${(() => {
                           const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                           const discountAmount = total * (discountPercentage / 100);
-                          const finalTotal = total - discountAmount;
+                          const finalTotal = total - discountAmount - loyaltyDiscountValue;
                           const returned = paidAmount - finalTotal;
                           return returned >= 0 ? 'text-green-600' : 'text-red-600';
                         })()}`}>
                           {(() => {
                             const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                             const discountAmount = total * (discountPercentage / 100);
-                            const finalTotal = total - discountAmount;
+                            const finalTotal = total - discountAmount - loyaltyDiscountValue;
                             const returned = paidAmount - finalTotal;
                             return returned >= 0
                               ? `PKR ${returned.toFixed(2)}`
@@ -3439,6 +3585,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     <div className="flex justify-between items-center text-green-300">
                       <span>Discount ({currentReceipt.discountPercentage}%)</span>
                       <span className="font-semibold">-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  )}
+                  {currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 && (
+                    <div className="flex justify-between items-center text-green-300">
+                      <span>Loyalty discount ({currentReceipt.pointsRedeemed || 0} pts)</span>
+                      <span className="font-semibold">-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
+                    <div className="flex justify-between items-center text-blue-100">
+                      <span>Points earned on this sale</span>
+                      <span className="font-semibold">+{currentReceipt.pointsEarned} pts</span>
                     </div>
                   )}
                   <div className="border-t border-blue-400/30 pt-4 mt-4">

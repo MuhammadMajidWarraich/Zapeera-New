@@ -8,6 +8,7 @@ import { AuthRequest, buildBranchWhereClause, getUserRole } from '../middleware/
 import { notifySaleChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { isMissingTableError } from '../utils/membership-bridge.util';
+import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -48,6 +49,11 @@ const createSaleSchema = Joi.object({
       reference: Joi.string().allow('', null).max(120).optional()
     })
   ).optional(),
+  // Loyalty redemption (Wave B3): points the customer spends on this
+  // sale. Requires customerId; validated against the customer's
+  // balance inside the sale transaction. The PKR value per point
+  // comes from the `loyaltyPointValue` setting (default 1).
+  loyaltyPointsToRedeem: Joi.number().integer().min(1).optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -614,6 +620,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Loyalty point value (Wave B3): PKR per point at redemption, from
+    // the same per-admin settings store as defaultTax; default 1.
+    const loyaltyPointValue = await getLoyaltyPointValue(prisma, currentAdminId);
+
     // Calculate totals with item-level discounts — ALWAYS computed
     // server-side (A-04): a client-sent totalPrice is never trusted. Each
     // line total is quantity × unitPrice − item discount, and the sale
@@ -647,9 +657,42 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const discountAmount = saleData.discountPercentage && saleData.discountPercentage > 0
       ? subtotal * (saleData.discountPercentage / 100)
       : (saleData.discountAmount || 0);
-    const subtotalAfterDiscount = subtotal - discountAmount;
+
+    // Loyalty redemption (Wave B3): points spent on this sale become
+    // an additional discount component — applied AFTER the sale-level
+    // discount and BEFORE tax, exactly like discountAmount, so the
+    // server-computed total stays the single authority and tax is
+    // charged on what the customer actually pays for the goods. The
+    // discount is stored separately (Sale.loyaltyDiscount), NOT folded
+    // into discountAmount. Two guards live here, before the
+    // transaction: redemption needs a customer, and the points' value
+    // may not exceed the discounted subtotal (which would drive the
+    // bill negative). The balance check itself happens inside the
+    // transaction, against the balance read there. Points earned on
+    // THIS sale cannot be spent on it — redemption is limited to the
+    // pre-sale balance.
+    const loyaltyPointsToRedeem = saleData.loyaltyPointsToRedeem
+      ? Math.floor(Number(saleData.loyaltyPointsToRedeem))
+      : 0;
+    let loyaltyDiscount = 0;
+    if (loyaltyPointsToRedeem > 0) {
+      if (!saleData.customerId) {
+        throw new HttpError(400, 'Loyalty points can only be redeemed on a sale with a customer attached');
+      }
+      loyaltyDiscount = Math.round(loyaltyPointsToRedeem * loyaltyPointValue * 100) / 100;
+      if (loyaltyDiscount > subtotal - discountAmount + 0.001) {
+        throw new HttpError(400, `Loyalty redemption of PKR ${loyaltyDiscount.toFixed(2)} exceeds the discounted bill of PKR ${(subtotal - discountAmount).toFixed(2)}`);
+      }
+    }
+
+    const subtotalAfterDiscount = subtotal - discountAmount - loyaltyDiscount;
     const taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
     const totalAmount = subtotalAfterDiscount + taxAmount;
+
+    // Points this sale earns — the long-standing rule, unchanged:
+    // 1 point per full PKR 100 of the FINAL total (so a redemption
+    // slightly reduces what the same bill earns). Zero for walk-ins.
+    const pointsEarned = saleData.customerId ? Math.floor(totalAmount / 100) : 0;
 
     // Resolve payment status and the stored paidAmount BEFORE the
     // transaction: the split-tender validation below must mirror
@@ -779,6 +822,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           taxAmount,
           discountAmount: discountAmount,
           discountPercentage: saleData.discountPercentage || 0,
+          // Loyalty (Wave B3): redemption facts + points earned, so
+          // refunds/deletion can reverse exactly (null when n/a).
+          loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
+          loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : null,
+          loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -805,6 +853,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               taxAmount,
               discountAmount: discountAmount,
               discountPercentage: saleData.discountPercentage || 0,
+              loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
+              loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : null,
+              loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -1080,8 +1131,26 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // Update customer stats if customer exists
+      // Update customer stats if customer exists. Loyalty (Wave B3):
+      // a redemption is validated against the balance read HERE,
+      // inside the transaction — a pre-transaction check could race a
+      // concurrent sale spending the same points. The cached balance
+      // moves by (earned − redeemed) in this single update, and the
+      // EARN / REDEEM ledger rows are written in the same transaction,
+      // so the points ledger and the balance can never diverge.
       if (saleData.customerId) {
+        if (loyaltyPointsToRedeem > 0) {
+          const redeemingCustomer = await tx.customer.findUnique({
+            where: { id: saleData.customerId },
+            select: { loyaltyPoints: true }
+          });
+          if (!redeemingCustomer) {
+            throw new HttpError(400, 'Customer not found for loyalty redemption');
+          }
+          if (loyaltyPointsToRedeem > redeemingCustomer.loyaltyPoints) {
+            throw new HttpError(400, `Insufficient loyalty points: ${loyaltyPointsToRedeem} requested but the customer has ${redeemingCustomer.loyaltyPoints}`);
+          }
+        }
         await tx.customer.update({
           where: { id: saleData.customerId },
           data: {
@@ -1089,11 +1158,33 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               increment: totalAmount
             },
             loyaltyPoints: {
-              increment: Math.floor(totalAmount / 100) // 1 point per 100 PKR
+              increment: pointsEarned - loyaltyPointsToRedeem // earn (1 point per 100 PKR) minus points spent on this bill
             },
             lastVisit: new Date()
           }
         });
+        if (pointsEarned > 0) {
+          await recordLoyaltyTransaction(tx, {
+            companyId: targetCompanyId,
+            customerId: saleData.customerId,
+            type: 'EARN',
+            points: pointsEarned,
+            saleId: sale.id,
+            note: `Earned on invoice ${invoiceNumber}`,
+            createdBy: req.user?.createdBy || req.user?.id || null
+          });
+        }
+        if (loyaltyPointsToRedeem > 0) {
+          await recordLoyaltyTransaction(tx, {
+            companyId: targetCompanyId,
+            customerId: saleData.customerId,
+            type: 'REDEEM',
+            points: -loyaltyPointsToRedeem,
+            saleId: sale.id,
+            note: `Redeemed on invoice ${invoiceNumber} for PKR ${loyaltyDiscount.toFixed(2)} off`,
+            createdBy: req.user?.createdBy || req.user?.id || null
+          });
+        }
       }
 
       // Udhaar/khata (Wave B2): the unpaid part of a customer sale is
@@ -1256,7 +1347,14 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       success: true,
       data: {
         ...completeSale,
-        receiptNumber: result.receipt.receiptNumber
+        receiptNumber: result.receipt.receiptNumber,
+        // Loyalty (Wave B3): friendly aliases over the stored columns
+        // (loyaltyDiscount / loyaltyPointsRedeemed /
+        // loyaltyPointsEarned ride along in the spread above) so POS
+        // and receipt consumers get plain numbers, never null.
+        loyaltyDiscount: completeSale.loyaltyDiscount ?? 0,
+        pointsRedeemed: completeSale.loyaltyPointsRedeemed ?? 0,
+        pointsEarned: completeSale.loyaltyPointsEarned ?? 0
       }
     });
   } catch (error) {
@@ -1336,7 +1434,11 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
 
     if (discountPercentage !== undefined && discountPercentage !== existingSale.discountPercentage) {
       newDiscountAmount = (existingSale.subtotal * discountPercentage) / 100;
-      const subtotalAfterDiscount = existingSale.subtotal - newDiscountAmount;
+      // Loyalty (Wave B3): the sale's stored loyalty discount is a
+      // component of its total (points were already deducted for it),
+      // so the recompute must keep subtracting it — dropping it here
+      // would silently re-bill the customer for points they spent.
+      const subtotalAfterDiscount = existingSale.subtotal - newDiscountAmount - Number(existingSale.loyaltyDiscount || 0);
       // Recompute tax exactly as the create path does: the admin's
       // defaultTax setting applied to the discounted subtotal. (This used
       // to hard-zero the tax — `subtotalAfterDiscount * 0` — silently
@@ -1620,8 +1722,42 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
           }
         }
 
-        // Update customer stats if customer exists
+        // Update customer stats if customer exists. Loyalty (Wave
+        // B3): reverse what this sale STILL contributes to the points
+        // balance — its earned points minus any earn a refund already
+        // clawed back, and its redeemed points minus any a refund
+        // already re-credited (the sale's REVERSAL rows are summed by
+        // sign) — so a refund-then-delete never reverses the same
+        // points twice. With no prior refunds the earn side is exactly
+        // the old decrement (floor(total/100)); the redeemed points
+        // also come back, since the sale is treated as never having
+        // happened. The clawback is floored at what the balance (after
+        // the re-credit) still holds — points already spent on later
+        // bills are gone — and only the actual reversed amounts are
+        // ledgered, in this same transaction.
         if (existingSale.customerId) {
+          const earnedForSale = loyaltyPointsEarnedForSale(existingSale);
+          const redeemedForSale = existingSale.loyaltyPointsRedeemed || 0;
+          const priorReversals = await tx.loyaltyTransaction.findMany({
+            where: { saleId: id, type: 'REVERSAL' },
+            select: { points: true }
+          });
+          const alreadyClawed = priorReversals
+            .filter((r: any) => r.points < 0)
+            .reduce((sum: number, r: any) => sum - r.points, 0);
+          const alreadyRecredited = priorReversals
+            .filter((r: any) => r.points > 0)
+            .reduce((sum: number, r: any) => sum + r.points, 0);
+          const remainingRedeemed = Math.max(0, redeemedForSale - alreadyRecredited);
+          const customerRow = await tx.customer.findUnique({
+            where: { id: existingSale.customerId },
+            select: { loyaltyPoints: true }
+          });
+          const remainingEarn = Math.min(
+            Math.max(0, earnedForSale - alreadyClawed),
+            (customerRow?.loyaltyPoints || 0) + remainingRedeemed
+          );
+
           await tx.customer.update({
             where: { id: existingSale.customerId },
             data: {
@@ -1629,10 +1765,32 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
                 decrement: existingSale.totalAmount
               },
               loyaltyPoints: {
-                decrement: Math.floor(existingSale.totalAmount / 100) // 1 point per 100 PKR
+                increment: remainingRedeemed - remainingEarn
               }
             }
           });
+          if (remainingEarn > 0) {
+            await recordLoyaltyTransaction(tx, {
+              companyId: existingSale.companyId,
+              customerId: existingSale.customerId,
+              type: 'REVERSAL',
+              points: -remainingEarn,
+              saleId: id,
+              note: `Invoice ${existingSale.invoiceNumber || id} deleted — earned points reversed`,
+              createdBy: req.user?.id || null
+            });
+          }
+          if (remainingRedeemed > 0) {
+            await recordLoyaltyTransaction(tx, {
+              companyId: existingSale.companyId,
+              customerId: existingSale.customerId,
+              type: 'REVERSAL',
+              points: remainingRedeemed,
+              saleId: id,
+              note: `Invoice ${existingSale.invoiceNumber || id} deleted — redeemed points restored`,
+              createdBy: req.user?.id || null
+            });
+          }
         }
       }
 

@@ -8,7 +8,9 @@ import {
   getCustomerPurchaseHistory,
   getCustomerLedger,
   recordCustomerPayment,
-  recordCustomerAdjustment
+  recordCustomerAdjustment,
+  getCustomerLoyalty,
+  recordLoyaltyAdjustment
 } from '../controllers/customer.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -40,5 +42,10 @@ router.delete('/:id', checkPermission('delete_customer'), deleteCustomer);
 router.get('/:id/ledger', checkPermission('read_customer'), getCustomerLedger);
 router.post('/:id/payments', checkPermission('update_customer'), recordCustomerPayment);
 router.post('/:id/adjustments', checkPermission('update_customer'), recordCustomerAdjustment);
+
+// Loyalty points (Wave B3): history read + manual adjustment
+// (additionally restricted to OWNER/MANAGER inside the controller).
+router.get('/:id/loyalty', checkPermission('read_customer'), getCustomerLoyalty);
+router.post('/:id/loyalty/adjustments', checkPermission('update_customer'), recordLoyaltyAdjustment);
 
 export default router;

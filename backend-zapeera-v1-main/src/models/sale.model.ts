@@ -22,6 +22,7 @@ export interface CreateSaleData {
   paymentMethod: PaymentMethod | string;
   paymentStatus?: PaymentStatus | string;
   payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
+  loyaltyPointsToRedeem?: number; // Loyalty redemption (Wave B3): points to spend on this sale
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer
@@ -73,6 +74,13 @@ export interface SaleResponse {
   returnedAmount?: number; // Amount returned/refunded
   paymentMethod: PaymentMethod | string;
   payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
+  // Loyalty (Wave B3): stored redemption/earn facts for this sale,
+  // plus the response-friendly aliases the create handler adds.
+  loyaltyPointsRedeemed?: number | null;
+  loyaltyDiscount?: number | null;
+  loyaltyPointsEarned?: number | null;
+  pointsRedeemed?: number;
+  pointsEarned?: number;
   paymentStatus: PaymentStatus | string;
   status: SaleStatus | string;
   saleDate?: string;
