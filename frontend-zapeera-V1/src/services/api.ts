@@ -6029,6 +6029,25 @@ export class ApiService {
     return this.request<Record<string, any>>('/roles');
   }
 
+  async getRolePermissions(role: string) {
+    return this.request<{
+      role: string;
+      permissions: Array<{
+        resource: string;
+        actions: string[];
+        conditions?: Record<string, any>;
+      }>;
+      accessibleResources: string[];
+    }>(`/roles/roles/${encodeURIComponent(role)}/permissions`);
+  }
+
+  async updateUserRole(userId: string, role: string, businessId: string) {
+    return this.request<any>(`/roles/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role, businessId }),
+    });
+  }
+
   async updateRoleModule(roleId: string, moduleId: string, enabled: boolean) {
     return this.request<any>(`/roles/${roleId}/modules/${moduleId}`, {
       method: 'PATCH',
