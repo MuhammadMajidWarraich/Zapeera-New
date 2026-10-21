@@ -193,6 +193,48 @@ export interface PaymentProof {
   createdAt: string;
 }
 
+export interface BackofficeCommission {
+  id: string;
+  staffProfileId: string;
+  membershipId: string;
+  branchId: string;
+  period: string;
+  periodType: string;
+  totalSales: number;
+  totalTransactions: number;
+  averageSale: number;
+  baseRate: number;
+  bonusRate: number;
+  totalCommission: number;
+  bonusAmount: number;
+  totalAmount: number;
+  status: 'PENDING' | 'APPROVED' | 'PAID' | 'CANCELLED';
+  paidAt?: string;
+  notes?: string;
+  createdAt: string;
+  staffProfile?: {
+    id: string;
+    employeeId?: string;
+    designation?: string;
+  };
+  membership?: {
+    user?: { id: string; name: string; email: string };
+    business?: { id: string; name: string };
+  };
+  branch?: { id: string; name: string };
+}
+
+export interface BackofficeCommissionStats {
+  totalCommissions: number;
+  pendingCommissions: number;
+  approvedCommissions: number;
+  paidCommissions: number;
+  cancelledCommissions: number;
+  totalAmount: number;
+  totalPaidAmount: number;
+  totalSales: number;
+}
+
 export interface AuditLog {
   id: string;
   adminId: string;

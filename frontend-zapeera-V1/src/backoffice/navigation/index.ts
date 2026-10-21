@@ -63,6 +63,7 @@ export function getNavigation(role: BackofficeRole): NavSection[] {
       items: [
         { label: 'Finance Dashboard', path: '/backoffice/finance', icon: DollarSign, permission: 'finance.read' },
         { label: 'Payment Proofs', path: '/backoffice/payment-proofs', icon: FileText, permission: 'finance.read' },
+        { label: 'Commissions', path: '/backoffice/commissions', icon: DollarSign, permission: 'finance.read' },
       ].filter(i => !i.permission || can(i.permission)),
     },
     {

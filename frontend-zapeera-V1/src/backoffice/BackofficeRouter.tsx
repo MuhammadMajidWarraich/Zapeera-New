@@ -14,6 +14,7 @@ import { RolesPage } from './pages/platform/roles/RolesPage';
 import { FeatureFlagsPage } from './pages/platform/feature-flags/FeatureFlagsPage';
 import { FinancePage } from './pages/finance/FinancePage';
 import { PaymentProofsPage } from './pages/finance/PaymentProofsPage';
+import { CommissionsPage } from './pages/finance/CommissionsPage';
 import { SupportPage } from './pages/support/SupportPage';
 import { SupportTicketsPage } from './pages/support/SupportTicketsPage';
 import { AnnouncementsPage } from './pages/support/AnnouncementsPage';
@@ -106,6 +107,11 @@ export function BackofficeRouter() {
         <Route path="payment-proofs" element={
           <ProtectedBackofficeRoute>
             <BackofficeLayout><PaymentProofsPage /></BackofficeLayout>
+          </ProtectedBackofficeRoute>
+        } />
+        <Route path="commissions" element={
+          <ProtectedBackofficeRoute>
+            <BackofficeLayout><CommissionsPage /></BackofficeLayout>
           </ProtectedBackofficeRoute>
         } />
         <Route path="support" element={

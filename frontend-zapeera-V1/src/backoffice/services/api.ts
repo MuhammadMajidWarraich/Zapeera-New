@@ -10,6 +10,8 @@ import {
   Module,
   Role,
   PaymentProof,
+  BackofficeCommission,
+  BackofficeCommissionStats,
   AuditLog,
   SupportTicket,
   SupportTicketMessage,
@@ -196,6 +198,20 @@ export const backofficeApi = {
     request(`/payment-proofs/${id}/approve`, { method: 'POST' }),
   rejectPaymentProof: (id: string, reason: string): Promise<{ success: boolean }> =>
     request(`/payment-proofs/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  // Commissions (read-only — tenant commissions are managed inside each business)
+  getCommissions: (params?: { page?: number; limit?: number; businessId?: string; status?: string; periodType?: string }): Promise<{ success: boolean; data: { commissions: BackofficeCommission[]; pagination: { page: number; limit: number; total: number; pages: number } } }> => {
+    const qs = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') qs.append(key, value.toString());
+      });
+    }
+    const query = qs.toString();
+    return request(`/commissions${query ? `?${query}` : ''}`);
+  },
+  getCommissionStats: (businessId?: string): Promise<{ success: boolean; data: BackofficeCommissionStats }> =>
+    request(`/commissions/stats${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`),
 
   // Audit Logs
   getAuditLogs: (params?: string): Promise<{ success: boolean; data: AuditLog[] }> =>

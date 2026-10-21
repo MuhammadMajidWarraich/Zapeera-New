@@ -103,6 +103,10 @@ import {
   updateFeatureFlag,
   deleteFeatureFlag,
 } from '../controllers/backoffice-feature-flags.controller';
+import {
+  getBackofficeCommissions,
+  getBackofficeCommissionStats,
+} from '../controllers/backoffice-commissions.controller';
 
 const router = Router();
 
@@ -239,6 +243,13 @@ router.post('/payment-proofs/:id/reject', adminAuthenticate, adminRoleGuard('SUP
   (req as any).params.proofId = req.params.id;
   rejectBackofficePaymentProof(req as any, res);
 });
+
+/**
+ * Commissions Routes (read-only platform visibility; tenant commissions
+ * are created/managed inside each business via /api/commissions)
+ */
+router.get('/commissions', adminAuthenticate, getBackofficeCommissions);
+router.get('/commissions/stats', adminAuthenticate, getBackofficeCommissionStats);
 
 /**
  * Support Tickets Routes
