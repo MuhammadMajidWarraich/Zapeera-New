@@ -1096,6 +1096,26 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         });
       }
 
+      // Udhaar/khata (Wave B2): the unpaid part of a customer sale is
+      // credit the shop has extended — record it on the customer's
+      // ledger in this same transaction so the khata can never
+      // disagree with the sale. A customer sale paid in full at the
+      // counter writes no row.
+      const dueAmount = round2(totalAmount - paidAmount);
+      if (saleData.customerId && dueAmount > 0) {
+        await tx.customerLedgerEntry.create({
+          data: {
+            companyId: targetCompanyId,
+            customerId: saleData.customerId,
+            type: 'SALE_DUE',
+            amount: dueAmount,
+            note: `Udhaar on invoice ${invoiceNumber}`,
+            saleId: sale.id,
+            createdBy: req.user?.createdBy || req.user?.id || null
+          }
+        });
+      }
+
       // Generate receipt number - Short format: RCN-XXXXX (4-5 digits)
       // Get the last receipt number to increment, or start from 1
       const lastReceipt = await tx.receipt.findFirst({
@@ -1378,6 +1398,39 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // Udhaar/khata (Wave B2): updateSale never changes paidAmount, but
+    // a discount edit changes the total — and with it the unpaid part
+    // of a customer sale. Post the delta as a compensating SALE_DUE
+    // row so the ledger keeps matching the sale's outstanding due.
+    // Skipped for fully-refunded sales: their due was already settled
+    // by REFUND rows, and a delta here would double-count it. This
+    // handler is not transactional (the update above is a single
+    // statement), so a ledger failure is logged loudly but never
+    // allowed to fail the sale edit itself.
+    if (existingSale.customerId && existingSale.status !== 'REFUNDED' && newTotalAmount !== existingSale.totalAmount) {
+      const paid = Number(existingSale.paidAmount || 0);
+      const oldDue = Math.max(0, existingSale.totalAmount - paid);
+      const newDue = Math.max(0, newTotalAmount - paid);
+      const delta = Math.round((newDue - oldDue) * 100) / 100;
+      if (delta !== 0) {
+        try {
+          await prisma.customerLedgerEntry.create({
+            data: {
+              companyId: existingSale.companyId,
+              customerId: existingSale.customerId,
+              type: 'SALE_DUE',
+              amount: delta,
+              note: `Invoice ${existingSale.invoiceNumber || existingSale.id} total changed by discount edit`,
+              saleId: existingSale.id,
+              createdBy: req.user?.id || null
+            }
+          });
+        } catch (ledgerError) {
+          console.error('[Khata] Failed to post discount-edit delta for sale', existingSale.id, ledgerError);
+        }
+      }
+    }
+
     // Convert BigInt values to strings for JSON serialization
     const serializedSale = {
       ...updatedSale,
@@ -1578,6 +1631,38 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
               loyaltyPoints: {
                 decrement: Math.floor(existingSale.totalAmount / 100) // 1 point per 100 PKR
               }
+            }
+          });
+        }
+      }
+
+      // Udhaar/khata (Wave B2): reverse whatever this sale still
+      // contributes to the customer's due — the SUM of its own ledger
+      // rows (SALE_DUE posts minus REFUND offsets) — so deleting the
+      // sale cannot leave phantom udhaar behind. Runs for every sale
+      // status: a PENDING credit sale carries due too, even though the
+      // stock/stats reversal above is COMPLETED-only. The row's
+      // saleId is SetNull by the delete below; its note keeps the
+      // invoice number readable on the statement.
+      if (existingSale.customerId) {
+        const saleLedger = await tx.customerLedgerEntry.aggregate({
+          where: {
+            saleId: id,
+            type: { in: ['SALE_DUE', 'REFUND'] }
+          },
+          _sum: { amount: true }
+        });
+        const netSaleDue = Math.round((saleLedger._sum.amount || 0) * 100) / 100;
+        if (netSaleDue > 0) {
+          await tx.customerLedgerEntry.create({
+            data: {
+              companyId: existingSale.companyId,
+              customerId: existingSale.customerId,
+              type: 'SALE_DUE',
+              amount: -netSaleDue,
+              note: `Invoice ${existingSale.invoiceNumber || id} deleted — udhaar reversed`,
+              saleId: id,
+              createdBy: req.user?.id || null
             }
           });
         }

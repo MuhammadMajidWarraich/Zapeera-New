@@ -1143,6 +1143,9 @@ export class ApiService {
         isVIP: boolean;
         lastVisit?: string;
         isActive: boolean;
+        // Khata balance (Wave B2): SUM of the customer's ledger rows —
+        // positive means the customer owes the shop.
+        balance: number;
         createdAt: string;
         updatedAt: string;
       }>;
@@ -1213,6 +1216,87 @@ export class ApiService {
   async deleteCustomer(id: string) {
     return this.request<{ message: string }>(`/customers/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Udhaar / khata ledger (Wave B2)
+  async getCustomerLedger(customerId: string, params?: {
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const query = queryParams.toString();
+    return this.request<{
+      customer: { id: string; name: string; phone: string };
+      summary: {
+        balance: number;
+        totalDue: number;
+        totalPaid: number;
+        entryCount: number;
+      };
+      entries: Array<{
+        id: string;
+        type: 'SALE_DUE' | 'PAYMENT' | 'ADJUSTMENT' | 'REFUND';
+        amount: number;
+        method?: string | null;
+        reference?: string | null;
+        note?: string | null;
+        saleId?: string | null;
+        sale?: { invoiceNumber?: string | null } | null;
+        createdBy?: string | null;
+        createdAt: string;
+        balanceAfter: number;
+      }>;
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(`/customers/${customerId}/ledger${query ? `?${query}` : ''}`);
+  }
+
+  async recordCustomerPayment(customerId: string, data: {
+    amount: number;
+    method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'BANK_TRANSFER' | 'MOBILE';
+    reference?: string;
+    note?: string;
+  }) {
+    return this.request<{
+      entry: {
+        id: string;
+        type: string;
+        amount: number;
+        method?: string | null;
+        reference?: string | null;
+        note?: string | null;
+        createdAt: string;
+      };
+      balance: number;
+    }>(`/customers/${customerId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async recordCustomerAdjustment(customerId: string, data: {
+    amount: number;
+    note: string;
+  }) {
+    return this.request<{
+      entry: {
+        id: string;
+        type: string;
+        amount: number;
+        note?: string | null;
+        createdAt: string;
+      };
+      balance: number;
+    }>(`/customers/${customerId}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 

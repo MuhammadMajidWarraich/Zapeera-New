@@ -453,6 +453,38 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
         }
       });
 
+      // Udhaar/khata (Wave B2): when the refunded sale was made on
+      // credit, the refund first cancels what the customer still owes
+      // on it — only the excess over the outstanding due is money
+      // handed back, and only the cancelled part touches the khata.
+      // Outstanding on this sale = total − paid − refunds already
+      // processed (priorRefunds was read before this transaction, so
+      // it does not include the refund being created here).
+      if (originalSale.customerId) {
+        const priorRefundTotal = priorRefunds.reduce(
+          (sum, r) => sum + Number(r.refundAmount || 0),
+          0
+        );
+        const outstandingDue = round2(Math.max(
+          0,
+          Number(originalSale.totalAmount) - Number(originalSale.paidAmount || 0) - priorRefundTotal
+        ));
+        const dueReduction = Math.min(refundAmount, outstandingDue);
+        if (dueReduction > 0) {
+          await tx.customerLedgerEntry.create({
+            data: {
+              companyId: originalSale.companyId,
+              customerId: originalSale.customerId,
+              type: 'REFUND',
+              amount: -dueReduction,
+              note: `Refund against invoice ${originalSale.invoiceNumber || originalSale.id} adjusted in udhaar`,
+              saleId: originalSale.id,
+              createdBy: actorId
+            }
+          });
+        }
+      }
+
       return { refund, refundItems };
     });
 

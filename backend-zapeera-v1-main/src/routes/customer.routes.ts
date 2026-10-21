@@ -5,7 +5,10 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  getCustomerPurchaseHistory
+  getCustomerPurchaseHistory,
+  getCustomerLedger,
+  recordCustomerPayment,
+  recordCustomerAdjustment
 } from '../controllers/customer.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -29,5 +32,13 @@ router.get('/:id/purchase-history', checkPermission('read_customer'), getCustome
 router.post('/', checkPermission('create_customer'), createCustomer);
 router.put('/:id', checkPermission('update_customer'), updateCustomer);
 router.delete('/:id', checkPermission('delete_customer'), deleteCustomer);
+
+// Udhaar / khata ledger (Wave B2). Recording a payment is a customer
+// update (cashiers hold customers UPDATE in the standard policies);
+// adjustments are additionally restricted to OWNER/MANAGER inside the
+// controller.
+router.get('/:id/ledger', checkPermission('read_customer'), getCustomerLedger);
+router.post('/:id/payments', checkPermission('update_customer'), recordCustomerPayment);
+router.post('/:id/adjustments', checkPermission('update_customer'), recordCustomerAdjustment);
 
 export default router;

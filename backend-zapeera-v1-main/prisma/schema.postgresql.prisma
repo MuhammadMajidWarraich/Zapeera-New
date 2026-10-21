@@ -552,11 +552,48 @@ model Customer {
   branch         Branch    @relation(fields: [branchId], references: [id])
   company        Business  @relation(fields: [companyId], references: [id])
   sales          Sale[]
+  ledgerEntries  CustomerLedgerEntry[]
 
   @@index([companyId], name: "idx_customer_company")
   @@index([branchId], name: "idx_customer_branch")
   @@index([isActive], name: "idx_customer_active")
   @@map("customers")
+}
+
+// Udhaar / khata ledger (Wave B2): one append-only row per movement of a
+// customer's running credit balance. `amount` is signed — a positive
+// amount increases what the customer owes, a negative amount reduces it:
+//   SALE_DUE   + (total − paid) of a sale made on credit, written by the
+//              sale-create transaction; discount edits and sale deletion
+//              write compensating SALE_DUE rows for the delta.
+//   PAYMENT    − a khata payment collected from the customer.
+//   REFUND     − the part of a refund that cancels outstanding due
+//              instead of being handed back in cash.
+//   ADJUSTMENT ± manual correction (OWNER/MANAGER only, note required).
+// The customer's balance is the SUM of their rows — never stored — so
+// the statement and the balance can never disagree. `saleId` is SetNull
+// on sale deletion so the statement survives the sale row going away
+// (the note keeps the invoice number readable).
+model CustomerLedgerEntry {
+  id         String   @id @default(cuid())
+  companyId  String
+  customerId String
+  type       String // SALE_DUE | PAYMENT | ADJUSTMENT | REFUND
+  amount     Float // signed: + increases the customer's due, − reduces it
+  method     String? // tender for PAYMENT rows: CASH | CARD | JAZZCASH | EASYPAISA | BANK_TRANSFER | MOBILE
+  reference  String? // txn id / receipt reference for the payment, when any
+  note       String?
+  saleId     String? // originating sale for SALE_DUE / REFUND rows
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id])
+  sale       Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([customerId], name: "idx_customer_ledger_customer")
+  @@index([companyId], name: "idx_customer_ledger_company")
+  @@index([saleId], name: "idx_customer_ledger_sale")
+  @@index([createdAt], name: "idx_customer_ledger_createdAt")
+  @@map("customer_ledger_entries")
 }
 
 model Sale {
@@ -588,6 +625,7 @@ model Sale {
   refunds  Refund[]    @relation("SaleRefunds")
   items    SaleItem[]
   payments SalePayment[]
+  ledgerEntries CustomerLedgerEntry[]
   branch   Branch      @relation(fields: [branchId], references: [id])
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])

@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { createSearchConditions } from '../utils/query-helper';
 import { CreateCustomerData, UpdateCustomerData } from '../models/customer.model';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
 import { notifyCustomerChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
@@ -188,6 +188,25 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
       prisma.customer.count({ where })
     ]);
 
+    // Khata balance per customer (Wave B2): the SUM of the customer's
+    // ledger rows, fetched as one grouped aggregate for the whole page —
+    // the balance is never a stored column, so it cannot drift from the
+    // statement.
+    const balanceRows = customers.length > 0
+      ? await prisma.customerLedgerEntry.groupBy({
+          by: ['customerId'],
+          where: { customerId: { in: customers.map(c => c.id) } },
+          _sum: { amount: true }
+        })
+      : [];
+    const balanceByCustomer = new Map(
+      balanceRows.map(r => [r.customerId, Math.round((r._sum.amount || 0) * 100) / 100])
+    );
+    const customersWithBalance = customers.map(c => ({
+      ...c,
+      balance: balanceByCustomer.get(c.id) ?? 0
+    }));
+
     console.log('Found customers:', customers.length);
     console.log('Total customers in database:', total);
     console.log('Customer details:', customers.map(c => ({
@@ -203,7 +222,7 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
     return res.json({
       success: true,
       data: {
-        customers,
+        customers: customersWithBalance,
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -281,9 +300,18 @@ export const getCustomer = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Khata balance (Wave B2): SUM of the customer's ledger rows.
+    const balanceAgg = await prisma.customerLedgerEntry.aggregate({
+      where: { customerId: id, companyId: businessId } as any,
+      _sum: { amount: true }
+    });
+
     return res.json({
       success: true,
-      data: customer
+      data: {
+        ...customer,
+        balance: Math.round((balanceAgg._sum.amount || 0) * 100) / 100
+      }
     });
   } catch (error) {
     console.error('Get customer error:', error);
@@ -766,6 +794,249 @@ export const getCustomerPurchaseHistory = async (req: AuthRequest, res: Response
     });
   } catch (error) {
     console.error('Get customer purchase history error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// ─── Udhaar / khata ledger (Wave B2) ─────────────────────────────────
+// Append-only statement of a customer's credit balance. Rows are
+// written by the sale/refund flows (SALE_DUE / REFUND) and by the two
+// endpoints below (PAYMENT / ADJUSTMENT). The balance is always the
+// SUM of the rows — see the CustomerLedgerEntry schema comment.
+
+const KHATA_TENDER_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAISA', 'BANK_TRANSFER', 'MOBILE'];
+
+const recordPaymentSchema = Joi.object({
+  amount: Joi.number().positive().required(),
+  method: Joi.string().valid(...KHATA_TENDER_METHODS).default('CASH'),
+  reference: Joi.string().allow('', null).max(120).optional(),
+  note: Joi.string().allow('', null).max(500).optional()
+});
+
+const recordAdjustmentSchema = Joi.object({
+  // Signed and never zero: + adds to what the customer owes, − reduces it.
+  amount: Joi.number().invalid(0).required(),
+  note: Joi.string().trim().min(1).max(500).required()
+});
+
+const ledgerRound2 = (n: number) => Math.round(n * 100) / 100;
+
+// Resolves the ledger's customer inside the caller's business, writing
+// the error response itself when the context or customer is missing.
+// Returns null when a response has already been sent.
+const findLedgerCustomer = async (req: AuthRequest, res: Response, customerId: string) => {
+  const prisma = await getPrisma();
+  const businessId = req.business_id || req.headers['x-company-id'] as string;
+
+  if (!businessId) {
+    res.status(400).json({
+      success: false,
+      message: 'Business context required'
+    });
+    return null;
+  }
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, companyId: businessId },
+    select: { id: true, name: true, phone: true }
+  });
+
+  if (!customer) {
+    res.status(404).json({
+      success: false,
+      message: 'Customer not found'
+    });
+    return null;
+  }
+
+  return { prisma, businessId: String(businessId), customer };
+};
+
+const sumLedgerBalance = async (prisma: any, customerId: string, companyId: string): Promise<number> => {
+  const agg = await prisma.customerLedgerEntry.aggregate({
+    where: { customerId, companyId },
+    _sum: { amount: true }
+  });
+  return ledgerRound2(agg._sum.amount || 0);
+};
+
+export const getCustomerLedger = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const resolved = await findLedgerCustomer(req, res, id);
+    if (!resolved) return;
+    const { prisma, businessId, customer } = resolved;
+
+    // Running balances are cumulative, so they are computed over the
+    // customer's full history (oldest → newest) in one pass and the
+    // requested page is sliced from the newest end. A per-page running
+    // balance would restart at zero on every page and misstate the
+    // khata; per-customer histories are small enough for this.
+    const allEntries = await prisma.customerLedgerEntry.findMany({
+      where: { customerId: id, companyId: businessId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: {
+        sale: {
+          select: { invoiceNumber: true }
+        }
+      }
+    });
+
+    let running = 0;
+    let totalDue = 0; // net SALE_DUE (credit extended minus its reversals)
+    let totalPaid = 0; // SUM of khata payments, as a positive number
+    const withBalance = allEntries.map(entry => {
+      running = ledgerRound2(running + entry.amount);
+      if (entry.type === 'SALE_DUE') totalDue = ledgerRound2(totalDue + entry.amount);
+      if (entry.type === 'PAYMENT') totalPaid = ledgerRound2(totalPaid - entry.amount);
+      return { ...entry, balanceAfter: running };
+    });
+
+    const newestFirst = withBalance.reverse();
+    const total = newestFirst.length;
+    const take = Number(limit);
+    const skip = (Number(page) - 1) * take;
+    const entries = newestFirst.slice(skip, skip + take);
+
+    return res.json({
+      success: true,
+      data: {
+        customer,
+        summary: {
+          balance: running,
+          totalDue,
+          totalPaid,
+          entryCount: total
+        },
+        entries,
+        pagination: {
+          page: Number(page),
+          limit: take,
+          total,
+          pages: Math.ceil(total / take)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get customer ledger error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+export const recordCustomerPayment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { error, value } = recordPaymentSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+
+    const resolved = await findLedgerCustomer(req, res, id);
+    if (!resolved) return;
+    const { prisma, businessId, customer } = resolved;
+
+    // Stored negative: a payment reduces what the customer owes.
+    // Overpayment is allowed on purpose — the balance goes negative,
+    // which is exactly how a khata shows an advance / store credit.
+    const entry = await prisma.customerLedgerEntry.create({
+      data: {
+        companyId: businessId,
+        customerId: customer.id,
+        type: 'PAYMENT',
+        amount: -ledgerRound2(Number(value.amount)),
+        method: value.method,
+        reference: value.reference || null,
+        note: value.note || null,
+        createdBy: req.user?.id || null
+      }
+    });
+
+    const balance = await sumLedgerBalance(prisma, customer.id, businessId);
+
+    syncAfterOperation('customer', 'update', customer).catch(err => {
+      console.error('[Sync] Customer khata payment sync failed:', err.message);
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { entry, balance },
+      message: 'Payment recorded successfully'
+    });
+  } catch (error) {
+    console.error('Record customer payment error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+export const recordCustomerAdjustment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Adjustments rewrite the meaning of the khata (write-offs, opening
+    // balances, corrections) — owner/manager only, same role vocabulary
+    // the sale update/delete guards use.
+    const role = getUserRole(req);
+    if (!['OWNER', 'MANAGER', 'ADMIN'].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the owner or a manager can post khata adjustments'
+      });
+    }
+
+    const { error, value } = recordAdjustmentSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+
+    const resolved = await findLedgerCustomer(req, res, id);
+    if (!resolved) return;
+    const { prisma, businessId, customer } = resolved;
+
+    const entry = await prisma.customerLedgerEntry.create({
+      data: {
+        companyId: businessId,
+        customerId: customer.id,
+        type: 'ADJUSTMENT',
+        amount: ledgerRound2(Number(value.amount)),
+        note: value.note,
+        createdBy: req.user?.id || null
+      }
+    });
+
+    const balance = await sumLedgerBalance(prisma, customer.id, businessId);
+
+    syncAfterOperation('customer', 'update', customer).catch(err => {
+      console.error('[Sync] Customer khata adjustment sync failed:', err.message);
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { entry, balance },
+      message: 'Adjustment recorded successfully'
+    });
+  } catch (error) {
+    console.error('Record customer adjustment error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error'

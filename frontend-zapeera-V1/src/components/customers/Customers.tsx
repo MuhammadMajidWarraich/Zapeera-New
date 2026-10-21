@@ -27,6 +27,9 @@ import {
   AlertTriangle,
   Pencil,
   Trash2,
+  BookOpen,
+  Printer,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api";
@@ -60,6 +63,21 @@ interface Customer {
   loyaltyPoints: number;
   isVIP: boolean;
   createdBy?: string;
+  // Khata balance (Wave B2): positive = the customer owes the shop.
+  balance: number;
+}
+
+interface KhataEntry {
+  id: string;
+  type: 'SALE_DUE' | 'PAYMENT' | 'ADJUSTMENT' | 'REFUND';
+  amount: number;
+  method?: string | null;
+  reference?: string | null;
+  note?: string | null;
+  saleId?: string | null;
+  sale?: { invoiceNumber?: string | null } | null;
+  createdAt: string;
+  balanceAfter: number;
 }
 
 interface PurchaseHistory {
@@ -111,6 +129,39 @@ const Customers = () => {
   });
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Khata (udhaar ledger) state — Wave B2
+  const [khataCustomer, setKhataCustomer] = useState<Customer | null>(null);
+  const [isKhataDialogOpen, setIsKhataDialogOpen] = useState(false);
+  const [khataLoading, setKhataLoading] = useState(false);
+  const [khataSummary, setKhataSummary] = useState<{
+    balance: number;
+    totalDue: number;
+    totalPaid: number;
+    entryCount: number;
+  } | null>(null);
+  const [khataEntries, setKhataEntries] = useState<KhataEntry[]>([]);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: "",
+    method: "CASH",
+    reference: "",
+    note: ""
+  });
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    amount: "",
+    note: ""
+  });
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const [isRecordingAdjustment, setIsRecordingAdjustment] = useState(false);
+
+  // Khata adjustments rewrite the meaning of the ledger (write-offs,
+  // opening balances) — the backend restricts them to OWNER/MANAGER,
+  // so the form is only rendered for those roles.
+  const currentRole = String(
+    (user as any)?.membership?.roleName || user?.role || ""
+  ).toUpperCase();
+  const canAdjustKhata =
+    currentRole === "OWNER" || currentRole === "MANAGER" || currentRole === "ADMIN";
 
   const handleAddCustomer = async () => {
     if (!newCustomer.name.trim() || !newCustomer.phone.trim()) {
@@ -278,6 +329,191 @@ const Customers = () => {
     }
   };
 
+  const loadKhata = useCallback(async (customerId: string) => {
+    try {
+      setKhataLoading(true);
+      const response = await apiService.getCustomerLedger(customerId, {
+        page: 1,
+        limit: 200
+      });
+      if (response.success && response.data) {
+        setKhataSummary(response.data.summary);
+        setKhataEntries(response.data.entries as KhataEntry[]);
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to load khata",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error loading khata:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to load khata",
+        variant: "destructive",
+      });
+    } finally {
+      setKhataLoading(false);
+    }
+  }, [toast]);
+
+  const openKhata = async (customer: Customer) => {
+    setKhataCustomer(customer);
+    setKhataSummary(null);
+    setKhataEntries([]);
+    setPaymentForm({ amount: "", method: "CASH", reference: "", note: "" });
+    setAdjustmentForm({ amount: "", note: "" });
+    setIsKhataDialogOpen(true);
+    await loadKhata(customer.id);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!khataCustomer) return;
+    const amount = Number(paymentForm.amount);
+    if (!amount || amount <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Enter a payment amount greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsRecordingPayment(true);
+      const response = await apiService.recordCustomerPayment(khataCustomer.id, {
+        amount,
+        method: paymentForm.method as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'BANK_TRANSFER' | 'MOBILE',
+        reference: paymentForm.reference.trim() || undefined,
+        note: paymentForm.note.trim() || undefined,
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Payment recorded in the khata.",
+        });
+        setPaymentForm({ amount: "", method: "CASH", reference: "", note: "" });
+        await loadKhata(khataCustomer.id);
+        void loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to record payment",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error recording khata payment:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to record payment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecordingPayment(false);
+    }
+  };
+
+  const handleRecordAdjustment = async () => {
+    if (!khataCustomer) return;
+    const amount = Number(adjustmentForm.amount);
+    if (!amount || Number.isNaN(amount)) {
+      toast({
+        title: "Validation Error",
+        description: "Enter a non-zero adjustment amount (use a negative amount to reduce the due).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!adjustmentForm.note.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "A note is required for khata adjustments.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsRecordingAdjustment(true);
+      const response = await apiService.recordCustomerAdjustment(khataCustomer.id, {
+        amount,
+        note: adjustmentForm.note.trim(),
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Khata adjustment recorded.",
+        });
+        setAdjustmentForm({ amount: "", note: "" });
+        await loadKhata(khataCustomer.id);
+        void loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to record adjustment",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error recording khata adjustment:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to record adjustment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecordingAdjustment(false);
+    }
+  };
+
+  const printKhataStatement = () => {
+    if (!khataCustomer || !khataSummary) return;
+    const esc = (v: unknown) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const typeLabel: Record<string, string> = {
+      SALE_DUE: "Udhaar",
+      PAYMENT: "Payment received",
+      ADJUSTMENT: "Adjustment",
+      REFUND: "Refund adjustment",
+    };
+    // The statement prints oldest → newest so the running balance
+    // reads top-down, the way a paper khata does.
+    const rows = [...khataEntries]
+      .reverse()
+      .map(
+        (entry) => `<tr>
+          <td>${new Date(entry.createdAt).toLocaleDateString()}</td>
+          <td>${esc(typeLabel[entry.type] || entry.type)}${entry.sale?.invoiceNumber ? ` — ${esc(entry.sale.invoiceNumber)}` : ""}${entry.note ? `<br/><small>${esc(entry.note)}</small>` : ""}</td>
+          <td>${esc(entry.method || "—")}${entry.reference ? `<br/><small>${esc(entry.reference)}</small>` : ""}</td>
+          <td style="text-align:right">${entry.amount > 0 ? "+" : "−"} PKR ${Math.abs(entry.amount).toLocaleString()}</td>
+          <td style="text-align:right">PKR ${entry.balanceAfter.toLocaleString()}</td>
+        </tr>`
+      )
+      .join("");
+    const html = `<!DOCTYPE html><html><head><title>Khata Statement — ${esc(khataCustomer.name)}</title>
+      <style>body{font-family:Arial,sans-serif;padding:24px;color:#0a1128}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px;font-size:13px;text-align:left}th{background:#f0f2f7}small{color:#666}</style>
+      </head><body>
+      <h2 style="margin:0">Khata Statement</h2>
+      <p style="margin:4px 0">Customer: <b>${esc(khataCustomer.name)}</b> — ${esc(khataCustomer.phone)}<br/>Printed: ${new Date().toLocaleString()}</p>
+      <p style="margin:4px 0">Total udhaar: <b>PKR ${khataSummary.totalDue.toLocaleString()}</b> &nbsp;|&nbsp; Total paid: <b>PKR ${khataSummary.totalPaid.toLocaleString()}</b> &nbsp;|&nbsp; Balance due: <b>PKR ${khataSummary.balance.toLocaleString()}</b></p>
+      <table><thead><tr><th>Date</th><th>Detail</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5">No khata entries yet.</td></tr>'}</tbody></table>
+      <script>window.onload = () => window.print();</script>
+      </body></html>`;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
+
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
@@ -345,6 +581,7 @@ const Customers = () => {
           loyaltyPoints: Number(customer.loyaltyPoints) || 0,
           isVIP: Boolean(customer.isVIP) || false,
           createdBy: customer.createdBy || null,
+          balance: Number(customer.balance) || 0,
         }));
 
         setCustomers(transformedCustomers);
@@ -571,7 +808,7 @@ const Customers = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] border-collapse">
+                <table className="w-full min-w-[900px] border-collapse">
                   <thead>
                     <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
                       <th className="px-6 py-4 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
@@ -582,6 +819,9 @@ const Customers = () => {
                       </th>
                       <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Total Purchases
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                        Khata Balance
                       </th>
                       <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Last Visit
@@ -633,6 +873,19 @@ const Customers = () => {
                           </span>
                         </td>
                         <td className="px-6 py-5 align-middle">
+                          {customer.balance > 0 ? (
+                            <span className="text-[15px] font-bold text-[#dc2626]">
+                              PKR {customer.balance.toLocaleString()}
+                            </span>
+                          ) : customer.balance < 0 ? (
+                            <span className="text-[13px] font-semibold text-emerald-600">
+                              PKR {Math.abs(customer.balance).toLocaleString()} advance
+                            </span>
+                          ) : (
+                            <span className="text-[13px] font-medium text-[#8c95b0]">Settled</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 align-middle">
                           <span className="text-[13px] font-medium text-[#4a5578]">
                             {new Date(customer.lastVisit).toLocaleDateString()}
                           </span>
@@ -651,6 +904,14 @@ const Customers = () => {
                         </td>
                         <td className="px-6 py-5 pr-8 text-right align-middle">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void openKhata(customer)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            >
+                              <BookOpen className="h-[15px] w-[15px]" strokeWidth={2} />
+                              Khata
+                            </button>
                             <button
                               type="button"
                               onClick={() => void viewPurchaseHistory(customer)}
@@ -1065,6 +1326,271 @@ const Customers = () => {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isKhataDialogOpen} onOpenChange={setIsKhataDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader className="space-y-1 pr-10 text-left">
+            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#0a1128]">
+              <BookOpen className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+              Khata — {khataCustomer?.name}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-[#8c95b0]">
+              Udhaar ledger: credit sales, payments received and the running balance for this customer.
+            </DialogDescription>
+          </DialogHeader>
+
+          {khataCustomer && (
+            <div className="space-y-6 pt-6">
+              <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f8f9fb] p-5">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-[#8c95b0]">Balance due</p>
+                    <p
+                      className={cn(
+                        "mt-1 text-lg font-extrabold",
+                        (khataSummary?.balance || 0) > 0 ? "text-[#dc2626]" : "text-[#1a52c5]"
+                      )}
+                    >
+                      PKR {(khataSummary?.balance || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-[#8c95b0]">Total udhaar</p>
+                    <p className="mt-1 text-lg font-extrabold text-[#0a1128]">
+                      PKR {(khataSummary?.totalDue || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-[#8c95b0]">Total paid</p>
+                    <p className="mt-1 text-lg font-extrabold text-emerald-600">
+                      PKR {(khataSummary?.totalPaid || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-[#8c95b0]">Phone</p>
+                    <p className="mt-1 text-base font-semibold text-[#0a1128]">{khataCustomer.phone}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-[#8c95b0]">Statement</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={printKhataStatement}
+                  disabled={khataLoading || !khataSummary}
+                  className="rounded-[10px]"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print statement
+                </Button>
+              </div>
+
+              {khataLoading ? (
+                <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f8f9fb] px-6 py-12 text-center">
+                  <p className="text-sm text-[#8c95b0]">Loading khata…</p>
+                </div>
+              ) : khataEntries.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-[rgba(15,23,60,0.06)]">
+                  <table className="w-full min-w-[640px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Date</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Detail</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Method</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Amount</th>
+                        <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {khataEntries.map((entry) => (
+                        <tr
+                          key={entry.id}
+                          className="[&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        >
+                          <td className="px-4 py-3 text-[13px] text-[#4a5578]">
+                            {new Date(entry.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-[13px] font-semibold text-[#0a1128]">
+                              {entry.type === 'SALE_DUE' && 'Udhaar'}
+                              {entry.type === 'PAYMENT' && 'Payment received'}
+                              {entry.type === 'ADJUSTMENT' && 'Adjustment'}
+                              {entry.type === 'REFUND' && 'Refund adjustment'}
+                              {entry.sale?.invoiceNumber ? (
+                                <span className="font-medium text-[#8c95b0]"> — {entry.sale.invoiceNumber}</span>
+                              ) : null}
+                            </div>
+                            {entry.note ? (
+                              <div className="mt-0.5 text-xs text-[#8c95b0]">{entry.note}</div>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-[#4a5578]">
+                            {entry.method || "—"}
+                            {entry.reference ? (
+                              <div className="text-xs text-[#8c95b0]">{entry.reference}</div>
+                            ) : null}
+                          </td>
+                          <td
+                            className={cn(
+                              "px-4 py-3 text-right text-[13px] font-bold",
+                              entry.amount > 0 ? "text-[#dc2626]" : "text-emerald-600"
+                            )}
+                          >
+                            {entry.amount > 0 ? "+" : "−"} PKR {Math.abs(entry.amount).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right text-[13px] font-semibold text-[#0a1128]">
+                            PKR {entry.balanceAfter.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f8f9fb] px-6 py-12 text-center">
+                  <BookOpen className="mx-auto mb-4 h-12 w-12 text-[#8c95b0]" />
+                  <h3 className="mb-2 text-sm font-bold text-[#0a1128]">No khata entries yet</h3>
+                  <p className="text-sm text-[#8c95b0]">
+                    Credit sales and payments for this customer will appear here.
+                  </p>
+                </div>
+              )}
+              {khataSummary && khataSummary.entryCount > khataEntries.length && (
+                <p className="text-xs text-[#8c95b0]">
+                  Showing the latest {khataEntries.length} of {khataSummary.entryCount} entries.
+                </p>
+              )}
+
+              <div className={cn("grid gap-4", canAdjustKhata ? "md:grid-cols-2" : "md:grid-cols-1")}>
+                <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5">
+                  <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-[#0a1128]">
+                    <Wallet className="h-4 w-4 text-[#1a52c5]" />
+                    Record payment
+                  </h3>
+                  <div className="flex flex-col gap-3.5">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="khataPaymentAmount" className="text-[13px] font-semibold text-[#0a1128]">
+                        Amount (PKR) <span className="text-[#dc2626]">*</span>
+                      </Label>
+                      <Input
+                        id="khataPaymentAmount"
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 500"
+                        value={paymentForm.amount}
+                        onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                        className={customerFormField}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-semibold text-[#0a1128]">Method</Label>
+                      <Select
+                        value={paymentForm.method}
+                        onValueChange={(value) => setPaymentForm({ ...paymentForm, method: value })}
+                      >
+                        <SelectTrigger className={customerFormField}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CASH">Cash</SelectItem>
+                          <SelectItem value="CARD">Card</SelectItem>
+                          <SelectItem value="JAZZCASH">JazzCash</SelectItem>
+                          <SelectItem value="EASYPAISA">Easypaisa</SelectItem>
+                          <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                          <SelectItem value="MOBILE">Mobile</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="khataPaymentReference" className="text-[13px] font-semibold text-[#0a1128]">
+                        Reference <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+                      </Label>
+                      <Input
+                        id="khataPaymentReference"
+                        placeholder="Transaction ID / receipt no."
+                        value={paymentForm.reference}
+                        onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                        className={customerFormField}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="khataPaymentNote" className="text-[13px] font-semibold text-[#0a1128]">
+                        Note <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+                      </Label>
+                      <Input
+                        id="khataPaymentNote"
+                        placeholder="Note"
+                        value={paymentForm.note}
+                        onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
+                        className={customerFormField}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleRecordPayment}
+                      disabled={isRecordingPayment || !paymentForm.amount}
+                      className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                    >
+                      {isRecordingPayment ? "Recording…" : "Record payment"}
+                    </Button>
+                  </div>
+                </div>
+
+                {canAdjustKhata && (
+                  <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5">
+                    <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-[#0a1128]">
+                      <BookOpen className="h-4 w-4 text-[#1a52c5]" />
+                      Adjustment
+                    </h3>
+                    <div className="flex flex-col gap-3.5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="khataAdjustmentAmount" className="text-[13px] font-semibold text-[#0a1128]">
+                          Amount (PKR) <span className="text-[#dc2626]">*</span>
+                        </Label>
+                        <Input
+                          id="khataAdjustmentAmount"
+                          type="number"
+                          placeholder="Negative reduces the due, e.g. -200"
+                          value={adjustmentForm.amount}
+                          onChange={(e) => setAdjustmentForm({ ...adjustmentForm, amount: e.target.value })}
+                          className={customerFormField}
+                        />
+                        <p className="text-xs text-[#8c95b0]">
+                          Use a negative amount for a write-off or correction, positive to add an opening balance.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="khataAdjustmentNote" className="text-[13px] font-semibold text-[#0a1128]">
+                          Note <span className="text-[#dc2626]">*</span>
+                        </Label>
+                        <Input
+                          id="khataAdjustmentNote"
+                          placeholder="Why is this adjustment being made?"
+                          value={adjustmentForm.note}
+                          onChange={(e) => setAdjustmentForm({ ...adjustmentForm, note: e.target.value })}
+                          className={customerFormField}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleRecordAdjustment}
+                        disabled={isRecordingAdjustment || !adjustmentForm.amount || !adjustmentForm.note.trim()}
+                        className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                      >
+                        {isRecordingAdjustment ? "Recording…" : "Post adjustment"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
