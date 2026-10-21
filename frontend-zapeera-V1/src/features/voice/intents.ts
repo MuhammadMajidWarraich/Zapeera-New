@@ -21,7 +21,7 @@ export type NavTarget =
   | 'customers';
 
 export type VoiceIntent =
-  | { type: 'add_product'; name: string; price?: number }
+  | { type: 'add_product'; name: string; price?: number; category?: string }
   | { type: 'add_category'; name: string }
   | { type: 'find_product'; query: string }
   | { type: 'check_stock'; query: string }
@@ -215,13 +215,19 @@ export function parseUtterance(raw: string): VoiceIntent {
   }
 
   // --- add category ---
-  if (has('category', 'categories') && has('add', 'create', 'new', 'shamil', 'banao')) {
+  if (
+    has('category', 'categories') &&
+    has('add', 'create', 'new', 'shamil', 'banao') &&
+    !has('product', 'products', 'item') // "add product X in category Y" is a product command
+  ) {
     const idx = Math.max(tokens.indexOf('category'), tokens.indexOf('categories'));
     const name = cleanQuery(tokens.slice(idx + 1)).replace(/^(named|called)\s+/, '');
     if (name) return { type: 'add_category', name };
   }
 
-  // --- add product: "add product paracetamol 500mg price 60" ---
+  // --- add product: "add product paracetamol 500mg price 60",
+  // "add a new product name panadol and price rs 100" (dictation filler),
+  // "add product dettol in category antiseptic price 250" ---
   if (has('product', 'products', 'item') && has('add', 'create', 'new', 'shamil')) {
     const idx = Math.max(
       tokens.indexOf('product'),
@@ -229,16 +235,39 @@ export function parseUtterance(raw: string): VoiceIntent {
       tokens.indexOf('item'),
     );
     const rest = tokens.slice(idx + 1);
-    let price: number | undefined;
+    const NAME_MARKERS = new Set(['name', 'named', 'called']);
+    const NAME_STOP = new Set([
+      'price', 'qeemat', 'rs', 'rupee', 'rupees', 'and', 'with', 'per',
+      'for', 'at', 'in', 'category', 'unit', 'units', 'qty', 'quantity',
+    ]);
+    // Name: skip "name/named/called" markers; stop at the first
+    // price/category/filler token or a bare number (strengths like
+    // "500mg" are single tokens, so they survive).
     const nameTokens: string[] = [];
+    for (const tok of rest) {
+      if (NAME_MARKERS.has(tok)) continue;
+      if (NAME_STOP.has(tok) || isBareNumber(tok)) break;
+      nameTokens.push(tok);
+    }
+    // Category: tokens after "category" until a stop word or number.
+    let category: string | undefined;
+    const catIdx = rest.indexOf('category');
+    if (catIdx >= 0) {
+      const catTokens: string[] = [];
+      for (const tok of rest.slice(catIdx + 1)) {
+        if (NAME_STOP.has(tok) || isBareNumber(tok)) break;
+        catTokens.push(tok);
+        if (catTokens.length >= 3) break;
+      }
+      category = cleanQuery(catTokens) || undefined;
+    }
+    // Price: scan the whole remainder — "rs 100", "100 rs", or the
+    // first number within 3 tokens after "price"/"qeemat" (dictation
+    // often inserts filler: "price for unit will be rs 100").
+    let price: number | undefined;
     for (let i = 0; i < rest.length; i++) {
       const tok = rest[i];
-      if (tok === 'price' || tok === 'qeemat') {
-        const next = rest[i + 1];
-        if (next && isBareNumber(next)) price = parseInt(next, 10);
-        break;
-      }
-      if ((tok === 'rs' || tok === 'rupees' || tok === 'rupee') && rest[i + 1] && isBareNumber(rest[i + 1])) {
+      if ((tok === 'rs' || tok === 'rupee' || tok === 'rupees') && rest[i + 1] && isBareNumber(rest[i + 1])) {
         price = parseInt(rest[i + 1], 10);
         break;
       }
@@ -246,10 +275,25 @@ export function parseUtterance(raw: string): VoiceIntent {
         price = parseInt(tok, 10);
         break;
       }
-      nameTokens.push(tok);
+      if (tok === 'price' || tok === 'qeemat') {
+        for (let j = i + 1; j < Math.min(i + 4, rest.length); j++) {
+          if (isBareNumber(rest[j])) {
+            price = parseInt(rest[j], 10);
+            break;
+          }
+        }
+        if (price !== undefined) break;
+      }
     }
     const name = cleanQuery(nameTokens);
-    if (name) return { type: 'add_product', name, ...(price !== undefined ? { price } : {}) };
+    if (name) {
+      return {
+        type: 'add_product',
+        name,
+        ...(price !== undefined ? { price } : {}),
+        ...(category ? { category } : {}),
+      };
+    }
   }
 
   // --- create sale: "sell 2 paracetamol", "sell two panadol extra at 40",

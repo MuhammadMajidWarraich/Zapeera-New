@@ -34,6 +34,9 @@ const cases = [
   // [utterance, expectedType, expectedSlots]
   ['add product paracetamol 500mg price 60', 'add_product', { name: 'paracetamol 500mg', price: 60 }],
   ['add product Panadol Extra', 'add_product', { name: 'panadol extra' }],
+  ['add a new product name panadol and price for unit rs 100', 'add_product', { name: 'panadol', price: 100 }],
+  ['add a new product name panadol and price for unit for be Rs 1 and unit to add hundred', 'add_product', { name: 'panadol', price: 1 }],
+  ['add product dettol in category antiseptic price 250', 'add_product', { name: 'dettol', price: 250, category: 'antiseptic' }],
   ['add category Antibiotics', 'add_category', { name: 'antibiotics' }],
   ['create category pain relief', 'add_category', { name: 'pain relief' }],
   ['find panadol', 'find_product', { query: 'panadol' }],

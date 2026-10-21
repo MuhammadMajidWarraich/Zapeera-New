@@ -356,28 +356,84 @@ export async function runIntent(
     }
 
     case 'add_product': {
-      const { name, price } = intent;
+      const { name, price, category } = intent;
+      // The products API requires name + categoryId + branchId (and
+      // rejects unknown keys — a price is NOT a product field; prices
+      // live on batches). Resolve both ids up front so the confirm
+      // card shows exactly what will be created.
+      let branchId = ctx.branchId || null;
+      let branchName = '';
+      try {
+        const bres: any = await apiService.getBranches();
+        const branches: any[] = bres?.data?.branches || bres?.data || [];
+        if (!branchId && branches.length) branchId = branches[0].id;
+        branchName = branches.find((b) => b.id === branchId)?.name || '';
+      } catch {
+        /* keep the context branch */
+      }
+      if (!branchId) {
+        return {
+          kind: 'result',
+          result: errResult(
+            'No branch available',
+            'No branch was found for this business, so the product cannot be created.',
+          ),
+        };
+      }
+      let categories: any[] = [];
+      try {
+        const cres: any = await apiService.getCategories({ branchId, limit: 100 });
+        categories =
+          cres?.data?.categories ||
+          cres?.data?.items ||
+          (Array.isArray(cres?.data) ? cres.data : []);
+      } catch {
+        categories = [];
+      }
+      const wanted = (category || '').toLowerCase();
+      const matched = wanted
+        ? categories.find((c) => String(c.name || '').toLowerCase() === wanted) ||
+          categories.find((c) => String(c.name || '').toLowerCase().includes(wanted))
+        : categories[0];
+      const categoryName = matched?.name || category || 'General';
+      const existingCategoryId: string | null = matched?.id || null;
+      const resolvedBranchId = branchId;
       const pending: PendingAction = {
         kind: 'add_product',
-        summary: `Add product "${name}"${price !== undefined ? ` at ${fmtRs(price)}` : ''}`,
+        summary: `Add product "${name}"`,
         detailLines: [
           `Name: ${name}`,
-          ...(price !== undefined ? [`Selling price: ${fmtRs(price)}`] : ['Selling price: not set']),
+          `Category: ${categoryName}${existingCategoryId ? '' : ' (will be created)'}`,
+          ...(branchName ? [`Branch: ${branchName}`] : []),
+          ...(price !== undefined
+            ? [`Price noted: ${fmtRs(price)} — selling prices live on batches, so it is set when stock is added.`]
+            : []),
           'Stock starts at 0 — add a batch/purchase to stock it.',
         ],
-        speakPrompt: `Ready to add the product ${name}. Say confirm to create it.`,
+        speakPrompt: `Ready to add the product ${name} in category ${categoryName}. Say confirm to create it.`,
         run: async () => {
           try {
+            let categoryId = existingCategoryId;
+            if (!categoryId) {
+              const cres: any = await apiService.createCategory({
+                name: categoryName,
+                branchId: resolvedBranchId,
+              });
+              categoryId = cres?.data?.id || cres?.data?.category?.id || null;
+              if (!categoryId) {
+                return errResult('Could not add product', 'The category could not be created.');
+              }
+            }
             const res: any = await apiService.createProduct({
               name,
-              ...(price !== undefined ? { sellingPrice: price } : {}),
-              branchId: ctx.branchId ?? null,
+              categoryId,
+              branchId: resolvedBranchId,
             });
             if (!res?.success) return errResult('Could not add product', res?.message);
             return {
               ok: true,
               title: 'Product added',
-              lines: [`${res.data?.name || name} created.`],
+              lines: [`${res.data?.name || name} created in ${categoryName}.`],
               speak: `Product ${name} added.`,
             };
           } catch (e: any) {
