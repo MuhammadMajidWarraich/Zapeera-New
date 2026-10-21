@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
+import { getPaymentMethodBreakdown } from '../utils/payment-breakdown.util';
 
 // Helper function to get week number
 function getWeekNumber(date: Date): number {
@@ -126,17 +127,10 @@ export const getSalesReport = async (req: AuthRequest, res: Response) => {
     });
     console.log('Sample sales in database:', allSales);
 
-    // Get sales by payment method
-    const salesByPaymentMethod = await prisma.sale.groupBy({
-      by: ['paymentMethod'],
-      where,
-      _sum: {
-        totalAmount: true
-      },
-      _count: {
-        id: true
-      }
-    });
+    // Get sales by payment method — allocation-aware since Wave B1:
+    // split sales count under each tender by allocated amount, sales
+    // without allocations keep their headline-method totals.
+    const salesByPaymentMethod = await getPaymentMethodBreakdown(prisma, where);
 
     console.log('Sales by payment method result:', salesByPaymentMethod);
 
@@ -804,22 +798,9 @@ export const getSalesByPaymentMethod = async (req: AuthRequest, res: Response) =
       where.branchId = branchId;
     }
 
-    // Get sales by payment method
-    const salesByPaymentMethod = await prisma.sale.groupBy({
-      by: ['paymentMethod'],
-      where,
-      _sum: {
-        totalAmount: true
-      },
-      _count: {
-        id: true
-      },
-      orderBy: {
-        _sum: {
-          totalAmount: 'desc'
-        }
-      }
-    });
+    // Get sales by payment method — allocation-aware since Wave B1
+    // (same merged breakdown as the sales report, amount-descending).
+    const salesByPaymentMethod = await getPaymentMethodBreakdown(prisma, where);
 
     return res.json({
       success: true,

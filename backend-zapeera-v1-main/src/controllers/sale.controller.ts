@@ -11,6 +11,11 @@ import { isMissingTableError } from '../utils/membership-bridge.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
+// Tender methods a sale (or one split-tender allocation) can be paid
+// with — Wave B1. JAZZCASH/EASYPAYSA are first-class alongside the
+// original four; MOBILE is kept for backward compatibility.
+export const SALE_PAYMENT_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAYSA', 'BANK_TRANSFER', 'MOBILE'] as const;
+
 // Validation schemas
 const createSaleSchema = Joi.object({
   customerId: Joi.string().allow(null),
@@ -31,7 +36,18 @@ const createSaleSchema = Joi.object({
       totalPrice: Joi.number().min(0).optional() // Item total after discount
     })
   ).min(1).required(),
-  paymentMethod: Joi.string().valid('CASH', 'CARD', 'MOBILE', 'BANK_TRANSFER').required(),
+  paymentMethod: Joi.string().valid(...SALE_PAYMENT_METHODS).required(),
+  // Split tender (Wave B1): optional per-method allocations. When
+  // present, their sum must equal the amount paid (validated against
+  // the server-computed paidAmount in createSale); when absent, a
+  // single allocation is synthesized from paymentMethod + paidAmount.
+  payments: Joi.array().items(
+    Joi.object({
+      method: Joi.string().valid(...SALE_PAYMENT_METHODS).required(),
+      amount: Joi.number().positive().required(),
+      reference: Joi.string().allow('', null).max(120).optional()
+    })
+  ).optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -202,7 +218,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
                 receiptNumber: true,
                 printedAt: true
               }
-            }
+            },
+            payments: true
           },
           orderBy: { createdAt: 'desc' }
         }),
@@ -291,7 +308,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
               receiptNumber: true,
               printedAt: true
             }
-          }
+          },
+          payments: true
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -394,7 +412,8 @@ export const getSale = async (req: AuthRequest, res: Response) => {
             receiptNumber: true,
             printedAt: true
           }
-        }
+        },
+        payments: true
       }
     });
 
@@ -493,7 +512,8 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
             receiptNumber: true,
             printedAt: true
           }
-        }
+        },
+        payments: true
       }
     });
 
@@ -631,6 +651,35 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
     const totalAmount = subtotalAfterDiscount + taxAmount;
 
+    // Resolve payment status and the stored paidAmount BEFORE the
+    // transaction: the split-tender validation below must mirror
+    // exactly the paidAmount the sale will be stored with (the
+    // client-sent value, or the full total for a COMPLETED sale).
+    const paymentStatus: PaymentStatus = (saleData.paymentStatus || 'COMPLETED') as PaymentStatus;
+    const paidAmount = saleData.paidAmount || (paymentStatus === 'COMPLETED' ? totalAmount : 0);
+
+    // Split tender (Wave B1): when the client sends allocations, their
+    // sum must equal the amount being paid. When it doesn't, the sale
+    // is rejected with a clear 400 instead of storing books that don't
+    // balance. The headline paymentMethod becomes 'MIXED' for a
+    // multi-method split, or the single allocation's method.
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    let allocations: Array<{ method: string; amount: number; reference?: string | null }> | null = null;
+    if (Array.isArray(saleData.payments) && saleData.payments.length > 0) {
+      allocations = saleData.payments.map(p => ({
+        method: String(p.method).toUpperCase(),
+        amount: round2(Number(p.amount) || 0),
+        reference: p.reference ? String(p.reference) : null
+      }));
+      const allocatedTotal = round2(allocations.reduce((sum, p) => sum + p.amount, 0));
+      if (Math.abs(allocatedTotal - round2(paidAmount)) > 0.01) {
+        throw new HttpError(400, `Split payments total PKR ${allocatedTotal.toFixed(2)} must equal the amount paid PKR ${round2(paidAmount).toFixed(2)}`);
+      }
+    }
+    const effectivePaymentMethod = allocations
+      ? (new Set(allocations.map(p => p.method)).size > 1 ? 'MIXED' : allocations[0].method)
+      : saleData.paymentMethod;
+
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
@@ -661,12 +710,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         console.log('🏢 Using provided branch context for sale:', { targetCompanyId, targetBranchId });
       }
 
-      // Determine payment status and sale status
-      const paymentStatus: PaymentStatus = (saleData.paymentStatus || 'COMPLETED') as PaymentStatus;
+      // Payment status and paidAmount were resolved before the
+      // transaction (split-tender validation depends on them).
       const saleStatus = paymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
-
-      // Calculate paidAmount and returnedAmount
-      const paidAmount = saleData.paidAmount || (paymentStatus === 'COMPLETED' ? totalAmount : 0);
       const returnedAmount = saleData.returnedAmount || 0;
 
       // Generate invoice number with retry logic to handle race conditions
@@ -736,7 +782,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
-          paymentMethod: saleData.paymentMethod,
+          paymentMethod: effectivePaymentMethod,
           paymentStatus: paymentStatus,
           status: saleStatus,
           saleDate: saleData.saleDate ? new Date(saleData.saleDate) : undefined
@@ -762,7 +808,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
-              paymentMethod: saleData.paymentMethod,
+              paymentMethod: effectivePaymentMethod,
               paymentStatus: paymentStatus,
               status: saleStatus,
               saleDate: saleData.saleDate ? new Date(saleData.saleDate) : undefined
@@ -789,6 +835,26 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           }
           console.warn('[Sales] membership_id write skipped (schema not ready):', membershipColumnError?.message || membershipColumnError);
         }
+      }
+
+      // Persist the tender allocations (Wave B1) in the same
+      // transaction: the client's split when one was sent, otherwise a
+      // single synthesized allocation from paymentMethod + paidAmount
+      // so every paid sale carries its tender breakdown. Unpaid sales
+      // (paidAmount 0) get none — nothing was tendered.
+      const paymentsToPersist = allocations
+        ?? (paidAmount > 0
+          ? [{ method: saleData.paymentMethod, amount: round2(paidAmount), reference: null as string | null }]
+          : []);
+      if (paymentsToPersist.length > 0) {
+        await tx.salePayment.createMany({
+          data: paymentsToPersist.map(p => ({
+            saleId: sale.id,
+            method: p.method,
+            amount: p.amount,
+            reference: p.reference || null
+          }))
+        });
       }
 
       // Create sale items and update stock
@@ -1129,7 +1195,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             receiptNumber: true,
             printedAt: true
           }
-        }
+        },
+        payments: true
       }
     });
 

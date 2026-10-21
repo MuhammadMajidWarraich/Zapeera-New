@@ -2,6 +2,7 @@ import '../config/database.init';
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middleware';
+import { getPaymentMethodBreakdown } from '../utils/payment-breakdown.util';
 
 function parseDateStart(dateLike: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateLike);
@@ -80,7 +81,7 @@ export const getAdvancedSalesReport = async (req: AuthRequest, res: Response) =>
 
     const [summary, byPaymentMethod, byHour, topProducts, refunded] = await Promise.all([
       prisma.sale.aggregate({ where, _sum: { totalAmount: true, subtotal: true, taxAmount: true, discountAmount: true }, _count: { id: true } }),
-      prisma.sale.groupBy({ by: ['paymentMethod'], where, _sum: { totalAmount: true }, _count: { id: true } }),
+      getPaymentMethodBreakdown(prisma, where), // allocation-aware since Wave B1
       prisma.sale.findMany({ where, select: { createdAt: true, totalAmount: true }, orderBy: { createdAt: 'asc' } }),
       prisma.saleItem.groupBy({ by: ['productId'], where: { sale: where }, _sum: { quantity: true, totalPrice: true }, _count: { id: true }, orderBy: { _sum: { quantity: 'desc' } }, take: 10 }),
       prisma.sale.aggregate({ where: { ...where, status: 'REFUNDED' }, _sum: { totalAmount: true }, _count: { id: true } }),
@@ -601,12 +602,9 @@ export const getAdvancedPaymentTrendsReport = async (req: AuthRequest, res: Resp
     const dateFilter = buildDateFilter(req);
     const saleWhere = buildSaleWhere(req, dateFilter);
 
-    const byMethod = await prisma.sale.groupBy({
-      by: ['paymentMethod'],
-      where: saleWhere,
-      _sum: { totalAmount: true },
-      _count: { id: true },
-    });
+    // Allocation-aware since Wave B1: split sales expand into their
+    // tenders, so the cash/non-cash split below sees real methods.
+    const byMethod = await getPaymentMethodBreakdown(prisma, saleWhere);
 
     let cashPayments = 0;
     let cardPayments = 0;

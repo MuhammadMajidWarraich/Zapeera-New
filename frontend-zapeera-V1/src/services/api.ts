@@ -1227,7 +1227,18 @@ export class ApiService {
       batchNumber?: string;
       expiryDate?: string;
     }>;
-    paymentMethod: 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER';
+    paymentMethod: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER';
+    paymentStatus?: string;
+    // Split tender (Wave B1): per-method allocations; their sum must
+    // equal paidAmount. Omit for a single-tender sale — the server
+    // synthesizes the single allocation from paymentMethod + paidAmount.
+    payments?: Array<{
+      method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER';
+      amount: number;
+      reference?: string;
+    }>;
+    paidAmount?: number;
+    returnedAmount?: number;
     discountAmount?: number;
     discountPercentage?: number;
     saleDate?: string;
@@ -1264,6 +1275,12 @@ export class ApiService {
       discountAmount: number;
       totalAmount: number;
       paymentMethod: string;
+      payments?: Array<{
+        id: string;
+        method: string;
+        amount: number;
+        reference?: string | null;
+      }>;
       paymentStatus: string;
       status: string;
       createdAt: string;

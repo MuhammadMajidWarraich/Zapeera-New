@@ -34,7 +34,8 @@ import {
   Copy,
   Info,
   MessageCircle,
-  Landmark
+  Landmark,
+  Wallet
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -42,6 +43,24 @@ import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
+
+// Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAYSA
+// are first-class rails alongside cash/card; MOBILE is the legacy
+// mobile-wallet label kept for older records.
+const PAYMENT_METHOD_OPTIONS = [
+  { key: 'CASH', label: 'Cash', Icon: Banknote },
+  { key: 'CARD', label: 'Card', Icon: CreditCard },
+  { key: 'JAZZCASH', label: 'JazzCash', Icon: Smartphone },
+  { key: 'EASYPAYSA', label: 'Easypaisa', Icon: Wallet },
+  { key: 'MOBILE', label: 'Mobile', Icon: Smartphone },
+  { key: 'BANK_TRANSFER', label: 'Bank', Icon: Landmark },
+] as const;
+
+interface SplitPaymentRow {
+  method: string;
+  amount: number;
+  reference: string;
+}
 
 interface Product {
   id: string;
@@ -158,6 +177,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [paymentStatus, setPaymentStatus] = useState<string>('COMPLETED'); // COMPLETED = Paid, PENDING = Unpaid
   const [paidAmount, setPaidAmount] = useState<number>(0); // Amount paid by customer
+  // Split tender (Wave B1): when enabled, the single amount/method
+  // controls are replaced by per-method allocation rows.
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<SplitPaymentRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -610,6 +633,31 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const mainTotalAmount = useMemo(() => {
     return mainSubtotal - mainDiscountAmount;
   }, [mainSubtotal, mainDiscountAmount]);
+
+  const splitAllocated = splitPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  const splitRemaining = Math.round((mainTotalAmount - splitAllocated) * 100) / 100;
+
+  const updateSplitRow = (index: number, patch: Partial<SplitPaymentRow>) => {
+    setSplitPayments(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+  const removeSplitRow = (index: number) => {
+    setSplitPayments(prev => prev.filter((_, i) => i !== index));
+  };
+  const addSplitRow = () => {
+    setSplitPayments(prev => [
+      ...prev,
+      { method: 'CASH', amount: splitRemaining > 0 ? splitRemaining : 0, reference: '' },
+    ]);
+  };
+  const toggleSplitPayment = () => {
+    if (splitEnabled) {
+      setSplitEnabled(false);
+      setSplitPayments([]);
+    } else {
+      setSplitEnabled(true);
+      setSplitPayments([{ method: paymentMethod, amount: mainTotalAmount || 0, reference: '' }]);
+    }
+  };
 
   // Calculate totals for modal invoice
   const modalSubtotal = useMemo(() => {
@@ -1148,6 +1196,60 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       const subtotal = mainSubtotal;
       const discountAmount = mainDiscountAmount;
       const totalAmount = mainTotalAmount;
+
+      // Split tender (Wave B1): build the allocations payload. Rows
+      // sharing a method are merged (references joined); the stored
+      // paidAmount becomes exactly the allocated sum, which is what
+      // the server validates the allocations against.
+      let splitPayload: Array<{ method: string; amount: number; reference?: string }> | undefined;
+      let effectivePaidAmount = paidAmount || 0;
+      if (splitEnabled) {
+        const rows = splitPayments.filter(row => (Number(row.amount) || 0) > 0);
+        if (rows.length === 0) {
+          toast({
+            title: "Split payment is empty",
+            description: "Add at least one payment row, or turn off split payment.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const allocated = Math.round(rows.reduce((sum, row) => sum + Number(row.amount), 0) * 100) / 100;
+        if (allocated > totalAmount + 0.01) {
+          toast({
+            title: "Split exceeds the bill",
+            description: `Allocated PKR ${allocated.toFixed(2)} is more than the PKR ${totalAmount.toFixed(2)} total.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (paymentStatus === 'COMPLETED' && Math.abs(allocated - totalAmount) > 0.01) {
+          toast({
+            title: "Split does not balance",
+            description: `PKR ${(totalAmount - allocated).toFixed(2)} is still unallocated. A Paid sale must be allocated in full.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        const merged = new Map<string, { method: string; amount: number; reference?: string }>();
+        for (const row of rows) {
+          const key = row.method.toUpperCase();
+          const existing = merged.get(key);
+          if (existing) {
+            existing.amount = Math.round((existing.amount + Number(row.amount)) * 100) / 100;
+            const ref = row.reference.trim();
+            if (ref) existing.reference = existing.reference ? `${existing.reference}, ${ref}` : ref;
+          } else {
+            merged.set(key, {
+              method: key,
+              amount: Number(row.amount),
+              reference: row.reference.trim() || undefined,
+            });
+          }
+        }
+        splitPayload = [...merged.values()].sort((a, b) => b.amount - a.amount);
+        effectivePaidAmount = allocated;
+      }
+
       // Validate required fields
       let branchId: string | undefined;
 
@@ -1238,12 +1340,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         customerName: (!customerId && invoiceCustomer.name) ? invoiceCustomer.name : undefined,
         customerPhone: (!customerId && invoiceCustomer.phone) ? invoiceCustomer.phone : undefined,
         branchId: branchId,
-        paymentMethod: paymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER',
+        // With split tender the server derives the headline method
+        // ('MIXED' or the largest allocation) from `payments`; the
+        // value sent here is the largest allocation's method.
+        paymentMethod: (splitPayload ? splitPayload[0].method : paymentMethod.toUpperCase()) as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER',
         paymentStatus: paymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
+        ...(splitPayload ? { payments: splitPayload } : {}),
         discountAmount: discountAmount, // Global discount amount
         discountPercentage: discountPercentage || 0, // Global discount percentage
-        paidAmount: paidAmount || 0, // Amount paid by customer
-        returnedAmount: Math.max(0, (paidAmount || 0) - totalAmount), // Calculate returned amount (change)
+        paidAmount: effectivePaidAmount, // Amount paid by customer (allocated sum when split)
+        returnedAmount: splitPayload ? 0 : Math.max(0, (paidAmount || 0) - totalAmount), // Change (single-tender flow only)
         saleDate: new Date().toISOString()
       };
       const saleResponse = await apiService.createSale(saleData);
@@ -1289,7 +1395,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         discountAmount: discountAmount,
         discountPercentage: discountPercentage,
         total: totalAmount,
-        paymentMethod: paymentMethod.toUpperCase(),
+        paymentMethod: splitPayload ? splitPayload.map(p => p.method).join(' + ') : paymentMethod.toUpperCase(),
         paymentStatus: paymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
       };
 
@@ -1310,6 +1416,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setDiscountPercentage(0);
       setPaymentMethod('CASH');
       setPaymentStatus('COMPLETED');
+      setSplitEnabled(false);
+      setSplitPayments([]);
       setSearchQuery("");
 
     } catch (error) {
@@ -1459,7 +1567,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         customerName: (!customerId && modalInvoiceCustomer.name) ? modalInvoiceCustomer.name : undefined,
         customerPhone: (!customerId && modalInvoiceCustomer.phone) ? modalInvoiceCustomer.phone : undefined,
         branchId: branchId,
-        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'MOBILE' | 'BANK_TRANSFER',
         paymentStatus: modalPaymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
         discountAmount: discountAmount,
         discountPercentage: modalDiscountPercentage || 0,
@@ -2829,6 +2937,69 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     </div>
 
+                    {splitEnabled && (
+                      <div className="mt-3 space-y-2">
+                        {splitPayments.map((row, index) => (
+                          <div key={index} className="space-y-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-[#f8f9fc] p-2">
+                            <div className="flex items-center gap-2">
+                              <Select value={row.method} onValueChange={(value) => updateSplitRow(index, { method: value })}>
+                                <SelectTrigger className="h-9 w-[128px] shrink-0 bg-white text-xs font-semibold">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PAYMENT_METHOD_OPTIONS.map(option => (
+                                    <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Amount"
+                                value={row.amount || ''}
+                                onChange={(e) => updateSplitRow(index, { amount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                className="h-9 flex-1 bg-white font-semibold tabular-nums"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeSplitRow(index)}
+                                aria-label="Remove payment row"
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <Input
+                              placeholder="Reference (optional) — txn id, account title…"
+                              value={row.reference}
+                              onChange={(e) => updateSplitRow(index, { reference: e.target.value })}
+                              className="h-8 bg-white text-xs"
+                            />
+                          </div>
+                        ))}
+                        <div className="flex items-end justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={addSplitRow}
+                            className="flex shrink-0 items-center gap-1 rounded-[8px] border border-dashed border-[#1a52c5]/40 px-2.5 py-1.5 text-xs font-bold text-[#1a52c5] transition-colors hover:bg-[#1a52c5]/5"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Add method
+                          </button>
+                          <div className="text-right">
+                            <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">
+                              Allocated PKR {splitAllocated.toFixed(2)} of PKR {mainTotalAmount.toFixed(2)}
+                            </span>
+                            <span className={cn("block text-sm font-extrabold tabular-nums", splitRemaining === 0 ? "text-green-600" : "text-red-600")}>
+                              {splitRemaining === 0 ? 'Fully allocated' : splitRemaining > 0 ? `Remaining PKR ${splitRemaining.toFixed(2)}` : `Over by PKR ${Math.abs(splitRemaining).toFixed(2)}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!splitEnabled && (
+                      <>
                     <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Amount paid</Label>
@@ -2868,13 +3039,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-4 gap-1.5" role="group" aria-label="Payment method">
-                      {[
-                        { key: 'CASH', label: 'Cash', Icon: Banknote },
-                        { key: 'CARD', label: 'Card', Icon: CreditCard },
-                        { key: 'MOBILE', label: 'Mobile', Icon: Smartphone },
-                        { key: 'BANK_TRANSFER', label: 'Bank', Icon: Landmark },
-                      ].map(({ key, label, Icon }) => (
+                    <div className="mt-3 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
+                      {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }) => (
                         <button
                           key={key}
                           type="button"
@@ -2892,6 +3058,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         </button>
                       ))}
                     </div>
+                      </>
+                    )}
 
                     <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label="Payment status">
                       <button
@@ -2921,12 +3089,27 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         Unpaid
                       </button>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={toggleSplitPayment}
+                      aria-pressed={splitEnabled}
+                      className="mt-2 flex w-full items-center justify-between gap-3 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-3 py-2 text-left transition-all hover:border-[#1a52c5]/30"
+                    >
+                      <span>
+                        <span className="block text-xs font-bold text-[#0a1128]">Split payment</span>
+                        <span className="block text-[11px] text-[#8c95b0]">Split this bill across two or more methods</span>
+                      </span>
+                      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-[#1a52c5]" : "bg-gray-300")}>
+                        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", splitEnabled ? "left-[18px]" : "left-0.5")} />
+                      </span>
+                    </button>
                   </>
                 )}
 
                   <Button
                     onClick={createInvoice}
-                    disabled={invoiceItems.length === 0 || isLoading}
+                    disabled={invoiceItems.length === 0 || isLoading || (splitEnabled && (splitRemaining < 0 || (paymentStatus === 'COMPLETED' && splitRemaining !== 0)))}
                     className="mt-3.5 h-[52px] w-full rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-base font-bold text-white shadow-[0_6px_24px_rgba(26,82,197,0.32)] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(26,82,197,0.38)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
                   >
                     {isLoading ? (
@@ -3829,6 +4012,24 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             className={modalPaymentMethod === 'BANK_TRANSFER' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
                           >
                             Bank
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={modalPaymentMethod === 'JAZZCASH' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setModalPaymentMethod('JAZZCASH')}
+                            className={modalPaymentMethod === 'JAZZCASH' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                          >
+                            JazzCash
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={modalPaymentMethod === 'EASYPAYSA' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setModalPaymentMethod('EASYPAYSA')}
+                            className={modalPaymentMethod === 'EASYPAYSA' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                          >
+                            Easypaisa
                           </Button>
                         </div>
                       </div>

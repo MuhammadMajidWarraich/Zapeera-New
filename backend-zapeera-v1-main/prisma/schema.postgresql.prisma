@@ -587,6 +587,7 @@ model Sale {
   receipts Receipt[]
   refunds  Refund[]    @relation("SaleRefunds")
   items    SaleItem[]
+  payments SalePayment[]
   branch   Branch      @relation(fields: [branchId], references: [id])
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])
@@ -624,6 +625,25 @@ model SaleItem {
   @@map("sale_items")
 }
 
+// Split tender (Wave B1): one row per tender allocation of a sale.
+// `Sale.paymentMethod` stays as the headline tender for backward
+// compatibility — the single method for one-tender sales, or 'MIXED'
+// when a sale is split across methods. `amount` is Float like every
+// other money field in this schema (subtotal/totalAmount/paidAmount).
+model SalePayment {
+  id        String   @id @default(cuid())
+  saleId    String
+  method    String // CASH | CARD | JAZZCASH | EASYPAYSA | BANK_TRANSFER | MOBILE
+  amount    Float
+  reference String? // txn id / account title etc., when the tender has one
+  createdAt DateTime @default(now())
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId], name: "idx_sale_payment_sale")
+  @@index([method], name: "idx_sale_payment_method")
+  @@map("sale_payments")
+}
+
 model Receipt {
   id            String      @id @default(cuid())
   saleId        String
@@ -644,6 +664,8 @@ model Refund {
   originalSaleId String
   refundReason   String
   refundAmount   Float
+  refundMethod   String? // Tender the refund was returned through (Wave B1)
+  refundReference String? // txn id / account title for that tender, when any
   refundedBy     String
   createdBy      String?
   status         String       @default("PENDING")

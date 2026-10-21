@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest, buildBranchWhereClause, buildBranchWhereClauseForRelation } from '../middleware/auth.middleware';
 import { notifyRefundChange } from '../routes/sse.routes';
+import { SALE_PAYMENT_METHODS } from './sale.controller';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
 
@@ -81,7 +82,12 @@ const createRefundSchema = Joi.object({
       batchId: Joi.string().allow(null, '').optional(), // Optional batch ID for stock return
       saleItemId: Joi.string().allow(null, '').optional() // Optional sale item ID
     })
-  ).min(1).required()
+  ).min(1).required(),
+  // Refund tender (Wave B1): which tender the money goes back through.
+  // Optional — defaults to the original sale's largest allocation
+  // method (or its headline paymentMethod for pre-B1 sales).
+  refundMethod: Joi.string().valid(...SALE_PAYMENT_METHODS).optional(),
+  refundReference: Joi.string().allow('', null).max(120).optional()
   // NOTE: no `refundedBy` field — a client-supplied value is not accepted;
   // the refund is always attributed to the authenticated caller (A-07).
 }).or('originalSaleId', 'invoiceNumber'); // At least one must be provided
@@ -100,7 +106,7 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    const { originalSaleId, invoiceNumber, refundReason, items } = req.body;
+    const { originalSaleId, invoiceNumber, refundReason, items, refundMethod, refundReference } = req.body;
 
     // The refund is always attributed to the authenticated caller (A-07)
     const actorId = req.user?.id;
@@ -141,7 +147,8 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
               product: true,
               batch: true
             }
-          }
+          },
+          payments: true
         }
       });
     } else if (originalSaleId) {
@@ -157,7 +164,8 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
               product: true,
               batch: true
             }
-          }
+          },
+          payments: true
         }
       });
     }
@@ -324,10 +332,23 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
     const result = await prisma.$transaction(async (tx: any) => {
       // Create refund record — refundedBy/createdBy are the authenticated
       // caller, never client input (A-07)
+      // Refund tender (Wave B1): the client's choice when sent, else
+      // the original sale's largest tender allocation (its headline
+      // paymentMethod for pre-B1 sales without allocations; a stored
+      // 'MIXED' headline with no allocations is not a tender → null).
+      const largestAllocation = Array.isArray((originalSale as any).payments)
+        ? [...(originalSale as any).payments].sort((a: any, b: any) => Number(b.amount || 0) - Number(a.amount || 0))[0]
+        : undefined;
+      const effectiveRefundMethod = refundMethod
+        || largestAllocation?.method
+        || (originalSale.paymentMethod && originalSale.paymentMethod !== 'MIXED' ? originalSale.paymentMethod : null);
+
       const refund = await tx.refund.create({
         data: {
           originalSaleId: originalSale.id,
           refundReason,
+          refundMethod: effectiveRefundMethod,
+          refundReference: refundReference || null,
           refundedBy: actorId,
           refundAmount,
           createdBy: actorId,

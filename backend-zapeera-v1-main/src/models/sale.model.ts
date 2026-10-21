@@ -1,5 +1,16 @@
 // Enums removed - using string types for SQLite compatibility
-export type PaymentMethod = 'CASH' | 'CARD' | 'MOBILE' | 'BANK_TRANSFER';
+// Wave B1: JAZZCASH and EASYPAYSA are first-class tender methods
+// (MOBILE stays for backward compatibility), and 'MIXED' is the stored
+// headline paymentMethod of a sale split across several tenders — it is
+// never a tender itself, so it is not part of SalePaymentMethod.
+export type SalePaymentMethod = 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAYSA' | 'BANK_TRANSFER' | 'MOBILE';
+export type PaymentMethod = SalePaymentMethod | 'MIXED';
+
+export interface SalePaymentData {
+  method: SalePaymentMethod | string;
+  amount: number;
+  reference?: string | null;
+}
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 export type SaleStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'REFUNDED';
 
@@ -10,6 +21,7 @@ export interface CreateSaleData {
   items: SaleItemData[];
   paymentMethod: PaymentMethod | string;
   paymentStatus?: PaymentStatus | string;
+  payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer
@@ -60,6 +72,7 @@ export interface SaleResponse {
   paidAmount?: number; // Amount paid by customer
   returnedAmount?: number; // Amount returned/refunded
   paymentMethod: PaymentMethod | string;
+  payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
   paymentStatus: PaymentStatus | string;
   status: SaleStatus | string;
   saleDate?: string;
