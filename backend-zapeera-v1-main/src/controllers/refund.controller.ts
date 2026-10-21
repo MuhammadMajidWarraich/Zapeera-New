@@ -320,6 +320,14 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
     // Refund amounts come ONLY from the stored sale lines (A-03): a line's
     // effective unit price is totalPrice / quantity, which already carries
     // that line's discount share. Client-sent prices are never used.
+    // Promotions (Wave B4) need no extra handling here, by the same
+    // design as the manual and loyalty discounts: a promotion discount
+    // is an order-level component of the sale's STORED totals
+    // (totalAmount is already net of it), and the khata/loyalty
+    // reversals below reconcile against those stored totals. A
+    // promotion's usedCount is NOT returned on refund — the offer was
+    // genuinely consumed by a completed sale; only sale DELETION
+    // returns usage (see deleteSale).
     const round2 = (n: number) => Math.round(n * 100) / 100;
     const effectiveUnitPrice = (saleItem: any): number =>
       saleItem.quantity > 0 ? saleItem.totalPrice / saleItem.quantity : saleItem.unitPrice;

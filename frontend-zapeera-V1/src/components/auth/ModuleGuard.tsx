@@ -346,6 +346,8 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/shelves': 'inventory',
   '/batches': 'inventory',
   '/customers': 'sales',
+  // Promotions (Wave B4) live under Sales, next to invoices/customers.
+  '/promotions': 'sales',
   '/suppliers': 'purchases',
   '/order-purchase': 'purchases',
   '/purchases': 'purchases',
@@ -409,6 +411,11 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   '/invoices': { parentModule: 'sales', subModuleKey: 'invoices', label: 'Invoices' },
   '/refunds': { parentModule: 'sales', subModuleKey: 'refunds', label: 'Refunds' },
   '/customers': { parentModule: 'sales', subModuleKey: 'customers', label: 'Customers' },
+  // Promotions (Wave B4): guarded by the invoicing submodule — every
+  // role that can sell can see the offers; writes are OWNER/MANAGER
+  // enforced by the API. (A first-class 'promotions' permission page
+  // would need a Backoffice policy publish; see the backend notes.)
+  '/promotions': { parentModule: 'sales', subModuleKey: 'invoices', label: 'Promotions' },
   '/products': { parentModule: 'inventory', subModuleKey: 'products', label: 'Products' },
   '/inventory': { parentModule: 'inventory', subModuleKey: 'products', label: 'Products' },
   '/categories': { parentModule: 'inventory', subModuleKey: 'categories', label: 'Categories' },

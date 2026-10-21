@@ -127,6 +127,10 @@ interface Receipt {
   loyaltyDiscount?: number;
   pointsRedeemed?: number;
   pointsEarned?: number;
+  // Promotions (Wave B4): the server's promotion discount for this
+  // sale and a label for it (coupon code or promotion name).
+  promotionDiscount?: number;
+  promotionLabel?: string;
   total: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -157,6 +161,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
   }
   if (receipt.loyaltyDiscount && receipt.loyaltyDiscount > 0) {
     lines.push(`Loyalty discount (${receipt.pointsRedeemed || 0} pts): -PKR ${Number(receipt.loyaltyDiscount).toFixed(2)}`);
+  }
+  if (receipt.promotionDiscount && receipt.promotionDiscount > 0) {
+    lines.push(`Promotion${receipt.promotionLabel ? ` (${receipt.promotionLabel})` : ''}: -PKR ${Number(receipt.promotionDiscount).toFixed(2)}`);
   }
   lines.push(
     `*Total: PKR ${Number(receipt.total || 0).toFixed(2)}*`,
@@ -196,6 +203,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [posCustomer, setPosCustomer] = useState<{ id: string; name: string; phone: string; loyaltyPoints: number } | null>(null);
   const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("");
   const [loyaltyPointValue, setLoyaltyPointValue] = useState(1);
+  // Promotions (Wave B4): the coupon code the cashier typed and, once
+  // validated against the live cart, the server-estimated promotion
+  // discount. Only the CODE is ever sent with the sale — the server
+  // recomputes the discount itself. The estimate clears whenever the
+  // cart or the manual discount changes, so a stale figure is never
+  // shown or relied on.
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; name: string; estimatedDiscount: number } | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -649,6 +666,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     return mainSubtotal - mainDiscountAmount;
   }, [mainSubtotal, mainDiscountAmount]);
 
+  // Promotions (Wave B4): the validated coupon's estimated discount
+  // sits between the manual discount and loyalty in the pipeline —
+  // the same order the server applies — so the loyalty clamp below
+  // uses the after-promotion bill. Automatic promotions (no coupon)
+  // are not estimated here; the server applies them at checkout and
+  // the receipt shows the real figure.
+  const promoEstimate = appliedCoupon ? appliedCoupon.estimatedDiscount : 0;
+  const mainTotalAfterPromo = Math.max(0, Math.round((mainTotalAmount - promoEstimate) * 100) / 100);
+
   // Loyalty (Wave B3): the points the cashier typed, clamped to the
   // customer's balance AND to what the discounted bill can absorb —
   // the same two caps the server enforces — and the bill total after
@@ -657,11 +683,79 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // after-loyalty figure, because that is the server's totalAmount.
   const loyaltyPointsRequested = Math.max(0, Math.floor(Number(loyaltyPointsInput) || 0));
   const loyaltyMaxPoints = posCustomer
-    ? Math.min(posCustomer.loyaltyPoints, Math.floor(mainTotalAmount / (loyaltyPointValue || 1)))
+    ? Math.min(posCustomer.loyaltyPoints, Math.floor(mainTotalAfterPromo / (loyaltyPointValue || 1)))
     : 0;
   const loyaltyPointsToUse = Math.min(loyaltyPointsRequested, loyaltyMaxPoints);
   const loyaltyDiscountValue = Math.round(loyaltyPointsToUse * loyaltyPointValue * 100) / 100;
-  const mainTotalAfterLoyalty = Math.round((mainTotalAmount - loyaltyDiscountValue) * 100) / 100;
+  const mainTotalAfterLoyalty = Math.round((mainTotalAfterPromo - loyaltyDiscountValue) * 100) / 100;
+
+  // A cart or manual-discount change invalidates the coupon estimate.
+  useEffect(() => {
+    setAppliedCoupon(null);
+    setCouponError("");
+  }, [invoiceItems, discountPercentage]);
+
+  // Validate the typed coupon against the live cart. The items are
+  // mapped with the same rules the sale payload uses (pieces as the
+  // quantity, box/unit sale type, per-line discounts) so the estimate
+  // matches what the server will grant.
+  const handleApplyCoupon = async () => {
+    const code = couponCodeInput.trim().toUpperCase();
+    if (!code) return;
+    if (invoiceItems.length === 0) {
+      setCouponError("Add items to the cart first.");
+      return;
+    }
+    setCouponBusy(true);
+    setCouponError("");
+    try {
+      const items = invoiceItems.map((item) => {
+        let productId = item.productId;
+        if (!productId && item.id) {
+          const uuidMatch = item.id.match(/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+          if (uuidMatch) {
+            productId = uuidMatch[1];
+          } else {
+            const product = products.find(p => p.name === item.name);
+            if (product) productId = product.id;
+          }
+        }
+        const isBoxSale = (item.unitType || '').toString().toLowerCase() === 'box' || (item.unitType || '').toString().toLowerCase() === 'pack';
+        const productForUnits = products.find(p => p.id === productId);
+        const resolvedUnitsPerBox = item.unitsPerBox || productForUnits?.unitsPerBox || productForUnits?.unitsPerPack || 1;
+        return {
+          productId: productId || '',
+          quantity: item.quantity,
+          saleType: isBoxSale ? 'BOX' : 'UNIT',
+          unitsPerBox: resolvedUnitsPerBox,
+          unitsDeducted: item.quantity,
+          unitPrice: item.unitPrice,
+          discountPercentage: item.discountPercentage || undefined,
+          discountAmount: item.discountAmount || undefined,
+        };
+      }).filter((entry) => entry.productId);
+      const response = await apiService.validateCoupon({
+        code,
+        items,
+        discountPercentage: discountPercentage || 0,
+      });
+      if (response.success && response.data?.valid && response.data.promotion) {
+        setAppliedCoupon({
+          code: response.data.promotion.code || code,
+          name: response.data.promotion.name,
+          estimatedDiscount: response.data.estimatedTotalPromotionDiscount ?? response.data.estimatedDiscount ?? 0,
+        });
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(response.data?.reason || response.message || "This code could not be applied.");
+      }
+    } catch (error: any) {
+      setAppliedCoupon(null);
+      setCouponError(error?.message || "Could not check this code. Please try again.");
+    } finally {
+      setCouponBusy(false);
+    }
+  };
 
   // Fetch the loyalty point value once (settings row
   // `loyaltyPointValue`, PKR per point; default 1 when unset).
@@ -1426,6 +1520,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // already clamped to the customer's balance and the bill. The
         // server re-validates both inside the sale transaction.
         loyaltyPointsToRedeem: loyaltyPointsToUse > 0 ? loyaltyPointsToUse : undefined,
+        // Promotions (Wave B4): only the validated coupon CODE travels
+        // with the sale — the server re-evaluates every promotion
+        // (this coupon, Buy X Get Y, automatic offers) itself.
+        couponCode: appliedCoupon ? appliedCoupon.code : undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -1486,7 +1584,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         loyaltyDiscount: saleResponse.data.loyaltyDiscount || 0,
         pointsRedeemed: saleResponse.data.pointsRedeemed || 0,
         pointsEarned: saleResponse.data.pointsEarned || 0,
-        total: totalAmount,
+        // Promotions (Wave B4): the server's figures — the discount
+        // and a label (the coupon code when one was used, else the
+        // first applied promotion's name). When a promotion applied,
+        // the receipt total is the server's stored totalAmount so the
+        // printed lines reconcile exactly.
+        promotionDiscount: saleResponse.data.promotionDiscount || 0,
+        promotionLabel: (saleResponse.data.appliedPromotions && saleResponse.data.appliedPromotions.length > 0)
+          ? (saleResponse.data.appliedPromotions.map(p => p.code || p.name).filter(Boolean).join(', ') || undefined)
+          : undefined,
+        total: (saleResponse.data.promotionDiscount || 0) > 0 && saleResponse.data.totalAmount != null
+          ? saleResponse.data.totalAmount
+          : totalAmount,
         paymentMethod: splitPayload ? splitPayload.map(p => p.method).join(' + ') : paymentMethod.toUpperCase(),
         paymentStatus: paymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
       };
@@ -1507,6 +1616,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setInvoiceCustomer({ name: "", phone: "" });
       setPosCustomer(null);
       setLoyaltyPointsInput("");
+      setCouponCodeInput("");
+      setAppliedCoupon(null);
+      setCouponError("");
       setDiscountPercentage(0);
       setPaymentMethod('CASH');
       setPaymentStatus('COMPLETED');
@@ -2014,6 +2126,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <div class="total-line" style="color: #16a34a;">
               <span>Loyalty Discount (${currentReceipt.pointsRedeemed || 0} pts):</span>
               <span>-PKR ${currentReceipt.loyaltyDiscount.toFixed(2)}</span>
+            </div>
+            ` : ''}
+            ${currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Promotion${currentReceipt.promotionLabel ? ` (${escapeHtml(currentReceipt.promotionLabel)})` : ''}:</span>
+              <span>-PKR ${currentReceipt.promotionDiscount.toFixed(2)}</span>
             </div>
             ` : ''}
             <div class="total-line total-final">
@@ -3036,12 +3154,69 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {loyaltyDiscountValue.toFixed(2)}</span>
                         </div>
                       )}
+                      {promoEstimate > 0 && appliedCoupon && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-[#8c95b0]">Promotion ({appliedCoupon.code})</span>
+                          <span className="font-semibold tabular-nums text-emerald-600">−PKR {promoEstimate.toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-2">
                         <span className="text-sm font-bold text-[#0a1128]">Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
                           PKR {mainTotalAfterLoyalty.toFixed(2)}
                         </span>
                       </div>
+                    </div>
+
+                    {/* Coupon code (Wave B4): Apply validates the code
+                        against the live cart via the server; only the
+                        code is sent with the sale and the server
+                        recomputes the discount. Automatic promotions
+                        and Buy X Get Y need no input — they apply at
+                        checkout and appear on the receipt. */}
+                    <div className="mt-3 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-3">
+                      <Label htmlFor="coupon-code" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                        Coupon code
+                      </Label>
+                      {appliedCoupon ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="rounded-md bg-emerald-50 px-2 py-1 font-mono text-xs font-bold tracking-wide text-emerald-700">
+                            {appliedCoupon.code}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#4a5578]">{appliedCoupon.name}</span>
+                          <span className="text-sm font-semibold tabular-nums text-emerald-600">−PKR {appliedCoupon.estimatedDiscount.toFixed(2)}</span>
+                          <button
+                            type="button"
+                            onClick={() => { setAppliedCoupon(null); setCouponCodeInput(""); setCouponError(""); }}
+                            aria-label="Remove coupon"
+                            className="text-xs font-bold text-red-500 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Input
+                            id="coupon-code"
+                            placeholder="e.g. EID10"
+                            value={couponCodeInput}
+                            onChange={(e) => { setCouponCodeInput(e.target.value.toUpperCase()); setCouponError(""); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
+                            className="h-9 flex-1 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white font-mono text-sm font-semibold uppercase"
+                          />
+                          <Button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponBusy || !couponCodeInput.trim()}
+                            className="h-9 shrink-0 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 text-sm font-semibold text-white hover:opacity-90"
+                          >
+                            {couponBusy ? "Checking…" : "Apply"}
+                          </Button>
+                        </div>
+                      )}
+                      {couponError && (
+                        <p className="mt-2 text-xs font-medium text-red-500">{couponError}</p>
+                      )}
                     </div>
 
                     {/* Loyalty redemption (Wave B3): offered only when
@@ -3162,20 +3337,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2 text-right">
                         <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">{(() => {
                           const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-                          const finalTotal = total - (total * (discountPercentage / 100)) - loyaltyDiscountValue;
+                          const finalTotal = total - (total * (discountPercentage / 100)) - promoEstimate - loyaltyDiscountValue;
                           return paidAmount >= finalTotal ? 'Change' : 'Balance due';
                         })()}</span>
                         <span className={`text-base font-extrabold tabular-nums ${(() => {
                           const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                           const discountAmount = total * (discountPercentage / 100);
-                          const finalTotal = total - discountAmount - loyaltyDiscountValue;
+                          const finalTotal = total - discountAmount - promoEstimate - loyaltyDiscountValue;
                           const returned = paidAmount - finalTotal;
                           return returned >= 0 ? 'text-green-600' : 'text-red-600';
                         })()}`}>
                           {(() => {
                             const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
                             const discountAmount = total * (discountPercentage / 100);
-                            const finalTotal = total - discountAmount - loyaltyDiscountValue;
+                            const finalTotal = total - discountAmount - promoEstimate - loyaltyDiscountValue;
                             const returned = paidAmount - finalTotal;
                             return returned >= 0
                               ? `PKR ${returned.toFixed(2)}`
@@ -3591,6 +3766,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     <div className="flex justify-between items-center text-green-300">
                       <span>Loyalty discount ({currentReceipt.pointsRedeemed || 0} pts)</span>
                       <span className="font-semibold">-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 && (
+                    <div className="flex justify-between items-center text-green-300">
+                      <span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}</span>
+                      <span className="font-semibold">-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span>
                     </div>
                   )}
                   {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (

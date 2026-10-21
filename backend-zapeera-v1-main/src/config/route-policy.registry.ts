@@ -114,6 +114,13 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/sales', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
   { prefix: '/api/pos', policy: { kind: 'module', resourceKey: 'sales.pos' } },
   { prefix: '/api/refunds', policy: { kind: 'module', resourceKey: 'sales.refunds' } },
+  // Promotions & coupons (Wave B4): invoice-money rules, so they share
+  // the sales.invoices page key of the sale surface they modify (no new
+  // submodule key is introduced — same precedent as transfers mapping
+  // to inventory.overview). Cashiers reach POST /promotions/validate
+  // through the sale-create permission they already hold; management
+  // writes are additionally gated to OWNER/MANAGER in the controller.
+  { prefix: '/api/promotions', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
   // There is no standalone 'customers' module in module_definitions; the

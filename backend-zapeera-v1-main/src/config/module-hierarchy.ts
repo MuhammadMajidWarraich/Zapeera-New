@@ -90,6 +90,21 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
         module: 'sales',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
+      {
+        // Wave B4. NOTE: 'promotions' is deliberately NOT a new
+        // permission submodule — no module-page/role-policy rows are
+        // seeded for it, so the access resolver gates it like the
+        // other sales pages for OWNER and the API authorizes through
+        // the existing sales.invoices resource key (see
+        // route-policy.registry.ts). Route guard maps /promotions to
+        // the invoices page for the same reason.
+        key: 'promotions',
+        label: 'Promotions',
+        href: '/promotions',
+        icon: 'TrendingUp',
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER'],
+      },
     ],
   },
 

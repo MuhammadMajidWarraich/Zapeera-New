@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   FileText,
   Receipt,
+  TicketPercent,
   Package,
   Building2,
   UserCog,
@@ -125,6 +126,17 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         icon: Receipt,
         module: 'sales',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        // Promotions & coupons (Wave B4) — managed by OWNER/MANAGER;
+        // the page itself also opens read-only for sales roles via
+        // the ModuleGuard's invoices mapping.
+        key: 'promotions',
+        label: 'Promotions',
+        href: '/promotions',
+        icon: TicketPercent,
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER'],
       },
     ],
   },

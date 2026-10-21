@@ -23,6 +23,7 @@ export interface CreateSaleData {
   paymentStatus?: PaymentStatus | string;
   payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
   loyaltyPointsToRedeem?: number; // Loyalty redemption (Wave B3): points to spend on this sale
+  couponCode?: string | null; // Promotions (Wave B4): the ONLY promotion input a client may send — the engine resolves the discount server-side
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer

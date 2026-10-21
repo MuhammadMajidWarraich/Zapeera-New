@@ -41,6 +41,7 @@ const ManufacturersPage = React.lazy(() => import("./pages/Manufacturers"));
 const SuppliersPage = React.lazy(() => import("./pages/Suppliers"));
 const ShelvesPage = React.lazy(() => import("./pages/Shelves"));
 const CustomersPage = React.lazy(() => import("./pages/Customers"));
+const PromotionsPage = React.lazy(() => import("./pages/Promotions"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const SettingsPage = React.lazy(() => import("./pages/Settings"));
@@ -299,6 +300,17 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <CustomersPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/promotions" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <PromotionsPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1062,6 +1074,20 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <CustomersPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/promotions" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <PromotionsPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

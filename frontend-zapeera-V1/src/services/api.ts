@@ -79,6 +79,50 @@ export interface StockTransferRecord {
   items: StockTransferItemRecord[];
 }
 
+export type PromotionType = 'PERCENT' | 'FLAT' | 'BUY_X_GET_Y';
+export type PromotionScope = 'ALL' | 'CATEGORY' | 'PRODUCT';
+
+export interface PromotionRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  type: PromotionType;
+  value: number;
+  buyQty?: number | null;
+  getQty?: number | null;
+  scope: PromotionScope;
+  categoryId?: string | null;
+  productId?: string | null;
+  code?: string | null;
+  minBill?: number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  usageLimit?: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: string; name: string } | null;
+  product?: { id: string; name: string; barcode?: string } | null;
+}
+
+export interface PromotionPayload {
+  name: string;
+  type: PromotionType;
+  value?: number;
+  buyQty?: number | null;
+  getQty?: number | null;
+  scope: PromotionScope;
+  categoryId?: string | null;
+  productId?: string | null;
+  code?: string | null;
+  minBill?: number | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  usageLimit?: number | null;
+  isActive?: boolean;
+}
+
 export interface BillingProfileRecord {
   id: string;
   userId: string;
@@ -1352,6 +1396,79 @@ export class ApiService {
     });
   }
 
+  // Promotions & coupons (Wave B4)
+  async getPromotions(params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    isActive?: boolean;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<PromotionRecord[]>(`/promotions${query ? `?${query}` : ''}`);
+  }
+
+  async getPromotion(promotionId: string) {
+    return this.request<PromotionRecord>(`/promotions/${promotionId}`);
+  }
+
+  async createPromotion(data: PromotionPayload) {
+    return this.request<PromotionRecord>('/promotions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePromotion(promotionId: string, data: Partial<PromotionPayload>) {
+    return this.request<PromotionRecord>(`/promotions/${promotionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // The backend deactivates (soft delete) so redemption history survives.
+  async deletePromotion(promotionId: string) {
+    return this.request<PromotionRecord>(`/promotions/${promotionId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async validateCoupon(data: {
+    code: string;
+    items?: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      saleType?: string;
+      unitsDeducted?: number;
+      unitsPerBox?: number;
+      discountPercentage?: number;
+      discountAmount?: number;
+    }>;
+    discountPercentage?: number;
+    discountAmount?: number;
+    subtotal?: number;
+  }) {
+    return this.request<{
+      valid: boolean;
+      reason?: string;
+      promotion?: PromotionRecord;
+      estimatedDiscount?: number;
+      estimatedTotalPromotionDiscount?: number;
+    }>('/promotions/validate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Business settings (subset the POS needs — e.g. the loyalty point
   // value). Values come back as strings, as stored.
   async getSettings() {
@@ -1383,6 +1500,10 @@ export class ApiService {
     // Requires customerId; the server validates the balance and turns
     // the points into a discount at the loyaltyPointValue rate.
     loyaltyPointsToRedeem?: number;
+    // Promotions (Wave B4): a coupon code is the only promotion input
+    // — the server computes the discount. Automatic promotions need
+    // no input at all.
+    couponCode?: string;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -1426,6 +1547,16 @@ export class ApiService {
       loyaltyPointsEarned?: number | null;
       pointsRedeemed?: number;
       pointsEarned?: number;
+      // Promotions (Wave B4): stored column + the per-promotion
+      // breakdown the create handler returns.
+      promotionDiscount?: number;
+      appliedPromotions?: Array<{
+        promotionId: string;
+        name?: string | null;
+        code?: string | null;
+        type?: string | null;
+        discountAmount: number;
+      }>;
       totalAmount: number;
       paymentMethod: string;
       payments?: Array<{

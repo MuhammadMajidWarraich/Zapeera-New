@@ -9,6 +9,7 @@ import { notifySaleChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { isMissingTableError } from '../utils/membership-bridge.util';
 import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
+import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -54,6 +55,11 @@ const createSaleSchema = Joi.object({
   // balance inside the sale transaction. The PKR value per point
   // comes from the `loyaltyPointValue` setting (default 1).
   loyaltyPointsToRedeem: Joi.number().integer().min(1).optional(),
+  // Promotions (Wave B4): a coupon code is the only promotion input a
+  // client may send. The discount is always computed server-side by
+  // the promotions engine; there is deliberately no client-sent
+  // promotion discount field anywhere in this schema.
+  couponCode: Joi.string().trim().max(64).allow('', null).optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -419,7 +425,19 @@ export const getSale = async (req: AuthRequest, res: Response) => {
             printedAt: true
           }
         },
-        payments: true
+        payments: true,
+        promotions: {
+          include: {
+            promotion: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                type: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -624,6 +642,20 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // the same per-admin settings store as defaultTax; default 1.
     const loyaltyPointValue = await getLoyaltyPointValue(prisma, currentAdminId);
 
+    // Promotions (Wave B4): the engine scopes offers by product
+    // category, so resolve the cart products' categories up front
+    // (ids are global; an unknown product simply gets a null category
+    // here and fails properly inside the transaction, as before).
+    const promoProductIds = [...new Set(saleData.items.map(item => item.productId))];
+    const promoProducts = await prisma.product.findMany({
+      where: { id: { in: promoProductIds } },
+      select: { id: true, categoryId: true }
+    });
+    const categoryByProductId = new Map<string, string | null>(
+      promoProducts.map((p: any) => [p.id, p.categoryId || null])
+    );
+    const promoLines: PromoLineInput[] = [];
+
     // Calculate totals with item-level discounts — ALWAYS computed
     // server-side (A-04): a client-sent totalPrice is never trusted. Each
     // line total is quantity × unitPrice − item discount, and the sale
@@ -645,18 +677,94 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         console.warn(`⚠️ [Sales] Ignoring client-supplied totalPrice ${item.totalPrice} for product ${item.productId}; server-computed line total is ${computedTotal}`);
       }
 
+      // Engine line for the promotions stage: units in stock units
+      // (the same unitsDeducted rule the transaction applies below).
+      const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
+      const unitsPerBox = item.unitsPerBox && item.unitsPerBox > 0 ? item.unitsPerBox : 1;
+      promoLines.push({
+        productId: item.productId,
+        categoryId: categoryByProductId.get(item.productId) ?? null,
+        units: item.unitsDeducted && item.unitsDeducted > 0
+          ? item.unitsDeducted
+          : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity),
+        lineTotal: computedTotal
+      });
+
       return computedTotal;
     });
 
     const subtotal = itemTotals.reduce((sum, total) => sum + total, 0);
+
+    // Promotions (Wave B4): evaluate the company's offers against this
+    // cart. The engine (promotion.util.ts) owns the order of
+    // application: BUY_X_GET_Y first, then the manual discount against
+    // what remains, then the single order-level promotion (the sent
+    // coupon, or the best automatic). An explicitly-sent coupon code
+    // that is unknown/ineligible — or that grants nothing on this
+    // cart — fails the sale with a 400: a customer who typed a code
+    // must never be silently charged full price.
+    const couponCode = normalizeCouponCode(saleData.couponCode);
+    let promotionEvaluation: PromotionEvaluation | null = null;
+    let promotionDiscount = 0;
+    {
+      // Resolve the company exactly the way the transaction below
+      // will, so the offers evaluated are the ones that get recorded.
+      let promoCompanyId: string | null = null;
+      if (req.user?.selectedCompanyId && req.user?.selectedBranchId) {
+        promoCompanyId = req.user.selectedCompanyId;
+      } else if (saleData.branchId) {
+        const branchRow = await prisma.branch.findUnique({
+          where: { id: saleData.branchId },
+          select: { companyId: true }
+        });
+        promoCompanyId = branchRow?.companyId || null;
+      }
+      if (couponCode && !promoCompanyId) {
+        throw new HttpError(400, 'Coupon code could not be verified for this sale');
+      }
+      if (promoCompanyId) {
+        let couponPromotion = null;
+        if (couponCode) {
+          const resolved = await resolveCouponPromotion(prisma, promoCompanyId, couponCode, subtotal);
+          if ('error' in resolved) {
+            throw new HttpError(400, resolved.error);
+          }
+          couponPromotion = resolved.promotion;
+        }
+        const activePromotions = await prisma.promotion.findMany({
+          where: { companyId: promoCompanyId, isActive: true },
+          orderBy: { createdAt: 'asc' }
+        });
+        if (activePromotions.length > 0 || couponPromotion) {
+          promotionEvaluation = evaluatePromotions({
+            promotions: activePromotions,
+            couponPromotion,
+            lines: promoLines,
+            subtotal,
+            manualDiscountPercentage: saleData.discountPercentage || 0,
+            manualDiscountAmount: saleData.discountAmount || 0
+          });
+          if (couponPromotion && promotionEvaluation.couponNotApplied) {
+            throw new HttpError(400, `Coupon code "${couponCode}" does not apply to the items in this sale`);
+          }
+          promotionDiscount = promotionEvaluation.totalDiscount;
+        }
+      }
+    }
+
     // Global discount: a sale-level discountPercentage takes precedence and
     // is converted against the (already item-discounted) subtotal — the same
     // rule the update-sale flow applies. Previously the percentage was stored
     // on the sale record but ignored when computing totals, so a 10% sale
-    // discount silently billed the full amount (E2E D-20).
-    const discountAmount = saleData.discountPercentage && saleData.discountPercentage > 0
-      ? subtotal * (saleData.discountPercentage / 100)
-      : (saleData.discountAmount || 0);
+    // discount silently billed the full amount (E2E D-20). Wave B4: when
+    // the promotions engine ran, it resolved this same discount against
+    // (subtotal − BUY_X_GET_Y discount) per the pipeline order; with no
+    // BXGY in play the two formulas are identical.
+    const discountAmount = promotionEvaluation
+      ? promotionEvaluation.manualDiscount
+      : (saleData.discountPercentage && saleData.discountPercentage > 0
+        ? subtotal * (saleData.discountPercentage / 100)
+        : (saleData.discountAmount || 0));
 
     // Loyalty redemption (Wave B3): points spent on this sale become
     // an additional discount component — applied AFTER the sale-level
@@ -680,12 +788,15 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         throw new HttpError(400, 'Loyalty points can only be redeemed on a sale with a customer attached');
       }
       loyaltyDiscount = Math.round(loyaltyPointsToRedeem * loyaltyPointValue * 100) / 100;
-      if (loyaltyDiscount > subtotal - discountAmount + 0.001) {
-        throw new HttpError(400, `Loyalty redemption of PKR ${loyaltyDiscount.toFixed(2)} exceeds the discounted bill of PKR ${(subtotal - discountAmount).toFixed(2)}`);
+      // Wave B4: promotions sit between the manual discount and
+      // loyalty in the pipeline, so the bill a redemption may absorb
+      // is what remains after BOTH discounts.
+      if (loyaltyDiscount > subtotal - discountAmount - promotionDiscount + 0.001) {
+        throw new HttpError(400, `Loyalty redemption of PKR ${loyaltyDiscount.toFixed(2)} exceeds the discounted bill of PKR ${(subtotal - discountAmount - promotionDiscount).toFixed(2)}`);
       }
     }
 
-    const subtotalAfterDiscount = subtotal - discountAmount - loyaltyDiscount;
+    const subtotalAfterDiscount = subtotal - discountAmount - promotionDiscount - loyaltyDiscount;
     const taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
     const totalAmount = subtotalAfterDiscount + taxAmount;
 
@@ -827,6 +938,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
           loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : null,
           loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
+          // Promotions (Wave B4): the engine's total (BXGY + the
+          // order-level winner); per-promotion rows are written below.
+          promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -856,6 +970,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
               loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : null,
               loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
+              promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -906,6 +1021,46 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             reference: p.reference || null
           }))
         });
+      }
+
+      // Promotions (Wave B4): record the redemptions the engine
+      // granted and consume one use of each, in the same transaction.
+      // The promotions are re-read under the transaction's own
+      // company scope and the usage limit is re-checked here: the
+      // pre-transaction evaluation could have raced another sale
+      // consuming the last use. A coupon that lost that race fails
+      // the sale with a 400 (the customer explicitly asked for it);
+      // an automatic promotion fails it with a 409 asking for a
+      // retry, at which point the engine simply will not offer it.
+      // Either way the totals above are never stored unbalanced.
+      if (promotionEvaluation && promotionEvaluation.applied.length > 0) {
+        for (const appliedPromo of promotionEvaluation.applied) {
+          const fresh = await tx.promotion.findFirst({
+            where: { id: appliedPromo.promotion.id, companyId: targetCompanyId },
+            select: { id: true, code: true, usedCount: true, usageLimit: true }
+          });
+          if (!fresh) {
+            throw new HttpError(409, 'A promotion on this sale is no longer available — please retry');
+          }
+          if (fresh.usageLimit !== null && fresh.usageLimit !== undefined && fresh.usedCount >= fresh.usageLimit) {
+            if (appliedPromo.source === 'COUPON') {
+              throw new HttpError(400, `Coupon code "${fresh.code || couponCode || ''}" has reached its usage limit`);
+            }
+            throw new HttpError(409, 'A promotion on this sale has reached its usage limit — please retry');
+          }
+          await tx.promotion.update({
+            where: { id: fresh.id },
+            data: { usedCount: { increment: 1 } }
+          });
+          await tx.salePromotion.create({
+            data: {
+              saleId: sale.id,
+              promotionId: fresh.id,
+              discountAmount: appliedPromo.discountAmount,
+              code: fresh.code || null
+            }
+          });
+        }
       }
 
       // Create sale items and update stock
@@ -1307,7 +1462,19 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             printedAt: true
           }
         },
-        payments: true
+        payments: true,
+        promotions: {
+          include: {
+            promotion: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                type: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -1354,7 +1521,17 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         // and receipt consumers get plain numbers, never null.
         loyaltyDiscount: completeSale.loyaltyDiscount ?? 0,
         pointsRedeemed: completeSale.loyaltyPointsRedeemed ?? 0,
-        pointsEarned: completeSale.loyaltyPointsEarned ?? 0
+        pointsEarned: completeSale.loyaltyPointsEarned ?? 0,
+        // Promotions (Wave B4): the engine's total as a plain number
+        // plus the per-promotion breakdown for receipts.
+        promotionDiscount: completeSale.promotionDiscount ?? 0,
+        appliedPromotions: (completeSale.promotions || []).map((sp: any) => ({
+          promotionId: sp.promotionId,
+          name: sp.promotion?.name || null,
+          code: sp.code ?? sp.promotion?.code ?? null,
+          type: sp.promotion?.type || null,
+          discountAmount: sp.discountAmount
+        }))
       }
     });
   } catch (error) {
@@ -1438,7 +1615,13 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       // component of its total (points were already deducted for it),
       // so the recompute must keep subtracting it — dropping it here
       // would silently re-bill the customer for points they spent.
-      const subtotalAfterDiscount = existingSale.subtotal - newDiscountAmount - Number(existingSale.loyaltyDiscount || 0);
+      // Promotions (Wave B4): the stored promotion discount is a
+      // component in exactly the same sense (the offers were granted
+      // and their usage consumed at creation), so it is subtracted
+      // as stored too. The manual percentage keeps this handler's
+      // long-standing base (the stored subtotal); a discount edit
+      // never re-runs the promotions engine.
+      const subtotalAfterDiscount = existingSale.subtotal - newDiscountAmount - Number(existingSale.promotionDiscount || 0) - Number(existingSale.loyaltyDiscount || 0);
       // Recompute tax exactly as the create path does: the admin's
       // defaultTax setting applied to the discounted subtotal. (This used
       // to hard-zero the tax — `subtotalAfterDiscount * 0` — silently
@@ -1824,6 +2007,22 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
             }
           });
         }
+      }
+
+      // Promotions (Wave B4): a deleted sale never happened, so the
+      // uses it consumed go back — one decrement per SalePromotion
+      // row (the rows themselves cascade away with the sale below).
+      // Runs for every status: usage was consumed at creation time
+      // regardless of payment status, symmetrically.
+      const salePromoRows = await tx.salePromotion.findMany({
+        where: { saleId: id },
+        select: { promotionId: true }
+      });
+      for (const row of salePromoRows) {
+        await tx.promotion.updateMany({
+          where: { id: row.promotionId, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } }
+        });
       }
 
       // Delete the sale

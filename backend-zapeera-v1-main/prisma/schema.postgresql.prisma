@@ -134,6 +134,7 @@ model Business {
   batches                   Batch[]
   purchases                 Purchase[]
   stockTransfers            StockTransfer[]
+  promotions                Promotion[]
   categories                Category[]
   expenses                  Expense[]
   expenseCategories         ExpenseCategory[]
@@ -210,6 +211,7 @@ model Category {
   branch      Branch?   @relation(fields: [branchId], references: [id])
   company     Business? @relation(fields: [companyId], references: [id])
   products    Product[]
+  promotions  Promotion[]
 
   @@unique([name, branchId], name: "category_name_per_branch")
   @@index([companyId], name: "idx_category_company")
@@ -367,6 +369,7 @@ model Product {
   batches        Batch[]
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
+  promotions     Promotion[]
 
   @@index([companyId], name: "idx_product_company")
   @@index([branchId], name: "idx_product_branch")
@@ -656,6 +659,13 @@ model Sale {
   loyaltyPointsRedeemed Int?
   loyaltyDiscount       Float?
   loyaltyPointsEarned   Int?
+  // Promotions (Wave B4): total discount granted by the promotions
+  // engine on this sale (BUY_X_GET_Y line offers + the single
+  // order-level promotion). Like loyaltyDiscount it is a component of
+  // totalAmount — applied after the manual sale discount and before
+  // loyalty — NOT part of discountAmount. The per-promotion breakdown
+  // lives in SalePromotion rows. Null on pre-B4 sales / no promo.
+  promotionDiscount     Float?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -673,6 +683,7 @@ model Sale {
   refunds  Refund[]    @relation("SaleRefunds")
   items    SaleItem[]
   payments SalePayment[]
+  promotions SalePromotion[]
   ledgerEntries CustomerLedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   branch   Branch      @relation(fields: [branchId], references: [id])
@@ -729,6 +740,72 @@ model SalePayment {
   @@index([saleId], name: "idx_sale_payment_sale")
   @@index([method], name: "idx_sale_payment_method")
   @@map("sale_payments")
+}
+
+// Promotions & coupons (Wave B4): shop-defined offers the sale engine
+// evaluates SERVER-SIDE at checkout — clients never send a discount,
+// only a coupon code. Kinds:
+//   PERCENT / FLAT — order-level: `value` is the percentage (0–100) or
+//     the flat PKR amount, taken off the scoped, post-manual-discount
+//     base. At most ONE order-level promotion applies per sale: the
+//     coupon whose code was sent, or the single best automatic one.
+//   BUY_X_GET_Y — line-level: in every group of (buyQty + getQty)
+//     units of the scoped items, getQty units are free. Applied as a
+//     discount amount valued at the lines' prices; quantities and
+//     stock are untouched (free units still leave the shelf).
+// `code` is the coupon code (stored upper-case, unique per company);
+// null = automatic promotion that needs no code. `usedCount` counts
+// redemptions and is incremented inside the sale transaction (and
+// decremented again if that sale is deleted).
+model Promotion {
+  id         String   @id @default(cuid())
+  companyId  String
+  name       String
+  type       String // PERCENT | FLAT | BUY_X_GET_Y
+  value      Float // PERCENT: 0–100 · FLAT: PKR amount · BUY_X_GET_Y: unused (0)
+  buyQty     Int? // BUY_X_GET_Y: paid units per group
+  getQty     Int? // BUY_X_GET_Y: free units per group
+  scope      String   @default("ALL") // ALL | CATEGORY | PRODUCT
+  categoryId String?
+  productId  String?
+  code       String? // coupon code (upper-case); null = automatic
+  minBill    Float? // minimum post-item-discount subtotal, when set
+  startsAt   DateTime?
+  endsAt     DateTime?
+  usageLimit Int?
+  usedCount  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  company    Business  @relation(fields: [companyId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id])
+  product    Product?  @relation(fields: [productId], references: [id])
+  salePromotions SalePromotion[]
+
+  @@unique([companyId, code], name: "promotion_code_per_company")
+  @@index([companyId], name: "idx_promotion_company")
+  @@index([code], name: "idx_promotion_code")
+  @@map("promotions")
+}
+
+// One row per promotion redeemed on a sale (Wave B4): the audit trail
+// behind Sale.promotionDiscount, which stores their SUM. `code` is a
+// snapshot of the promotion's code at redemption (null for automatic
+// promotions) so the receipt/history stays readable even if the
+// promotion is later renamed or recoded.
+model SalePromotion {
+  id             String   @id @default(cuid())
+  saleId         String
+  promotionId    String
+  discountAmount Float
+  code           String?
+  createdAt      DateTime @default(now())
+  sale           Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  promotion      Promotion @relation(fields: [promotionId], references: [id])
+
+  @@index([saleId], name: "idx_sale_promotion_sale")
+  @@index([promotionId], name: "idx_sale_promotion_promotion")
+  @@map("sale_promotions")
 }
 
 model Receipt {
