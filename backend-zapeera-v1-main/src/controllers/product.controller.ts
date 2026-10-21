@@ -3,6 +3,7 @@
 
 import { Request, Response } from 'express';
 import { getPrisma, isPostgreSQL } from '../utils/db.util';
+import { normalizePctCode } from '../utils/fbr.util';
 import { CreateProductData, UpdateProductData } from '../models/product.model';
 import { validate } from '../middleware/validation.middleware';
 import { AuthRequest, buildAdminWhereClause, buildBranchWhereClause } from '../middleware/auth.middleware';
@@ -56,6 +57,7 @@ const createProductSchema = Joi.object({
   categoryName: Joi.string().allow(''), // For bulk import - category name when categoryId doesn't exist
   supplierId: Joi.string().allow('', null).optional(), // Optional - supplier is assigned to batches, not products
   taxClassId: Joi.string().allow('', null).optional(), // Wave B5 - tax rate group; empty/null = company default handling
+  pctCode: Joi.string().allow('', null).max(12).optional(), // Wave B7 - PCT/HS code; normalized to digits-only (max 8) before storage
   branchId: Joi.string().required(),
   barcode: Joi.string().allow(''),
   additionalBarcodes: Joi.array().items(Joi.string()).optional(),
@@ -76,6 +78,7 @@ const updateProductSchema = Joi.object({
   categoryId: Joi.string().allow(''),
   supplierId: Joi.string().allow(''),
   taxClassId: Joi.string().allow('', null).optional(), // Wave B5
+  pctCode: Joi.string().allow('', null).max(12).optional(), // Wave B7
   branchId: Joi.string().allow(''),
   barcode: Joi.string().allow(''),
   additionalBarcodes: Joi.array().items(Joi.string()).optional(),
@@ -526,7 +529,8 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       maxStock: productData.maxStock || null,
       unitsPerPack: productData.unitsPerPack || 1,
       supplierId: validSupplierId, // Set to null if invalid/empty
-      taxClassId: validTaxClassId // Wave B5 - null = company default handling
+      taxClassId: validTaxClassId, // Wave B5 - null = company default handling
+      pctCode: normalizePctCode(productData.pctCode) // Wave B7 - digits-only wire format, null = FBR fallback
     };
 
     console.log('🔍 Creating product with data:', {
@@ -659,6 +663,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.sku !== undefined) updateFields.sku = updateData.sku;
     if (updateData.categoryId !== undefined) updateFields.categoryId = updateData.categoryId;
     if (updateData.taxClassId !== undefined) updateFields.taxClassId = updateData.taxClassId || null; // Wave B5 - '' clears to default handling
+    if (updateData.pctCode !== undefined) updateFields.pctCode = normalizePctCode(updateData.pctCode); // Wave B7 - '' clears to the FBR fallback
     if (updateData.supplierId !== undefined) updateFields.supplierId = updateData.supplierId || null;
     if (updateData.branchId !== undefined) updateFields.branchId = updateData.branchId;
     if (updateData.minStock !== undefined) updateFields.minStock = updateData.minStock;

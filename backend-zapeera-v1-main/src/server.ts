@@ -77,6 +77,7 @@ import customerRoutes from './routes/customer.routes';
 import saleRoutes from './routes/sale.routes';
 import promotionRoutes from './routes/promotion.routes';
 import taxClassRoutes from './routes/tax-class.routes';
+import fbrRoutes from './routes/fbr.routes';
 import reportRoutes from './routes/report.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import adminRoutes from './routes/admin.routes';
@@ -114,6 +115,7 @@ import supportRoutes from './routes/support.routes';
 import contentRoutes from './routes/content.routes';
 import barcodeRoutes from './routes/barcode.routes';
 import { startSubscriptionCron } from './jobs/subscription-cron';
+import { startFbrWorker } from './jobs/fbr-worker';
 import { getDatabaseService, DatabaseType } from './services/database.service';
 import { getSyncService } from './services/sync.service';
 import { getPrisma } from './utils/db.util';
@@ -159,6 +161,8 @@ try {
           await ensureFreshInstallPolicyBaseline();
           console.log('[Server] ✅ Standard modules, business types, plans, and employee portal ensured');
           startSubscriptionCron();
+          // FBR POS (Wave B7): drain the fiscal outbox every 30s.
+          startFbrWorker();
         } catch (modErr) {
           console.warn('[Server] ⚠️ Failed to ensure standard modules or business types:', modErr);
         }
@@ -568,6 +572,7 @@ app.use('/api/v1/customers', customerRoutes);
 app.use('/api/v1/sales', saleRoutes);
 app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
+app.use('/api/v1/fbr', fbrRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/admin', adminRoutes);
@@ -615,6 +620,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
+app.use('/api/fbr', fbrRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);

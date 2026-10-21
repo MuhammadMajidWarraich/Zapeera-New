@@ -4,6 +4,7 @@ import { AuthRequest, buildBranchWhereClause, buildBranchWhereClauseForRelation 
 import { notifyRefundChange } from '../routes/sse.routes';
 import { SALE_PAYMENT_METHODS } from './sale.controller';
 import { recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
+import { enqueueFbrCreditNote, attemptImmediateFbr } from '../services/fbr.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
 
@@ -586,6 +587,15 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
     syncAfterOperation('refund', 'create', result.refund).catch(err => {
       console.error('[Sync] Refund create sync failed:', err.message);
     });
+
+    // FBR POS (Wave B7): if the original sale was fiscalized, queue
+    // its fiscal credit note (IMS InvoiceType 3 + RefUSIN — the
+    // spec's returns flow). Fire-and-forget and internally guarded:
+    // a refund is never blocked on FBR. Refunds of sales that were
+    // never fiscalized create no row.
+    enqueueFbrCreditNote(prisma, result.refund.id)
+      .then(row => { if (row) attemptImmediateFbr(row.id); })
+      .catch(err => console.error('[FBR] credit-note enqueue failed (refund unaffected):', err.message));
 
     res.status(201).json({
       success: true,

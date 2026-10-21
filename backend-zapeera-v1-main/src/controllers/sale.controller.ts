@@ -11,6 +11,7 @@ import { isMissingTableError } from '../utils/membership-bridge.util';
 import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
+import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -1598,6 +1599,21 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       metadata: { saleId: completeSale.id, amount: completeSale.totalAmount },
     }).catch(() => {});
 
+    // FBR POS (Wave B7): the sale has committed — create its fiscal
+    // outbox row (awaited, but the service is internally guarded and
+    // returns null on any problem, so this can never fail or block
+    // the sale) and kick an immediate posting attempt. The 201
+    // carries the fiscal status so the POS receipt can show
+    // "Fiscal: Pending" right away; the FBR number itself lands
+    // asynchronously and appears on the invoice/reprint.
+    let fbrStatus: string | null = completeSale.fbrStatus ?? null;
+    let fbrInvoiceNumber: string | null = completeSale.fbrInvoiceNumber ?? null;
+    const fbrRow = await enqueueFbrForSale(prisma, completeSale.id);
+    if (fbrRow) {
+      fbrStatus = fbrRow.status;
+      attemptImmediateFbr(fbrRow.id);
+    }
+
     return res.status(201).json({
       success: true,
       data: {
@@ -1622,7 +1638,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         })),
         // Tax classes (Wave B5): the per-class breakdown behind
         // taxAmount (one implicit "Default" group for classless sales).
-        taxBreakdown: serializeTaxBreakdown(completeSale)
+        taxBreakdown: serializeTaxBreakdown(completeSale),
+        // FBR POS (Wave B7): fiscal status at response time (the
+        // number itself is filled in asynchronously by the worker).
+        fbrStatus,
+        fbrInvoiceNumber
       }
     });
   } catch (error) {

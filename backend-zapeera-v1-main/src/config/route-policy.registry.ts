@@ -125,6 +125,11 @@ const ENTRIES: RegistryEntry[] = [
   // same sales.invoices key on the same precedent; management writes
   // are additionally gated to OWNER/MANAGER in the controller.
   { prefix: '/api/tax-classes', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // FBR POS fiscal integration (Wave B7): fiscalizes invoices, so it
+  // shares the sales.invoices key on the same precedent; config writes
+  // and manual retries are additionally gated to OWNER/MANAGER in the
+  // controller.
+  { prefix: '/api/fbr', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
   // There is no standalone 'customers' module in module_definitions; the

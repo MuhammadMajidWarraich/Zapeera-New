@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiService } from "@/services/api";
 import type { TaxBreakdownLine } from "@/services/api";
+import QRCode from "qrcode";
+import { FiscalChip, FbrQrImage } from "@/components/common/FbrFiscal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
@@ -68,6 +70,10 @@ interface Invoice {
   discountPercentage?: number;
   // Tax classes (Wave B5): per-class tax groups stored on the sale.
   taxBreakdown?: TaxBreakdownLine[];
+  // FBR POS (Wave B7): fiscal invoice number + status mirrored from
+  // the fiscal queue (null when FBR was disabled at sale time).
+  fbrInvoiceNumber?: string | null;
+  fbrStatus?: string | null;
   totalAmount: number;
   paidAmount?: number; // Amount paid by customer
   returnedAmount?: number; // Amount returned/refunded
@@ -360,6 +366,8 @@ const Invoices = () => {
             discountAmount: sale.discountAmount,
             discountPercentage: sale.discountPercentage,
             taxBreakdown: sale.taxBreakdown || [],
+            fbrInvoiceNumber: sale.fbrInvoiceNumber ?? null,
+            fbrStatus: sale.fbrStatus ?? null,
             totalAmount: sale.totalAmount,
             paidAmount: sale.paidAmount || 0, // Amount paid by customer
             returnedAmount: sale.returnedAmount || 0, // Amount returned/refunded
@@ -644,7 +652,23 @@ const Invoices = () => {
     }
   };
 
-  const printInvoice = (invoice: Invoice) => {
+  // FBR POS (Wave B7): manual retry of a failed fiscal posting
+  // (owner/manager only — the backend gates it too).
+  const handleRetryFbr = async (invoice: Invoice) => {
+    try {
+      const res = await apiService.retryFbr(invoice.id);
+      if (res.success) {
+        toast({ title: "Fiscal retry queued", description: `Invoice ${invoice.invoiceNumber} will be posted to FBR again.` });
+        loadInvoices(true);
+      } else {
+        toast({ title: "Retry failed", description: res.message || "Could not queue the fiscal retry.", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Retry failed", description: error.message || "Could not queue the fiscal retry.", variant: "destructive" });
+    }
+  };
+
+  const printInvoice = async (invoice: Invoice) => {
     try {
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
@@ -657,8 +681,10 @@ const Invoices = () => {
         return;
       }
 
-      // Generate HTML content for the invoice
-      const invoiceHTML = generateInvoiceHTML(invoice);
+      // Generate HTML content for the invoice (with the FBR QR when
+      // the sale has been fiscalized)
+      const fbrQr = invoice.fbrInvoiceNumber ? await QRCode.toDataURL(invoice.fbrInvoiceNumber, { width: 200, margin: 1 }).catch(() => null) : null;
+      const invoiceHTML = generateInvoiceHTML(invoice, fbrQr);
 
       printWindow.document.write(invoiceHTML);
       printWindow.document.close();
@@ -678,10 +704,11 @@ const Invoices = () => {
     }
   };
 
-  const downloadInvoice = (invoice: Invoice) => {
+  const downloadInvoice = async (invoice: Invoice) => {
     try {
       // Generate HTML content for the invoice
-      const invoiceHTML = generateInvoiceHTML(invoice);
+      const fbrQr = invoice.fbrInvoiceNumber ? await QRCode.toDataURL(invoice.fbrInvoiceNumber, { width: 200, margin: 1 }).catch(() => null) : null;
+      const invoiceHTML = generateInvoiceHTML(invoice, fbrQr);
 
       // Create a blob with the HTML content
       const blob = new Blob([invoiceHTML], { type: 'text/html' });
@@ -706,7 +733,7 @@ const Invoices = () => {
     }
   };
 
-  const generateInvoiceHTML = (invoice: Invoice) => {
+  const generateInvoiceHTML = (invoice: Invoice, fbrQrDataUrl?: string | null) => {
     const formatDate = (dateString: string) => {
       return new Date(dateString).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -905,6 +932,12 @@ const Invoices = () => {
               <span>PKR ${invoice.totalAmount.toFixed(2)}</span>
             </div>
           </div>
+
+          ${invoice.fbrInvoiceNumber ? `
+          <div class="totals" style="text-align: center;">
+            <p style="margin: 4px 0;"><strong>FBR Invoice #:</strong> ${escapeHtml(invoice.fbrInvoiceNumber)}</p>
+            ${fbrQrDataUrl ? `<img src="${fbrQrDataUrl}" alt="FBR invoice QR" style="width: 110px; height: 110px;">` : ''}
+          </div>` : ''}
 
           <div class="footer">
             <p>Thank you for choosing ${escapeHtml(invoice.branch.name)}!</p>
@@ -1202,7 +1235,7 @@ const Invoices = () => {
                 <table className="w-full min-w-[1400px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                      {["Invoice #", "Customer", "Date", "Cashier", "Payment", "Branch", "Items", "Total", "Paid", "Returned", "Status", "Actions"].map((h) => (
+                      {["Invoice #", "Customer", "Date", "Cashier", "Payment", "Branch", "Items", "Total", "Paid", "Returned", "Status", "Fiscal", "Actions"].map((h) => (
                         <th
                           key={h}
                           className={cn(
@@ -1244,6 +1277,21 @@ const Invoices = () => {
                           <td className="px-4 py-3.5 align-middle text-[13px] font-semibold text-green-600">PKR {(invoice.paidAmount || 0).toFixed(2)}</td>
                           <td className="px-4 py-3.5 align-middle text-[13px] font-semibold text-red-600">PKR {(invoice.returnedAmount || 0).toFixed(2)}</td>
                           <td className="px-4 py-3.5 align-middle">{getStatusBadge(invoice.status)}</td>
+                          <td className="px-4 py-3.5 align-middle">
+                            <div className="flex items-center gap-1.5">
+                              <FiscalChip status={invoice.fbrStatus} />
+                              {invoice.fbrStatus === 'FAILED' && ['OWNER', 'MANAGER', 'ADMIN'].includes(user?.role || '') && (
+                                <button
+                                  type="button"
+                                  title="Retry posting to FBR"
+                                  onClick={() => handleRetryFbr(invoice)}
+                                  className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                                >
+                                  Retry
+                                </button>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3.5 pr-6 text-right align-middle sticky right-0 bg-white z-10 shadow-[-4px_0_10px_rgba(0,0,0,0.05)]">
                             <div className="flex flex-wrap items-center justify-end gap-1">
                               <button
@@ -1496,6 +1544,32 @@ const Invoices = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* FBR POS (Wave B7) */}
+                {(selectedInvoice.fbrInvoiceNumber || selectedInvoice.fbrStatus) && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-4">
+                      <FbrQrImage value={selectedInvoice.fbrInvoiceNumber} size={84} />
+                      <div className="text-sm">
+                        <p className="flex items-center gap-2">
+                          <strong>FBR Invoice #:</strong>
+                          {selectedInvoice.fbrInvoiceNumber || '—'}
+                          <FiscalChip status={selectedInvoice.fbrStatus} />
+                          {selectedInvoice.fbrStatus === 'FAILED' && ['OWNER', 'MANAGER', 'ADMIN'].includes(user?.role || '') && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetryFbr(selectedInvoice)}
+                              className="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                            >
+                              Retry
+                            </button>
+                          )}
+                        </p>
+                        <p className="text-gray-500 mt-1">Customers can verify this invoice on FBR's verification portal using the number or QR code.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

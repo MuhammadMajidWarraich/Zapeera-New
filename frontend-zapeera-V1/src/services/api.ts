@@ -155,6 +155,44 @@ export interface TaxBreakdownLine {
   taxAmount: number;
 }
 
+// FBR POS fiscal integration (Wave B7): per-business IMS config.
+// The API token is write-only — reads expose only `hasToken`.
+export type FbrEnvironment = 'TEST' | 'SANDBOX' | 'PRODUCTION';
+
+export interface FbrConfigRecord {
+  enabled: boolean;
+  posId: string;
+  environment: FbrEnvironment;
+  sellerName: string;
+  sellerStrn: string;
+  hasToken: boolean;
+  updatedAt: string | null;
+}
+
+export interface FbrConfigPayload {
+  enabled?: boolean;
+  posId?: string;
+  apiToken?: string;
+  clearApiToken?: boolean;
+  environment?: FbrEnvironment;
+  sellerName?: string;
+  sellerStrn?: string;
+}
+
+export interface FbrStatusRecord {
+  config: FbrConfigRecord;
+  counts: Record<'PENDING' | 'SENDING' | 'SENT' | 'TEST' | 'FAILED' | 'SKIPPED', number>;
+  recentFailures: Array<{
+    id: string;
+    saleId: string;
+    invoiceNumber: string | null;
+    kind: string;
+    attempts: number;
+    lastError: string | null;
+    updatedAt: string;
+  }>;
+}
+
 export interface BillingProfileRecord {
   id: string;
   userId: string;
@@ -952,6 +990,7 @@ export class ApiService {
       barcode?: string;
       requiresPrescription: boolean;
       taxClassId?: string | null;
+      pctCode?: string | null;
       taxClass?: { id: string; name: string; rate: number } | null;
       isActive: boolean;
       createdAt: string;
@@ -1027,6 +1066,7 @@ export class ApiService {
     requiresPrescription?: boolean;
     isActive?: boolean;
     taxClassId?: string | null;
+    pctCode?: string | null;
     // Temporary fields for backend compatibility
     costPrice?: number;
     sellingPrice?: number;
@@ -1117,6 +1157,7 @@ export class ApiService {
     categoryId?: string;
     supplierId?: string;
     taxClassId?: string | null;
+    pctCode?: string | null;
     costPrice?: number;
     sellingPrice?: number;
     stock?: number;
@@ -1520,6 +1561,34 @@ export class ApiService {
   async deleteTaxClass(taxClassId: string) {
     return this.request<TaxClassRecord>(`/tax-classes/${taxClassId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // FBR POS (Wave B7)
+  async getFbrConfig() {
+    return this.request<FbrConfigRecord>('/fbr/config');
+  }
+
+  async updateFbrConfig(data: FbrConfigPayload) {
+    return this.request<FbrConfigRecord>('/fbr/config', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async testFbrConnection() {
+    return this.request<{ ok: boolean; environment?: string; message: string }>('/fbr/config/test-connection', {
+      method: 'POST',
+    });
+  }
+
+  async getFbrStatus() {
+    return this.request<FbrStatusRecord>('/fbr/status');
+  }
+
+  async retryFbr(saleId: string) {
+    return this.request<{ queueId: string; status: string }>(`/fbr/retry/${saleId}`, {
+      method: 'POST',
     });
   }
 

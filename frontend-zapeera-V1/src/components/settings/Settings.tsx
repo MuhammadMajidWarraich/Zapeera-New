@@ -17,6 +17,7 @@ import {
   Edit,
   X,
   Battery,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -61,6 +62,16 @@ const Settings = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditingPOS, setIsEditingPOS] = useState(false);
+  // FBR POS (Wave B7): fiscal config lives behind its own API (the
+  // token is write-only), separate from the POS settings object.
+  const [fbrConfig, setFbrConfig] = useState({ enabled: false, posId: "", environment: "TEST" as "TEST" | "SANDBOX" | "PRODUCTION", sellerName: "", sellerStrn: "", hasToken: false });
+  const [fbrTokenInput, setFbrTokenInput] = useState("");
+  const [fbrClearToken, setFbrClearToken] = useState(false);
+  const [fbrCounts, setFbrCounts] = useState<Record<string, number> | null>(null);
+  const [fbrTestResult, setFbrTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isSavingFbr, setIsSavingFbr] = useState(false);
+  const [isTestingFbr, setIsTestingFbr] = useState(false);
+  const canManageFbr = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [importedSettings, setImportedSettings] = useState<any>(null);
@@ -172,6 +183,72 @@ const Settings = () => {
           branchName: 'Unknown Branch'
         });
       }
+    }
+  };
+
+  // FBR POS (Wave B7) ──────────────────────────────────────────────
+  const loadFbr = async () => {
+    try {
+      const [cfg, status] = await Promise.all([apiService.getFbrConfig(), apiService.getFbrStatus()]);
+      if (cfg.success && cfg.data) {
+        setFbrConfig({
+          enabled: cfg.data.enabled,
+          posId: cfg.data.posId || "",
+          environment: cfg.data.environment || "TEST",
+          sellerName: cfg.data.sellerName || "",
+          sellerStrn: cfg.data.sellerStrn || "",
+          hasToken: cfg.data.hasToken,
+        });
+      }
+      if (status.success && status.data) {
+        setFbrCounts(status.data.counts as unknown as Record<string, number>);
+      }
+    } catch { /* section simply stays at defaults */ }
+  };
+
+  useEffect(() => { loadFbr(); }, [selectedCompanyId]);
+
+  const handleFbrSave = async () => {
+    setIsSavingFbr(true);
+    try {
+      const res = await apiService.updateFbrConfig({
+        enabled: fbrConfig.enabled,
+        posId: fbrConfig.posId.trim(),
+        environment: fbrConfig.environment,
+        sellerName: fbrConfig.sellerName.trim(),
+        sellerStrn: fbrConfig.sellerStrn.trim(),
+        ...(fbrTokenInput.trim() ? { apiToken: fbrTokenInput.trim() } : {}),
+        ...(fbrClearToken ? { clearApiToken: true } : {}),
+      });
+      if (res.success) {
+        toast({ title: "FBR POS settings saved", description: fbrConfig.enabled ? `Fiscal posting is ON (${fbrConfig.environment}).` : "Fiscal posting is off." });
+        setFbrTokenInput("");
+        setFbrClearToken(false);
+        setFbrTestResult(null);
+        loadFbr();
+      } else {
+        toast({ title: "Could not save FBR settings", description: res.message || "Please check the values and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not save FBR settings", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSavingFbr(false);
+    }
+  };
+
+  const handleFbrTest = async () => {
+    setIsTestingFbr(true);
+    try {
+      const res = await apiService.testFbrConnection();
+      if (res.success && res.data) {
+        setFbrTestResult({ ok: res.data.ok, message: res.data.message });
+      } else {
+        setFbrTestResult({ ok: false, message: res.message || "Connection test failed." });
+      }
+    } catch (e: any) {
+      setFbrTestResult({ ok: false, message: e.message || "Connection test failed." });
+    } finally {
+      setIsTestingFbr(false);
     }
   };
 
@@ -1093,6 +1170,153 @@ toast({
                 What one loyalty point is worth when a customer redeems points at the POS. Customers earn 1 point per PKR 100 spent.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* FBR POS (Wave B7) */}
+        <section
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          style={{ animationDelay: "200ms" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+              FBR POS — Fiscal Invoicing
+            </div>
+            {fbrCounts && (
+              <div className="text-xs font-medium text-[#8c95b0]">
+                Queue: {fbrCounts.PENDING || 0} pending · {fbrCounts.SENT || 0} sent · {fbrCounts.TEST || 0} test · {fbrCounts.FAILED || 0} failed
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col px-[30px] py-[30px]">
+            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+              When enabled, every sale is posted to FBR's POS invoicing system and the receipt carries the
+              FBR invoice number and its QR code. Posting happens in the background — if FBR is unreachable,
+              sales continue and invoices sync later. Use TEST mode to see the full flow with simulated
+              invoice numbers before you have real FBR credentials.
+            </p>
+            {!canManageFbr && (
+              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                Only the owner or a manager can change FBR settings.
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px] first:pt-0">
+              <div>
+                <h4 className="text-sm font-bold text-[#0a1128]">Enable FBR POS</h4>
+                <p className="text-[13px] text-[#8c95b0]">Post every new sale to FBR and print the fiscal number + QR on receipts</p>
+              </div>
+              <Switch
+                id="fbr-enabled"
+                className={ZV3_POS_SWITCH}
+                checked={fbrConfig.enabled}
+                onCheckedChange={(checked) => setFbrConfig({ ...fbrConfig, enabled: checked })}
+                disabled={!canManageFbr}
+              />
+            </div>
+            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="fbr-environment" className="mb-2 block text-sm font-bold text-[#0a1128]">Environment</Label>
+              <select
+                id="fbr-environment"
+                value={fbrConfig.environment}
+                onChange={(e) => setFbrConfig({ ...fbrConfig, environment: e.target.value as "TEST" | "SANDBOX" | "PRODUCTION" })}
+                disabled={!canManageFbr}
+                className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              >
+                <option value="TEST">TEST — simulated numbers, nothing sent to FBR</option>
+                <option value="SANDBOX">SANDBOX — FBR test system</option>
+                <option value="PRODUCTION">PRODUCTION — live FBR reporting</option>
+              </select>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                Start with TEST. Move to SANDBOX with the test POS ID/token FBR gives you, then PRODUCTION when FBR approves go-live.
+              </p>
+            </div>
+            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="fbr-pos-id" className="mb-2 block text-sm font-bold text-[#0a1128]">POS ID</Label>
+              <Input
+                id="fbr-pos-id"
+                value={fbrConfig.posId}
+                onChange={(e) => setFbrConfig({ ...fbrConfig, posId: e.target.value })}
+                disabled={!canManageFbr}
+                placeholder="The POS ID FBR issued for this till"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              />
+            </div>
+            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="fbr-token" className="mb-2 block text-sm font-bold text-[#0a1128]">API Token</Label>
+              <Input
+                id="fbr-token"
+                type="password"
+                autoComplete="new-password"
+                value={fbrTokenInput}
+                onChange={(e) => { setFbrTokenInput(e.target.value); setFbrClearToken(false); }}
+                disabled={!canManageFbr}
+                placeholder={fbrConfig.hasToken && !fbrClearToken ? "•••••••••• (saved — type to replace)" : "Bearer token issued with the POS ID"}
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                Write-only: the token is never shown again after saving and is never printed in logs.
+                {fbrConfig.hasToken && !fbrClearToken && (
+                  <button type="button" onClick={() => { setFbrClearToken(true); setFbrTokenInput(""); }} className="ml-2 font-semibold text-red-600 hover:underline">
+                    Clear saved token
+                  </button>
+                )}
+                {fbrClearToken && <span className="ml-2 font-semibold text-red-600">The saved token will be removed on Save.</span>}
+              </p>
+            </div>
+            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="fbr-seller-name" className="mb-2 block text-sm font-bold text-[#0a1128]">Registered Business Name (optional)</Label>
+              <Input
+                id="fbr-seller-name"
+                value={fbrConfig.sellerName}
+                onChange={(e) => setFbrConfig({ ...fbrConfig, sellerName: e.target.value })}
+                disabled={!canManageFbr}
+                placeholder="Trade name exactly as registered with FBR"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              />
+            </div>
+            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="fbr-seller-strn" className="mb-2 block text-sm font-bold text-[#0a1128]">STRN (optional)</Label>
+              <Input
+                id="fbr-seller-strn"
+                value={fbrConfig.sellerStrn}
+                onChange={(e) => setFbrConfig({ ...fbrConfig, sellerStrn: e.target.value })}
+                disabled={!canManageFbr}
+                placeholder="Sales Tax Registration Number"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+              />
+            </div>
+            {fbrTestResult && (
+              <div className={`mt-[18px] rounded-[10px] px-4 py-3 text-[13px] ${fbrTestResult.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                {fbrTestResult.message}
+              </div>
+            )}
+            {canManageFbr && (
+              <div className="flex flex-wrap gap-2 pt-[22px]">
+                <Button
+                  type="button"
+                  onClick={handleFbrSave}
+                  disabled={isSavingFbr}
+                  className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                >
+                  <Save className="h-4 w-4" />
+                  {isSavingFbr ? "Saving…" : "Save FBR Settings"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleFbrTest}
+                  disabled={isTestingFbr}
+                  variant="outline"
+                  className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                >
+                  {isTestingFbr ? "Testing…" : "Test Connection"}
+                </Button>
+              </div>
+            )}
+            <p className="pt-3 text-xs leading-relaxed text-[#8c95b0]">
+              The connection test never posts an invoice — in TEST mode it only checks this configuration;
+              in SANDBOX/PRODUCTION it checks the FBR endpoint is reachable.
+            </p>
           </div>
         </section>
       </div>

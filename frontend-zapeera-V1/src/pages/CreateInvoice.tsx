@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FbrQrImage, useQrDataUrl } from "@/components/common/FbrFiscal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart,
@@ -136,6 +137,11 @@ interface Receipt {
   // Receipts render them only when shouldShowTaxBreakdown() is true;
   // single-default receipts render exactly as before (no tax line).
   taxBreakdown?: TaxBreakdownLine[];
+  // FBR POS (Wave B7): fiscal invoice number + status from the server.
+  // The number usually lands asynchronously (worker), so it is often
+  // absent on this just-created receipt and present on reprints.
+  fbrInvoiceNumber?: string | null;
+  fbrStatus?: string | null;
   total: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -186,6 +192,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
     for (const line of receipt.taxBreakdown || []) {
       lines.push(`Tax — ${line.className} (${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
     }
+  }
+  if (receipt.fbrInvoiceNumber) {
+    lines.push(`FBR Invoice #: ${receipt.fbrInvoiceNumber}`);
   }
   lines.push(
     `*Total: PKR ${Number(receipt.total || 0).toFixed(2)}*`,
@@ -238,6 +247,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
+  // FBR POS (Wave B7): QR of the fiscal invoice number for print HTML.
+  const currentReceiptQr = useQrDataUrl(currentReceipt?.fbrInvoiceNumber ?? null);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundInvoiceNumber, setRefundInvoiceNumber] = useState(""); // Changed from receiptNumber to invoiceNumber
   const [refundReason, setRefundReason] = useState("");
@@ -1617,6 +1628,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           : undefined,
         // Tax classes (Wave B5): per-class groups from the server.
         taxBreakdown: saleResponse.data.taxBreakdown || [],
+        // FBR POS (Wave B7): fiscal fields from the server (status is
+        // PENDING at this point when FBR is enabled; the number is
+        // filled in by the worker and shows on reprints).
+        fbrInvoiceNumber: saleResponse.data.fbrInvoiceNumber ?? null,
+        fbrStatus: saleResponse.data.fbrStatus ?? null,
         total: (saleResponse.data.promotionDiscount || 0) > 0 && saleResponse.data.totalAmount != null
           ? saleResponse.data.totalAmount
           : totalAmount,
@@ -2175,6 +2191,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <strong>Status:</strong> ${currentReceipt.paymentStatus}
             ${currentReceipt.pointsEarned ? `<br><strong>Loyalty Points Earned:</strong> ${currentReceipt.pointsEarned}` : ''}
           </div>
+          ${currentReceipt.fbrInvoiceNumber ? `
+          <div class="payment-info" style="text-align: center;">
+            <strong>FBR Invoice #:</strong> ${currentReceipt.fbrInvoiceNumber}
+            ${currentReceiptQr ? `<br><img src="${currentReceiptQr}" alt="FBR invoice QR" style="width: 110px; height: 110px; margin-top: 6px;">` : ''}
+          </div>` : ''}
 
           <div class="footer">
             <p>Thank you for choosing ${companyName}!</p>
@@ -3824,6 +3845,23 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </div>
                 </div>
               </div>
+
+              {/* FBR POS (Wave B7): fiscal number + QR once FBR has
+                  confirmed; a status note while it is still queued. */}
+              {currentReceipt.fbrInvoiceNumber ? (
+                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 flex items-center gap-4">
+                  <FbrQrImage value={currentReceipt.fbrInvoiceNumber} size={84} />
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">FBR Invoice #</p>
+                    <p className="font-bold text-gray-900 break-all">{currentReceipt.fbrInvoiceNumber}</p>
+                    <p className="text-xs text-gray-500 mt-1">Verify at FBR's invoice verification portal.</p>
+                  </div>
+                </div>
+              ) : currentReceipt.fbrStatus ? (
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 text-sm text-amber-800">
+                  Fiscal status: <strong>{currentReceipt.fbrStatus}</strong> — the FBR invoice number will appear on this invoice once FBR confirms it.
+                </div>
+              ) : null}
 
               {/* Payment Method & Status */}
               <div className="grid grid-cols-2 gap-4">

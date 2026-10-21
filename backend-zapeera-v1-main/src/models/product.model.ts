@@ -9,7 +9,8 @@ export interface CreateProductData {
     categoryId: string;
     categoryName?: string; // For bulk import - category name when categoryId doesn't exist
     supplierId?: string; // Optional - supplier is assigned at batch level
-    taxClassId?: string | null; // Wave B5 - tax rate group; null = company default handling
+    taxClassId?: string | null; // Wave B5
+    pctCode?: string | null; // Wave B7 - PCT/HS code (digits-only), null = FBR fallback
     branchId: string;
     barcode?: string;
     additionalBarcodes?: string[]; // Multiple barcodes per product
@@ -33,6 +34,7 @@ export interface CreateProductData {
     categoryId?: string;
     supplierId?: string;
     taxClassId?: string | null; // Wave B5
+    pctCode?: string | null; // Wave B7
     branchId?: string;
     barcode?: string;
     additionalBarcodes?: string[];

@@ -148,6 +148,8 @@ model Business {
   invitations               BusinessInvitation[]     @relation("businessInvitations")
   billingProfiles           BillingProfile[]         @relation("businessBillingProfiles")
   paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
+  fbrConfig                 FbrConfig?
+  fbrInvoiceQueue           FbrInvoiceQueue[]
 
   @@index([createdBy], name: "idx_business_createdBy")
   @@index([businessType], name: "idx_business_type")
@@ -357,6 +359,12 @@ model Product {
   // Null = the company's default handling (its isDefault tax class,
   // or the defaultTax setting when it has no classes).
   taxClassId           String?
+  // FBR POS (Wave B7): Pakistan Customs Tariff code for this product,
+  // sent as the item PCTCode on fiscal invoices. Stored WITHOUT the
+  // dot (spec: "1601.0000" is shared as "16010000"), digits only,
+  // max 8. Null = the fiscal payload uses the documented fallback
+  // "00000000".
+  pctCode              String?
   isActive             Boolean   @default(true)
   uuid                 String?   @unique
   syncStatus           String    @default("PENDING")
@@ -673,6 +681,14 @@ model Sale {
   // loyalty — NOT part of discountAmount. The per-promotion breakdown
   // lives in SalePromotion rows. Null on pre-B4 sales / no promo.
   promotionDiscount     Float?
+  // FBR POS (Wave B7): the fiscal invoice number FBR returned for
+  // this sale and the fiscalization status mirrored from the latest
+  // FbrInvoiceQueue row (PENDING | SENT | FAILED | TEST | SKIPPED).
+  // Both null when FBR was not enabled for the business at sale time.
+  // Credit notes for refunds live in their own queue rows and do not
+  // overwrite these sale-level fields.
+  fbrInvoiceNumber      String?
+  fbrStatus             String?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -692,6 +708,7 @@ model Sale {
   payments SalePayment[]
   promotions SalePromotion[]
   taxLines SaleTaxLine[]
+  fbrInvoices FbrInvoiceQueue[]
   ledgerEntries CustomerLedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   branch   Branch      @relation(fields: [branchId], references: [id])
@@ -865,6 +882,79 @@ model SaleTaxLine {
   @@map("sale_tax_lines")
 }
 
+// FBR POS fiscal integration (Wave B7): one config row per business.
+// Holds the credentials the business registered with FBR's POS
+// invoicing (IMS) program. `apiToken` is the Bearer token FBR/PRAL
+// issued for the POS ID — it is stored like the codebase's other
+// secrets (a plain column, e.g. user password hashes live the same
+// way) and is NEVER returned by the API (reads expose only
+// `hasToken`) and NEVER logged. `environment`:
+//   TEST       — no network call at all; the worker simulates a
+//                format-faithful FBR invoice number locally so the
+//                whole UX (queue, receipt QR, retry) is verifiable
+//                without FBR credentials. Default for new configs.
+//   SANDBOX    — PRAL IMS sandbox endpoint.
+//   PRODUCTION — PRAL IMS production endpoint.
+model FbrConfig {
+  id          String   @id @default(cuid())
+  companyId   String   @unique
+  enabled     Boolean  @default(false)
+  posId       String?
+  apiToken    String?
+  environment String   @default("TEST") // TEST | SANDBOX | PRODUCTION
+  // Receipt/registration identity: overrides for the FBR-registered
+  // trade name and STRN when they differ from the Business row (the
+  // payload itself carries no seller block in the IMS model, but the
+  // printed receipt header uses these when set).
+  sellerName  String?
+  sellerStrn  String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Business @relation(fields: [companyId], references: [id])
+
+  @@map("fbr_configs")
+}
+
+// FBR POS fiscal integration (Wave B7): the durable outbox for fiscal
+// postings. One row per fiscal document: the sale itself
+// (kind = SALE, InvoiceType 1) and one per fiscalized refund
+// (kind = CREDIT_NOTE, InvoiceType 3 with RefUSIN = the original
+// sale's USIN — the IMS spec's credit-note flow). Rows are created
+// AFTER the sale/refund transaction commits; the sale is never
+// blocked on FBR. The worker posts due rows with backoff (1m, 5m,
+// 15m) and gives up after 3 attempts → FAILED, from where an
+// owner/manager can retry manually. `idempotencyKey` is unique so a
+// sale (or refund) can never be fiscalized twice:
+// "SALE:<saleId>" / "CN:<refundId>".
+model FbrInvoiceQueue {
+  id               String    @id @default(cuid())
+  companyId        String
+  saleId           String
+  refundId         String?
+  kind             String    @default("SALE") // SALE | CREDIT_NOTE
+  idempotencyKey   String    @unique
+  status           String    @default("PENDING") // PENDING | SENDING | SENT | FAILED | SKIPPED | TEST
+  attempts         Int       @default(0)
+  nextAttemptAt    DateTime?
+  lastError        String?
+  fbrInvoiceNumber String?
+  isTest           Boolean   @default(false)
+  requestPayload   Json?
+  responsePayload  Json?
+  sentAt           DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  company          Business  @relation(fields: [companyId], references: [id])
+  sale             Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  refund           Refund?   @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  @@index([companyId], name: "idx_fbr_queue_company")
+  @@index([saleId], name: "idx_fbr_queue_sale")
+  @@index([status, nextAttemptAt], name: "idx_fbr_queue_due")
+  @@map("fbr_invoice_queue")
+}
+
 model Receipt {
   id            String      @id @default(cuid())
   saleId        String
@@ -897,6 +987,7 @@ model Refund {
   loyaltyTransactions LoyaltyTransaction[]
   originalSale   Sale         @relation("SaleRefunds", fields: [originalSaleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   refundedByUser ZapeeraUser  @relation(fields: [refundedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fbrCreditNotes FbrInvoiceQueue[]
 
   @@index([originalSaleId], name: "idx_refund_sale")
   @@index([status], name: "idx_refund_status")

@@ -199,6 +199,7 @@ const Inventory = () => {
     barcode: "",
     requiresPrescription: false,
     taxClassId: "",
+    pctCode: "",
     minStock: 10
   });
 
@@ -990,6 +991,7 @@ const Inventory = () => {
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
         taxClassId: newMedicine.taxClassId || null,
+        pctCode: newMedicine.pctCode || null,
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -1013,6 +1015,7 @@ const Inventory = () => {
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
         taxClassId: newMedicine.taxClassId || null,
+        pctCode: newMedicine.pctCode || null,
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -1039,6 +1042,7 @@ const Inventory = () => {
         barcode: "",
         requiresPrescription: false,
         taxClassId: "",
+        pctCode: "",
         minStock: 10
       });
 
@@ -1179,6 +1183,7 @@ const Inventory = () => {
           barcode: freshProduct.barcode || product.barcode || "",
           requiresPrescription: freshProduct.requiresPrescription ?? product.requiresPrescription ?? false,
           taxClassId: freshProduct.taxClassId ?? product.taxClassId ?? "",
+          pctCode: freshProduct.pctCode ?? product.pctCode ?? "",
           minStock: freshProduct.minStock ?? product.minStock ?? 10
         });
         setIsEditDialogOpen(true);
@@ -1193,6 +1198,7 @@ const Inventory = () => {
           barcode: product.barcode || "",
           requiresPrescription: product.requiresPrescription || false,
           taxClassId: product.taxClassId || "",
+          pctCode: product.pctCode || "",
           minStock: product.minStock || 10
         });
         setIsEditDialogOpen(true);
@@ -1249,6 +1255,7 @@ const Inventory = () => {
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription, // Use form value
         taxClassId: newMedicine.taxClassId || null, // Wave B5 - "" clears to default handling
+        pctCode: newMedicine.pctCode || null, // Wave B7 - "" clears to the FBR fallback code
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -1326,6 +1333,7 @@ const Inventory = () => {
           barcode: "",
           requiresPrescription: false,
           taxClassId: "",
+          pctCode: "",
           minStock: 10
         });
 
@@ -2430,6 +2438,19 @@ const Inventory = () => {
                       The tax rate group this product sells under. Manage classes in Sales → Tax Classes.
                     </p>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pctCode">PCT Code (FBR)</Label>
+                    <Input
+                      id="pctCode"
+                      value={newMedicine.pctCode}
+                      onChange={(e) => setNewMedicine({...newMedicine, pctCode: e.target.value.replace(/[^0-9.]/g, "").slice(0, 9)})}
+                      placeholder="e.g. 3004.9000 — optional"
+                      maxLength={9}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pakistan Customs Tariff code printed on FBR fiscal invoices. Leave empty to use the FBR fallback (00000000).
+                    </p>
+                  </div>
 
                 </div>
 
@@ -2609,6 +2630,19 @@ const Inventory = () => {
                     </Select>
                     <p className="text-xs text-muted-foreground">
                       The tax rate group this product sells under. Manage classes in Sales → Tax Classes.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-pctCode">PCT Code (FBR)</Label>
+                    <Input
+                      id="edit-pctCode"
+                      value={newMedicine.pctCode}
+                      onChange={(e) => setNewMedicine({...newMedicine, pctCode: e.target.value.replace(/[^0-9.]/g, "").slice(0, 9)})}
+                      placeholder="e.g. 3004.9000 — optional"
+                      maxLength={9}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pakistan Customs Tariff code printed on FBR fiscal invoices. Leave empty to use the FBR fallback (00000000).
                     </p>
                   </div>
 
