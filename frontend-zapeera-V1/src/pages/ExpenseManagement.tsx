@@ -5,6 +5,7 @@ import {
   Download,
   FileText,
   Filter,
+  Pencil,
   Plus,
   Receipt,
   Search,
@@ -119,6 +120,7 @@ const ExpenseManagement = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
   const [expenseForm, setExpenseForm] = useState({
@@ -282,24 +284,41 @@ const ExpenseManagement = () => {
       return;
     }
 
+    const payload = {
+      title: expenseForm.vendor.trim() || undefined,
+      expenseDate: expenseForm.date,
+      categoryId: expenseForm.categoryId,
+      amount,
+      branchId: expenseForm.branchId && expenseForm.branchId !== "all" ? expenseForm.branchId : null,
+      vendor: expenseForm.vendor.trim() || undefined,
+      description: expenseForm.notes.trim() || undefined,
+      reference: expenseForm.receiptName.trim() || undefined,
+      status: toApiStatus(expenseForm.status),
+    };
+
     setSavingExpense(true);
     try {
-      const response = await apiService.createExpense({
-        title: expenseForm.vendor.trim() || undefined,
-        expenseDate: expenseForm.date,
-        categoryId: expenseForm.categoryId,
-        amount,
-        branchId: expenseForm.branchId && expenseForm.branchId !== "all" ? expenseForm.branchId : null,
-        vendor: expenseForm.vendor.trim() || undefined,
-        description: expenseForm.notes.trim() || undefined,
-        reference: expenseForm.receiptName.trim() || undefined,
-        status: toApiStatus(expenseForm.status),
-      });
-      if (!response.success || !response.data) {
-        throw new Error(response.message || "Failed to record expense");
+      if (editingExpenseId) {
+        const response = await apiService.updateExpense(editingExpenseId, payload);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || "Failed to update expense");
+        }
+
+        setExpenses((current) =>
+          current.map((expense) => (expense.id === editingExpenseId ? mapExpense(response.data) : expense))
+        );
+        setEditingExpenseId(null);
+        toast({ title: "Expense updated" });
+      } else {
+        const response = await apiService.createExpense(payload);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || "Failed to record expense");
+        }
+
+        setExpenses((current) => [mapExpense(response.data), ...current]);
+        toast({ title: "Expense recorded" });
       }
 
-      setExpenses((current) => [mapExpense(response.data), ...current]);
       setExpenseForm((current) => ({
         ...current,
         amount: "",
@@ -308,12 +327,42 @@ const ExpenseManagement = () => {
         receiptName: "",
         status: "Pending",
       }));
-      toast({ title: "Expense recorded" });
     } catch (error: any) {
-      toast({ title: "Failed to record expense", description: error?.message, variant: "destructive" });
+      toast({
+        title: editingExpenseId ? "Failed to update expense" : "Failed to record expense",
+        description: error?.message,
+        variant: "destructive",
+      });
     } finally {
       setSavingExpense(false);
     }
+  };
+
+  const startEditExpense = (expense: BusinessExpense) => {
+    setEditingExpenseId(expense.id);
+    setExpenseForm({
+      date: expense.date,
+      categoryId: expense.categoryId,
+      amount: String(expense.amount),
+      branchId: expense.branchId || "all",
+      vendor: expense.vendor,
+      notes: expense.notes,
+      receiptName: expense.receiptName,
+      status: expense.status,
+    });
+    document.getElementById("record-expense-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const cancelEditExpense = () => {
+    setEditingExpenseId(null);
+    setExpenseForm((current) => ({
+      ...current,
+      amount: "",
+      vendor: "",
+      notes: "",
+      receiptName: "",
+      status: "Pending",
+    }));
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -341,6 +390,9 @@ const ExpenseManagement = () => {
         throw new Error(response.message || "Failed to delete expense");
       }
       setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+      if (editingExpenseId === expenseId) {
+        cancelEditExpense();
+      }
       toast({ title: "Expense deleted successfully" });
     } catch (error: any) {
       toast({ title: "Failed to delete expense", description: error?.message, variant: "destructive" });
@@ -512,7 +564,7 @@ const ExpenseManagement = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Receipt className="h-5 w-5 text-[#1a52c5]" />
-              Add Expenses
+              {editingExpenseId ? "Edit Expense" : "Add Expenses"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -626,11 +678,16 @@ const ExpenseManagement = () => {
                   placeholder="Add internal expense notes"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div className="flex flex-wrap gap-2 md:col-span-2">
                 <Button type="submit" disabled={categories.length === 0 || savingExpense} className="w-full md:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Expense
+                  {editingExpenseId ? "Update Expense" : "Add Expense"}
                 </Button>
+                {editingExpenseId && (
+                  <Button type="button" variant="outline" onClick={cancelEditExpense} disabled={savingExpense}>
+                    Cancel
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
@@ -724,7 +781,7 @@ const ExpenseManagement = () => {
                 <TableHead>Vendor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Receipt</TableHead>
-                <TableHead className="w-[56px]"></TableHead>
+                <TableHead className="w-[96px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -782,15 +839,26 @@ const ExpenseManagement = () => {
                     </TableCell>
                     <TableCell>{expense.receiptName || "-"}</TableCell>
                     <TableCell>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        aria-label="Delete expense"
-                      >
-                        <Trash2 className="h-4 w-4 text-slate-500" />
-                      </Button>
+                      <div className="flex items-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => startEditExpense(expense)}
+                          aria-label="Edit expense"
+                        >
+                          <Pencil className="h-4 w-4 text-slate-500" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          aria-label="Delete expense"
+                        >
+                          <Trash2 className="h-4 w-4 text-slate-500" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
