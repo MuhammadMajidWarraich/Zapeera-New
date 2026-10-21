@@ -64,7 +64,7 @@ const errResult = (title: string, message?: string | null): VoiceResult => ({
   speak: title,
 });
 
-const batchQty = (b: any): number => Number(b?.stockQuantity ?? b?.totalStock ?? 0) || 0;
+const batchQty = (b: any): number => Number(b?.quantity ?? b?.stockQuantity ?? b?.totalStock ?? 0) || 0;
 
 type ProductLite = {
   id: string;
