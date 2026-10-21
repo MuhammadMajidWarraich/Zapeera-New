@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Zapeera</string>
+    <string name="title_activity_main">Zapeera</string>
+    <string name="package_name">com.seikho.zapeera</string>
+    <string name="custom_url_scheme">com.seikho.zapeera</string>
+</resources>

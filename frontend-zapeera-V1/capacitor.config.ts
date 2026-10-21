@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.zapeera.app',
+  appId: 'com.seikho.zapeera',
   appName: 'Zapeera',
   webDir: 'dist',
   server: {
