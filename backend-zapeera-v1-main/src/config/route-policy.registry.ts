@@ -108,6 +108,7 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/manufacturers', policy: { kind: 'module', resourceKey: 'inventory.manufacturers' } },
   { prefix: '/api/shelves', policy: { kind: 'module', resourceKey: 'inventory.shelves' } },
   { prefix: '/api/batches', policy: { kind: 'module', resourceKey: 'inventory.batches' } },
+  { prefix: '/api/transfers', policy: { kind: 'module', resourceKey: 'inventory.overview' } },
 
   // ── Sales & POS module ────────────────────────────────────────────────────
   { prefix: '/api/sales', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
