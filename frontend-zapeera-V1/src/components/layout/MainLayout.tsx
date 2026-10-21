@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { SyncStatusBadge } from "@/components/SyncStatusIndicator";
+import VoiceAssistant from "@/features/voice/VoiceAssistant";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -673,6 +674,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             </main>
           </div>
         </div>
+        <VoiceAssistant />
       </SidebarContext.Provider>
     </SidebarProvider>
   );
