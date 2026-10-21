@@ -1775,125 +1775,6 @@ const Inventory = () => {
     }
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    // CRITICAL FIX: Handle multiple images - process all selected files
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-    
-    if (imageFiles.length === 0) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please select image files.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // CRITICAL FIX: Limit number of images to prevent memory issues
-    const MAX_IMAGES = 50;
-    if (imageFiles.length > MAX_IMAGES) {
-      toast({
-        title: "Too Many Images",
-        description: `Please select a maximum of ${MAX_IMAGES} images at once.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // CRITICAL FIX: Limit individual image size to prevent memory issues
-    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB per image
-    const oversizedImages = imageFiles.filter(file => file.size > MAX_IMAGE_SIZE);
-    if (oversizedImages.length > 0) {
-      toast({
-        title: "Image Too Large",
-        description: `Some images exceed the maximum size of ${MAX_IMAGE_SIZE / 1024 / 1024}MB. Please compress them first.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setProcessingImage(true);
-    try {
-      // Process all images - convert to base64
-      const imagePromises = imageFiles.map((file) => 
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        })
-      );
-
-      // CRITICAL FIX: Process images in batches to prevent memory issues
-      const BATCH_SIZE = 5;
-      const allBase64Images: string[] = [];
-      
-      for (let i = 0; i < imagePromises.length; i += BATCH_SIZE) {
-        const batch = imagePromises.slice(i, i + BATCH_SIZE);
-        const batchResults = await Promise.all(batch);
-        allBase64Images.push(...batchResults);
-        
-        // Small delay between batches to prevent overwhelming the system
-        if (i + BATCH_SIZE < imagePromises.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-
-      // Simulate OCR processing (in real implementation, you'd call an OCR service for each image)
-      // For now, process all images together
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Mock extracted data (replace with actual OCR processing)
-      // In real implementation, you'd process each image and extract product data
-      const mockExtractedData = [
-        {
-          name: 'Paracetamol 500mg',
-          category: 'Analgesics',
-          costPrice: 2.50,
-          sellingPrice: 5.00,
-          stock: 100,
-        },
-        {
-          name: 'Amoxicillin 250mg',
-          category: 'Antibiotics',
-          costPrice: 15.00,
-          sellingPrice: 25.00,
-          stock: 50,
-        },
-        {
-          name: 'Vitamin C 1000mg',
-          category: 'Vitamins',
-          costPrice: 8.00,
-          sellingPrice: 12.00,
-          stock: 75,
-        }
-      ];
-
-      setImportedProducts(mockExtractedData);
-      setIsPreviewDialogOpen(true);
-      
-      toast({
-        title: "Images Processed",
-        description: `Successfully processed ${imageFiles.length} image(s).`,
-        variant: "default",
-      });
-    } catch (error) {
-      toast({
-        title: "Image Processing Error",
-        description: error instanceof Error ? error.message : "Error processing images. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingImage(false);
-      // Reset file input
-      if (event.target) {
-        event.target.value = '';
-      }
-    }
-  };
-
   const handleProceedImport = async () => {
     // Check if admin has selected a branch
     if (user?.role === 'OWNER' && !selectedBranchId) {
@@ -2349,7 +2230,8 @@ const Inventory = () => {
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-gray-400">
-                      Supported formats: CSV, Images (.png, .jpg, .jpeg)
+                      Supported format: CSV. To import from a document image,
+                      use the “Scan Document” button instead.
                     </p>
                   </div>
                 </div>
