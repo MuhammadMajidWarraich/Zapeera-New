@@ -1114,6 +1114,40 @@ export class ApiService {
     });
   }
 
+  async updateCustomer(id: string, customerData: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    isVIP?: boolean;
+    isActive?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      phone: string;
+      email?: string;
+      address?: string;
+      branch: { id: string; name: string };
+      totalPurchases: number;
+      loyaltyPoints: number;
+      isVIP: boolean;
+      lastVisit?: string;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>(`/customers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(customerData),
+    });
+  }
+
+  async deleteCustomer(id: string) {
+    return this.request<{ message: string }>(`/customers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Sales
   async createSale(saleData: {
     customerId?: string;

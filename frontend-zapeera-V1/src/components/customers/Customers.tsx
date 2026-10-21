@@ -25,6 +25,8 @@ import {
   RefreshCw,
   Package,
   AlertTriangle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api";
@@ -98,6 +100,18 @@ const Customers = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Edit / delete customer state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editCustomerForm, setEditCustomerForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: ""
+  });
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleAddCustomer = async () => {
     if (!newCustomer.name.trim() || !newCustomer.phone.trim()) {
       toast({
@@ -168,6 +182,99 @@ const Customers = () => {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setEditCustomerForm({
+      name: customer.name || "",
+      phone: customer.phone || "",
+      email: customer.email || "",
+      address: customer.address || ""
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditCustomer = async () => {
+    if (!editingCustomer) return;
+    if (!editCustomerForm.name.trim() || !editCustomerForm.phone.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Name and phone number are required!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await apiService.updateCustomer(editingCustomer.id, {
+        name: editCustomerForm.name,
+        phone: editCustomerForm.phone,
+        email: editCustomerForm.email,
+        address: editCustomerForm.address
+      });
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Customer updated successfully!",
+        });
+        setIsEditDialogOpen(false);
+        setEditingCustomer(null);
+        void loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to update customer",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating customer:', error);
+      const errorMessage = error?.message || error?.response?.message || 'Failed to update customer. Please try again.';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      const response = await apiService.deleteCustomer(customerToDelete.id);
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Customer deleted successfully!",
+        });
+        setCustomerToDelete(null);
+        void loadCustomers();
+      } else {
+        toast({
+          title: "Error",
+          description: response.message || "Failed to delete customer",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error deleting customer:', error);
+      const errorMessage = error?.message || error?.response?.message || 'Failed to delete customer. Please try again.';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -543,14 +650,32 @@ const Customers = () => {
                           </span>
                         </td>
                         <td className="px-6 py-5 pr-8 text-right align-middle">
-                          <button
-                            type="button"
-                            onClick={() => void viewPurchaseHistory(customer)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
-                          >
-                            <Receipt className="h-[15px] w-[15px]" strokeWidth={2} />
-                            History
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void viewPurchaseHistory(customer)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            >
+                              <Receipt className="h-[15px] w-[15px]" strokeWidth={2} />
+                              History
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditCustomer(customer)}
+                              title="Edit customer"
+                              className="inline-flex items-center justify-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent p-2 text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            >
+                              <Pencil className="h-[15px] w-[15px]" strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCustomerToDelete(customer)}
+                              title="Delete customer"
+                              className="inline-flex items-center justify-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent p-2 text-[#4a5578] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -800,6 +925,143 @@ const Customers = () => {
                   <Plus className="mr-2 h-4 w-4" />
                   Add customer
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader className="space-y-2 pr-10 text-left">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+              Edit customer
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              Update this customer&apos;s details.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-5 py-6">
+            <div className="space-y-2">
+              <Label htmlFor="editCustomerName" className="text-sm font-semibold text-[#0a1128]">
+                Customer name <span className="text-[#dc2626]">*</span>
+              </Label>
+              <Input
+                id="editCustomerName"
+                placeholder="Enter customer name"
+                value={editCustomerForm.name}
+                onChange={(e) => setEditCustomerForm({ ...editCustomerForm, name: e.target.value })}
+                className={customerFormField}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editCustomerPhone" className="text-sm font-semibold text-[#0a1128]">
+                Phone number <span className="text-[#dc2626]">*</span>
+              </Label>
+              <Input
+                id="editCustomerPhone"
+                placeholder="Enter phone number"
+                value={editCustomerForm.phone}
+                onChange={(e) => setEditCustomerForm({ ...editCustomerForm, phone: e.target.value })}
+                className={customerFormField}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editCustomerEmail" className="text-sm font-semibold text-[#0a1128]">
+                Email <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+              </Label>
+              <Input
+                id="editCustomerEmail"
+                type="email"
+                placeholder="Enter email address"
+                value={editCustomerForm.email}
+                onChange={(e) => setEditCustomerForm({ ...editCustomerForm, email: e.target.value })}
+                className={customerFormField}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editCustomerAddress" className="text-sm font-semibold text-[#0a1128]">
+                Address <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+              </Label>
+              <Textarea
+                id="editCustomerAddress"
+                placeholder="Enter address"
+                value={editCustomerForm.address}
+                onChange={(e) => setEditCustomerForm({ ...editCustomerForm, address: e.target.value })}
+                rows={3}
+                className={customerFormTextarea}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 border-t-0 p-0 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditingCustomer(null);
+              }}
+              disabled={isSubmitting}
+              className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-7 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleEditCustomer}
+              disabled={isSubmitting || !editCustomerForm.name.trim() || !editCustomerForm.phone.trim()}
+              className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!customerToDelete} onOpenChange={(open) => { if (!open) setCustomerToDelete(null); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader className="space-y-2 pr-10 text-left">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+              Delete customer
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              Are you sure you want to delete {customerToDelete?.name}? They will be
+              removed from your customer list. Their past invoices stay on record.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-3 border-t-0 p-0 pt-4 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCustomerToDelete(null)}
+              disabled={isDeleting}
+              className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-7 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDeleteCustomer}
+              disabled={isDeleting}
+              className="rounded-[10px] bg-[#dc2626] px-7 py-3 text-sm font-semibold text-white hover:bg-[#b91c1c]"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete customer"
               )}
             </Button>
           </DialogFooter>
