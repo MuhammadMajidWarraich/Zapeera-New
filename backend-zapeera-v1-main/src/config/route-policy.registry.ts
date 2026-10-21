@@ -121,6 +121,10 @@ const ENTRIES: RegistryEntry[] = [
   // through the sale-create permission they already hold; management
   // writes are additionally gated to OWNER/MANAGER in the controller.
   { prefix: '/api/promotions', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Tax classes (Wave B5): also invoice-money rules, so they share the
+  // same sales.invoices key on the same precedent; management writes
+  // are additionally gated to OWNER/MANAGER in the controller.
+  { prefix: '/api/tax-classes', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
   // There is no standalone 'customers' module in module_definitions; the

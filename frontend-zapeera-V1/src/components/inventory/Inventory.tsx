@@ -69,6 +69,14 @@ interface Product {
     id: string;
     name: string;
   };
+  // Tax class (Wave B5): the rate group this product sells under;
+  // null taxClassId = the company's default handling.
+  taxClassId?: string | null;
+  taxClass?: {
+    id: string;
+    name: string;
+    rate: number;
+  } | null;
   branch: {
     id: string;
     name: string;
@@ -190,8 +198,21 @@ const Inventory = () => {
     formula: "",
     barcode: "",
     requiresPrescription: false,
+    taxClassId: "",
     minStock: 10
   });
+
+  // Tax classes (Wave B5) for the product form's rate-group picker.
+  const [taxClasses, setTaxClasses] = useState<Array<{ id: string; name: string; rate: number; isDefault: boolean; isActive: boolean }>>([]);
+  useEffect(() => {
+    apiService.getTaxClasses({ limit: 200 })
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setTaxClasses(res.data);
+        }
+      })
+      .catch(() => { /* the picker simply offers Default only */ });
+  }, []);
 
   // Form state for creating new category
   const [newCategory, setNewCategory] = useState({
@@ -968,6 +989,7 @@ const Inventory = () => {
         branchId: branchId,
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
+        taxClassId: newMedicine.taxClassId || null,
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -990,6 +1012,7 @@ const Inventory = () => {
         branch: branch ? { id: branch.id, name: branch.name } : null,
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
+        taxClassId: newMedicine.taxClassId || null,
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -1015,6 +1038,7 @@ const Inventory = () => {
         formula: "",
         barcode: "",
         requiresPrescription: false,
+        taxClassId: "",
         minStock: 10
       });
 
@@ -1154,6 +1178,7 @@ const Inventory = () => {
           formula: freshProduct.formula || product.formula || "",
           barcode: freshProduct.barcode || product.barcode || "",
           requiresPrescription: freshProduct.requiresPrescription ?? product.requiresPrescription ?? false,
+          taxClassId: freshProduct.taxClassId ?? product.taxClassId ?? "",
           minStock: freshProduct.minStock ?? product.minStock ?? 10
         });
         setIsEditDialogOpen(true);
@@ -1167,6 +1192,7 @@ const Inventory = () => {
           formula: product.formula || "",
           barcode: product.barcode || "",
           requiresPrescription: product.requiresPrescription || false,
+          taxClassId: product.taxClassId || "",
           minStock: product.minStock || 10
         });
         setIsEditDialogOpen(true);
@@ -1181,6 +1207,7 @@ const Inventory = () => {
         formula: product.formula || "",
         barcode: product.barcode || "",
         requiresPrescription: product.requiresPrescription || false,
+        taxClassId: product.taxClassId || "",
         minStock: product.minStock || 10
       });
       setIsEditDialogOpen(true);
@@ -1221,6 +1248,7 @@ const Inventory = () => {
         branchId: editingProduct.branch?.id || "",
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription, // Use form value
+        taxClassId: newMedicine.taxClassId || null, // Wave B5 - "" clears to default handling
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
@@ -1297,6 +1325,7 @@ const Inventory = () => {
           formula: "",
           barcode: "",
           requiresPrescription: false,
+          taxClassId: "",
           minStock: 10
         });
 
@@ -2382,6 +2411,25 @@ const Inventory = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="taxClass">Tax Class</Label>
+                    <Select value={newMedicine.taxClassId || "default"} onValueChange={(value) => setNewMedicine({...newMedicine, taxClassId: value === "default" ? "" : value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Default — business default rate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default — business default rate</SelectItem>
+                        {taxClasses.map((taxClass) => (
+                          <SelectItem key={taxClass.id} value={taxClass.id}>
+                            {taxClass.name} ({Number(taxClass.rate)}%){taxClass.isDefault ? " — default class" : ""}{!taxClass.isActive ? " — retired" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      The tax rate group this product sells under. Manage classes in Sales → Tax Classes.
+                    </p>
+                  </div>
 
                 </div>
 
@@ -2493,6 +2541,7 @@ const Inventory = () => {
                 formula: "",
                 barcode: "",
                 requiresPrescription: false,
+                taxClassId: "",
                 minStock: 10
               });
             }
@@ -2541,6 +2590,26 @@ const Inventory = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-taxClass">Tax Class</Label>
+                    <Select value={newMedicine.taxClassId || "default"} onValueChange={(value) => setNewMedicine({...newMedicine, taxClassId: value === "default" ? "" : value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Default — business default rate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default — business default rate</SelectItem>
+                        {taxClasses.map((taxClass) => (
+                          <SelectItem key={taxClass.id} value={taxClass.id}>
+                            {taxClass.name} ({Number(taxClass.rate)}%){taxClass.isDefault ? " — default class" : ""}{!taxClass.isActive ? " — retired" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      The tax rate group this product sells under. Manage classes in Sales → Tax Classes.
+                    </p>
                   </div>
 
                 </div>

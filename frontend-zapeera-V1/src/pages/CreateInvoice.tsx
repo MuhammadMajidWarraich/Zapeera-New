@@ -40,6 +40,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
+import type { TaxBreakdownLine } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
@@ -131,9 +132,25 @@ interface Receipt {
   // sale and a label for it (coupon code or promotion name).
   promotionDiscount?: number;
   promotionLabel?: string;
+  // Tax classes (Wave B5): the server's per-class tax groups.
+  // Receipts render them only when shouldShowTaxBreakdown() is true;
+  // single-default receipts render exactly as before (no tax line).
+  taxBreakdown?: TaxBreakdownLine[];
   total: number;
   paymentMethod: string;
   paymentStatus: string;
+}
+
+/**
+ * Tax classes (Wave B5): per-class tax lines appear on a receipt only
+ * when the sale actually used tax classes — more than one group, or a
+ * single group tied to a real class. A single implicit "Default" group
+ * (classless company / default-rate sale) renders exactly as receipts
+ * always have: no separate tax line.
+ */
+function shouldShowTaxBreakdown(receipt: Receipt): boolean {
+  const breakdown = receipt.taxBreakdown || [];
+  return breakdown.length > 1 || (breakdown.length === 1 && !!breakdown[0].taxClassId);
 }
 
 /**
@@ -164,6 +181,11 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
   }
   if (receipt.promotionDiscount && receipt.promotionDiscount > 0) {
     lines.push(`Promotion${receipt.promotionLabel ? ` (${receipt.promotionLabel})` : ''}: -PKR ${Number(receipt.promotionDiscount).toFixed(2)}`);
+  }
+  if (shouldShowTaxBreakdown(receipt)) {
+    for (const line of receipt.taxBreakdown || []) {
+      lines.push(`Tax — ${line.className} (${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
+    }
   }
   lines.push(
     `*Total: PKR ${Number(receipt.total || 0).toFixed(2)}*`,
@@ -1593,6 +1615,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         promotionLabel: (saleResponse.data.appliedPromotions && saleResponse.data.appliedPromotions.length > 0)
           ? (saleResponse.data.appliedPromotions.map(p => p.code || p.name).filter(Boolean).join(', ') || undefined)
           : undefined,
+        // Tax classes (Wave B5): per-class groups from the server.
+        taxBreakdown: saleResponse.data.taxBreakdown || [],
         total: (saleResponse.data.promotionDiscount || 0) > 0 && saleResponse.data.totalAmount != null
           ? saleResponse.data.totalAmount
           : totalAmount,
@@ -2134,6 +2158,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <span>-PKR ${currentReceipt.promotionDiscount.toFixed(2)}</span>
             </div>
             ` : ''}
+            ${shouldShowTaxBreakdown(currentReceipt) ? (currentReceipt.taxBreakdown || []).map((line) => `
+            <div class="total-line">
+              <span>Tax — ${escapeHtml(line.className)} (${Number(line.rate)}%):</span>
+              <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
+            </div>
+            `).join('') : ''}
             <div class="total-line total-final">
               <span>TOTAL:</span>
               <span>PKR ${currentReceipt.total.toFixed(2)}</span>
@@ -3774,6 +3804,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       <span className="font-semibold">-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span>
                     </div>
                   )}
+                  {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
+                    <div key={line.className} className="flex justify-between items-center text-blue-100">
+                      <span>Tax — {line.className} ({Number(line.rate)}%)</span>
+                      <span className="font-semibold">PKR {Number(line.taxAmount).toFixed(2)}</span>
+                    </div>
+                  ))}
                   {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
                     <div className="flex justify-between items-center text-blue-100">
                       <span>Points earned on this sale</span>

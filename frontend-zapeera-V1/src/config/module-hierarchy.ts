@@ -24,6 +24,7 @@ import {
   FileText,
   Receipt,
   TicketPercent,
+  Percent,
   Package,
   Building2,
   UserCog,
@@ -135,6 +136,17 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         label: 'Promotions',
         href: '/promotions',
         icon: TicketPercent,
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        // Tax classes (Wave B5) — managed by OWNER/MANAGER next to
+        // Promotions; guarded like the other sales pages via the
+        // ModuleGuard's invoices mapping.
+        key: 'tax-classes',
+        label: 'Tax Classes',
+        href: '/tax-classes',
+        icon: Percent,
         module: 'sales',
         roles: ['OWNER', 'MANAGER'],
       },

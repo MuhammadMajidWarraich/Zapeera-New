@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiService } from "@/services/api";
+import type { TaxBreakdownLine } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
@@ -65,6 +66,8 @@ interface Invoice {
   subtotal: number;
   discountAmount: number;
   discountPercentage?: number;
+  // Tax classes (Wave B5): per-class tax groups stored on the sale.
+  taxBreakdown?: TaxBreakdownLine[];
   totalAmount: number;
   paidAmount?: number; // Amount paid by customer
   returnedAmount?: number; // Amount returned/refunded
@@ -97,6 +100,15 @@ interface Invoice {
     receiptNumber: string;
     printedAt?: string;
   }>;
+}
+
+// Tax classes (Wave B5): per-class tax lines render only when the
+// sale used tax classes — more than one group, or a single group tied
+// to a real class. A single implicit "Default" group renders exactly
+// as invoices always have (no separate tax line).
+function invoiceShowsTaxBreakdown(invoice: Invoice): boolean {
+  const breakdown = invoice.taxBreakdown || [];
+  return breakdown.length > 1 || (breakdown.length === 1 && !!breakdown[0].taxClassId);
 }
 
 const Invoices = () => {
@@ -347,6 +359,7 @@ const Invoices = () => {
             subtotal: sale.subtotal,
             discountAmount: sale.discountAmount,
             discountPercentage: sale.discountPercentage,
+            taxBreakdown: sale.taxBreakdown || [],
             totalAmount: sale.totalAmount,
             paidAmount: sale.paidAmount || 0, // Amount paid by customer
             returnedAmount: sale.returnedAmount || 0, // Amount returned/refunded
@@ -881,6 +894,12 @@ const Invoices = () => {
                 <span>-PKR ${invoice.discountPercentage && invoice.discountPercentage > 0 ? (invoice.subtotal * invoice.discountPercentage / 100).toFixed(2) : invoice.discountAmount.toFixed(2)}</span>
               </div>
             ` : ''}
+            ${invoiceShowsTaxBreakdown(invoice) ? (invoice.taxBreakdown || []).map((line) => `
+              <div class="total-row">
+                <span>Tax — ${escapeHtml(line.className)} (${Number(line.rate)}%):</span>
+                <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
+              </div>
+            `).join('') : ''}
             <div class="total-row total-final">
               <span>TOTAL:</span>
               <span>PKR ${invoice.totalAmount.toFixed(2)}</span>
@@ -1453,6 +1472,12 @@ const Invoices = () => {
                       </span>
                     </div>
                   )}
+                  {invoiceShowsTaxBreakdown(selectedInvoice) && (selectedInvoice.taxBreakdown || []).map((line) => (
+                    <div key={line.className} className="flex justify-between">
+                      <span>Tax — {line.className} ({Number(line.rate)}%):</span>
+                      <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
+                    </div>
+                  ))}
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
                     <span>Total:</span>
                     <span className="text-primary">PKR {selectedInvoice.totalAmount.toFixed(2)}</span>

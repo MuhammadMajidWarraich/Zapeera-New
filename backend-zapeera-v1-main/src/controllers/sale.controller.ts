@@ -10,6 +10,7 @@ import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { isMissingTableError } from '../utils/membership-bridge.util';
 import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
+import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -231,7 +232,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
                 printedAt: true
               }
             },
-            payments: true
+            payments: true,
+            taxLines: true
           },
           orderBy: { createdAt: 'desc' }
         }),
@@ -321,7 +323,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
               printedAt: true
             }
           },
-          payments: true
+          payments: true,
+          taxLines: true
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -335,7 +338,9 @@ export const getSales = async (req: AuthRequest, res: Response) => {
     return res.json({
       success: true,
       data: {
-        sales,
+        // Tax classes (Wave B5): every sale carries its per-class
+        // breakdown alongside the stored tax lines.
+        sales: sales.map((s: any) => ({ ...s, taxBreakdown: serializeTaxBreakdown(s) })),
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -426,6 +431,7 @@ export const getSale = async (req: AuthRequest, res: Response) => {
           }
         },
         payments: true,
+        taxLines: true,
         promotions: {
           include: {
             promotion: {
@@ -450,7 +456,7 @@ export const getSale = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       success: true,
-      data: sale
+      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale) }
     });
   } catch (error) {
     console.error('Get sale error:', error);
@@ -537,7 +543,8 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
             printedAt: true
           }
         },
-        payments: true
+        payments: true,
+        taxLines: true
       }
     });
 
@@ -550,7 +557,7 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
 
     return res.json({
       success: true,
-      data: sale
+      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale) }
     });
   } catch (error) {
     console.error('Get sale by receipt number error:', error);
@@ -649,10 +656,15 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const promoProductIds = [...new Set(saleData.items.map(item => item.productId))];
     const promoProducts = await prisma.product.findMany({
       where: { id: { in: promoProductIds } },
-      select: { id: true, categoryId: true }
+      select: { id: true, categoryId: true, taxClassId: true }
     });
     const categoryByProductId = new Map<string, string | null>(
       promoProducts.map((p: any) => [p.id, p.categoryId || null])
+    );
+    // Tax classes (Wave B5): the product's rate group, resolved by the
+    // tax engine below from the same pre-fetch.
+    const taxClassByProductId = new Map<string, string | null>(
+      promoProducts.map((p: any) => [p.id, p.taxClassId || null])
     );
     const promoLines: PromoLineInput[] = [];
 
@@ -797,7 +809,65 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     }
 
     const subtotalAfterDiscount = subtotal - discountAmount - promotionDiscount - loyaltyDiscount;
-    const taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
+    // Tax classes (Wave B5): the tax on the discounted base is computed
+    // PER CLASS by the tax engine (tax.util.ts) and the sale's taxAmount
+    // is the sum of the per-class groups, which are persisted as
+    // SaleTaxLine rows in the transaction below. A company with NO tax
+    // classes keeps the legacy computation BYTE-IDENTICAL (one implicit
+    // "Default" group at the defaultTax setting rate — still written as
+    // a tax line, with taxClassId null, so reporting always has data).
+    // A company WITH classes gets the engine even for a single group:
+    // the engine's single-group path is the same unrounded formula,
+    // applied at the resolved (default-class or setting) rate.
+    let taxAmount: number;
+    let taxGroups: TaxGroup[] = [];
+    {
+      // Resolve the company exactly the way the promotions stage did.
+      let taxCompanyId: string | null = null;
+      if (req.user?.selectedCompanyId && req.user?.selectedBranchId) {
+        taxCompanyId = req.user.selectedCompanyId;
+      } else if (saleData.branchId) {
+        const branchRow = await prisma.branch.findUnique({
+          where: { id: saleData.branchId },
+          select: { companyId: true }
+        });
+        taxCompanyId = branchRow?.companyId || null;
+      }
+      let companyTaxClasses: any[] = [];
+      if (taxCompanyId) {
+        try {
+          companyTaxClasses = await prisma.taxClass.findMany({
+            where: { companyId: taxCompanyId }
+          });
+        } catch (taxClassError) {
+          console.warn('Could not fetch tax classes, using the default rate:', taxClassError);
+          companyTaxClasses = [];
+        }
+      }
+      if (companyTaxClasses.length > 0) {
+        const taxResult = computeSaleTax({
+          lines: saleData.items.map((item, index) => ({
+            lineTotal: itemTotals[index],
+            taxClassId: taxClassByProductId.get(item.productId) ?? null
+          })),
+          classes: companyTaxClasses,
+          defaultTaxRate: taxRate,
+          subtotal,
+          taxableBase: subtotalAfterDiscount
+        });
+        taxAmount = taxResult.taxAmount;
+        taxGroups = taxResult.groups;
+      } else {
+        taxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
+        taxGroups = [{
+          taxClassId: null,
+          className: IMPLICIT_DEFAULT_CLASS_NAME,
+          rate: taxRate,
+          taxableAmount: subtotalAfterDiscount,
+          taxAmount
+        }];
+      }
+    }
     const totalAmount = subtotalAfterDiscount + taxAmount;
 
     // Points this sale earns — the long-standing rule, unchanged:
@@ -1061,6 +1131,23 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             }
           });
         }
+      }
+
+      // Tax classes (Wave B5): persist the per-class breakdown the
+      // engine computed, in the same transaction. The rows snapshot
+      // class name + rate, so later class edits never rewrite this
+      // sale's tax history; Sale.taxAmount above is their sum.
+      if (taxGroups.length > 0) {
+        await tx.saleTaxLine.createMany({
+          data: taxGroups.map(g => ({
+            saleId: sale.id,
+            taxClassId: g.taxClassId,
+            className: g.className,
+            rate: g.rate,
+            taxableAmount: g.taxableAmount,
+            taxAmount: g.taxAmount
+          }))
+        });
       }
 
       // Create sale items and update stock
@@ -1463,6 +1550,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           }
         },
         payments: true,
+        taxLines: true,
         promotions: {
           include: {
             promotion: {
@@ -1531,7 +1619,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           code: sp.code ?? sp.promotion?.code ?? null,
           type: sp.promotion?.type || null,
           discountAmount: sp.discountAmount
-        }))
+        })),
+        // Tax classes (Wave B5): the per-class breakdown behind
+        // taxAmount (one implicit "Default" group for classless sales).
+        taxBreakdown: serializeTaxBreakdown(completeSale)
       }
     });
   } catch (error) {
@@ -1576,6 +1667,7 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       where: buildBranchWhereClause(req, { id }),
       include: {
         items: true,
+        taxLines: true,
         customer: true,
         user: true,
         branch: true,
@@ -1608,6 +1700,10 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
     let newDiscountAmount = existingSale.discountAmount;
     let newTaxAmount = existingSale.taxAmount;
     let newTotalAmount = existingSale.totalAmount;
+    // Tax classes (Wave B5): the per-class groups behind newTaxAmount
+    // when a discount edit recomputes it (null = tax untouched, the
+    // stored breakdown stays as created).
+    let newTaxGroups: TaxGroup[] | null = null;
 
     if (discountPercentage !== undefined && discountPercentage !== existingSale.discountPercentage) {
       newDiscountAmount = (existingSale.subtotal * discountPercentage) / 100;
@@ -1646,7 +1742,55 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
           console.warn('Could not fetch tax rate from settings, using default:', error);
         }
       }
-      newTaxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
+      // Tax classes (Wave B5): recompute through the same per-class
+      // engine createSale uses, over the sale's STORED lines (their
+      // totalPrice shares of the stored subtotal), resolving each
+      // product's CURRENT class — the same "current rules" basis the
+      // legacy code applied by re-reading the current defaultTax. A
+      // company with no classes keeps the legacy single-rate formula
+      // (and an implicit Default group, so its stored breakdown is
+      // refreshed to match). The replacement rows are written after
+      // the sale update below.
+      let taxClassesForUpdate: any[] = [];
+      try {
+        taxClassesForUpdate = await prisma.taxClass.findMany({
+          where: { companyId: existingSale.companyId }
+        });
+      } catch (taxClassError) {
+        console.warn('Could not fetch tax classes for sale update, using the default rate:', taxClassError);
+        taxClassesForUpdate = [];
+      }
+      if (taxClassesForUpdate.length > 0) {
+        const lineProductIds = [...new Set(existingSale.items.map((i: any) => i.productId))];
+        const lineProducts = await prisma.product.findMany({
+          where: { id: { in: lineProductIds } },
+          select: { id: true, taxClassId: true }
+        });
+        const classByProductId = new Map<string, string | null>(
+          lineProducts.map((p: any) => [p.id, p.taxClassId || null])
+        );
+        const taxResult = computeSaleTax({
+          lines: existingSale.items.map((i: any) => ({
+            lineTotal: Number(i.totalPrice || 0),
+            taxClassId: classByProductId.get(i.productId) ?? null
+          })),
+          classes: taxClassesForUpdate,
+          defaultTaxRate: taxRate,
+          subtotal: existingSale.subtotal,
+          taxableBase: subtotalAfterDiscount
+        });
+        newTaxAmount = taxResult.taxAmount;
+        newTaxGroups = taxResult.groups;
+      } else {
+        newTaxAmount = subtotalAfterDiscount * (taxRate / 100); // Tax on discounted amount
+        newTaxGroups = [{
+          taxClassId: null,
+          className: IMPLICIT_DEFAULT_CLASS_NAME,
+          rate: taxRate,
+          taxableAmount: subtotalAfterDiscount,
+          taxAmount: newTaxAmount
+        }];
+      }
       newTotalAmount = subtotalAfterDiscount + newTaxAmount;
     }
 
@@ -1682,6 +1826,31 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
         receipts: true
       }
     });
+
+    // Tax lines (Wave B5): when the discount edit recomputed the tax,
+    // replace the stored per-class rows so the breakdown always sums
+    // to the sale's taxAmount. This handler is not transactional (the
+    // update above is a single statement), so a failure is logged
+    // loudly but never fails the edit itself — the khata pattern.
+    if (newTaxGroups) {
+      try {
+        await prisma.saleTaxLine.deleteMany({ where: { saleId: id } });
+        if (newTaxGroups.length > 0) {
+          await prisma.saleTaxLine.createMany({
+            data: newTaxGroups.map(g => ({
+              saleId: id,
+              taxClassId: g.taxClassId,
+              className: g.className,
+              rate: g.rate,
+              taxableAmount: g.taxableAmount,
+              taxAmount: g.taxAmount
+            }))
+          });
+        }
+      } catch (taxLineError) {
+        console.error('[Tax] Failed to refresh tax lines for sale', id, taxLineError);
+      }
+    }
 
     // Udhaar/khata (Wave B2): updateSale never changes paidAmount, but
     // a discount edit changes the total — and with it the unpaid part
@@ -1798,7 +1967,18 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
         id: receipt.id.toString(),
         saleId: receipt.saleId.toString(),
         printedAt: receipt.printedAt?.toISOString() || null
-      }))
+      })),
+      // Tax classes (Wave B5): the fresh groups when the edit
+      // recomputed tax, else the breakdown stored at creation.
+      taxBreakdown: newTaxGroups
+        ? newTaxGroups.map(g => ({
+          taxClassId: g.taxClassId,
+          className: g.className,
+          rate: g.rate,
+          taxableAmount: g.taxableAmount,
+          taxAmount: g.taxAmount
+        }))
+        : serializeTaxBreakdown(existingSale)
     };
 
     // Notify about the update

@@ -42,6 +42,7 @@ const SuppliersPage = React.lazy(() => import("./pages/Suppliers"));
 const ShelvesPage = React.lazy(() => import("./pages/Shelves"));
 const CustomersPage = React.lazy(() => import("./pages/Customers"));
 const PromotionsPage = React.lazy(() => import("./pages/Promotions"));
+const TaxClassesPage = React.lazy(() => import("./pages/TaxClasses"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const SettingsPage = React.lazy(() => import("./pages/Settings"));
@@ -311,6 +312,17 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <PromotionsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/tax-classes" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <TaxClassesPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1088,6 +1100,20 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <PromotionsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/tax-classes" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <TaxClassesPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

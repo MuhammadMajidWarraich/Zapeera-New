@@ -123,6 +123,38 @@ export interface PromotionPayload {
   isActive?: boolean;
 }
 
+// Tax classes (Wave B5): named rate groups a business sells under.
+// Products point at one via taxClassId; products without one use the
+// company's default (its isDefault class, else the defaultTax setting).
+export interface TaxClassRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  rate: number;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaxClassPayload {
+  name: string;
+  rate: number;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+// One tax-class group of a sale, as stored on its SaleTaxLine rows
+// (name/rate are snapshots from sale creation). taxClassId is null
+// for the implicit default group (the defaultTax setting applied).
+export interface TaxBreakdownLine {
+  taxClassId: string | null;
+  className: string;
+  rate: number;
+  taxableAmount: number;
+  taxAmount: number;
+}
+
 export interface BillingProfileRecord {
   id: string;
   userId: string;
@@ -919,6 +951,8 @@ export class ApiService {
       unitsPerPack: number;
       barcode?: string;
       requiresPrescription: boolean;
+      taxClassId?: string | null;
+      taxClass?: { id: string; name: string; rate: number } | null;
       isActive: boolean;
       createdAt: string;
       updatedAt: string;
@@ -992,6 +1026,7 @@ export class ApiService {
     barcode?: string | null;
     requiresPrescription?: boolean;
     isActive?: boolean;
+    taxClassId?: string | null;
     // Temporary fields for backend compatibility
     costPrice?: number;
     sellingPrice?: number;
@@ -1007,6 +1042,7 @@ export class ApiService {
       formula?: string;
       category: { id: string; name: string };
       supplier: { id: string; name: string };
+      taxClass?: { id: string; name: string; rate: number } | null;
       branch: { id: string; name: string };
       barcode?: string;
       requiresPrescription: boolean;
@@ -1080,6 +1116,7 @@ export class ApiService {
     description?: string;
     categoryId?: string;
     supplierId?: string;
+    taxClassId?: string | null;
     costPrice?: number;
     sellingPrice?: number;
     stock?: number;
@@ -1105,6 +1142,7 @@ export class ApiService {
       maxStock?: number;
       unitType: string;
       unitsPerPack: number;
+      taxClass?: { id: string; name: string; rate: number } | null;
       barcode?: string;
       requiresPrescription: boolean;
       isActive: boolean;
@@ -1441,6 +1479,50 @@ export class ApiService {
     });
   }
 
+  // Tax classes (Wave B5)
+  async getTaxClasses(params?: {
+    page?: number;
+    limit?: number;
+    isActive?: boolean;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<TaxClassRecord[]>(`/tax-classes${query ? `?${query}` : ''}`);
+  }
+
+  async getTaxClass(taxClassId: string) {
+    return this.request<TaxClassRecord>(`/tax-classes/${taxClassId}`);
+  }
+
+  async createTaxClass(data: TaxClassPayload) {
+    return this.request<TaxClassRecord>('/tax-classes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTaxClass(taxClassId: string, data: Partial<TaxClassPayload>) {
+    return this.request<TaxClassRecord>(`/tax-classes/${taxClassId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // The backend retires (soft delete) so past sales' snapshots survive.
+  async deleteTaxClass(taxClassId: string) {
+    return this.request<TaxClassRecord>(`/tax-classes/${taxClassId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async validateCoupon(data: {
     code: string;
     items?: Array<{
@@ -1557,6 +1639,8 @@ export class ApiService {
         type?: string | null;
         discountAmount: number;
       }>;
+      // Tax classes (Wave B5): per-class breakdown behind taxAmount.
+      taxBreakdown?: TaxBreakdownLine[];
       totalAmount: number;
       paymentMethod: string;
       payments?: Array<{
@@ -1633,6 +1717,7 @@ export class ApiService {
         branchId: string;
         subtotal: number;
         taxAmount: number;
+        taxBreakdown?: TaxBreakdownLine[];
         discountAmount: number;
         totalAmount: number;
         paymentMethod: string;
@@ -1683,6 +1768,7 @@ export class ApiService {
       branchId: string;
       subtotal: number;
       taxAmount: number;
+      taxBreakdown?: TaxBreakdownLine[];
       discountAmount: number;
       totalAmount: number;
       paymentMethod: string;

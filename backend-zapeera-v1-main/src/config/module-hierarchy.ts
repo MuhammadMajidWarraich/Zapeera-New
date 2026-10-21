@@ -105,6 +105,19 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
         module: 'sales',
         roles: ['OWNER', 'MANAGER'],
       },
+      {
+        // Wave B5. Same treatment as 'promotions' above: 'tax-classes'
+        // is deliberately NOT a new permission submodule — the API
+        // authorizes through the existing sales.invoices resource key
+        // (see route-policy.registry.ts) and the route guard maps
+        // /tax-classes to the invoices page for the same reason.
+        key: 'tax-classes',
+        label: 'Tax Classes',
+        href: '/tax-classes',
+        icon: 'Percent',
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER'],
+      },
     ],
   },
 

@@ -1057,7 +1057,7 @@ toast({
             </div>
             <div className="py-[18px]">
               <Label htmlFor="default-tax" className="mb-2 block text-sm font-bold text-[#0a1128]">
-                Default Tax (%)
+                Default Tax (%) — fallback rate
               </Label>
               <Input
                 id="default-tax"
@@ -1069,7 +1069,9 @@ toast({
                 className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               />
               <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
-                This tax rate will be automatically applied to all sales. Set to 0 for no tax.
+                The fallback tax rate for products without a tax class. Products assigned a tax class
+                (Sales → Tax Classes) use their class rate instead; a product with no class uses the
+                default class when one is set, otherwise this rate. Set to 0 for no tax.
               </p>
             </div>
             <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">

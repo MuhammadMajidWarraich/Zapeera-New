@@ -55,6 +55,7 @@ const createProductSchema = Joi.object({
   categoryId: Joi.string().required(),
   categoryName: Joi.string().allow(''), // For bulk import - category name when categoryId doesn't exist
   supplierId: Joi.string().allow('', null).optional(), // Optional - supplier is assigned to batches, not products
+  taxClassId: Joi.string().allow('', null).optional(), // Wave B5 - tax rate group; empty/null = company default handling
   branchId: Joi.string().required(),
   barcode: Joi.string().allow(''),
   additionalBarcodes: Joi.array().items(Joi.string()).optional(),
@@ -74,6 +75,7 @@ const updateProductSchema = Joi.object({
   sku: Joi.string().allow(''),
   categoryId: Joi.string().allow(''),
   supplierId: Joi.string().allow(''),
+  taxClassId: Joi.string().allow('', null).optional(), // Wave B5
   branchId: Joi.string().allow(''),
   barcode: Joi.string().allow(''),
   additionalBarcodes: Joi.array().items(Joi.string()).optional(),
@@ -188,6 +190,13 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
               name: true
             }
           },
+        taxClass: {
+          select: {
+            id: true,
+            name: true,
+            rate: true
+          }
+        },
           batches: {
             where: {
               isActive: true,
@@ -294,6 +303,13 @@ export const getProduct = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true
+          }
+        },
+        taxClass: {
+          select: {
+            id: true,
+            name: true,
+            rate: true
           }
         },
         stockMovements: {
@@ -474,6 +490,23 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Tax class (Wave B5): when one is named it must belong to the
+    // target company; empty/absent means the company-default handling.
+    let validTaxClassId: string | null = null;
+    if (productData.taxClassId && productData.taxClassId !== '') {
+      const taxClass = await prisma.taxClass.findFirst({
+        where: { id: productData.taxClassId, companyId: targetCompanyId },
+        select: { id: true }
+      });
+      if (!taxClass) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tax class not found in this business'
+        });
+      }
+      validTaxClassId = taxClass.id;
+    }
+
     // Build product data object
     const productCreateData: any = {
       name: productData.name,
@@ -492,7 +525,8 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       minStock: productData.minStock || 1,
       maxStock: productData.maxStock || null,
       unitsPerPack: productData.unitsPerPack || 1,
-      supplierId: validSupplierId // Set to null if invalid/empty
+      supplierId: validSupplierId, // Set to null if invalid/empty
+      taxClassId: validTaxClassId // Wave B5 - null = company default handling
     };
 
     console.log('🔍 Creating product with data:', {
@@ -505,6 +539,13 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       include: {
         category: true,
         supplier: true,
+        taxClass: {
+          select: {
+            id: true,
+            name: true,
+            rate: true
+          }
+        },
         branch: {
           select: {
             id: true,
@@ -617,6 +658,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.formula !== undefined) updateFields.formula = updateData.formula || null; // CRITICAL: Include formula field
     if (updateData.sku !== undefined) updateFields.sku = updateData.sku;
     if (updateData.categoryId !== undefined) updateFields.categoryId = updateData.categoryId;
+    if (updateData.taxClassId !== undefined) updateFields.taxClassId = updateData.taxClassId || null; // Wave B5 - '' clears to default handling
     if (updateData.supplierId !== undefined) updateFields.supplierId = updateData.supplierId || null;
     if (updateData.branchId !== undefined) updateFields.branchId = updateData.branchId;
     if (updateData.minStock !== undefined) updateFields.minStock = updateData.minStock;
@@ -685,6 +727,20 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         });
       }
     }
+    // Tax class (Wave B5): re-pointing is only allowed within the
+    // product's own company; clearing (null) needs no lookup.
+    if (updateFields.taxClassId && updateFields.taxClassId !== existingProduct.taxClassId) {
+      const targetTaxClass = await prisma.taxClass.findFirst({
+        where: { id: updateFields.taxClassId, companyId: existingProduct.companyId },
+        select: { id: true }
+      });
+      if (!targetTaxClass) {
+        return res.status(404).json({
+          success: false,
+          message: 'Tax class not found in this business'
+        });
+      }
+    }
 
     console.log('🔍 Updating product with fields:', Object.keys(updateFields));
     console.log('🔍 Update data received:', updateData);
@@ -695,6 +751,13 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       include: {
         category: true,
         supplier: true,
+        taxClass: {
+          select: {
+            id: true,
+            name: true,
+            rate: true
+          }
+        },
         branch: {
           select: {
             id: true,

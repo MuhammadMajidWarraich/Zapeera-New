@@ -135,6 +135,7 @@ model Business {
   purchases                 Purchase[]
   stockTransfers            StockTransfer[]
   promotions                Promotion[]
+  taxClasses                TaxClass[]
   categories                Category[]
   expenses                  Expense[]
   expenseCategories         ExpenseCategory[]
@@ -352,6 +353,10 @@ model Product {
   barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
   isGenerated          Boolean   @default(false) // true if barcode was auto-generated
   requiresPrescription Boolean   @default(false)
+  // Tax class (Wave B5): the rate group this product sells under.
+  // Null = the company's default handling (its isDefault tax class,
+  // or the defaultTax setting when it has no classes).
+  taxClassId           String?
   isActive             Boolean   @default(true)
   uuid                 String?   @unique
   syncStatus           String    @default("PENDING")
@@ -370,11 +375,13 @@ model Product {
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
   promotions     Promotion[]
+  taxClass       TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
 
   @@index([companyId], name: "idx_product_company")
   @@index([branchId], name: "idx_product_branch")
   @@index([categoryId], name: "idx_product_category")
   @@index([supplierId], name: "idx_product_supplier")
+  @@index([taxClassId], name: "idx_product_tax_class")
   @@index([isActive], name: "idx_product_active")
   @@map("products")
 }
@@ -684,6 +691,7 @@ model Sale {
   items    SaleItem[]
   payments SalePayment[]
   promotions SalePromotion[]
+  taxLines SaleTaxLine[]
   ledgerEntries CustomerLedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
   branch   Branch      @relation(fields: [branchId], references: [id])
@@ -806,6 +814,55 @@ model SalePromotion {
   @@index([saleId], name: "idx_sale_promotion_sale")
   @@index([promotionId], name: "idx_sale_promotion_promotion")
   @@map("sale_promotions")
+}
+
+// A tax rate group a business sells under (Wave B5): products point at
+// a class; products without one fall back to the company's default —
+// its isDefault class when it has classes, otherwise the long-standing
+// defaultTax setting. Class names/rates are SNAPSHOTTED onto each
+// sale's SaleTaxLine rows at creation, so editing or retiring a class
+// never rewrites the tax history of past sales. DELETE is soft
+// (isActive = false), like promotions.
+model TaxClass {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  rate      Float // percent: 17 means 17%
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Business @relation(fields: [companyId], references: [id])
+  products  Product[]
+  saleTaxLines SaleTaxLine[]
+
+  @@unique([companyId, name], name: "tax_class_name_per_company")
+  @@index([companyId], name: "idx_tax_class_company")
+  @@map("tax_classes")
+}
+
+// One row per tax-class group on a sale (Wave B5): the audit/breakdown
+// behind Sale.taxAmount, which stores the SUM of these rows' taxAmount.
+// className/rate are snapshots taken at sale creation. taxClassId is
+// null for the implicit default group (the company has no applicable
+// class, so the defaultTax setting rate was used) and is SetNull if
+// the class row is ever hard-removed — the snapshots keep the row
+// meaningful either way.
+model SaleTaxLine {
+  id            String    @id @default(cuid())
+  saleId        String
+  taxClassId    String?
+  className     String
+  rate          Float // percent snapshot
+  taxableAmount Float
+  taxAmount     Float
+  createdAt     DateTime  @default(now())
+  sale          Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  taxClass      TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
+
+  @@index([saleId], name: "idx_sale_tax_line_sale")
+  @@index([taxClassId], name: "idx_sale_tax_line_class")
+  @@map("sale_tax_lines")
 }
 
 model Receipt {
