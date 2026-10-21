@@ -1471,3 +1471,73 @@ model NotificationPreference {
   @@map("notification_preferences")
 }
 
+// ---------------------------------------------------------------------------
+// Backoffice module-permission matrix tables.
+// Originally created by the backoffice service via raw SQL and missing from
+// this schema, which made the startup schema-heal (prisma db push) propose
+// dropping them. Modeled faithfully (columns, defaults, PK and the exact
+// unique-constraint names match the live database) so db push is a no-op.
+// ---------------------------------------------------------------------------
+
+model PlanModulePermission {
+  id         String    @id @default(cuid())
+  planId     String
+  moduleName String
+  enabled    Boolean   @default(false)
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @default(now()) @updatedAt
+
+  @@unique([planId, moduleName], map: "plan_module_permissions_planId_moduleName_key")
+  @@map("plan_module_permissions")
+}
+
+model PlanSubModulePermission {
+  id           String    @id @default(cuid())
+  planId       String
+  moduleName   String
+  subModuleKey String
+  enabled      Boolean   @default(true)
+  createdAt    DateTime? @default(now())
+  updatedAt    DateTime? @default(now()) @updatedAt
+
+  @@unique([planId, moduleName, subModuleKey], map: "plan_sub_module_permissions_planId_moduleName_subModuleKey_key")
+  @@map("plan_sub_module_permissions")
+}
+
+model RoleModulePermission {
+  id         String    @id @default(cuid())
+  roleName   String
+  moduleName String
+  enabled    Boolean   @default(false)
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @default(now()) @updatedAt
+
+  @@unique([roleName, moduleName], map: "role_module_permissions_roleName_moduleName_key")
+  @@map("role_module_permissions")
+}
+
+model RoleSubModulePermission {
+  id           String    @id @default(cuid())
+  roleName     String
+  moduleName   String
+  subModuleKey String
+  enabled      Boolean   @default(true)
+  createdAt    DateTime? @default(now())
+  updatedAt    DateTime? @default(now()) @updatedAt
+
+  @@unique([roleName, moduleName, subModuleKey], map: "role_sub_module_permissions_roleName_moduleName_subModuleKe_key")
+  @@map("role_sub_module_permissions")
+}
+
+model BusinessTypeSubModulePermission {
+  id             String    @id @default(cuid())
+  businessTypeId String
+  moduleName     String
+  subModuleKey   String
+  enabled        Boolean   @default(true)
+  createdAt      DateTime? @default(now())
+  updatedAt      DateTime? @default(now()) @updatedAt
+
+  @@unique([businessTypeId, moduleName, subModuleKey], map: "business_type_sub_module_perm_businessTypeId_moduleName_sub_key")
+  @@map("business_type_sub_module_permissions")
+}
