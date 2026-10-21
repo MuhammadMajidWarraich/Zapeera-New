@@ -494,6 +494,15 @@ app.use('/api/', limiter);
 // Parsers run in registration order and body-parser skips an already-parsed
 // body, so specific tiers are mounted before the small global default.
 const legacyLargeBodyLimit = process.env.MAX_FILE_SIZE || '10mb';
+// Profile updates carry the profile picture as a base64 data URI in JSON
+// (the settings page caps the source file at 5 MB → ~6.7 MB encoded), so
+// update-profile gets its own tier BEFORE the small auth tier below —
+// otherwise every real photo dies with a 413 (found live 2026-10-21).
+app.use(
+  ['/api/auth/update-profile', '/api/v1/auth/update-profile'],
+  express.json({ limit: '8mb' }),
+  express.urlencoded({ extended: true, limit: '8mb' })
+);
 // Auth payloads are tiny: 100 KB is generous and blunts payload abuse.
 app.use(
   ['/api/auth', '/api/v1/auth', '/api/backoffice/auth'],

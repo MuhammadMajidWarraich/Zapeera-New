@@ -200,9 +200,31 @@ const ProfileSecurityPage = () => {
       }
       setUploadingPhoto(true);
       try {
+        // Downscale before upload: a full-size phone photo is several MB of
+        // base64, which the API body limits reject. An avatar never needs
+        // more than 512px — re-encode to JPEG at that size (falls back to
+        // the original file if the image cannot be decoded, e.g. HEIC).
         const base64String = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
+          reader.onload = () => {
+            const raw = reader.result as string;
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const scale = Math.min(1, 512 / Math.max(img.width, img.height));
+                if (scale >= 1 && file.size <= 400 * 1024) { resolve(raw); return; }
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                const ctx = canvas.getContext("2d");
+                if (!ctx) { resolve(raw); return; }
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL("image/jpeg", 0.85));
+              } catch { resolve(raw); }
+            };
+            img.onerror = () => resolve(raw);
+            img.src = raw;
+          };
           reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(file);
         });
