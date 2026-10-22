@@ -902,6 +902,17 @@ async function computeUpdateDiff(
       const tKeys = new Set(tRows.map(keyOf).filter(Boolean));
       const matched = bRows.filter((r: Row) => keyOf(r) && tKeys.has(keyOf(r))).length;
       perTable[spec.key] = { update: matched, add: bRows.length - matched, kept: tRows.length - matched };
+    } else if (
+      spec.key === 'branches' || spec.key === 'taxClasses' || spec.key === 'expenseCategories' ||
+      spec.key === 'promotions' || spec.key === 'rooms'
+    ) {
+      // Natural-key tables: rows sharing the target's natural key
+      // count as updates (expense categories pair by name here; the
+      // apply pass also pairs the branch).
+      const field = spec.key === 'promotions' ? 'code' : spec.key === 'rooms' ? 'number' : 'name';
+      const tKeys = new Set(tRows.map((r: Row) => r?.[field]).filter(Boolean));
+      const matched = bRows.filter((r: Row) => r?.[field] && tKeys.has(r[field])).length;
+      perTable[spec.key] = { update: matched, add: bRows.length - matched, kept: tRows.length - matched };
     } else {
       perTable[spec.key] = { update: 0, add: bRows.length, kept: tRows.length };
     }
@@ -1054,6 +1065,62 @@ async function applyBusinessUpdate(
     }
   }
 
+  // ── Cross-business natural-key pre-merges for the remaining
+  // per-business UNIQUE constraints (branch name, expense category
+  // name+branch, promotion code, tax class name, room number):
+  // matched rows are updated in place exactly like roles/modules.
+  if (!sameBusiness) {
+    const NATURAL_MERGES: Array<{ key: string; fields: string[] }> = [
+      { key: 'branches', fields: ['name'] },
+      { key: 'expenseCategories', fields: ['name', 'branchId'] },
+      { key: 'promotions', fields: ['code'] },
+      { key: 'taxClasses', fields: ['name'] },
+      { key: 'rooms', fields: ['number'] }
+    ];
+    for (const { key, fields } of NATURAL_MERGES) {
+      const spec = BACKUP_TABLES.find((t) => t.key === key);
+      if (!spec?.delegate) continue;
+      const delegate = spec.delegate;
+      // All five natural-key tables scope by companyId.
+      const liveRows = await tx[delegate].findMany({ where: { companyId: targetId } });
+      const keyOf = (row: Row, live: boolean): string | null => {
+        const parts: string[] = [];
+        for (const f of fields) {
+          if (f === 'branchId') {
+            // Backup rows reference SOURCE branch ids; by now the
+            // branches merge has mapped matched ones to live ids and
+            // unmatched ones hold fresh ids (no live key can match).
+            const v = live ? row.branchId : row.branchId ? idMap.get(row.branchId) : undefined;
+            if (!v) return null;
+            parts.push(String(v));
+          } else {
+            if (row[f] == null || row[f] === '') return null;
+            parts.push(String(row[f]));
+          }
+        }
+        return parts.join('|');
+      };
+      const liveByKey = new Map<string, Row>();
+      for (const r of liveRows) {
+        const k = keyOf(r, true);
+        if (k) liveByKey.set(k, r);
+      }
+      for (const row of tables[key] || []) {
+        if (!row?.id) continue;
+        const k = keyOf(row, false);
+        const hit = k ? liveByKey.get(k) : null;
+        if (hit) {
+          idMap.set(row.id, hit.id);
+          const { row: out } = remapRow(spec, row, ctx);
+          const { id: _id, ...data } = out;
+          await tx[delegate].update({ where: { id: hit.id }, data });
+          bump(updated, key);
+          markConsumed(key, row.id);
+        }
+      }
+    }
+  }
+
   // ── Members: match by account email (same rule as restore-as-new).
   // Existing memberships are updated, missing ones re-created, and the
   // target's other memberships are never removed.
@@ -1158,13 +1225,16 @@ async function applyBusinessUpdate(
           bump(updated, 'staffProfiles');
         } else {
           let newProfileId = sameBusiness && profile.id ? profile.id : genId();
+          await tx.$executeRawUnsafe('SAVEPOINT sp_staff_profile');
           try {
             await tx.staffProfile.create({ data: { ...profileData, id: newProfileId, membershipId: targetMembershipId } });
           } catch (error: any) {
+            await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT sp_staff_profile');
             if (error?.code !== 'P2002') throw error;
             newProfileId = genId();
             await tx.staffProfile.create({ data: { ...profileData, id: newProfileId, membershipId: targetMembershipId } });
           }
+          await tx.$executeRawUnsafe('RELEASE SAVEPOINT sp_staff_profile');
           idMap.set(profile.id, newProfileId);
           bump(added, 'staffProfiles');
         }
@@ -1202,11 +1272,15 @@ async function applyBusinessUpdate(
 
     // Secrets guard: read the LIVE FBR token before touching the
     // config row — the file's copy is null by design and must never
-    // overwrite it.
+    // overwrite it. FbrConfig is also a singleton per business
+    // (companyId @unique): a cross-business update writes INTO the
+    // live row instead of inserting a second one.
     let liveFbrToken: string | null = null;
+    let liveFbrRowId: string | null = null;
     if (spec.key === 'fbrConfig') {
-      const live = await tx.fbrConfig.findUnique({ where: { companyId: targetId }, select: { apiToken: true } });
+      const live = await tx.fbrConfig.findUnique({ where: { companyId: targetId }, select: { id: true, apiToken: true } });
       liveFbrToken = live?.apiToken ?? null;
+      liveFbrRowId = live?.id ?? null;
     }
 
     // Prepare (remap) every row first so collision handling sees the
@@ -1246,8 +1320,17 @@ async function applyBusinessUpdate(
     for (const { sourceId, out, fixups } of prepared) {
       const isUpdate = sameBusiness && existingIds.has(sourceId);
       let written = false;
+      // Postgres aborts the whole transaction on ANY statement error,
+      // so each row write runs under a SAVEPOINT — a unique collision
+      // can then be recovered (suffix retry / skip) without losing
+      // the rest of the business update.
+      await tx.$executeRawUnsafe('SAVEPOINT sp_row_write');
       try {
-        if (isUpdate) {
+        if (!sameBusiness && spec.key === 'fbrConfig' && liveFbrRowId) {
+          const { id: _id, ...data } = out;
+          await tx.fbrConfig.update({ where: { id: liveFbrRowId }, data });
+          bump(updated, spec.key);
+        } else if (isUpdate) {
           const { id: _id, ...data } = out;
           await tx[spec.delegate].update({ where: { id: sourceId }, data });
           bump(updated, spec.key);
@@ -1257,6 +1340,7 @@ async function applyBusinessUpdate(
         }
         written = true;
       } catch (error: any) {
+        await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT sp_row_write');
         if (error?.code !== 'P2002') {
           throw new Error(`Restore update failed at table "${spec.key}": ${error?.message || error}`);
         }
@@ -1279,6 +1363,7 @@ async function applyBusinessUpdate(
               warnings.push(`${spec.key}: a row's unique identifier already exists on a different record and was suffixed with "~R…" in the update.`);
               recovered = true;
             } catch {
+              await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT sp_row_write').catch(() => undefined);
               recovered = false;
             }
           }
@@ -1288,6 +1373,7 @@ async function applyBusinessUpdate(
         }
         written = recovered;
       }
+      await tx.$executeRawUnsafe('RELEASE SAVEPOINT sp_row_write');
       // Link repairs apply only to rows that actually landed.
       if (written && Object.keys(fixups).length) {
         pendingFixups.push({ spec, id: out.id, fixups });
