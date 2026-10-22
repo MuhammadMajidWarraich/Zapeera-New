@@ -26,6 +26,7 @@ import {
   Ban,
   UserX,
   Search,
+  Paperclip,
 } from "lucide-react";
 import {
   apiService,
@@ -34,6 +35,10 @@ import {
 } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import FolioDialog from "@/components/hotel/FolioDialog";
+import {
+  ReservationDocumentsEditor,
+  ReservationDocumentsViewer,
+} from "@/components/hotel/ReservationDocuments";
 
 // Reservations (Wave C5 — Hotel pack). Booking picks dates first:
 // the room list is the server's availability answer for that range,
@@ -94,6 +99,11 @@ const ReservationsPage: React.FC = () => {
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Guest documents for the booking being created (uploaded refs).
+  const [cnicDocument, setCnicDocument] = useState<string | null>(null);
+  const [guestPhotos, setGuestPhotos] = useState<string[]>([]);
+  const [docsRecord, setDocsRecord] = useState<ReservationRecord | null>(null);
+
   const [folioId, setFolioId] = useState<string | null>(null);
   const [folioOpen, setFolioOpen] = useState(false);
 
@@ -149,6 +159,8 @@ const ReservationsPage: React.FC = () => {
         guestName: form.guestName.trim(),
         guestPhone: form.guestPhone.trim() || null,
         guestCnic: form.guestCnic.trim() || null,
+        cnicDocumentUrl: cnicDocument,
+        guestPhotoUrls: guestPhotos,
         roomId: form.roomId,
         checkInDate: form.checkInDate,
         checkOutDate: form.checkOutDate,
@@ -160,6 +172,8 @@ const ReservationsPage: React.FC = () => {
       if (response.success) {
         toast({ title: "Reservation created" });
         setCreateOpen(false);
+        setCnicDocument(null);
+        setGuestPhotos([]);
         setForm({
           guestName: "",
           guestPhone: "",
@@ -301,6 +315,15 @@ const ReservationsPage: React.FC = () => {
                 {record.notes && <div className="text-sm">{record.notes}</div>}
               </div>
               <div className="flex gap-1">
+                {(record.cnicDocumentUrl || (record.guestPhotoUrls && record.guestPhotoUrls.length > 0)) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDocsRecord(record)}
+                  >
+                    <Paperclip className="h-3 w-3 mr-1" /> Documents
+                  </Button>
+                )}
                 {record.status === "BOOKED" && (
                   <>
                     <Button size="sm" disabled={busyId === record.id} onClick={() => checkIn(record)}>
@@ -475,6 +498,17 @@ const ReservationsPage: React.FC = () => {
                 />
               </div>
             </div>
+            <div className="rounded-lg border p-3">
+              <ReservationDocumentsEditor
+                cnicRef={cnicDocument}
+                photos={guestPhotos}
+                onChange={({ cnicRef, photos }) => {
+                  setCnicDocument(cnicRef);
+                  setGuestPhotos(photos);
+                }}
+                disabled={saving}
+              />
+            </div>
             <div>
               <Label>Notes</Label>
               <Input
@@ -492,6 +526,26 @@ const ReservationsPage: React.FC = () => {
               Create reservation
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!docsRecord} onOpenChange={(open) => !open && setDocsRecord(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{docsRecord?.guestName || "Guest"} — documents</DialogTitle>
+            <DialogDescription>
+              {docsRecord
+                ? `Room ${docsRecord.room?.number || "—"} · ${dayLabel(docsRecord.checkInDate)} → ${dayLabel(docsRecord.checkOutDate)}${docsRecord.guestCnic ? ` · CNIC ${docsRecord.guestCnic}` : ""}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {docsRecord && (
+            <ReservationDocumentsViewer
+              reservationId={docsRecord.id}
+              cnicRef={docsRecord.cnicDocumentUrl}
+              photos={docsRecord.guestPhotoUrls}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
