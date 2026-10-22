@@ -74,6 +74,11 @@ const ENTRIES: RegistryEntry[] = [
 
   // ── Company / branch / invitation (tenant core) ──────────────────────────
   { prefix: '/api/companies', policy: { kind: 'auth' } },
+  // Backup & Restore: account-level infrastructure. Export is gated to
+  // the business OWNER inside the controller; restore creates a new
+  // business under the caller (so it must not require an existing
+  // business context or module entitlement).
+  { prefix: '/api/backup', policy: { kind: 'auth-core' } },
   { prefix: '/api/branches', policy: { kind: 'auth-core' } },
   { prefix: '/api/invitations/verify', policy: { kind: 'public' } },
   { prefix: '/api/invitations', policy: { kind: 'auth-core' } },

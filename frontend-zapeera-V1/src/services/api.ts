@@ -619,6 +619,18 @@ export interface FbrConfigRecord {
   updatedAt: string | null;
 }
 
+// Backup & Restore: the summary the restore endpoint returns per
+// restored business.
+export interface BackupRestoreResult {
+  restored: Array<{
+    businessId: string;
+    name: string;
+    counts: Record<string, number>;
+    skippedStaff: Array<{ email: string; name?: string; roleName?: string }>;
+    warnings: string[];
+  }>;
+}
+
 export interface FbrConfigPayload {
   enabled?: boolean;
   posId?: string;
@@ -2805,6 +2817,68 @@ export class ApiService {
   async retryFbr(saleId: string) {
     return this.request<{ queueId: string; status: string }>(`/fbr/retry/${saleId}`, {
       method: 'POST',
+    });
+  }
+
+  // Backup & Restore (owner only). Exports are file downloads (the
+  // server streams the whole business as one JSON document); a restore
+  // posts the parsed file and creates a NEW business from it.
+  private async downloadBackupFile(endpoint: string, fallbackName: string): Promise<void> {
+    const headers = new Headers();
+    const token = this._accessToken
+      || (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    try {
+      const ctx = this.contextGetter ? this.contextGetter() : null;
+      if (ctx?.companyId) headers.set('X-Business-ID', String(ctx.companyId));
+    } catch { /* ignore */ }
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      let message = `Failed to download backup (${response.status})`;
+      try {
+        const data = await response.json();
+        if (data?.message) message = data.message;
+      } catch { /* non-JSON error body */ }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match?.[1] || fallbackName;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async downloadBusinessBackup(): Promise<void> {
+    return this.downloadBackupFile('/backup/export', 'zapeera-backup.json');
+  }
+
+  async downloadAccountBackup(): Promise<void> {
+    return this.downloadBackupFile('/backup/export-account', 'zapeera-account-backup.json');
+  }
+
+  async restoreBackup(payload: unknown) {
+    return this.request<BackupRestoreResult>('/backup/restore', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 
