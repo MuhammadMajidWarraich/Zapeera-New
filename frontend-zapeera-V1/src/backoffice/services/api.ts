@@ -25,6 +25,7 @@ import {
   SystemHealth,
   BackofficeAdmin,
   BackofficePartner,
+  BackofficeNotifications,
 } from '../types';
 
 const BASE_URL = config.backoffice.baseUrl;
@@ -97,6 +98,10 @@ export const backofficeApi = {
   // Dashboard
   getDashboardStats: (): Promise<{ success: boolean; data: DashboardStats }> =>
     request('/dashboard/stats'),
+
+  // Header notifications — aggregated pending-work feed
+  getNotifications: (): Promise<{ success: boolean; data: BackofficeNotifications }> =>
+    request('/notifications'),
 
   // Businesses
   getBusinesses: (params?: string): Promise<{ success: boolean; data: Business[] }> =>
