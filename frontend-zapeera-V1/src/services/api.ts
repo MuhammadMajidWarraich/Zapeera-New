@@ -5704,6 +5704,23 @@ export class ApiService {
     }>(endpoint);
   }
 
+  // Type-specific workspace dashboards (hotel / clinic / pharmacy / retail)
+  async getHotelDashboard() {
+    return this.request<any>('/dashboard/hotel');
+  }
+
+  async getClinicDashboard() {
+    return this.request<any>('/dashboard/clinic');
+  }
+
+  async getPharmacyDashboard() {
+    return this.request<any>('/dashboard/pharmacy');
+  }
+
+  async getRetailDashboard() {
+    return this.request<any>('/dashboard/retail');
+  }
+
   // Staff Management
   async searchUser(query: string) {
     return this.request<{
