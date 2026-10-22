@@ -652,6 +652,57 @@ export interface BackupRestoreResult {
   }>;
 }
 
+// Backup UPDATE mode: a backup applied INTO a selected business —
+// matching rows updated, missing rows re-created, target-only rows
+// kept (an update never deletes). A safety backup of the target's
+// previous state is stored server-side before anything changes.
+export interface BackupUpdateBusinessResult {
+  sourceBusinessId: string;
+  businessId: string;
+  name: string;
+  sameBusiness: boolean;
+  updated: Record<string, number>;
+  added: Record<string, number>;
+  kept: Record<string, number>;
+  updatedTotal: number;
+  addedTotal: number;
+  keptTotal: number;
+  safetySnapshotId: string;
+  skippedStaff: Array<{ email: string; name?: string; roleName?: string }>;
+  warnings: string[];
+}
+
+export interface BackupUpdateResult {
+  updated: BackupUpdateBusinessResult[];
+}
+
+export interface BackupUpdatePreview {
+  sourceBusinessId: string;
+  sourceBusinessName: string;
+  targetBusinessId: string;
+  targetBusinessName: string;
+  sameBusiness: boolean;
+  perTable: Record<string, { update: number; add: number; kept: number }>;
+  toUpdate: number;
+  toAdd: number;
+  keptTargetOnly: number;
+  skippedMembers: number;
+}
+
+export interface BackupUpdatePreviewResult {
+  previews: BackupUpdatePreview[];
+}
+
+export interface BackupSafetySnapshotRecord {
+  id: string;
+  businessId: string;
+  businessName: string;
+  sizeBytes: number;
+  reason: string;
+  sourceKind: string | null;
+  createdAt: string;
+}
+
 export interface FbrConfigPayload {
   enabled?: boolean;
   posId?: string;
@@ -2996,6 +3047,34 @@ export class ApiService {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  }
+
+  // Dry-run diff for the UPDATE mode — writes nothing.
+  async previewRestoreUpdate(payload: unknown, targets: Record<string, string>) {
+    return this.request<BackupUpdatePreviewResult>('/backup/restore-preview', {
+      method: 'POST',
+      body: JSON.stringify({ backup: payload, targets }),
+    });
+  }
+
+  // Apply a backup INTO the selected business(es).
+  async restoreBackupUpdate(payload: unknown, targets: Record<string, string>) {
+    return this.request<BackupUpdateResult>('/backup/restore', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'update', backup: payload, targets }),
+    });
+  }
+
+  async listSafetyBackups(businessId?: string) {
+    const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : '';
+    return this.request<{ snapshots: BackupSafetySnapshotRecord[] }>(`/backup/safety-backups${qs}`);
+  }
+
+  async downloadSafetyBackup(id: string): Promise<void> {
+    return this.downloadBackupFile(
+      `/backup/safety-backups/${encodeURIComponent(id)}/download`,
+      'zapeera-safety-backup.json'
+    );
   }
 
   async validateCoupon(data: {

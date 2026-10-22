@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import {
+  downloadSafetySnapshotHandler,
   exportAccountBackupHandler,
   exportBusinessBackupHandler,
+  listSafetySnapshotsHandler,
+  previewRestoreUpdateHandler,
   restoreBackupHandler
 } from '../controllers/backup.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -27,5 +30,8 @@ router.use(resolveMembership());
 router.get('/export', exportBusinessBackupHandler);
 router.get('/export-account', exportAccountBackupHandler);
 router.post('/restore', restoreBackupHandler);
+router.post('/restore-preview', previewRestoreUpdateHandler);
+router.get('/safety-backups', listSafetySnapshotsHandler);
+router.get('/safety-backups/:id/download', downloadSafetySnapshotHandler);
 
 export default router;

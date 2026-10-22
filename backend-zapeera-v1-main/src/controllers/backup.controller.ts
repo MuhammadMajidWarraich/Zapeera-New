@@ -12,6 +12,7 @@
 // utils/backup.util.ts for the exclusion list).
 
 import { Response } from 'express';
+import fs from 'fs';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest } from '../middleware/auth.middleware';
 import {
@@ -19,7 +20,11 @@ import {
   buildAccountBackup,
   buildBusinessBackup,
   findOwnedBusinesses,
-  restoreBackupFile
+  getSafetySnapshotForDownload,
+  listSafetySnapshots,
+  previewRestoreUpdate,
+  restoreBackupFile,
+  restoreBackupFileUpdate
 } from '../services/backup.service';
 
 const resolveBusinessId = (req: AuthRequest): string | undefined =>
@@ -88,6 +93,20 @@ export const restoreBackupHandler = async (req: AuthRequest, res: Response) => {
       email: req.user!.email || '',
       name: req.user!.name
     };
+    // Update mode: body { mode: 'update', backup: <payload>, targets:
+    // { <sourceBusinessId>: <targetBusinessId> } } — updates the data
+    // WITHIN the selected business(es) instead of creating new ones.
+    // A safety backup of each target's current state is stored first.
+    if (req.body && req.body.mode === 'update') {
+      const result = await restoreBackupFileUpdate(prisma, caller, req.body.backup, req.body.targets || {});
+      return res.status(200).json({
+        success: true,
+        message: result.updated.length === 1
+          ? `Business "${result.updated[0].name}" updated from backup`
+          : `${result.updated.length} businesses updated from backup`,
+        data: result
+      });
+    }
     const result = await restoreBackupFile(prisma, caller, req.body);
     return res.status(201).json({
       success: true,
@@ -100,12 +119,83 @@ export const restoreBackupHandler = async (req: AuthRequest, res: Response) => {
     if (error?.code === 'BACKUP_FORMAT_INVALID') {
       return res.status(400).json({ success: false, message: error.message, code: 'BACKUP_FORMAT_INVALID' });
     }
+    if (error?.status && error?.code) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
     console.error('Restore backup error:', error.message);
     return res.status(500).json({
       success: false,
-      message: error?.message?.startsWith('Restore failed at table')
+      message: error?.message?.startsWith('Restore failed at table') || error?.message?.startsWith('Restore update failed at table')
         ? error.message
         : 'Failed to restore backup'
     });
+  }
+};
+
+/** Dry-run diff for the update mode — writes nothing. */
+export const previewRestoreUpdateHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const caller = {
+      id: req.user!.id,
+      email: req.user!.email || '',
+      name: req.user!.name
+    };
+    const backup = req.body?.backup ?? req.body;
+    const targets = req.body?.targets || {};
+    const result = await previewRestoreUpdate(prisma, caller, backup, targets);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error: any) {
+    if (error?.code === 'BACKUP_FORMAT_INVALID') {
+      return res.status(400).json({ success: false, message: error.message, code: 'BACKUP_FORMAT_INVALID' });
+    }
+    if (error?.status && error?.code) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
+    console.error('Restore preview error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to preview restore' });
+  }
+};
+
+/** Safety backups stored before updates (owner-scoped). */
+export const listSafetySnapshotsHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const caller = {
+      id: req.user!.id,
+      email: req.user!.email || '',
+      name: req.user!.name
+    };
+    const businessId = typeof req.query.businessId === 'string' ? req.query.businessId : undefined;
+    const snapshots = await listSafetySnapshots(prisma, caller, businessId);
+    return res.status(200).json({ success: true, data: { snapshots } });
+  } catch (error: any) {
+    if (error?.status && error?.code) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
+    console.error('List safety backups error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to list safety backups' });
+  }
+};
+
+export const downloadSafetySnapshotHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const caller = {
+      id: req.user!.id,
+      email: req.user!.email || '',
+      name: req.user!.name
+    };
+    const { filePath, downloadName } = await getSafetySnapshotForDownload(prisma, caller, req.params.id);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return fs.createReadStream(filePath).pipe(res);
+  } catch (error: any) {
+    if (error?.status && error?.code) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
+    console.error('Download safety backup error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to download safety backup' });
   }
 };

@@ -21,7 +21,12 @@ import {
   Receipt,
   Download,
   Archive,
+  History,
+  ShieldCheck,
+  ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
@@ -86,6 +91,16 @@ const Settings = () => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
+  // Restore UPDATE mode: mode → target → preview → done, in one flow.
+  const [showRestoreFlow, setShowRestoreFlow] = useState(false);
+  const [restoreStep, setRestoreStep] = useState<"mode" | "target" | "preview" | "done">("mode");
+  const [ownedBusinesses, setOwnedBusinesses] = useState<Array<{ id: string; name: string; slug?: string | null }>>([]);
+  const [targetSelections, setTargetSelections] = useState<Record<string, string>>({});
+  const [updatePreview, setUpdatePreview] = useState<any>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [updateConfirmText, setUpdateConfirmText] = useState("");
+  const [updateResult, setUpdateResult] = useState<any>(null);
+  const [safetyBackups, setSafetyBackups] = useState<any[]>([]);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [importedSettings, setImportedSettings] = useState<any>(null);
@@ -306,9 +321,122 @@ const Settings = () => {
       setRestorePayload(parsed);
       setRestoreFileName(file.name);
       setRestoreResult(null);
-      setShowRestoreConfirm(true);
+      setUpdateResult(null);
+      setUpdatePreview(null);
+      setTargetSelections({});
+      setUpdateConfirmText("");
+      setRestoreStep("mode");
+      setShowRestoreFlow(true);
     } catch {
       toast({ title: "Could not read that file", description: "The file is not valid JSON.", variant: "destructive" });
+    }
+  };
+
+  // Businesses inside the loaded backup file (source list).
+  const restoreSources: Array<{ id: string; name: string; slug?: string | null }> = (() => {
+    if (!restorePayload) return [];
+    if (Array.isArray(restorePayload.businesses)) {
+      return restorePayload.businesses
+        .map((b: any) => ({ id: b?.business?.id, name: b?.business?.name || "", slug: b?.business?.slug ?? null }))
+        .filter((s: any) => s.id);
+    }
+    if (restorePayload.business?.id) {
+      return [{
+        id: restorePayload.business.id,
+        name: restorePayload.business.name || restorePayload.exportedFrom?.businessName || "",
+        slug: restorePayload.business.slug ?? null,
+      }];
+    }
+    return [];
+  })();
+  const isAccountBackupFile = restoreSources.length > 1;
+
+  const loadSafetyBackups = async () => {
+    if (!isBackupOwner || !selectedCompanyId) return;
+    try {
+      const res = await apiService.listSafetyBackups(selectedCompanyId);
+      if (res.success && res.data) setSafetyBackups(res.data.snapshots || []);
+    } catch { /* safety list is informational; never block the page */ }
+  };
+
+  useEffect(() => { loadSafetyBackups(); }, [selectedCompanyId, isBackupOwner]);
+
+  const openUpdateTargets = async () => {
+    setRestoreStep("target");
+    try {
+      const res = await apiService.getCompanies();
+      const list = (res.data || []).filter((c: any) => !c.accessType || c.accessType === "owned");
+      setOwnedBusinesses(list);
+      const defaults: Record<string, string> = {};
+      for (const s of restoreSources) {
+        const match =
+          list.find((c: any) => c.id === s.id) ||
+          list.find((c: any) => s.slug && c.slug === s.slug) ||
+          list.find((c: any) => c.name === s.name);
+        if (match) defaults[s.id] = match.id;
+      }
+      setTargetSelections(defaults);
+    } catch (e: any) {
+      toast({ title: "Could not load your businesses", description: e.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
+  const allTargetsChosen = restoreSources.length > 0
+    && restoreSources.every((s) => targetSelections[s.id])
+    && new Set(Object.values(targetSelections)).size === restoreSources.length;
+
+  const handlePreviewUpdate = async () => {
+    if (!restorePayload || !allTargetsChosen) return;
+    setIsPreviewing(true);
+    try {
+      const res = await apiService.previewRestoreUpdate(restorePayload, targetSelections);
+      if (res.success && res.data) {
+        setUpdatePreview(res.data);
+        setUpdateConfirmText("");
+        setRestoreStep("preview");
+      } else {
+        toast({ title: "Preview failed", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Preview failed", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const expectedConfirmText = (() => {
+    if (isAccountBackupFile) return "UPDATE";
+    const preview = updatePreview?.previews?.[0];
+    return preview?.targetBusinessName || "";
+  })();
+  const updateConfirmValid = expectedConfirmText.length > 0
+    && updateConfirmText.trim() === expectedConfirmText;
+
+  const handleConfirmUpdate = async () => {
+    if (!restorePayload || !updateConfirmValid) return;
+    setIsRestoring(true);
+    try {
+      const res = await apiService.restoreBackupUpdate(restorePayload, targetSelections);
+      if (res.success && res.data) {
+        setUpdateResult(res.data);
+        setRestoreStep("done");
+        loadSafetyBackups();
+        toast({ title: "Update complete", description: res.message || "Your business was updated from the backup." });
+      } else {
+        toast({ title: "Update failed", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleDownloadSafetyBackup = async (id: string) => {
+    try {
+      await apiService.downloadSafetyBackup(id);
+    } catch (e: any) {
+      toast({ title: "Download failed", description: e.message || "Please try again.", variant: "destructive" });
     }
   };
 
@@ -1451,10 +1579,12 @@ toast({
             <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
               Download a complete backup of your business — products, stock, customers, sales, khata,
               prescriptions, clinic and hotel data — as a single file. Passwords and secret keys
-              (like the FBR token) are never included in a backup. Restoring a backup creates a
-              <strong> new business</strong> under your account; your existing businesses are never
-              overwritten. The restored business starts on the free trial plan, and staff accounts
-              are not recreated — you re-invite your team afterwards.
+              (like the FBR token) are never included in a backup. Restoring a backup can create a
+              <strong> new business</strong> under your account (it starts on the free trial plan), or
+              <strong> update a business you choose</strong> — an update refreshes the records that
+              match, brings back the ones that are missing, and never deletes anything. Before an
+              update is applied, a <strong>safety backup</strong> of the current state is saved
+              automatically. Staff accounts are not recreated — you re-invite your team afterwards.
             </p>
             {!isBackupOwner && (
               <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
@@ -1500,6 +1630,66 @@ toast({
                     onChange={handleRestoreFileSelected}
                   />
                 </div>
+                {updateResult?.updated?.length > 0 && (
+                  <div className="mt-[18px] rounded-[10px] bg-green-50 px-4 py-3 text-[13px] leading-relaxed text-green-800">
+                    {updateResult.updated.map((r: any) => (
+                      <div key={r.businessId} className="mb-2 last:mb-0">
+                        <p className="font-bold">Updated “{r.name}”</p>
+                        <p>
+                          {r.updatedTotal} record(s) updated · {r.addedTotal} record(s) brought back · {r.keptTotal} record(s) kept as they were
+                        </p>
+                        {r.skippedStaff?.length > 0 && (
+                          <p className="mt-1">
+                            Staff not re-linked (re-invite them): {r.skippedStaff.map((s: any) => s.email || s.name).filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                        {r.warnings?.length > 0 && (
+                          <ul className="mt-1 list-disc pl-5">
+                            {r.warnings.map((w: string, i: number) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {r.safetySnapshotId && (
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadSafetyBackup(r.safetySnapshotId)}
+                            className="mt-1 font-semibold underline underline-offset-2"
+                          >
+                            Download the safety backup taken before this update
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {safetyBackups.length > 0 && (
+                  <div className="mt-[18px] rounded-[10px] border border-[rgba(15,23,60,0.06)] px-4 py-3">
+                    <p className="flex items-center gap-1.5 text-[13px] font-bold text-[#0a1128]">
+                      <History className="h-4 w-4 text-[#1a52c5]" /> Safety backups
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#8c95b0]">
+                      Saved automatically before each update of this business. A safety backup is a
+                      normal backup file — you can restore from it the same way.
+                    </p>
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      {safetyBackups.map((s: any) => (
+                        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-[#4a5578]">
+                          <span>
+                            {new Date(s.createdAt).toLocaleString()} · {Math.max(1, Math.round((s.sizeBytes || 0) / 1024))} KB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadSafetyBackup(s.id)}
+                            className="font-semibold text-[#1a52c5] underline underline-offset-2"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {restoreResult?.restored?.length > 0 && (
                   <div className="mt-[18px] rounded-[10px] bg-green-50 px-4 py-3 text-[13px] leading-relaxed text-green-800">
                     {restoreResult.restored.map((r: any) => (
@@ -1532,6 +1722,207 @@ toast({
           </div>
         </section>
       </div>
+
+    {/* Restore Flow Modal — choose new-business restore or update mode */}
+    <Dialog
+      open={showRestoreFlow}
+      onOpenChange={(open: boolean) => {
+        if (!open && !isRestoring) {
+          setShowRestoreFlow(false);
+          setRestorePayload(null);
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Archive className="h-5 w-5 text-[#1a52c5]" /> Restore from backup
+          </DialogTitle>
+        </DialogHeader>
+
+        {restoreStep === "mode" && (
+          <div className="flex flex-col gap-3 py-2">
+            <p className="text-[13px] leading-relaxed text-[#4a5578]">
+              “{restoreFileName}” contains {restoreSources.length === 1 ? <>one business: <strong>{restoreSources[0]?.name}</strong></> : <>{restoreSources.length} businesses</>}.
+              How should it be restored?
+            </p>
+            <button
+              type="button"
+              onClick={() => { setShowRestoreFlow(false); setShowRestoreConfirm(true); }}
+              className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3 text-left transition hover:border-[#1a52c5]"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-bold text-[#0a1128]">
+                Restore as a new business <ArrowRight className="h-4 w-4 text-[#1a52c5]" />
+              </span>
+              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#8c95b0]">
+                Creates a separate “(Restored)” copy under your account. Your existing businesses are not touched.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={openUpdateTargets}
+              className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3 text-left transition hover:border-[#1a52c5]"
+            >
+              <span className="flex items-center gap-1.5 text-sm font-bold text-[#0a1128]">
+                Update a business I choose <ArrowRight className="h-4 w-4 text-[#1a52c5]" />
+              </span>
+              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#8c95b0]">
+                Applies the backup inside one of your existing businesses: matching records are updated,
+                missing records come back, and nothing is ever deleted. A safety backup is saved first.
+              </span>
+            </button>
+          </div>
+        )}
+
+        {restoreStep === "target" && (
+          <div className="flex flex-col gap-3 py-2">
+            <p className="text-[13px] leading-relaxed text-[#4a5578]">
+              Choose which of your businesses each backed-up business should update.
+              Nothing is changed yet — you will see a preview next.
+            </p>
+            {restoreSources.map((s) => (
+              <div key={s.id} className="flex flex-col gap-1">
+                <Label className="text-[13px] font-semibold text-[#0a1128]">{s.name || "Business"}</Label>
+                <Select
+                  value={targetSelections[s.id] || ""}
+                  onValueChange={(v: string) => setTargetSelections((prev) => ({ ...prev, [s.id]: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a business…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ownedBusinesses.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}{b.id === s.id ? " (the business this backup came from)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+            {restoreSources.length > 0 && !allTargetsChosen && (
+              <p className="text-xs text-[#8c95b0]">Pick a different target business for each one to continue.</p>
+            )}
+            <div className="mt-1 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setRestoreStep("mode")}>Back</Button>
+              <Button
+                type="button"
+                disabled={!allTargetsChosen || isPreviewing}
+                onClick={handlePreviewUpdate}
+                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+              >
+                {isPreviewing ? "Checking…" : "Preview changes"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {restoreStep === "preview" && updatePreview && (
+          <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto py-2">
+            {(updatePreview.previews || []).map((p: any) => (
+              <div key={p.sourceBusinessId} className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
+                <p className="text-sm font-bold text-[#0a1128]">
+                  {p.sourceBusinessName} <ArrowRight className="inline h-4 w-4 text-[#1a52c5]" /> {p.targetBusinessName}
+                  {p.sameBusiness ? " (same business)" : ""}
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-[#4a5578]">
+                  <strong>{p.toUpdate}</strong> record(s) will be updated · <strong>{p.toAdd}</strong> record(s)
+                  will be brought back · <strong>{p.keptTargetOnly}</strong> record(s) in “{p.targetBusinessName}”
+                  are not in the backup and will be kept untouched.
+                </p>
+                {p.skippedMembers > 0 && (
+                  <p className="mt-1 text-[13px] text-[#8c95b0]">
+                    {p.skippedMembers} staff member(s) have no account in Zapeera and will be reported for re-inviting.
+                  </p>
+                )}
+                <div className="mt-2 flex flex-col gap-0.5">
+                  {Object.entries(p.perTable || {})
+                    .filter(([, d]: any) => d.update + d.add + d.kept > 0)
+                    .map(([key, d]: any) => (
+                      <p key={key} className="text-xs text-[#8c95b0]">
+                        {key}: {d.update} update · {d.add} add · {d.kept} kept
+                      </p>
+                    ))}
+                </div>
+              </div>
+            ))}
+            <p className="flex items-start gap-1.5 text-[13px] leading-relaxed text-[#4a5578]">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1a52c5]" />
+              Before anything changes, a safety backup of the current state is saved automatically —
+              you will be able to download it afterwards from this section.
+            </p>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[13px] font-semibold text-[#0a1128]">
+                {isAccountBackupFile
+                  ? <>Type <strong>UPDATE</strong> to confirm</>
+                  : <>Type the target business name <strong>“{expectedConfirmText}”</strong> to confirm</>}
+              </Label>
+              <Input
+                value={updateConfirmText}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUpdateConfirmText(e.target.value)}
+                placeholder={expectedConfirmText}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setRestoreStep("target")} disabled={isRestoring}>Back</Button>
+              <Button
+                type="button"
+                disabled={!updateConfirmValid || isRestoring}
+                onClick={handleConfirmUpdate}
+                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+              >
+                {isRestoring ? "Updating…" : "Update business"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {restoreStep === "done" && updateResult && (
+          <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto py-2">
+            {(updateResult.updated || []).map((r: any) => (
+              <div key={r.businessId} className="rounded-[12px] bg-green-50 px-4 py-3 text-[13px] leading-relaxed text-green-800">
+                <p className="flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 className="h-4 w-4" /> Updated “{r.name}”
+                </p>
+                <p>
+                  {r.updatedTotal} record(s) updated · {r.addedTotal} record(s) brought back · {r.keptTotal} record(s) kept as they were
+                </p>
+                {r.skippedStaff?.length > 0 && (
+                  <p className="mt-1">
+                    Staff not re-linked (re-invite them): {r.skippedStaff.map((s: any) => s.email || s.name).filter(Boolean).join(", ")}
+                  </p>
+                )}
+                {r.warnings?.length > 0 && (
+                  <ul className="mt-1 list-disc pl-5">
+                    {r.warnings.map((w: string, i: number) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+                {r.safetySnapshotId && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSafetyBackup(r.safetySnapshotId)}
+                    className="mt-1 font-semibold underline underline-offset-2"
+                  >
+                    Download the safety backup taken before this update
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={() => { setShowRestoreFlow(false); setRestorePayload(null); }}
+                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
 
     {/* Restore Backup Confirmation Modal */}
     <ConfirmationModal
