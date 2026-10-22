@@ -4,7 +4,11 @@ import { getPrisma } from '../utils/db.util';
 import { loadPricingPlans } from '../utils/subscription-entitlements.util';
 import { invalidateModuleCache, moduleAccessCache, clearModuleCache } from '../utils/modules-v2.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
-import { planEntitlementsToPermissionShape } from '../utils/policy-read.util';
+import {
+  planEntitlementsToPermissionShape,
+  rolePermissionsToPermissionShape,
+  PermissionShape,
+} from '../utils/policy-read.util';
 import crypto from 'crypto';
 
 const ALL_ROLES = ['OWNER', 'MANAGER', 'CASHIER'];
@@ -365,39 +369,61 @@ export const updatePlanModulePermissions = async (req: AdminAuthRequest, res: Re
 export const getRoleModulePermissions = async (req: AdminAuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    await ensureModulePermissionTables(prisma);
 
-    const rows = await prisma.$queryRaw<any[]>`SELECT "roleName", "moduleName", "enabled" FROM role_module_permissions ORDER BY "roleName", "moduleName"`;
-
+    // CANONICAL READ: checkbox state is shaped from role_permissions_v2
+    // of the platform roles (businessId = null) — the same store
+    // publishRolePolicy writes. The legacy role_module_permissions /
+    // role_sub_module_permissions tables are never read here anymore:
+    // they held a stale, divergent copy of role policy (the same
+    // read/write split-brain the Plans editor had), and publishRolePolicy
+    // — unlike the plan/business-type publishes — writes no mirror back,
+    // so any divergence was permanent.
     const allModRows = await prisma.$queryRawUnsafe<any[]>('SELECT name FROM modules');
     const allMods = allModRows.map((r) => String(r.name).toLowerCase());
 
-    // Build map: roleName -> Set<moduleName>
-    const dbMap = new Map<string, Set<string>>();
-    for (const row of rows) {
-      const rn = String(row.roleName);
-      if (!dbMap.has(rn)) dbMap.set(rn, new Set());
-      if (row.enabled) dbMap.get(rn)!.add(String(row.moduleName).toLowerCase());
+    const catalog = await loadPolicyCatalog(prisma);
+    const catalogPagesByModule = new Map<string, string[]>();
+    for (const mod of catalog.modules.values()) {
+      catalogPagesByModule.set(mod.key, Array.from(mod.pages.keys()));
     }
 
-    // Sub-module permissions per role
-    const subMap = await getSubModuleStateMap(prisma, 'role_sub_module_permissions', 'roleName');
-
-    const result = ALL_ROLES.map((role) => {
-      const subModulesMap = subMap.get(role) || new Map();
-      const subModules: string[] = [];
-      const disabledSubModules: string[] = [];
-      for (const [composite, enabled] of subModulesMap.entries()) {
-        (enabled ? subModules : disabledSubModules).push(composite);
-      }
-      return {
-        roleName: role,
-        modules: Array.from(dbMap.get(role) || new Set()),
-        allModules: allMods,
-        subModules,
-        disabledSubModules,
-      };
+    const platformRoles = await prisma.role.findMany({
+      where: { businessId: null },
+      select: { id: true, name: true },
     });
+    const roleIdsByName = new Map<string, string[]>();
+    for (const r of platformRoles) {
+      const name = String(r.name).toUpperCase();
+      if (!roleIdsByName.has(name)) roleIdsByName.set(name, []);
+      roleIdsByName.get(name)!.push(String(r.id));
+    }
+
+    const result = [];
+    for (const role of ALL_ROLES) {
+      const roleIds = roleIdsByName.get(role) || [];
+      let shape: PermissionShape = { modules: [], subModules: [], disabledSubModules: [] };
+      if (roleIds.length > 0) {
+        const rows = await prisma.rolePermissionV2.findMany({
+          where: { roleId: { in: roleIds } },
+          include: { modulePage: { include: { module: true } } },
+        });
+        shape = rolePermissionsToPermissionShape(
+          rows.map((r: any) => ({
+            moduleKey: String(r.modulePage?.module?.key ?? ''),
+            pageKey: String(r.modulePage?.key ?? ''),
+            allowed: !!r.allowed,
+          })),
+          catalogPagesByModule
+        );
+      }
+      result.push({
+        roleName: role,
+        modules: shape.modules,
+        allModules: allMods,
+        subModules: shape.subModules,
+        disabledSubModules: shape.disabledSubModules,
+      });
+    }
 
     return res.json({ success: true, data: result });
   } catch (error: any) {
