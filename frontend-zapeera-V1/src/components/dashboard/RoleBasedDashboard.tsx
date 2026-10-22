@@ -5,7 +5,7 @@ import { useMembershipRole } from "@/hooks/useMembershipRole";
 import { normalizeAppRole } from "@/utils/app-role";
 import { useParams } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
-import BusinessDashboard from "./BusinessDashboard";
+import WorkspaceDashboard from "./typed/WorkspaceDashboard";
 import ZapeeraDashboard from "./ZapeeraDashboard";
 import BusinessDashboardAccessGuard from "../auth/BusinessDashboardAccessGuard";
 
@@ -58,7 +58,7 @@ const RoleBasedDashboard = () => {
         return (
           <MainLayout>
             <BusinessDashboardAccessGuard companyId={companyId}>
-              <BusinessDashboard />
+              <WorkspaceDashboard />
             </BusinessDashboardAccessGuard>
           </MainLayout>
         );
@@ -75,7 +75,7 @@ const RoleBasedDashboard = () => {
         return (
           <MainLayout>
             <BusinessDashboardAccessGuard companyId={staffCompanyId}>
-              <BusinessDashboard />
+              <WorkspaceDashboard />
             </BusinessDashboardAccessGuard>
           </MainLayout>
         );
@@ -85,7 +85,7 @@ const RoleBasedDashboard = () => {
     default:
       return (
         <MainLayout>
-          <BusinessDashboard />
+          <WorkspaceDashboard />
         </MainLayout>
       );
   }
