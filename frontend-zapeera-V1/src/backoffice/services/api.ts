@@ -26,6 +26,7 @@ import {
   BackofficeAdmin,
   BackofficePartner,
   BackofficeNotifications,
+  BackofficePartnerApplication,
 } from '../types';
 
 const BASE_URL = config.backoffice.baseUrl;
@@ -153,6 +154,14 @@ export const backofficeApi = {
     request(`/partners/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   reassignBusinessPartner: (businessId: string, partnerId: string | null): Promise<{ success: boolean; data: unknown }> =>
     request(`/businesses/${businessId}/partner`, { method: 'PATCH', body: JSON.stringify({ partnerId }) }),
+
+  // Partner applications (2026-10-22) — the apply → approve queue.
+  getPartnerApplications: (status?: string): Promise<{ success: boolean; data: { applications: BackofficePartnerApplication[]; pagination: { page: number; limit: number; total: number; pages: number } } }> =>
+    request(`/partner-applications${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  approvePartnerApplication: (id: string): Promise<{ success: boolean; data: { application: BackofficePartnerApplication; partner: { id: string; name: string; slug: string }; adminClaimPending: boolean } }> =>
+    request(`/partner-applications/${id}/approve`, { method: 'POST' }),
+  rejectPartnerApplication: (id: string, reason: string): Promise<{ success: boolean; data: { application: BackofficePartnerApplication } }> =>
+    request(`/partner-applications/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
 
   getPlans: (): Promise<{ success: boolean; data: Plan[] }> => request('/plans'),
   getPlan: (id: string): Promise<{ success: boolean; data: Plan }> => request(`/plans/${id}`),

@@ -102,9 +102,31 @@ export interface BackofficePartner {
   supportEmail?: string | null;
   tagline?: string | null;
   status: string;
-  adminUserId: string;
+  adminUserId: string | null;
+  pendingAdminEmail?: string | null;
   admin?: { id: string; name: string; email: string } | null;
   businessCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Partner application (2026-10-22) — mirrors GET /backoffice/partner-applications.
+export interface BackofficePartnerApplication {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  website?: string | null;
+  message?: string | null;
+  source: string; // WEB | APP
+  status: string; // PENDING | APPROVED | REJECTED
+  applicantUserId?: string | null;
+  applicant?: { id: string; name: string; email: string } | null;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
+  createdPartnerId?: string | null;
+  createdPartner?: { id: string; name: string; slug: string } | null;
   createdAt: string;
   updatedAt: string;
 }

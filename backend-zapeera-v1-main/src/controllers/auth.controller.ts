@@ -14,6 +14,7 @@ import { getDatabaseService } from '../services/database.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { generateCSRFToken } from '../middleware/csrf.middleware';
 import { isLocked, recordFailedAttempt, clearFailedAttempts } from '../utils/account-lockout.util';
+import { claimPendingPartnerAdmins } from '../utils/partner.util';
 import logger from '../utils/logger';
 import Joi from 'joi';
 
@@ -614,6 +615,13 @@ user = await prisma.zapeeraUser.create({
 
 console.log('✅ Account created successfully:', username);
 console.log('📧 Verification token generated for:', email);
+
+// White-label partner claim: if a partner application was approved for
+// this email before the account existed, the partner waits with
+// pendingAdminEmail set — claim it for the new account now (the same
+// claim also runs on the first GET /partners/me, so this is a
+// convenience, never a dependency). Best-effort by design.
+claimPendingPartnerAdmins(prisma, { id: user.id, email: user.email }).catch(() => {});
 
 // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
 syncAfterOperation('user', 'create', user).catch(err => {

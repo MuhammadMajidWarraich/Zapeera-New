@@ -77,6 +77,10 @@ const CSRF_EXEMPT_PATHS = [
   '/api/v1/backoffice/auth/logout',
   '/api/sse',
   '/api/v1/sse',
+  // Public partner application (marketing-site form; no cookie exists
+  // yet — same class as register above)
+  '/api/partners/apply',
+  '/api/v1/partners/apply',
   // Barcode lookup is read-only (no state mutation)
   '/api/barcodes/lookup',
   '/api/v1/barcodes/lookup',

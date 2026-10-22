@@ -117,6 +117,11 @@ import {
   reassignBusinessPartner,
 } from '../controllers/backoffice-partners.controller';
 import {
+  listPartnerApplications,
+  approvePartnerApplication,
+  rejectPartnerApplication,
+} from '../controllers/partner-application.controller';
+import {
   listAffiliates,
   updateAffiliate,
   attributeBusiness,
@@ -281,6 +286,12 @@ router.post('/payment-proofs/:id/reject', adminAuthenticate, adminRoleGuard('SUP
  */
 router.get('/partners', adminAuthenticate, getAllPartners);
 router.post('/partners', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), createPartner);
+// Partner applications (2026-10-22): the public/in-app apply queue.
+// Approve creates the partner from the application; reject records a
+// reason the applicant sees in-app.
+router.get('/partner-applications', adminAuthenticate, listPartnerApplications);
+router.post('/partner-applications/:id/approve', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), approvePartnerApplication);
+router.post('/partner-applications/:id/reject', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), rejectPartnerApplication);
 router.patch('/partners/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), updatePartner);
 router.patch('/businesses/:id/partner', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), reassignBusinessPartner);
 

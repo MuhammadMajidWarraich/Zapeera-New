@@ -50,6 +50,52 @@ export const slugifyPartnerName = (name: string): string =>
 export const normalizePartnerSlug = (slug: unknown): string =>
   typeof slug === 'string' ? slug.trim().toLowerCase() : '';
 
+/** Derive a slug for `name` that no existing partner uses: the plain
+ *  slugified name, or name-2, name-3, … on collision. Used by the
+ *  partner-application approval path, where approval must succeed
+ *  (Backoffice partner creation keeps its 409-on-taken behaviour). */
+export async function uniquePartnerSlug(prisma: any, name: string): Promise<string> {
+  const base = slugifyPartnerName(name) || 'partner';
+  let candidate = base;
+  let suffix = 2;
+  // Bounded loop: slug collisions beyond a handful are pathological.
+  while (await prisma.partner.findUnique({ where: { slug: candidate } })) {
+    candidate = `${base.slice(0, 76)}-${suffix++}`;
+  }
+  return candidate;
+}
+
+/** Claim any partner whose admin was designated by email before that
+ *  email had a Zapeera account (partner applications approved for a
+ *  not-yet-registered email create the partner with pendingAdminEmail
+ *  set and adminUserId null). Called on signup and on GET /partners/me
+ *  so the claim resolves the first time the designated admin shows up.
+ *  Best-effort by design: never throws into the caller's flow. */
+export async function claimPendingPartnerAdmins(
+  prisma: any,
+  user: { id: string; email?: string | null } | null | undefined
+): Promise<number> {
+  try {
+    if (!user?.id || !user?.email) return 0;
+    const email = String(user.email).toLowerCase();
+    const pending = await prisma.partner.findMany({
+      where: { pendingAdminEmail: email, adminUserId: null },
+      select: { id: true }
+    });
+    let claimed = 0;
+    for (const partner of pending) {
+      await prisma.partner.update({
+        where: { id: partner.id },
+        data: { adminUserId: user.id, pendingAdminEmail: null }
+      });
+      claimed++;
+    }
+    return claimed;
+  } catch {
+    return 0;
+  }
+}
+
 /** Resolve a slug to an ACTIVE partner (the only kind that can brand
  *  or receive new attributions). Returns null for unknown/suspended. */
 export async function findActivePartnerBySlug(prisma: any, slug: unknown) {
