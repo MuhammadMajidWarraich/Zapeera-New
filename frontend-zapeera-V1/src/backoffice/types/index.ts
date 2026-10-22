@@ -300,6 +300,39 @@ export interface AffiliateProgramConfig {
   minPayout: number;
 }
 
+export interface VoiceAiPlanQuota {
+  id: string;
+  name: string;
+  monthlyTokens: number;
+  customised: boolean;
+}
+
+export interface VoiceAiConfig {
+  dailyTokenCap: number;
+  plans: VoiceAiPlanQuota[];
+}
+
+export interface VoiceAiBusinessUsage {
+  businessId: string;
+  businessName: string;
+  planId: string | null;
+  planName: string;
+  calls: number;
+  tokensIn: number;
+  tokensOut: number;
+  tokensUsed: number;
+  tokenLimit: number;
+  percentUsed: number;
+  estimatedCalls: number;
+  lastProvider: string | null;
+}
+
+export interface VoiceAiUsageReport {
+  period: string;
+  businesses: VoiceAiBusinessUsage[];
+  totals: { calls: number; tokensUsed: number };
+}
+
 export interface BackofficeCommissionStats {
   totalCommissions: number;
   pendingCommissions: number;

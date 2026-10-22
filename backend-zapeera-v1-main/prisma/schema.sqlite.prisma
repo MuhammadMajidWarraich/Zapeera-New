@@ -169,6 +169,8 @@ model Business {
   stockTakes                StockTake[]
   affiliateReferral         AffiliateReferral?
   affiliateCommissions      AffiliateCommission[]
+  aiUsage                   BusinessAiUsage[]
+  aiDailyUsage              BusinessAiDailyUsage[]
 
   partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
 
@@ -1390,6 +1392,50 @@ model Settings {
   @@unique([createdBy, key], name: "createdBy_key")
   @@index([createdBy], name: "idx_settings_createdBy")
   @@map("settings")
+}
+
+// Voice Assistant AI layer: per-business usage accounting for the
+// (free-tier) AI fallback. Written ONLY by the backend proxy
+// (voice-ai.service) — one row per business per Asia/Karachi month.
+// Quotas themselves live in Settings (owner 'global_voice_ai').
+model BusinessAiUsage {
+  id             String   @id @default(cuid())
+  businessId     String
+  period         String // YYYY-MM, Asia/Karachi calendar month
+  calls          Int      @default(0)
+  tokensIn       Int      @default(0)
+  tokensOut      Int      @default(0)
+  estimatedCalls Int      @default(0) // calls whose tokens were estimated (provider sent no usage block)
+  lastProvider   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, period], name: "business_period")
+  @@index([period], name: "idx_ai_usage_period")
+  @@map("business_ai_usage")
+}
+
+// Daily twin of BusinessAiUsage — backs the platform-wide daily token
+// cap that protects the shared free-tier pool.
+model BusinessAiDailyUsage {
+  id             String   @id @default(cuid())
+  businessId     String
+  day            String // YYYY-MM-DD, Asia/Karachi calendar day
+  calls          Int      @default(0)
+  tokensIn       Int      @default(0)
+  tokensOut      Int      @default(0)
+  estimatedCalls Int      @default(0)
+  lastProvider   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, day], name: "business_day")
+  @@index([day], name: "idx_ai_daily_usage_day")
+  @@map("business_ai_daily_usage")
 }
 
 model ScheduledShift {

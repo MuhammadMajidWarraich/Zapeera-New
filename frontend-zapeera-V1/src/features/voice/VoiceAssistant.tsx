@@ -19,13 +19,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAdmin } from '@/contexts/useAdmin';
 import { useAuth } from '@/contexts/AuthContext';
-import { parseUtterance, EXAMPLE_COMMANDS } from './intents';
+import { parseUtterance, EXAMPLE_COMMANDS, type VoiceIntent } from './intents';
 import {
   runIntent,
   executePending,
   type PendingAction,
   type VoiceResult,
 } from './executor';
+import { requestAiParse } from './ai';
+import { AI_QUOTA_MESSAGE, AI_UNAVAILABLE_MESSAGE } from './ai-intent';
+import { apiService } from '@/services/api';
 import {
   isSpeechRecognitionSupported,
   startListening,
@@ -81,6 +84,7 @@ export default function VoiceAssistant() {
   const [choices, setChoices] = useState<ChoiceState | null>(null);
   const [lang, setLang] = useState<VoiceLang>(loadLang);
   const [muted, setMuted] = useState<boolean>(loadMuted);
+  const [aiUsage, setAiUsage] = useState<{ calls: number; approxLimit: number; percent: number } | null>(null);
 
   const speechSupported = useMemo(() => isSpeechRecognitionSupported(), []);
   const sessionRef = useRef<{ stop: () => void } | null>(null);
@@ -140,6 +144,30 @@ export default function VoiceAssistant() {
     [pushResult],
   );
 
+  // AI usage meter (plan quota). Decorative: it never blocks or breaks
+  // the assistant — when the AI layer is unconfigured it stays hidden.
+  const refreshAiUsage = useCallback(async () => {
+    try {
+      const res: any = await apiService.getVoiceAiUsage();
+      const data = res?.data ?? res;
+      if (data?.configured) {
+        setAiUsage({
+          calls: data.calls || 0,
+          approxLimit: data.approxCommandLimit || 0,
+          percent: data.percentUsed || 0,
+        });
+      } else {
+        setAiUsage(null);
+      }
+    } catch {
+      // ignore — meter only
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) void refreshAiUsage();
+  }, [open, refreshAiUsage]);
+
   const processUtterance = useCallback(
     async (rawText: string) => {
       const text = rawText.trim();
@@ -175,16 +203,15 @@ export default function VoiceAssistant() {
       }
       if (choices) setChoices(null);
 
-      setBusy(true);
-      try {
-        const outcome = await runIntent(intent, {
-          branchId,
-          businessSlug,
-          navigate: (path) => {
-            navigate(path);
-            setOpen(false);
-          },
-        });
+      const ctx = {
+        branchId,
+        businessSlug,
+        navigate: (path: string) => {
+          navigate(path);
+          setOpen(false);
+        },
+      };
+      const handleOutcome = (outcome: Awaited<ReturnType<typeof runIntent>>) => {
         if (outcome.kind === 'result') {
           pushResult(outcome.result);
         } else if (outcome.kind === 'confirm') {
@@ -200,6 +227,51 @@ export default function VoiceAssistant() {
           pushHistory({ role: 'assistant', title: outcome.title });
           speakIfOn(outcome.speak);
         }
+      };
+
+      setBusy(true);
+      try {
+        let intentToRun: VoiceIntent = intent;
+        let aiNote: string | null = null;
+
+        // AI fallback: ONLY for utterances the rule parser cannot
+        // handle. The AI proposes a validated action in the parser's
+        // own schema; the same executor + confirm cards dispose of it.
+        if (intent.type === 'unknown') {
+          const ai = await requestAiParse(text);
+          if (ai.kind === 'intent') {
+            intentToRun = ai.intent;
+          } else if (ai.kind === 'actions') {
+            // Read-only chain (validated): run each lookup in order;
+            // a confirm/choices outcome defensively pauses the chain.
+            for (const step of ai.intents) {
+              const stepOutcome = await runIntent(step, ctx);
+              handleOutcome(stepOutcome);
+              if (stepOutcome.kind !== 'result') break;
+            }
+            void refreshAiUsage();
+            return;
+          } else if (ai.kind === 'clarify' || ai.kind === 'message') {
+            pushHistory({ role: 'assistant', title: ai.message });
+            speakIfOn(ai.message);
+            void refreshAiUsage();
+            return;
+          } else if (ai.kind === 'quota') {
+            pushHistory({ role: 'assistant', title: 'AI quota khatam', lines: [AI_QUOTA_MESSAGE] });
+            speakIfOn(AI_QUOTA_MESSAGE);
+            return;
+          } else {
+            // AI unavailable (unconfigured / rate-limited / error):
+            // fall through to the parser's own "didn't understand"
+            // reply and add the honest note below it.
+            aiNote = AI_UNAVAILABLE_MESSAGE;
+          }
+        }
+
+        const outcome = await runIntent(intentToRun, ctx);
+        handleOutcome(outcome);
+        if (aiNote) pushHistory({ role: 'assistant', lines: [aiNote] });
+        if (intentToRun !== intent) void refreshAiUsage();
       } catch (e: any) {
         pushHistory({
           role: 'error',
@@ -210,7 +282,7 @@ export default function VoiceAssistant() {
         setBusy(false);
       }
     },
-    [busy, pending, choices, branchId, businessSlug, navigate, pushHistory, pushResult, speakIfOn, confirmPending],
+    [busy, pending, choices, branchId, businessSlug, navigate, pushHistory, pushResult, speakIfOn, confirmPending, refreshAiUsage],
   );
 
   // Keep a ref to the latest processor so speech callbacks never go stale.
@@ -355,6 +427,24 @@ export default function VoiceAssistant() {
               Bol kar ya likh kar command dein — sell, stock, reports aur zyada.
             </SheetDescription>
           </SheetHeader>
+
+          {/* AI usage meter — visible only when the AI layer is on */}
+          {aiUsage && (
+            <div className="shrink-0 border-b border-black/[0.06] bg-[#f7f9fc] px-5 py-2.5">
+              <div className="flex items-center justify-between text-[11.5px] text-[#4a5578]">
+                <span>
+                  AI commands this month: <b className="text-[#16213c]">{aiUsage.calls}</b> of ~{aiUsage.approxLimit}
+                </span>
+                <span>{Math.round(aiUsage.percent)}%</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#1a52c5] to-[#28c2ce]"
+                  style={{ width: `${Math.min(100, Math.max(0, aiUsage.percent))}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {!speechSupported && (
             <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[12px] text-amber-800">

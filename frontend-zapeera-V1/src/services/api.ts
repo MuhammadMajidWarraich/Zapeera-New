@@ -5457,6 +5457,37 @@ export class ApiService {
     });
   }
 
+  // Voice Assistant AI APIs (AI fallback for commands the rule parser
+  // cannot handle; the backend proxy holds the provider key and
+  // enforces the business's plan quota)
+  async parseVoiceWithAi(payload: { utterance: string }) {
+    return this.request<{
+      status: string;
+      envelope?: unknown;
+      provider?: string;
+      usage?: unknown;
+    }>('/voice/ai-parse', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getVoiceAiUsage() {
+    return this.request<{
+      configured: boolean;
+      planId: string | null;
+      period: string;
+      calls: number;
+      tokensIn: number;
+      tokensOut: number;
+      tokensUsed: number;
+      tokenLimit: number;
+      approxCommandLimit: number;
+      approxCommandsUsed: number;
+      percentUsed: number;
+    }>('/voice/ai-usage');
+  }
+
   // Dashboard APIs
   async getDashboardStats(branchId?: string) {
     const params = new URLSearchParams();
