@@ -44,6 +44,9 @@ const CustomersPage = React.lazy(() => import("./pages/Customers"));
 const PromotionsPage = React.lazy(() => import("./pages/Promotions"));
 const TaxClassesPage = React.lazy(() => import("./pages/TaxClasses"));
 const PrescriptionsPage = React.lazy(() => import("./pages/Prescriptions"));
+const PatientsPage = React.lazy(() => import("./pages/Patients"));
+const DoctorsPage = React.lazy(() => import("./pages/Doctors"));
+const AppointmentsPage = React.lazy(() => import("./pages/Appointments"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const AccountingPage = React.lazy(() => import("./pages/Accounting"));
@@ -337,6 +340,39 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <PrescriptionsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/patients" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <PatientsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/doctors" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <DoctorsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/appointments" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <AppointmentsPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1168,6 +1204,48 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <PrescriptionsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/patients" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <PatientsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/doctors" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <DoctorsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/appointments" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <AppointmentsPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

@@ -210,6 +210,10 @@ function getDefaultModuleIcon(moduleKey: string): string {
     subscription: 'CreditCard',
     dashboard: 'LayoutDashboard',
     employee_portal: 'Briefcase',
+    prescriptions: 'Stethoscope',
+    patients: 'Users',
+    doctors: 'HeartPulse',
+    appointments: 'CalendarDays',
   };
 
   return iconMap[moduleKey] || 'Box';

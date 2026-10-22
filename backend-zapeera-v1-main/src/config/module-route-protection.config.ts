@@ -30,6 +30,9 @@ export const MODULE_PAGES: Record<string, string[]> = {
   expenses: ['overview', 'expenses'],
   subscription: ['overview', 'subscription'],
   prescriptions: ['overview', 'prescriptions'],
+  patients: ['overview', 'patients'],
+  doctors: ['overview', 'doctors'],
+  appointments: ['overview', 'appointments'],
   employee_portal: ['overview', 'dashboard', 'attendance', 'shifts', 'profile', 'notifications'],
   dashboard: ['overview', 'dashboard'],
 };
@@ -83,6 +86,11 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   // were declared in the hierarchy/MODULE_PAGES long before the API
   // existed; this entry finally gives the routes their classification.
   '/api/prescriptions': { module: 'prescriptions', page: 'prescriptions' },
+
+  // Clinic pack (Wave C4): three sibling modules, each its own page.
+  '/api/patients': { module: 'patients', page: 'patients' },
+  '/api/doctors': { module: 'doctors', page: 'doctors' },
+  '/api/appointments': { module: 'appointments', page: 'appointments' },
 };
 
 /**
@@ -257,6 +265,10 @@ export const MODULE_DISPLAY_NAMES: Record<string, string> = {
   business_management: 'Business Management',
   expenses: 'Expenses',
   subscription: 'Subscription & Billing',
+  prescriptions: 'Prescriptions',
+  patients: 'Patients',
+  doctors: 'Doctors',
+  appointments: 'Appointments',
 };
 
 export type ModuleOperation = 'read' | 'create' | 'update' | 'delete' | 'export' | 'approve' | 'print';

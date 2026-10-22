@@ -209,6 +209,181 @@ export interface PrescriptionPayload {
   items: PrescriptionItemPayload[];
 }
 
+// Clinic pack (Wave C4): Patient-Lite, Doctors, Appointments/OPD.
+// Patients are the CLINIC's register — deliberately separate from the
+// sales Customer register (no khata/loyalty); a visit invoice links
+// to the patient only through its Appointment.
+export interface PatientRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  name: string;
+  phone?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  cnic?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  appointments?: AppointmentRecord[];
+  _count?: { appointments: number };
+}
+
+export interface PatientPayload {
+  branchId?: string | null;
+  name: string;
+  phone?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  cnic?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}
+
+export interface DoctorRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  specialization?: string | null;
+  phone?: string | null;
+  consultationFee: number;
+  // The DOCTOR's share of the consultation fee, in percent; the
+  // clinic keeps the rest. Applies to future visits only — completed
+  // visits keep their snapshotted fee/share on the appointment.
+  sharePercent: number;
+  serviceProductId?: string | null;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { appointments: number; settlements?: number };
+}
+
+export interface DoctorPayload {
+  name: string;
+  specialization?: string | null;
+  phone?: string | null;
+  consultationFee?: number;
+  sharePercent?: number;
+}
+
+export type AppointmentStatus =
+  | 'BOOKED'
+  | 'CHECKED_IN'
+  | 'IN_VISIT'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
+export interface AppointmentRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  patientId: string;
+  doctorId: string;
+  appointmentDate: string;
+  tokenNumber: number;
+  status: AppointmentStatus;
+  reason?: string | null;
+  notes?: string | null;
+  saleId?: string | null;
+  prescriptionId?: string | null;
+  feeCharged?: number | null;
+  doctorShareAmount?: number | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient?: { id: string; name: string; phone?: string | null; age?: number | null; gender?: string | null };
+  doctor?: { id: string; name: string; specialization?: string | null };
+  sale?: {
+    id: string;
+    invoiceNumber?: string | null;
+    totalAmount: number;
+    paymentStatus: string;
+    createdAt: string;
+  } | null;
+  prescription?: {
+    id: string;
+    patientName: string;
+    doctorName?: string | null;
+    issuedDate: string;
+  } | null;
+}
+
+export interface AppointmentPayload {
+  patientId: string;
+  doctorId: string;
+  branchId?: string | null;
+  appointmentDate: string;
+  reason?: string | null;
+  notes?: string | null;
+}
+
+export interface CompleteVisitItemPayload {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  batchId?: string | null;
+}
+
+export interface CompleteVisitPayload {
+  feeCharged?: number;
+  items?: CompleteVisitItemPayload[];
+  prescriptionItems?: PrescriptionItemPayload[];
+  prescriptionNotes?: string | null;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  paidAmount?: number;
+  payments?: Array<{ method: string; amount: number; reference?: string | null }>;
+}
+
+export interface CompleteVisitResult {
+  appointment: AppointmentRecord;
+  sale: any | null;
+  prescription: { id: string; patientName: string; doctorName?: string | null } | null;
+}
+
+export interface DoctorSettlementRow {
+  doctor: { id: string; name: string; specialization?: string | null; isActive: boolean };
+  doctorId: string;
+  visits: number;
+  consultationRevenue: number;
+  doctorShare: number;
+  clinicShare: number;
+  settled: number;
+  outstanding: number;
+}
+
+export interface DoctorSettlementReport {
+  period: { from: string; to: string };
+  doctors: DoctorSettlementRow[];
+  totals: {
+    visits: number;
+    consultationRevenue: number;
+    doctorShare: number;
+    clinicShare: number;
+    settled: number;
+    outstanding: number;
+  };
+}
+
+export interface DoctorSettlementRecord {
+  id: string;
+  companyId: string;
+  doctorId: string;
+  periodFrom: string;
+  periodTo: string;
+  amount: number;
+  note?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  doctor?: { id: string; name: string; specialization?: string | null };
+}
+
 // The register summary a sale carries when it dispensed against a
 // prescription (receipts print "Rx: <patient> (Dr. <doctor>)").
 export interface SalePrescriptionSummary {
@@ -1738,6 +1913,192 @@ export class ApiService {
     return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}`, {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
+    });
+  }
+
+  // Clinic pack (Wave C4) — Patients
+  async getPatients(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<PatientRecord[]>(`/patients${query ? `?${query}` : ''}`);
+  }
+
+  async getPatient(patientId: string) {
+    return this.request<PatientRecord>(`/patients/${patientId}`);
+  }
+
+  async createPatient(data: PatientPayload) {
+    return this.request<PatientRecord>('/patients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePatient(patientId: string, data: Partial<PatientPayload> & { isActive?: boolean }) {
+    return this.request<PatientRecord>(`/patients/${patientId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // DELETE deactivates the record (soft — history survives);
+  // OWNER/MANAGER only on the server.
+  async deactivatePatient(patientId: string) {
+    return this.request<PatientRecord>(`/patients/${patientId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Clinic pack (Wave C4) — Doctors
+  async getDoctors(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<DoctorRecord[]>(`/doctors${query ? `?${query}` : ''}`);
+  }
+
+  async getDoctor(doctorId: string) {
+    return this.request<DoctorRecord>(`/doctors/${doctorId}`);
+  }
+
+  async createDoctor(data: DoctorPayload) {
+    return this.request<DoctorRecord>('/doctors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDoctor(doctorId: string, data: Partial<DoctorPayload> & { isActive?: boolean }) {
+    return this.request<DoctorRecord>(`/doctors/${doctorId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deactivateDoctor(doctorId: string) {
+    return this.request<DoctorRecord>(`/doctors/${doctorId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Doctor-share settlement: the report reads COMPLETED appointments'
+  // snapshotted fee/share for the window minus payouts made in it.
+  async getDoctorSettlementReport(params?: { from?: string; to?: string; doctorId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<DoctorSettlementReport>(`/doctors/settlement-report${query ? `?${query}` : ''}`);
+  }
+
+  async getDoctorSettlements(params?: {
+    page?: number;
+    limit?: number;
+    doctorId?: string;
+    from?: string;
+    to?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<DoctorSettlementRecord[]>(`/doctors/settlements${query ? `?${query}` : ''}`);
+  }
+
+  async createDoctorSettlement(data: {
+    doctorId: string;
+    from: string;
+    to: string;
+    amount: number;
+    note?: string | null;
+  }) {
+    return this.request<DoctorSettlementRecord>('/doctors/settlements', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Clinic pack (Wave C4) — Appointments / OPD queue
+  async getAppointments(params?: {
+    page?: number;
+    limit?: number;
+    date?: string;
+    from?: string;
+    to?: string;
+    doctorId?: string;
+    patientId?: string;
+    status?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<AppointmentRecord[]>(`/appointments${query ? `?${query}` : ''}`);
+  }
+
+  async getAppointment(appointmentId: string) {
+    return this.request<AppointmentRecord>(`/appointments/${appointmentId}`);
+  }
+
+  async createAppointment(data: AppointmentPayload) {
+    return this.request<AppointmentRecord>('/appointments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAppointmentStatus(appointmentId: string, status: AppointmentStatus) {
+    return this.request<AppointmentRecord>(`/appointments/${appointmentId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // Completing a visit bills it (consultation fee + extra items)
+  // through the sale engine and closes the appointment; the response
+  // carries the appointment, the created sale and any prescription.
+  async completeVisit(appointmentId: string, data: CompleteVisitPayload) {
+    return this.request<CompleteVisitResult>(`/appointments/${appointmentId}/complete-visit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 

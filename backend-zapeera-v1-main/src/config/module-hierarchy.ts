@@ -296,6 +296,66 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
     ],
   },
 
+  // ─── Clinic family (Wave C4) ──────────────────────────────────────────
+  // Three sibling modules, each with its own key exactly like
+  // prescriptions (patients.patients / doctors.doctors /
+  // appointments.appointments in the route-policy registry). They sit
+  // together here so the sidebar reads as one clinic family; which
+  // business types see them is the usual business-type module gate
+  // (business_type_modules, backoffice-managed) — clinics enable the
+  // family, everyone else can leave it off.
+  {
+    module: 'patients',
+    label: 'Patients',
+    icon: 'Users',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'patients',
+        label: 'Patients',
+        href: '/patients',
+        icon: 'Users',
+        module: 'patients',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'doctors',
+    label: 'Doctors',
+    icon: 'HeartPulse',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER'],
+    subModules: [
+      {
+        key: 'doctors',
+        label: 'Doctors',
+        href: '/doctors',
+        icon: 'HeartPulse',
+        module: 'doctors',
+        roles: ['OWNER', 'MANAGER'],
+      },
+    ],
+  },
+  {
+    module: 'appointments',
+    label: 'Appointments',
+    icon: 'CalendarDays',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'appointments',
+        label: 'Appointments',
+        href: '/appointments',
+        icon: 'CalendarDays',
+        module: 'appointments',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
   // ─── Business Management Module ─────────────────────────────────────────
   {
     module: 'business_management',

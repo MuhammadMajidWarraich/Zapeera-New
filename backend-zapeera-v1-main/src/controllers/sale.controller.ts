@@ -1325,6 +1325,37 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           throw new Error(`Product with ID ${item.productId} not found`);
         }
 
+        // Service items (Wave C4): a product flagged isService is
+        // sold but never stocked — a doctor's consultation fee is
+        // the first user (its product is auto-ensured by the clinic
+        // module). The line skips batch resolution, the stock
+        // checks and the deduction entirely and is stored with
+        // batchId null + unitsDeducted 0, the shape refunds and
+        // reports already read as "no stock moved". The line total
+        // is the server-computed itemTotals entry, like every line.
+        if ((product as any).isService) {
+          const serviceItem = await tx.saleItem.create({
+            data: {
+              saleId: sale.id,
+              productId: item.productId,
+              batchId: null,
+              createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
+              quantity: item.quantity,
+              unitsDeducted: 0,
+              unitsPerBox: 1,
+              saleType: 'UNIT',
+              unitLevel: null,
+              unitFactor: null,
+              unitPrice: item.unitPrice,
+              totalPrice: itemTotals[itemIndex],
+              batchNumber: null,
+              expiryDate: null
+            }
+          });
+          saleItems.push(serviceItem);
+          continue;
+        }
+
         // Unit engine (Wave C2): when the line carries unitLevel, the
         // factor comes from the product itself (server-authoritative)
         // and the line's base quantity is quantity x factor. Client-

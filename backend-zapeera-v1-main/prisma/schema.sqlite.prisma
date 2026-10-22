@@ -151,6 +151,10 @@ model Business {
   fbrConfig                 FbrConfig?
   fbrInvoiceQueue           FbrInvoiceQueue[]
   prescriptions             Prescription[]
+  patients                  Patient[]
+  doctors                   Doctor[]
+  appointments              Appointment[]
+  doctorSettlements         DoctorSettlement[]
 
   @@index([createdBy], name: "idx_business_createdBy")
   @@index([businessType], name: "idx_business_type")
@@ -187,6 +191,8 @@ model Branch {
   stockTransfersOut  StockTransfer[]    @relation("stockTransfersOut")
   stockTransfersIn   StockTransfer[]    @relation("stockTransfersIn")
   prescriptions      Prescription[]
+  patients           Patient[]
+  appointments       Appointment[]
   categories         Category[]
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
@@ -381,6 +387,13 @@ model Product {
   // max 8. Null = the fiscal payload uses the documented fallback
   // "00000000".
   pctCode              String?
+  // Service item (Wave C4 — Clinic pack): a product that is SOLD but
+  // never stocked (consultation fees, procedures, charges). Sale
+  // lines for service products skip batch resolution and stock
+  // deduction entirely and store batchId null; refunds of such lines
+  // restock nothing. Auto-ensured per doctor by the clinic module
+  // ("Consultation — Dr <name>"); may also be flagged manually.
+  isService            Boolean   @default(false)
   isActive             Boolean   @default(true)
   uuid                 String?   @unique
   syncStatus           String    @default("PENDING")
@@ -399,6 +412,7 @@ model Product {
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
   prescriptionItems PrescriptionItem[]
+  serviceForDoctors Doctor[]       @relation("DoctorServiceProduct")
   promotions     Promotion[]
   taxClass       TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
 
@@ -736,6 +750,7 @@ model Sale {
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])
   prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
   user     ZapeeraUser @relation(fields: [userId], references: [id])
 
   @@index([companyId], name: "idx_sale_company")
@@ -953,6 +968,7 @@ model Prescription {
   branch  Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
   items   PrescriptionItem[]
   sales   Sale[]
+  appointments Appointment[]
 
   @@index([companyId], name: "idx_prescription_company")
   @@index([branchId], name: "idx_prescription_branch")
@@ -2032,4 +2048,147 @@ model BusinessTypeSubModulePermission {
 
   @@unique([businessTypeId, moduleName, subModuleKey], map: "business_type_sub_module_perm_businessTypeId_moduleName_sub_key")
   @@map("business_type_sub_module_permissions")
+}
+
+// ─── Clinic pack (Wave C4) ───────────────────────────────────────────
+// Clinics previously had NO patient/doctor/appointment modules at all
+// (billing + supplies inventory only). This pack adds Patient-Lite,
+// Doctors, the Appointments/OPD token queue, visit billing through
+// the normal sale engine, and doctor-share settlement.
+
+// Patient-Lite: the clinic's own register of the people it treats.
+// Deliberately separate from Customer (the sales/khata register): a
+// patient is a clinical record. A visit invoice therefore carries no
+// customerId — khata/loyalty stay POS decisions, not clinic ones.
+model Patient {
+  id        String   @id @default(cuid())
+  companyId String
+  branchId  String?
+  name      String
+  phone     String?
+  age       Int?
+  gender    String?
+  cnic      String?
+  address   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company      Business      @relation(fields: [companyId], references: [id])
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  @@index([companyId], name: "idx_patient_company")
+  @@index([branchId], name: "idx_patient_branch")
+  @@index([phone], name: "idx_patient_phone")
+  @@map("patients")
+}
+
+// A doctor who sees patients at the clinic. consultationFee is the
+// standard fee billed per visit; sharePercent is the DOCTOR's share
+// of that fee (the clinic keeps the rest). Both are only DEFAULTS:
+// at visit completion the fee actually charged and the share it
+// produced are snapshotted onto the Appointment, and settlement
+// reports read the snapshots — editing a doctor never rewrites
+// history. serviceProductId points at the auto-ensured non-stock
+// Product ("Consultation — Dr <name>", isService) whose sale line
+// carries the fee on the visit invoice; the fee never touches stock.
+model Doctor {
+  id               String   @id @default(cuid())
+  companyId        String
+  name             String
+  specialization   String?
+  phone            String?
+  consultationFee  Float    @default(0)
+  sharePercent     Float    @default(0)
+  serviceProductId String?
+  isActive         Boolean  @default(true)
+  createdBy        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company        Business           @relation(fields: [companyId], references: [id])
+  serviceProduct Product?           @relation("DoctorServiceProduct", fields: [serviceProductId], references: [id], onDelete: SetNull)
+  appointments   Appointment[]
+  settlements    DoctorSettlement[]
+
+  @@index([companyId], name: "idx_doctor_company")
+  @@index([serviceProductId], name: "idx_doctor_service_product")
+  @@map("doctors")
+}
+
+// One OPD visit. tokenNumber is the patient's place in the doctor's
+// queue for the day: a per (doctor, appointmentDate) sequence the
+// server assigns at booking (1, 2, 3, …), unique per doctor+day.
+// appointmentDate is stored normalized to UTC midnight of the clinic
+// day. Status flow:
+//   BOOKED → CHECKED_IN → IN_VISIT → COMPLETED
+//   BOOKED | CHECKED_IN → CANCELLED | NO_SHOW
+// Completion (POST /appointments/:id/complete-visit) creates the
+// visit invoice (a normal Sale), links it via saleId, links the C1
+// Prescription it wrote via prescriptionId, and snapshots
+// feeCharged + doctorShareAmount so settlement reporting never
+// re-derives money from the doctor's current fee/share.
+model Appointment {
+  id                String    @id @default(cuid())
+  companyId         String
+  branchId          String?
+  patientId         String
+  doctorId          String
+  appointmentDate   DateTime
+  tokenNumber       Int
+  status            String    @default("BOOKED") // BOOKED | CHECKED_IN | IN_VISIT | COMPLETED | CANCELLED | NO_SHOW
+  reason            String?
+  notes             String?
+  saleId            String?
+  prescriptionId    String?
+  feeCharged        Float?
+  doctorShareAmount Float?
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company      Business      @relation(fields: [companyId], references: [id])
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  sale         Sale?         @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([doctorId, appointmentDate, tokenNumber], name: "appt_doctor_date_token")
+  @@index([companyId], name: "idx_appointment_company")
+  @@index([branchId], name: "idx_appointment_branch")
+  @@index([patientId], name: "idx_appointment_patient")
+  @@index([doctorId, appointmentDate], name: "idx_appointment_doctor_date")
+  @@index([status], name: "idx_appointment_status")
+  @@map("appointments")
+}
+
+// A payout of doctor-share money to a doctor. periodFrom/periodTo
+// record the earning window the payout is meant to cover. The
+// settlement report's "outstanding" for a window is: doctor share
+// earned in the window (Appointment snapshots) minus settlements
+// PAID in the window (by settlement createdAt) — deliberately
+// simple, documented semantics; see doctor.controller.
+model DoctorSettlement {
+  id         String   @id @default(cuid())
+  companyId  String
+  doctorId   String
+  periodFrom DateTime
+  periodTo   DateTime
+  amount     Float
+  note       String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  doctor  Doctor   @relation(fields: [doctorId], references: [id])
+
+  @@index([companyId], name: "idx_doctor_settlement_company")
+  @@index([doctorId], name: "idx_doctor_settlement_doctor")
+  @@index([createdAt], name: "idx_doctor_settlement_createdAt")
+  @@map("doctor_settlements")
 }

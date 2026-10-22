@@ -132,7 +132,7 @@ export const getAccountingPnl = async (req: AuthRequest, res: Response) => {
       prisma.sale.aggregate({ where: saleWhere, _sum: { totalAmount: true }, _count: { id: true } }),
       prisma.saleItem.findMany({
         where: { sale: saleWhere },
-        select: { quantity: true, batch: { select: { purchasePrice: true } } },
+        select: { quantity: true, productId: true, batch: { select: { purchasePrice: true } } },
       }),
       prisma.refund.findMany({
         where: { createdAt: dateFilter, originalSale: saleScope },
@@ -155,10 +155,26 @@ export const getAccountingPnl = async (req: AuthRequest, res: Response) => {
     const grossRevenue = salesAgg._sum?.totalAmount || 0;
     const refundsTotal = refunds.reduce((sum: number, r: any) => sum + (r.refundAmount || 0), 0);
 
+    // Service lines (Wave C4) have no batch BY DESIGN and their cost
+    // is knowably zero (a consultation consumes no stock) — price
+    // them at 0 here so they are not miscounted as cost-unknown
+    // legacy lines by summarizeCogs.
+    const itemProductIds = [...new Set(saleItems.map((it: any) => it.productId).filter(Boolean))];
+    const serviceProductIdSet = new Set(
+      itemProductIds.length
+        ? (await prisma.product.findMany({
+            where: { id: { in: itemProductIds }, isService: true },
+            select: { id: true },
+          })).map((p: any) => p.id)
+        : []
+    );
+
     const cogsGross = summarizeCogs(
       saleItems.map((it: any) => ({
         quantity: it.quantity,
-        batchPurchasePrice: it.batch ? it.batch.purchasePrice : null,
+        batchPurchasePrice: it.batch
+          ? it.batch.purchasePrice
+          : (serviceProductIdSet.has(it.productId) ? 0 : null),
       }))
     );
 
@@ -174,11 +190,25 @@ export const getAccountingPnl = async (req: AuthRequest, res: Response) => {
         where: { saleId: { in: originalSaleIds } },
         select: { saleId: true, productId: true, batch: { select: { purchasePrice: true } } },
       });
+      // Refunded service lines (Wave C4) likewise reverse at a
+      // knowable cost of 0, not "unknown".
+      const originalProductIds = [...new Set((originalItems as any[]).map((oi: any) => oi.productId))];
+      const refundServiceIdSet = new Set(
+        originalProductIds.length
+          ? (await prisma.product.findMany({
+              where: { id: { in: originalProductIds }, isService: true },
+              select: { id: true },
+            })).map((p: any) => p.id)
+          : []
+      );
       const costBySaleProduct = new Map<string, number | null>();
       for (const oi of originalItems as any[]) {
         const key = `${oi.saleId}::${oi.productId}`;
         if (!costBySaleProduct.has(key)) {
-          costBySaleProduct.set(key, oi.batch ? oi.batch.purchasePrice : null);
+          costBySaleProduct.set(
+            key,
+            oi.batch ? oi.batch.purchasePrice : (refundServiceIdSet.has(oi.productId) ? 0 : null)
+          );
         }
       }
       const lines = refunds.flatMap((r: any) =>

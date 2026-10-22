@@ -48,6 +48,11 @@ export const RESOURCES = {
   CUSTOMERS: 'customers',
   MEDICATION_HISTORY: 'medication_history',
 
+  // Clinic Specific (Wave C4)
+  PATIENTS: 'patients',
+  DOCTORS: 'doctors',
+  APPOINTMENTS: 'appointments',
+
   // Shift Management
   SHIFTS: 'shifts',
   SCHEDULED_SHIFTS: 'scheduled_shifts',

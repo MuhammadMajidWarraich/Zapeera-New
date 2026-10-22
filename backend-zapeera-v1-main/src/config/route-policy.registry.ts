@@ -167,6 +167,15 @@ const ENTRIES: RegistryEntry[] = [
   // hierarchy + MODULE_PAGES from early on; the API arrives in C1.
   { prefix: '/api/prescriptions', policy: { kind: 'module', resourceKey: 'prescriptions.prescriptions' } },
 
+  // ── Clinic pack (Wave C4) ────────────────────────────────────────────
+  // Three sibling modules (the Clinic family), each with its own key
+  // exactly like prescriptions: patients.patients, doctors.doctors,
+  // appointments.appointments. Declared in the module hierarchy +
+  // MODULE_PAGES in the same wave as their APIs.
+  { prefix: '/api/patients', policy: { kind: 'module', resourceKey: 'patients.patients' } },
+  { prefix: '/api/doctors', policy: { kind: 'module', resourceKey: 'doctors.doctors' } },
+  { prefix: '/api/appointments', policy: { kind: 'module', resourceKey: 'appointments.appointments' } },
+
   // ── Backoffice (platform admin; router-guarded, public login/setup) ──────
   { prefix: '/api/backoffice/auth/login', policy: { kind: 'public' } },
   { prefix: '/api/backoffice/auth/setup', policy: { kind: 'public' } },

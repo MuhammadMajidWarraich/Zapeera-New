@@ -338,6 +338,19 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
     }
     refundAmount = round2(refundAmount);
 
+    // Service items (Wave C4): a line whose product is flagged
+    // isService never moved stock, so its refund must not restock or
+    // write a stock movement either (the no-batch fallback in the
+    // loop below would otherwise go looking for an unrelated batch).
+    // The refund item — the money — is unaffected.
+    const refundProductIds = [...new Set(allocations.map(a => a.saleItem.productId))];
+    const serviceProductIds = new Set(
+      (await prisma.product.findMany({
+        where: { id: { in: refundProductIds }, isService: true },
+        select: { id: true }
+      })).map((p: any) => p.id)
+    );
+
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx: any) => {
       // Create refund record — refundedBy/createdBy are the authenticated
@@ -396,9 +409,11 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
 
         // Restock the batch this sale line drew from; only when the line
         // carries no batch do we fall back to the branch's earliest-expiring
-        // active batch for the product (previous behaviour)
+        // active batch for the product (previous behaviour). Service
+        // lines (Wave C4) skip the fallback: nothing was ever deducted.
+        const isServiceLine = serviceProductIds.has(saleItem.productId);
         let restockBatchId = saleItem.batchId;
-        if (!restockBatchId) {
+        if (!restockBatchId && !isServiceLine) {
           const activeBatch = await tx.batch.findFirst({
             where: {
               productId: saleItem.productId,
@@ -423,17 +438,20 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           });
         }
 
-        // Create stock movement record for the return
-        await tx.stockMovement.create({
-          data: {
-            productId: saleItem.productId,
-            type: 'RETURN',
-            quantity: unitsToReturn,
-            reason: `Refund: ${alloc.reason}`,
-            reference: `REF-${refund.id}`,
-            createdBy: actorId
-          }
-        });
+        // Create stock movement record for the return (service lines
+        // moved no stock, so they record none)
+        if (!isServiceLine) {
+          await tx.stockMovement.create({
+            data: {
+              productId: saleItem.productId,
+              type: 'RETURN',
+              quantity: unitsToReturn,
+              reason: `Refund: ${alloc.reason}`,
+              reference: `REF-${refund.id}`,
+              createdBy: actorId
+            }
+          });
+        }
 
         refundItems.push(refundItem);
       }

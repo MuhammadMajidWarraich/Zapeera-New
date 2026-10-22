@@ -40,6 +40,7 @@ import {
   User,
   Bell,
   Stethoscope,
+  HeartPulse,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -338,6 +339,64 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         href: '/prescriptions',
         icon: Stethoscope,
         module: 'prescriptions',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
+  // ─── Clinic family (Wave C4) ────────────────────────────────────────
+  // Three sibling modules with their own keys, exactly like
+  // Prescriptions — Patients, Doctors, Appointments. Placement mirrors
+  // the backend hierarchy: main section, right after Prescriptions,
+  // so the sidebar reads as one clinic family. Visibility is the
+  // business-type module gate (clinics enable the family).
+  {
+    module: 'patients',
+    label: 'Patients',
+    icon: Users,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'patients',
+        label: 'Patients',
+        href: '/patients',
+        icon: Users,
+        module: 'patients',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'doctors',
+    label: 'Doctors',
+    icon: HeartPulse,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER'],
+    pages: [
+      {
+        key: 'doctors',
+        label: 'Doctors',
+        href: '/doctors',
+        icon: HeartPulse,
+        module: 'doctors',
+        roles: ['OWNER', 'MANAGER'],
+      },
+    ],
+  },
+  {
+    module: 'appointments',
+    label: 'Appointments',
+    icon: CalendarDays,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'appointments',
+        label: 'Appointments',
+        href: '/appointments',
+        icon: CalendarDays,
+        module: 'appointments',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
     ],
