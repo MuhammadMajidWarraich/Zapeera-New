@@ -39,7 +39,15 @@ import {
   MessageCircle,
   Landmark,
   Wallet,
-  Stethoscope
+  Stethoscope,
+  Zap,
+  History,
+  ClipboardList,
+  ScanBarcode,
+  Clock,
+  UserRound,
+  FileText,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -77,6 +85,11 @@ interface Product {
   expiry: string;
   formula?: string; // Product composition/formula for search
   barcode?: string;
+  // POS redesign: real catalog metadata for the grid + category pills.
+  categoryId?: string;
+  categoryName?: string;
+  minStock?: number;
+  reorderLevel?: number | null;
   requiresPrescription?: boolean;
   unitsPerPack?: number; // Number of units in a pack
   unitsPerBox?: number;
@@ -279,6 +292,17 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // controls are replaced by per-method allocation rows.
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [splitPayments, setSplitPayments] = useState<SplitPaymentRow[]>([]);
+  // --- POS redesign state (layout only; sale state above is unchanged) ---
+  const [posCategories, setPosCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(new Date());
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isTxnDialogOpen, setIsTxnDialogOpen] = useState(false);
+  const [todaySales, setTodaySales] = useState<any[]>([]);
+  const [isLoadingTodaySales, setIsLoadingTodaySales] = useState(false);
+  const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
+  const [activeShift, setActiveShift] = useState<any>(null);
+  const [myStaffProfileId, setMyStaffProfileId] = useState<string | null>(null);
   // Loyalty redemption (Wave B3): the customer resolved from the
   // entered phone (its points balance drives the "Use points"
   // control), the raw points input, and the PKR value of one point
@@ -627,52 +651,56 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   }, [selectedBranchId]);
 
-  // Filter products based on search query
+  // Filter products: search query (when typed), the active category
+  // pill (POS redesign), and the expired-batch exclusion. An empty
+  // query now means "browse the loaded catalog" (POS redesign) — the
+  // grid is the register's home view.
   useEffect(() => {
-    // console.log('Search query changed:', searchQuery);
-    // console.log('Products available:', products.length);
+    if (!Array.isArray(products)) {
+      setFilteredProducts([]);
+      return;
+    }
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = products.filter(product => {
+      // Category pill filter (real product categories)
+      if (activeCategoryId && product.categoryId !== activeCategoryId) return false;
 
-    if (searchQuery.trim() && Array.isArray(products)) {
-      const query = searchQuery.toLowerCase();
-      const filtered = products.filter(product => {
-        // First check if product matches search query
-        const matchesSearch = product.name.toLowerCase().includes(query) ||
+      // First check if product matches search query (if one is typed)
+      const matchesSearch = !query ||
+        product.name.toLowerCase().includes(query) ||
         product.id.toLowerCase().includes(query) ||
         (product.formula && product.formula.toLowerCase().includes(query)) || // Search by formula
-          (product.barcode && product.barcode.toLowerCase().includes(query)); // Search by barcode
-        
-        if (!matchesSearch) return false;
-        
-        // CRITICAL FIX: Exclude products that only have expired batches
-        const batchesForProduct = productBatches[product.id] || [];
-        if (batchesForProduct.length > 0) {
-          // Check if all batches are expired
-          const hasNonExpiredBatches = batchesForProduct.some(batch => {
-            // Check if batch is expired
-            if (batch.expiryStatus === 'EXPIRED') return false;
-            if (batch.daysUntilExpiry !== undefined && batch.daysUntilExpiry < 0) return false;
-            if (batch.expireDate) {
-              const expireDate = new Date(batch.expireDate);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              expireDate.setHours(0, 0, 0, 0);
-              if (expireDate < today) return false;
-            }
-            return true;
-          });
-          // Only include product if it has at least one non-expired batch
-          return hasNonExpiredBatches;
-        }
-        
-        // If batches haven't been fetched yet, include the product (will be filtered later when batches are loaded)
-        return true;
-      });
-      // console.log('Filtered products:', filtered.length, 'matches for:', searchQuery);
-      setFilteredProducts(filtered);
-    } else {
-      setFilteredProducts([]);
-    }
-  }, [searchQuery, products, productBatches]);
+        (product.categoryName && product.categoryName.toLowerCase().includes(query)) || // Search by category
+        (product.barcode && product.barcode.toLowerCase().includes(query)); // Search by barcode
+
+      if (!matchesSearch) return false;
+
+      // CRITICAL FIX: Exclude products that only have expired batches
+      const batchesForProduct = productBatches[product.id] || [];
+      if (batchesForProduct.length > 0) {
+        // Check if all batches are expired
+        const hasNonExpiredBatches = batchesForProduct.some(batch => {
+          // Check if batch is expired
+          if (batch.expiryStatus === 'EXPIRED') return false;
+          if (batch.daysUntilExpiry !== undefined && batch.daysUntilExpiry < 0) return false;
+          if (batch.expireDate) {
+            const expireDate = new Date(batch.expireDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            expireDate.setHours(0, 0, 0, 0);
+            if (expireDate < today) return false;
+          }
+          return true;
+        });
+        // Only include product if it has at least one non-expired batch
+        return hasNonExpiredBatches;
+      }
+
+      // If batches haven't been fetched yet, include the product (will be filtered later when batches are loaded)
+      return true;
+    });
+    setFilteredProducts(filtered);
+  }, [searchQuery, products, productBatches, activeCategoryId]);
 
   // Filter products for modal search
   const modalFilteredProducts = useMemo(() => {
@@ -715,16 +743,100 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     return [];
   }, [modalSearchQuery, products, productBatches]);
 
-  // Server-side product search (debounced) to avoid loading 1000 products on tab open
+  // Server-side product search (debounced) to avoid loading 1000 products on tab open.
+  // POS redesign: an empty query reloads the browse catalog — the
+  // product grid is the register's home view now, not just results.
   useEffect(() => {
-    const q = searchQuery.trim();
-    if (!q) return;
     const timer = setTimeout(() => {
       loadProducts();
     }, 250);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedBranchId, selectedCompanyId]);
+
+  // POS redesign: live clock for the register header bar.
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // POS redesign: the business's real product categories for the
+  // catalog pills (only categories that actually hold products).
+  useEffect(() => {
+    if (!selectedCompanyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiService.getCategories({ companyId: selectedCompanyId, limit: 100 });
+        if (!cancelled && response.success) {
+          const list = (response.data?.categories || [])
+            .filter((c: any) => (c._count?.products ?? 1) > 0)
+            .map((c: any) => ({ id: c.id, name: c.name }));
+          setPosCategories(list);
+        }
+      } catch {
+        if (!cancelled) setPosCategories([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCompanyId]);
+
+  // POS redesign: the signed-in user's OWN active register shift
+  // (the real record from Shift Management) for the header pill and
+  // the shift report. No shift → nothing is shown; nothing invented.
+  useEffect(() => {
+    if (!myStaffProfileId) return;
+    let cancelled = false;
+    apiService.getActiveShift(myStaffProfileId)
+      .then((response) => {
+        if (!cancelled) setActiveShift(response.success ? (response.data ?? null) : null);
+      })
+      .catch(() => { if (!cancelled) setActiveShift(null); });
+    return () => { cancelled = true; };
+  }, [myStaffProfileId]);
+
+  // POS redesign: resolve my staff-profile id from the staff list so
+  // the active-shift lookup above can run. (The salesperson effect
+  // deliberately skips the register layout, so this is separate.)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    apiService.getStaff()
+      .then((response) => {
+        if (cancelled || !response.success || !Array.isArray(response.data)) return;
+        const mine = response.data.find(
+          (s: any) => (s.membership?.userId || s.membership?.user?.id) === user.id,
+        );
+        if (mine?.id) setMyStaffProfileId(mine.id);
+      })
+      .catch(() => { /* shift pill simply stays hidden */ });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // POS redesign: today's real sales for the header's Transactions
+  // dialog and the tender totals in the Shift Report dialog.
+  const fetchTodaySales = useCallback(async () => {
+    setIsLoadingTodaySales(true);
+    try {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const branchId = user?.role === 'OWNER'
+        ? selectedBranchId || undefined
+        : user?.membership?.branchIds?.[0] || user?.branchId || undefined;
+      const response = await apiService.getSales({
+        startDate: start.toISOString(),
+        endDate: new Date().toISOString(),
+        branchId,
+        companyId: selectedCompanyId || '',
+        limit: 100,
+      });
+      setTodaySales(response.success && Array.isArray(response.data?.sales) ? response.data.sales : []);
+    } catch {
+      setTodaySales([]);
+    } finally {
+      setIsLoadingTodaySales(false);
+    }
+  }, [user, selectedBranchId, selectedCompanyId]);
 
   // NOTE: Previously, two useEffects here cleared all user work (productBatches, selectedBatches,
   // filteredProducts, searchQuery) on branch/company change events. They have been removed because
@@ -1175,10 +1287,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setIsLoading(true);
 
       const q = searchQuery.trim();
-      // Instant page: only fetch when user searches
-      if (!q) {
+      // POS redesign: the register grid is a BROWSE catalog — an
+      // empty query loads the branch's catalog (first page) instead of
+      // an empty screen; typing still runs the same server search.
+      // An OWNER with no branch chosen keeps the gate: no catalog
+      // until a branch is picked (batches are branch-scoped).
+      if (user?.role === 'OWNER' && !selectedBranchId) {
         setProducts([]);
-        setFilteredProducts([]);
         return;
       }
 
@@ -1196,7 +1311,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         branchId = user?.membership?.branchIds?.[0] || user?.branchId || undefined;
       }
 
-      const params: any = { page: 1, limit: 50, search: q, companyId: selectedCompanyId || '' };
+      const params: any = { page: 1, limit: 50, companyId: selectedCompanyId || '' };
+      if (q) {
+        params.search = q;
+      }
       if (branchId) {
         params.branchId = branchId;
       }
@@ -1214,6 +1332,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           expiry: product.currentBatch?.expireDate ? new Date(product.currentBatch.expireDate).toLocaleDateString() : 'Dec 2025',
           formula: product.formula || '', // Product formula/composition for search
           barcode: product.barcode || '',
+          categoryId: product.category?.id || product.categoryId || undefined,
+          categoryName: product.category?.name || undefined,
+          minStock: product.minStock ?? 0,
+          reorderLevel: product.reorderLevel ?? null,
           requiresPrescription: product.requiresPrescription || false,
           unitsPerPack: product.unitsPerPack || product.unitsPerBox || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
           unitsPerBox: product.unitsPerBox || product.unitsPerPack || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
@@ -1950,6 +2072,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             message: saleResponse.message || "A prescription is required for this sale.",
             products: ((saleResponse as any).data?.products as Array<{ id: string; name: string }>) || [],
           });
+          setIsPaymentDialogOpen(false);
           return;
         }
         const errorMessage = (saleResponse as any).errors ?
@@ -2037,6 +2160,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
       // Set current receipt and show dialog
       setCurrentReceipt(receipt);
+      setIsPaymentDialogOpen(false);
       setIsReceiptDialogOpen(true);
 
       // Success toast
@@ -3287,15 +3411,24 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const requiresBranchSelection = user?.role === 'OWNER' && !selectedBranchId;
   const companyBranches = (allBranches || []).filter((branch: any) => branch.companyId === selectedCompanyId);
   const userBranchId = user?.role === 'OWNER' ? selectedBranchId : (user?.membership?.branchIds?.[0] || user?.branchId);
+  // POS redesign: the billing panel's top section is "Patient &
+  // Prescription" for pharmacies (the reference layout) and the
+  // plain customer block for every other business type.
+  const businessType = (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
+  const isPharmacyBusiness = businessType === "PHARMACY";
 
   return (
     <div className={cn("flex w-full flex-col bg-[#f0f2f7]", registerLayout && "h-full")}>
-      {/* Header — register bar: back, title, branch switcher, actions */}
-      <div className="z-20 shrink-0 border-b border-[rgba(15,23,60,0.06)] bg-white/95 px-4 py-3 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md sm:px-6 lg:px-8">
+      {/* POS header — dark register bar (Muhammad's reference layout):
+          branding + cashier context pill + live clock + register
+          actions. Everything shown is real: the signed-in user, the
+          active branch/business, and the user's own active register
+          shift when one exists — nothing is invented. */}
+      <div className="z-20 shrink-0 bg-[#0a1128] px-4 py-3 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => {
               if (selectedCompany?.slug) {
@@ -3304,21 +3437,54 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 navigate("/");
               }
             }}
-            className={cn(
-              "h-10 shrink-0 gap-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-white px-3.5 text-sm font-semibold text-[#4a5578]",
-              "hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]",
-            )}
+            className="h-10 shrink-0 gap-2 rounded-[10px] px-3 text-sm font-semibold text-white/85 hover:bg-white/10 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
-            <span className="hidden sm:inline">Back to dashboard</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back</span>
           </Button>
-          <div className="min-w-0">
-            <h1 className="text-xl font-extrabold leading-tight tracking-tight text-[#0a1128] sm:text-[22px]">
-              {registerLayout ? "Point of Sale" : "Create Invoice"}
-            </h1>
-            <p className="hidden text-[13px] leading-tight text-[#8c95b0] md:block">Build a sale, apply discounts, and print or save the receipt.</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-[#28c2ce] text-white shadow-[0_4px_14px_rgba(26,82,197,0.45)]">
+              <Zap className="h-5 w-5" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[15px] font-extrabold leading-tight tracking-tight">
+                  {selectedCompany?.name || "Zapeera"}
+                </p>
+                <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+                  {registerLayout ? "POS" : "Invoice"}
+                </span>
+              </div>
+              <p className="truncate text-xs leading-tight text-white/60">
+                Zapeera {registerLayout ? "Point of Sale" : "Sales"}{selectedBranch?.name ? ` • ${selectedBranch.name}` : ""}
+              </p>
+            </div>
           </div>
+
+          {/* Center context pill — cashier / branch / real shift */}
+          <div className="order-3 hidden w-full items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-xs font-medium text-white/85 ring-1 ring-white/10 lg:order-none lg:flex lg:w-auto">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Cashier:&nbsp;<span className="font-bold text-white">{user?.name || "—"}</span>
+            </span>
+            <span className="h-4 w-px bg-white/15" />
+            <span>Branch:&nbsp;<span className="font-bold text-white">{selectedBranch?.name || "—"}</span></span>
+            {activeShift && (
+              <>
+                <span className="h-4 w-px bg-white/15" />
+                <span>
+                  Shift:&nbsp;
+                  <span className="font-bold text-white">
+                    Open since {new Date(activeShift.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                </span>
+              </>
+            )}
+          </div>
+
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {user?.role === 'OWNER' && companyBranches.length > 0 && (
               <Select
@@ -3327,7 +3493,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               >
                 <SelectTrigger
                   aria-label="Active branch"
-                  className="h-10 w-[168px] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-sm font-semibold text-[#0a1128] sm:w-[196px]"
+                  // The app's global CSS forces select triggers to a
+                  // white background (!important), so on the dark bar
+                  // this reads as a deliberate white pill with dark
+                  // text rather than fighting the rule.
+                  className="h-10 w-[168px] rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] sm:w-[196px] [&>svg]:text-[#4a5578]"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <Building2 className="h-4 w-4 shrink-0 text-[#1a52c5]" strokeWidth={2} />
@@ -3344,27 +3514,60 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               </Select>
             )}
             {user?.role !== 'OWNER' && selectedBranch?.name && (
-              <span className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f4f6fa] px-3.5 text-sm font-semibold text-[#4a5578]">
-                <MapPin className="h-4 w-4 text-[#1a52c5]" strokeWidth={2} />
+              <span className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white">
+                <MapPin className="h-4 w-4 text-white/70" strokeWidth={2} />
                 {selectedBranch.name}
               </span>
             )}
+            <span className="hidden items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 font-mono text-xs font-semibold tabular-nums text-white ring-1 ring-white/10 md:inline-flex">
+              <Clock className="h-3.5 w-3.5 text-white/60" strokeWidth={2} />
+              {clockNow.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              <span className="text-white/40">|</span>
+              {clockNow.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
             <Button
               type="button"
-              onClick={() => setIsNewSaleDialogOpen(true)}
-              className="h-10 gap-2 rounded-[10px] px-4 text-sm font-semibold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
+              variant="ghost"
+              onClick={() => { fetchTodaySales(); setIsTxnDialogOpen(true); }}
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
-              <Plus className="h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
-              New Invoice
+              <History className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="hidden xl:inline">Transactions</span>
             </Button>
             <Button
               type="button"
+              variant="ghost"
+              onClick={() => { fetchTodaySales(); setIsShiftDialogOpen(true); }}
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+            >
+              <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="hidden xl:inline">Shift Report</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
               onClick={() => setIsRefundDialogOpen(true)}
-              variant="outline"
-              className="h-10 gap-2 rounded-[10px] border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 shadow-none hover:border-red-300 hover:bg-red-50"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
-              Refunds &amp; returns
+              <span className="hidden xl:inline">Refunds &amp; returns</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsNewSaleDialogOpen(true)}
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+            >
+              <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" strokeLinecap="round" />
+              <span className="hidden xl:inline">New Invoice</span>
+            </Button>
+            <Button
+              type="button"
+              onClick={() => document.getElementById("pos-search-input")?.focus()}
+              className="h-10 gap-2 rounded-[10px] px-4 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
+            >
+              <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+              <span className="hidden sm:inline">Scan Barcode</span>
             </Button>
           </div>
         </div>
@@ -3426,6 +3629,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onSearchChange={setSearchQuery}
               filteredProducts={filteredProducts}
               isLoading={isLoading}
+              categories={posCategories}
+              activeCategoryId={activeCategoryId}
+              onSelectCategory={setActiveCategoryId}
               productBatches={productBatches}
               selectedBatches={selectedBatches}
               loadingBatches={loadingBatches}
@@ -3477,8 +3683,81 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   )}
                 </div>
 
+                {/* Patient & Prescription / Customer — POS redesign:
+                    the reference layout puts who the sale is for at
+                    the TOP of the billing panel. Same invoiceCustomer
+                    state the checkout has always used (sale payload,
+                    khata, loyalty lookup, prescription patient). */}
+                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] px-4 py-3.5 sm:px-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">
+                      <UserRound className="h-3.5 w-3.5 text-primary" strokeWidth={2.2} />
+                      {isPharmacyBusiness ? "Patient & Prescription" : "Customer"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("customerName")?.focus()}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      {isPharmacyBusiness ? "Change Patient" : "Change"}
+                    </button>
+                  </div>
+                  <div className="mt-2.5 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-[#f4f6fa] px-3 py-2 ring-1 ring-[rgba(15,23,60,0.05)]">
+                      <Label htmlFor="customerName" className="block text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                        {isPharmacyBusiness ? "Patient Name" : "Customer Name"}
+                      </Label>
+                      <Input
+                        id="customerName"
+                        autoComplete="name"
+                        placeholder="Walk-in customer"
+                        value={invoiceCustomer.name}
+                        onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
+                        className="h-7 border-0 bg-transparent px-0 text-sm font-bold text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                      />
+                    </div>
+                    <div className="rounded-xl bg-[#f4f6fa] px-3 py-2 ring-1 ring-[rgba(15,23,60,0.05)]">
+                      <Label htmlFor="customerPhone" className="block text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                        {isPharmacyBusiness ? "Phone" : "Phone (WhatsApp)"}
+                      </Label>
+                      <Input
+                        id="customerPhone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="03XX-XXXXXXX"
+                        value={invoiceCustomer.phone}
+                        onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
+                        className="h-7 border-0 bg-transparent px-0 font-mono text-sm font-bold tabular-nums text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+                  {selectedPrescription && (
+                    <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-[#4a5578]">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
+                      <span>
+                        Rx attached: <span className="font-bold text-[#0a1128]">{(selectedPrescription as any).patientName || "Patient"}</span>
+                        {(selectedPrescription as any).doctorName ? <> (Dr. {(selectedPrescription as any).doctorName})</> : null}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById("pos-prescription-section")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                        className="font-bold text-primary hover:underline"
+                      >
+                        Change
+                      </button>
+                    </p>
+                  )}
+                </div>
+
                 {/* Line items */}
                 <div className="min-h-[150px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-3 sm:px-4">
+                {invoiceItems.length > 0 && (
+                  <div className="flex items-center justify-between px-1 pb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">
+                    <span>Item Description</span>
+                    <span>Qty / Price / Total</span>
+                  </div>
+                )}
                 {invoiceItems.length > 0 ? (
                   <div className="space-y-2.5">
                   {invoiceItems.map((item) => {
@@ -3616,38 +3895,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 )}
                 </div>
 
-                {/* Customer — compact, inside the rail */}
-                <div className="shrink-0 border-t border-[rgba(15,23,60,0.06)] px-4 py-3 sm:px-5">
-                  <div className="mb-2 flex items-center gap-2">
-                    <User className="h-4 w-4 text-[#1a52c5]" strokeWidth={2} />
-                    <span className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Customer</span>
-                    <span className="text-xs text-[#8c95b0]">— optional, shown on the receipt</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      id="customerName"
-                      placeholder="Customer name"
-                      value={invoiceCustomer.name}
-                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
-                      className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-sm text-[#0a1128] transition-colors focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/12"
-                    />
-                    <Input
-                      id="customerPhone"
-                      placeholder="Phone 03xx…"
-                      value={invoiceCustomer.phone}
-                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
-                      className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-sm text-[#0a1128] transition-colors focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/12"
-                    />
-                  </div>
-                </div>
-
-                {/* Checkout footer — always visible */}
+                {/* Checkout footer — always visible. (The customer
+                    block moved to the top of the rail — POS redesign.) */}
                 <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-3.5 sm:px-5">
                 {invoiceItems.length > 0 && (
                   <>
                     <div className="flex items-center justify-between gap-3">
                       <Label htmlFor="global-discount" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
-                        Global discount
+                        Discount
                       </Label>
                       <div className="flex items-center gap-1.5">
                         <Input
@@ -3666,7 +3921,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                     <div className="mt-3 space-y-1.5">
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#8c95b0]">Subtotal (after line discounts)</span>
+                        <span className="text-[#8c95b0]">Subtotal</span>
                         <span className="font-semibold tabular-nums text-[#0a1128]">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                       </div>
                       {discountPercentage > 0 && (
@@ -3688,7 +3943,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         </div>
                       )}
                       <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-2">
-                        <span className="text-sm font-bold text-[#0a1128]">Total</span>
+                        <span className="text-sm font-bold uppercase tracking-wide text-[#0a1128]">Grand Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
                           PKR {mainTotalAfterLoyalty.toFixed(2)}
                         </span>
@@ -3922,6 +4177,212 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
+                    {/* POS redesign: tendering itself (methods,
+                        amount paid, split tender, paid/unpaid,
+                        salesperson) lives in the payment dialog now;
+                        this line keeps the current choice visible. */}
+                    <p className="mt-3 flex items-center justify-between gap-2 rounded-[10px] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#4a5578]">
+                      <span>
+                        Payment:{" "}
+                        <span className="font-bold text-[#0a1128]">
+                          {splitEnabled
+                            ? `Split across ${splitPayments.length} method${splitPayments.length === 1 ? "" : "s"}`
+                            : `${PAYMENT_METHOD_OPTIONS.find(o => o.key === paymentMethod)?.label || paymentMethod} • ${paymentStatus === 'COMPLETED' ? "Paid" : "Unpaid (khata)"}`}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentDialogOpen(true)}
+                        className="shrink-0 font-bold text-primary hover:underline"
+                      >
+                        Change
+                      </button>
+                    </p>
+                  </>
+                )}
+
+                  {/* POS redesign: the rail's primary action opens the
+                      payment dialog (reference layout); completing the
+                      sale happens there. Clear Cart mirrors the rail
+                      header's Clear all. Hold Order is omitted — the
+                      app has no hold/resume sale feature. */}
+                  <Button
+                    onClick={() => setIsPaymentDialogOpen(true)}
+                    disabled={invoiceItems.length === 0}
+                    className="mt-3.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                  >
+                    <Receipt className="mr-2 h-5 w-5" />
+                    {invoiceItems.length > 0
+                      ? `Proceed to Payment • PKR ${mainTotalAfterLoyalty.toFixed(2)}`
+                      : "Proceed to Payment"}
+                  </Button>
+                  {invoiceItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInvoiceItems([]);
+                        setDiscountPercentage(0);
+                        setPaidAmount(0);
+                      }}
+                      className="mt-2 h-10 w-full rounded-[10px] bg-rose-50 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100"
+                    >
+                      Clear Cart
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
+      </main>
+
+      {/* POS redesign: PAYMENT dialog — the reference layout's payment
+          modal, carrying Zapeera's REAL checkout controls: the six
+          tender methods, amount tendered with quick chips and change,
+          Paid/Unpaid (khata), split tender (Wave B1) and salesperson
+          attribution (Wave C6) — same state and handlers as the rail
+          always used; only the surface moved. */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[560px]">
+          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+            <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
+              <Wallet className="h-5 w-5 text-white/70" strokeWidth={2} />
+              Process Payment
+            </p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-white/50">Amount due</p>
+            <p className="text-[32px] font-extrabold leading-tight tabular-nums tracking-tight">
+              PKR {mainTotalAfterLoyalty.toFixed(2)}
+            </p>
+            <p className="text-xs text-white/60">
+              {invoiceItems.length} item{invoiceItems.length === 1 ? "" : "s"}
+              {invoiceCustomer.name ? ` • ${invoiceCustomer.name}` : " • Walk-in customer"}
+            </p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            {!splitEnabled && (
+              <>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Payment method</p>
+                <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
+                  {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPaymentMethod(key)}
+                      aria-pressed={paymentMethod === key}
+                      className={cn(
+                        "flex h-14 flex-col items-center justify-center gap-1 rounded-[12px] border text-[13px] font-bold transition-all",
+                        paymentMethod === key
+                          ? "border-transparent bg-primary text-primary-foreground shadow-soft"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/30",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" strokeWidth={2} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 space-y-1.5">
+                  <Label htmlFor="pos-amount-tendered" className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">
+                    Amount tendered
+                  </Label>
+                  <Input
+                    id="pos-amount-tendered"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={paidAmount || ''}
+                    onChange={(e) => setPaidAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="h-12 rounded-[12px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-lg font-bold tabular-nums focus-visible:bg-white focus-visible:ring-[#1a52c5]/12"
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {[100, 500, 1000, 5000].map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setPaidAmount((paidAmount || 0) + amount)}
+                        className="rounded-full bg-[#eef1f7] px-3 py-1.5 text-xs font-bold text-[#4a5578] transition-colors hover:bg-[#e2e8f4]"
+                      >
+                        + Rs {amount.toLocaleString()}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setPaidAmount(mainTotalAfterLoyalty)}
+                      className="ml-auto text-xs font-bold text-primary hover:underline"
+                    >
+                      Set Exact Amount
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    "mt-3 flex items-center justify-between rounded-[12px] px-4 py-3",
+                    paidAmount >= mainTotalAfterLoyalty ? "bg-emerald-50" : "bg-rose-50",
+                  )}
+                >
+                  <span className={cn(
+                    "text-xs font-bold uppercase tracking-wide",
+                    paidAmount >= mainTotalAfterLoyalty ? "text-emerald-700" : "text-rose-700",
+                  )}>
+                    {paidAmount >= mainTotalAfterLoyalty ? "Change return" : "Balance due"}
+                  </span>
+                  <span className={cn(
+                    "text-xl font-extrabold tabular-nums",
+                    paidAmount >= mainTotalAfterLoyalty ? "text-emerald-700" : "text-rose-700",
+                  )}>
+                    PKR {Math.abs((paidAmount || 0) - mainTotalAfterLoyalty).toFixed(2)}
+                  </span>
+                </div>
+              </>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-1.5" role="group" aria-label="Payment status">
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('COMPLETED')}
+                aria-pressed={paymentStatus === 'COMPLETED'}
+                className={cn(
+                  "h-10 rounded-[10px] border text-sm font-bold transition-all",
+                  paymentStatus === 'COMPLETED'
+                    ? "border-transparent bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-[0_4px_14px_rgba(5,150,105,0.28)]"
+                    : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-emerald-300/60",
+                )}
+              >
+                Paid
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('PENDING')}
+                aria-pressed={paymentStatus === 'PENDING'}
+                className={cn(
+                  "h-10 rounded-[10px] border text-sm font-bold transition-all",
+                  paymentStatus === 'PENDING'
+                    ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_4px_14px_rgba(245,158,11,0.3)]"
+                    : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-amber-300/70",
+                )}
+              >
+                Unpaid
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleSplitPayment}
+              aria-pressed={splitEnabled}
+              className="mt-3 flex w-full items-center justify-between gap-3 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-3 py-2 text-left transition-all hover:border-[#1a52c5]/30"
+            >
+              <span>
+                <span className="block text-xs font-bold text-[#0a1128]">Split payment</span>
+                <span className="block text-[11px] text-[#8c95b0]">Split this bill across two or more methods</span>
+              </span>
+              <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-primary" : "bg-gray-300")}>
+                <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", splitEnabled ? "left-[18px]" : "left-0.5")} />
+              </span>
+            </button>
                     {splitEnabled && (
                       <div className="mt-3 space-y-2">
                         {splitPayments.map((row, index) => (
@@ -4003,137 +4464,211 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
-                    {!splitEnabled && (
-                      <>
-                    <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Amount paid</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={paidAmount || ''}
-                          onChange={(e) => setPaidAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] font-semibold tabular-nums focus-visible:bg-white focus-visible:ring-[#1a52c5]/12"
-                        />
-                      </div>
-                      <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2 text-right">
-                        <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">{(() => {
-                          const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-                          const finalTotal = total - (total * (discountPercentage / 100)) - promoEstimate - loyaltyDiscountValue;
-                          return paidAmount >= finalTotal ? 'Change' : 'Balance due';
-                        })()}</span>
-                        <span className={`text-base font-extrabold tabular-nums ${(() => {
-                          const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-                          const discountAmount = total * (discountPercentage / 100);
-                          const finalTotal = total - discountAmount - promoEstimate - loyaltyDiscountValue;
-                          const returned = paidAmount - finalTotal;
-                          return returned >= 0 ? 'text-green-600' : 'text-red-600';
-                        })()}`}>
-                          {(() => {
-                            const total = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
-                            const discountAmount = total * (discountPercentage / 100);
-                            const finalTotal = total - discountAmount - promoEstimate - loyaltyDiscountValue;
-                            const returned = paidAmount - finalTotal;
-                            return returned >= 0
-                              ? `PKR ${returned.toFixed(2)}`
-                              : `PKR ${Math.abs(returned).toFixed(2)}`;
-                          })()}
-                        </span>
-                      </div>
+          </div>
+
+          <div className="flex shrink-0 gap-2 border-t border-[rgba(15,23,60,0.08)] px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPaymentDialogOpen(false)}
+              className="h-12 rounded-[12px] px-4 text-sm font-bold"
+            >
+              Back to Sale
+            </Button>
+            <Button
+              onClick={createInvoice}
+              disabled={invoiceItems.length === 0 || isLoading || (splitEnabled && (splitRemaining < 0 || (paymentStatus === 'COMPLETED' && splitRemaining !== 0)))}
+              className="h-12 flex-1 rounded-[12px] text-[15px] font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+            >
+              {isLoading ? (
+                "Creating..."
+              ) : (
+                <>
+                  <Receipt className="mr-2 h-5 w-5" />
+                  Complete Sale &amp; Print Receipt
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* POS redesign: TRANSACTIONS dialog — today's real sales for
+          this branch (the same getSales data the refunds lookup uses).
+          No invented rows. */}
+      <Dialog open={isTxnDialogOpen} onOpenChange={setIsTxnDialogOpen}>
+        <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[640px]">
+          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+            <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
+              <History className="h-5 w-5 text-white/70" strokeWidth={2} />
+              Recent Transactions
+            </p>
+            <p className="mt-0.5 text-xs text-white/60">
+              Today • {selectedBranch?.name || "Current branch"}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {isLoadingTodaySales ? (
+              <div className="flex flex-col items-center justify-center py-10 text-[#8c95b0]">
+                <Loader2 className="mb-2 h-6 w-6 animate-spin text-primary" />
+                <p className="text-sm font-medium">Loading today's sales…</p>
+              </div>
+            ) : todaySales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <History className="mb-2 h-8 w-8 text-[#c3cbdd]" strokeWidth={1.5} />
+                <p className="text-sm font-semibold text-[#0a1128]">No sales yet today</p>
+                <p className="mt-0.5 text-[13px] text-[#8c95b0]">Completed sales for this branch will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todaySales.map((sale: any) => (
+                  <div key={sale.id} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-white px-3.5 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[#0a1128]">
+                        #{sale.invoiceNumber || sale.receiptNumber || String(sale.id).slice(0, 8)}
+                      </p>
+                      <p className="truncate text-xs text-[#8c95b0]">
+                        {new Date(sale.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {" • "}
+                        {sale.customer?.name || "Walk-in"}
+                        {Array.isArray(sale.items) ? ` • ${sale.items.length} item${sale.items.length === 1 ? "" : "s"}` : ""}
+                      </p>
                     </div>
+                    <span className="hidden shrink-0 rounded-full bg-[#eef1f7] px-2 py-0.5 text-[11px] font-bold text-[#4a5578] sm:inline-flex">
+                      {PAYMENT_METHOD_OPTIONS.find(o => o.key === String(sale.paymentMethod || "").toLowerCase())?.label || sale.paymentMethod || "—"}
+                    </span>
+                    <span className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                      sale.paymentStatus === "COMPLETED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
+                    )}>
+                      {sale.paymentStatus === "COMPLETED" ? "Paid" : "Unpaid"}
+                    </span>
+                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#0a1128]">
+                      PKR {Number(sale.totalAmount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center justify-between border-t border-[rgba(15,23,60,0.08)] px-5 py-3.5">
+            <span className="text-sm font-semibold text-[#4a5578]">Total Sales Today: {todaySales.length}</span>
+            <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
+              PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-                    <div className="mt-3 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
-                      {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setPaymentMethod(key)}
-                          aria-pressed={paymentMethod === key}
-                          className={cn(
-                            "flex h-11 flex-col items-center justify-center gap-0.5 rounded-[10px] border text-xs font-bold transition-all",
-                            paymentMethod === key
-                              ? "border-transparent bg-primary text-primary-foreground shadow-soft"
-                              : "border-border bg-card text-muted-foreground hover:border-primary/30",
-                          )}
-                        >
-                          <Icon className="h-4 w-4" strokeWidth={2} />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                      </>
-                    )}
-
-                    <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label="Payment status">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatus('COMPLETED')}
-                        aria-pressed={paymentStatus === 'COMPLETED'}
-                        className={cn(
-                          "h-9 rounded-[10px] border text-sm font-bold transition-all",
-                          paymentStatus === 'COMPLETED'
-                            ? "border-transparent bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-[0_4px_14px_rgba(5,150,105,0.28)]"
-                            : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-emerald-300/60",
-                        )}
-                      >
-                        Paid
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatus('PENDING')}
-                        aria-pressed={paymentStatus === 'PENDING'}
-                        className={cn(
-                          "h-9 rounded-[10px] border text-sm font-bold transition-all",
-                          paymentStatus === 'PENDING'
-                            ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_4px_14px_rgba(245,158,11,0.3)]"
-                            : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-amber-300/70",
-                        )}
-                      >
-                        Unpaid
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={toggleSplitPayment}
-                      aria-pressed={splitEnabled}
-                      className="mt-2 flex w-full items-center justify-between gap-3 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-3 py-2 text-left transition-all hover:border-[#1a52c5]/30"
-                    >
-                      <span>
-                        <span className="block text-xs font-bold text-[#0a1128]">Split payment</span>
-                        <span className="block text-[11px] text-[#8c95b0]">Split this bill across two or more methods</span>
-                      </span>
-                      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-primary" : "bg-gray-300")}>
-                        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", splitEnabled ? "left-[18px]" : "left-0.5")} />
-                      </span>
-                    </button>
-                  </>
-                )}
-
-                  <Button
-                    onClick={createInvoice}
-                    disabled={invoiceItems.length === 0 || isLoading || (splitEnabled && (splitRemaining < 0 || (paymentStatus === 'COMPLETED' && splitRemaining !== 0)))}
-                    className="mt-3.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
-                  >
-                    {isLoading ? (
-                      "Creating..."
-                    ) : (
-                      <>
-                        <Receipt className="mr-2 h-5 w-5" />
-                        {invoiceItems.length > 0
-                          ? `Create Invoice • PKR ${(invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * (1 - discountPercentage / 100)).toFixed(2)}`
-                          : "Create Invoice"}
-                      </>
-                    )}
-                  </Button>
+      {/* POS redesign: SHIFT REPORT dialog — the cashier's REAL active
+          register shift from Shift Management (opened/closed there;
+          this dialog never invents a float) plus today's real tender
+          totals grouped by payment method. Split sales are recorded
+          under the MIXED method by the server, so they appear as
+          their own honest bucket. */}
+      <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
+        <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[520px]">
+          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+            <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
+              <ClipboardList className="h-5 w-5 text-white/70" strokeWidth={2} />
+              Shift Summary &amp; Cash Drawer
+            </p>
+            <p className="mt-0.5 text-xs text-white/60">
+              {user?.name || "Cashier"} • {selectedBranch?.name || "Current branch"}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            {activeShift ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Shift opened</p>
+                    <p className="mt-0.5 text-sm font-bold text-[#0a1128]">
+                      {new Date(activeShift.startTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Opening float</p>
+                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#0a1128]">PKR {Number(activeShift.openingBalance || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Cash in</p>
+                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-emerald-700">PKR {Number(activeShift.cashIn || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Cash out</p>
+                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-rose-600">PKR {Number(activeShift.cashOut || 0).toFixed(2)}</p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </aside>
-        </div>
-      </main>
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-[#0a1128] px-4 py-3 text-white">
+                  <span className="text-xs font-bold uppercase tracking-wide text-white/60">Expected drawer cash</span>
+                  <span className="font-mono text-lg font-extrabold tabular-nums">
+                    PKR {(Number(activeShift.openingBalance || 0) + Number(activeShift.cashIn || 0) - Number(activeShift.cashOut || 0)).toFixed(2)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-[#8c95b0]">
+                  Drawer movements and closing the shift are managed in Shift Management — sales are not tied to a shift in Zapeera, so the expected cash above is the shift record's own float arithmetic.
+                </p>
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[rgba(15,23,60,0.15)] bg-[#f8f9fc] px-4 py-5 text-center">
+                <ClipboardList className="mx-auto mb-2 h-7 w-7 text-[#c3cbdd]" strokeWidth={1.5} />
+                <p className="text-sm font-semibold text-[#0a1128]">No active register shift</p>
+                <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
+                  You don't have an open shift right now. Shifts (with opening float and drawer counts) are opened and closed in Shift Management.
+                </p>
+              </div>
+            )}
+
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Collected today by tender</p>
+            {isLoadingTodaySales ? (
+              <p className="mt-2 flex items-center gap-2 text-sm text-[#8c95b0]">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading…
+              </p>
+            ) : todaySales.length === 0 ? (
+              <p className="mt-2 text-sm text-[#8c95b0]">No sales recorded today yet.</p>
+            ) : (
+              <div className="mt-2 space-y-1.5">
+                {(() => {
+                  const byMethod = new Map<string, { count: number; total: number }>();
+                  todaySales.forEach((s: any) => {
+                    const key = String(s.paymentMethod || "CASH").toUpperCase();
+                    const entry = byMethod.get(key) || { count: 0, total: 0 };
+                    entry.count += 1;
+                    entry.total += Number(s.totalAmount || 0);
+                    byMethod.set(key, entry);
+                  });
+                  return [...byMethod.entries()].map(([method, entry]) => (
+                    <div key={method} className="flex items-center justify-between rounded-lg bg-[#f8f9fc] px-3 py-2 text-sm">
+                      <span className="font-semibold text-[#4a5578]">
+                        {PAYMENT_METHOD_OPTIONS.find(o => o.key === method.toLowerCase())?.label || (method === "MIXED" ? "Mixed / Split" : method)}
+                        <span className="ml-1.5 text-xs font-medium text-[#8c95b0]">× {entry.count}</span>
+                      </span>
+                      <span className="font-mono font-bold tabular-nums text-[#0a1128]">PKR {entry.total.toFixed(2)}</span>
+                    </div>
+                  ));
+                })()}
+                <div className="flex items-center justify-between border-t border-dashed border-[rgba(15,23,60,0.12)] px-3 pt-2 text-sm">
+                  <span className="font-bold text-[#0a1128]">Total collected</span>
+                  <span className="font-mono font-extrabold tabular-nums text-[#0a1128]">
+                    PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] px-5 py-3.5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsShiftDialogOpen(false)}
+              className="h-11 w-full rounded-[12px] text-sm font-bold"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Dialog */}
       {/* Prescriptions (Wave C1): blocked-sale dialog. The server
@@ -4186,98 +4721,84 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       </Dialog>
 
       <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0 bg-gradient-to-br from-slate-50 to-blue-50">
-          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-6 py-5">
-            <DialogHeader className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-3 text-white">
-                <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Receipt className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold">Order Receipt</span>
-              </DialogTitle>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+        <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[520px]">
+          {/* Dark header — POS redesign: thermal receipt preview. The
+              share actions are the same handlers the receipt always
+              had (print / download / SMS / WhatsApp / email). */}
+          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
+                <Receipt className="h-5 w-5 text-white/70" strokeWidth={2} />
+                Thermal Receipt Preview
+              </p>
+              <div className="ml-auto flex flex-wrap gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={printReceipt}
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
+                  className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
                 >
-                  <Printer className="w-4 h-4 mr-2" />
+                  <Printer className="mr-1.5 h-4 w-4" />
                   Print
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={downloadReceipt}
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
+                  className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
                 >
-                  <Download className="w-4 h-4 mr-2" />
+                  <Download className="mr-1.5 h-4 w-4" />
                   Download
                 </Button>
                 {currentReceipt?.customer?.phone && (
                   <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => {
-                      const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Zapeera Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
-                      window.location.href = smsUrl;
-                    }}
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    SMS
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera');
-                      window.open(url, '_blank', 'noopener');
-                    }}
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    WhatsApp
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Zapeera Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
+                        window.location.href = smsUrl;
+                      }}
+                      className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                    >
+                      <Phone className="mr-1.5 h-4 w-4" />
+                      SMS
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera');
+                        window.open(url, '_blank', 'noopener');
+                      }}
+                      className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                    >
+                      <MessageCircle className="mr-1.5 h-4 w-4" />
+                      WhatsApp
+                    </Button>
                   </>
                 )}
                 {currentReceipt?.customer?.email && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       const emailSubject = `Receipt from Zapeera - ${currentReceipt.receiptNumber}`;
                       const emailBody = `Dear ${currentReceipt.customer.name},\n\nThank you for your purchase at Zapeera!\n\nReceipt Details:\n- Receipt Number: ${currentReceipt.receiptNumber}\n- Date: ${currentReceipt.date}\n- Time: ${currentReceipt.time}\n- Total: PKR ${currentReceipt.total.toFixed(2)}\n\nThank you for choosing us!`;
                       const emailUrl = `mailto:${currentReceipt.customer.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                       window.location.href = emailUrl;
                     }}
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm"
+                    className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
                   >
-                    <Mail className="w-4 h-4 mr-2" />
+                    <Mail className="mr-1.5 h-4 w-4" />
                     Email
                   </Button>
                 )}
               </div>
-            </DialogHeader>
-          </div>
-
-          {currentReceipt && (
-            <div className="p-6 space-y-5">
-              {/* Success Banner */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-green-800 text-lg">Payment Successful!</p>
-                  <p className="text-green-600 text-sm">Your order has been completed successfully</p>
-                </div>
-              </div>
-
-              {/* Receipt Number Card */}
-              <div
-                className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 cursor-pointer hover:shadow-xl hover:border-blue-300 transition-all duration-300 group"
+            </div>
+            {currentReceipt && (
+              <button
+                type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(currentReceipt.receiptNumber);
                   toast({
@@ -4285,338 +4806,168 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     description: `Receipt number ${currentReceipt.receiptNumber} copied to clipboard`,
                   });
                 }}
+                className="mt-2.5 flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-left ring-1 ring-white/10 transition-colors hover:bg-white/15"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Receipt Number</p>
-                    <p className="text-2xl font-bold text-gray-900 font-mono group-hover:text-blue-600 transition-colors">
-                      {currentReceipt.receiptNumber}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                    <Copy className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-              </div>
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                <span className="text-sm font-semibold">
+                  Payment Successful — Receipt <span className="font-mono font-bold">{currentReceipt.receiptNumber}</span>
+                </span>
+                <Copy className="ml-auto h-3.5 w-3.5 shrink-0 text-white/50" />
+              </button>
+            )}
+          </div>
 
-              {/* Company Header Card */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                <div className="text-center mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg mb-4">
-                    <Building2 className="w-8 h-8 text-white" />
-                  </div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-1">
+          {currentReceipt && (
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef1f7] px-4 py-5">
+              {/* The thermal slip: narrow, centered, monospace — the
+                  same real data the wide receipt card showed (business,
+                  cashier, customer, Rx, items, discounts, tax classes,
+                  FBR). Tendered/change are NOT printed here because the
+                  sale record does not store them on the receipt. */}
+              <div className="mx-auto w-full max-w-[360px] bg-white px-5 py-5 font-mono text-[12px] leading-relaxed text-neutral-700 shadow-[0_2px_14px_rgba(15,23,60,0.10)]">
+                <div className="text-center">
+                  <p className="text-[15px] font-bold uppercase tracking-wide text-neutral-900">
                     {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}
-                  </h1>
-                  {selectedBranch && (
-                    <p className="text-sm font-semibold text-blue-600 mb-2">{selectedBranch.name}</p>
+                  </p>
+                  {selectedBranch && selectedCompany?.name && (
+                    <p className="font-semibold text-neutral-800">{selectedBranch.name}</p>
                   )}
-                  <p className="text-sm text-gray-500 italic">Your Health, Our Priority</p>
+                  {(selectedCompany?.address || selectedBranch?.address) && (
+                    <p className="text-[11px]">{selectedCompany?.address || selectedBranch?.address}</p>
+                  )}
+                  {(selectedCompany?.phone || selectedBranch?.phone) && (
+                    <p className="text-[11px]">Tel: {selectedCompany?.phone || selectedBranch?.phone}</p>
+                  )}
+                  {(selectedCompany?.email || selectedBranch?.email) && (
+                    <p className="text-[11px]">{selectedCompany?.email || selectedBranch?.email}</p>
+                  )}
+                  <p className="text-[11px] italic text-neutral-500">Your Health, Our Priority</p>
                 </div>
 
-                {/* Contact Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-                  {selectedCompany?.address && (
-                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                      <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-gray-700">{selectedCompany.address}</span>
-                    </div>
+                <div className="my-3 border-t border-dashed border-neutral-300" />
+
+                <div className="space-y-0.5">
+                  <p className="flex justify-between gap-2"><span>Receipt #:</span><span className="font-bold text-neutral-900">{currentReceipt.receiptNumber}</span></p>
+                  <p className="flex justify-between gap-2"><span>Date:</span><span>{currentReceipt.date}</span></p>
+                  <p className="flex justify-between gap-2"><span>Time:</span><span>{currentReceipt.time}</span></p>
+                  <p className="flex justify-between gap-2"><span>Cashier:</span><span>{currentReceipt.cashier}</span></p>
+                  {currentReceipt.customer && (
+                    <p className="flex justify-between gap-2">
+                      <span>Customer:</span>
+                      <span className="text-right">
+                        {currentReceipt.customer.name}
+                        {currentReceipt.customer.phone ? ` (${currentReceipt.customer.phone})` : ''}
+                      </span>
+                    </p>
                   )}
-                  {selectedBranch?.address && !selectedCompany?.address && (
-                    <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                      <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-gray-700">{selectedBranch.address}</span>
-                    </div>
-                  )}
-                  {selectedCompany?.phone && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <Phone className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{selectedCompany.phone}</span>
-                    </div>
-                  )}
-                  {selectedBranch?.phone && !selectedCompany?.phone && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <Phone className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{selectedBranch.phone}</span>
-                    </div>
-                  )}
-                  {selectedCompany?.email && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{selectedCompany.email}</span>
-                    </div>
-                  )}
-                  {selectedBranch?.email && !selectedCompany?.email && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <Mail className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{selectedBranch.email}</span>
-                    </div>
+                  {currentReceipt.prescription && (
+                    <p className="flex justify-between gap-2">
+                      <span>Rx:</span>
+                      <span className="text-right">
+                        {currentReceipt.prescription.patientName}
+                        {currentReceipt.prescription.doctorName ? ` (Dr. ${currentReceipt.prescription.doctorName})` : ''}
+                      </span>
+                    </p>
                   )}
                 </div>
-              </div>
 
-              {/* Transaction Details */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                  Transaction Details
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Receipt #</p>
-                    <p className="font-bold text-gray-900 font-mono text-sm">{currentReceipt.receiptNumber}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Date</p>
-                    <p className="font-bold text-gray-900">{currentReceipt.date}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Time</p>
-                    <p className="font-bold text-gray-900">{currentReceipt.time}</p>
-                  </div>
-                  <div className="p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Cashier</p>
-                    <p className="font-bold text-gray-900">{currentReceipt.cashier}</p>
-                  </div>
-                </div>
-              </div>
+                <div className="my-3 border-t border-dashed border-neutral-300" />
 
-              {/* Customer Information */}
-              {currentReceipt.customer && (
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-600" />
-                    Customer Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <User className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-gray-500">Name</p>
-                        <p className="font-semibold text-gray-900">{currentReceipt.customer.name}</p>
+                <div className="space-y-2.5">
+                  {currentReceipt.items.map((item, index) => (
+                    <div key={index}>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-neutral-900">
+                          {item.name}{item.variantName ? ` (${item.variantName})` : ''}
+                        </span>
+                        <span className="shrink-0 font-bold text-neutral-900">PKR {Number(item.totalPrice || 0).toFixed(2)}</span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <Phone className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-gray-500">Phone</p>
-                        <p className="font-semibold text-gray-900">{currentReceipt.customer.phone}</p>
-                      </div>
-                    </div>
-                    {currentReceipt.customer.email && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <Mail className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-gray-500">Email</p>
-                          <p className="font-semibold text-gray-900">{currentReceipt.customer.email}</p>
-                        </div>
-                      </div>
-                    )}
-                    {currentReceipt.customer.address && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs text-gray-500">Address</p>
-                          <p className="font-semibold text-gray-900">{currentReceipt.customer.address}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Items Purchased */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-blue-600" />
-                  Items Purchased
-                </h3>
-                <div className="space-y-3">
-                  {currentReceipt.items.map((item, index) => {
-                    const product = products.find(p => p.id === item.productId);
-                    const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
-                    let displayQuantity = item.quantity;
-                    let displayUnitType = item.unitType;
-                    let displayUnitPrice = item.unitPrice;
-
-                    if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
-                      // Wave C2: leveled lines read in their level.
-                      displayQuantity = item.quantity / item.unitFactor;
-                      displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
-                      displayUnitPrice = item.unitPrice;
-                    } else if (item.unitType === "pack" || item.unitType === "box") {
-                      displayQuantity = item.quantity / unitsPerPack;
-                      displayUnitType = "BOX";
-                      displayUnitPrice = item.unitPrice;
-                    } else {
-                      displayUnitType = item.unitType.toUpperCase();
-                    }
-
-                    return (
-                      <div key={index} className="flex justify-between items-start p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-300">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                              <Package className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <p className="font-bold text-gray-900">{item.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg font-semibold">
-                              {displayQuantity.toFixed(0)} {displayUnitType}
-                            </span>
-                            <span>× PKR {displayUnitPrice.toFixed(2)}</span>
-                          </div>
-                          {item.instructions && (
-                            <p className="text-xs text-gray-500 mt-2 italic flex items-center gap-1">
-                              <Info className="w-3 h-3" />
-                              {item.instructions}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="font-bold text-xl text-blue-600">PKR {item.totalPrice.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Payment Summary */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 shadow-xl text-white">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
-                  Payment Summary
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-blue-100">
-                    <span>Subtotal</span>
-                    <span className="font-semibold">PKR {currentReceipt.subtotal.toFixed(2)}</span>
-                  </div>
-                  {currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 && (
-                    <div className="flex justify-between items-center text-green-300">
-                      <span>Discount ({currentReceipt.discountPercentage}%)</span>
-                      <span className="font-semibold">-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
-                    </div>
-                  )}
-                  {currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 && (
-                    <div className="flex justify-between items-center text-green-300">
-                      <span>Loyalty discount ({currentReceipt.pointsRedeemed || 0} pts)</span>
-                      <span className="font-semibold">-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 && (
-                    <div className="flex justify-between items-center text-green-300">
-                      <span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}</span>
-                      <span className="font-semibold">-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
-                    <div key={line.className} className="flex justify-between items-center text-blue-100">
-                      <span>Tax — {line.className} ({Number(line.rate)}%)</span>
-                      <span className="font-semibold">PKR {Number(line.taxAmount).toFixed(2)}</span>
+                      <p className="text-[11px] text-neutral-500">
+                        {cartItemQtyPhrase(item)} × PKR {Number(item.unitPrice || 0).toFixed(2)}
+                      </p>
+                      {item.instructions && (
+                        <p className="text-[11px] italic text-neutral-500">{item.instructions}</p>
+                      )}
                     </div>
                   ))}
-                  {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
-                    <div className="flex justify-between items-center text-blue-100">
-                      <span>Points earned on this sale</span>
-                      <span className="font-semibold">+{currentReceipt.pointsEarned} pts</span>
-                    </div>
+                </div>
+
+                <div className="my-3 border-t border-dashed border-neutral-300" />
+
+                <div className="space-y-1">
+                  <p className="flex justify-between gap-2"><span>Subtotal:</span><span>PKR {currentReceipt.subtotal.toFixed(2)}</span></p>
+                  {currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 && (
+                    <p className="flex justify-between gap-2"><span>Discount ({currentReceipt.discountPercentage}%):</span><span>-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span></p>
                   )}
-                  <div className="border-t border-blue-400/30 pt-4 mt-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold">TOTAL</span>
-                      <span className="text-3xl font-bold">PKR {currentReceipt.total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Prescriptions (Wave C1): the register record this
-                  sale dispensed against. */}
-              {currentReceipt.prescription && (
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                    <Stethoscope className="w-5 h-5 text-amber-700" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">Prescription</p>
-                    <p className="font-bold text-gray-900">
-                      Rx: {currentReceipt.prescription.patientName}
-                      {currentReceipt.prescription.doctorName ? ` (Dr. ${currentReceipt.prescription.doctorName})` : ""}
+                  {currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 && (
+                    <p className="flex justify-between gap-2"><span>Loyalty ({currentReceipt.pointsRedeemed || 0} pts):</span><span>-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span></p>
+                  )}
+                  {currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 && (
+                    <p className="flex justify-between gap-2"><span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}:</span><span>-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span></p>
+                  )}
+                  {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
+                    <p key={line.className} className="flex justify-between gap-2">
+                      <span>Tax — {line.className} ({Number(line.rate)}%):</span>
+                      <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
                     </p>
-                  </div>
-                </div>
-              )}
-
-              {/* FBR POS (Wave B7): fiscal number + QR once FBR has
-                  confirmed; a status note while it is still queued. */}
-              {currentReceipt.fbrInvoiceNumber ? (
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 flex items-center gap-4">
-                  <FbrQrImage value={currentReceipt.fbrInvoiceNumber} size={84} />
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">FBR Invoice #</p>
-                    <p className="font-bold text-gray-900 break-all">{currentReceipt.fbrInvoiceNumber}</p>
-                    <p className="text-xs text-gray-500 mt-1">Verify at FBR's invoice verification portal.</p>
-                  </div>
-                </div>
-              ) : currentReceipt.fbrStatus ? (
-                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 text-sm text-amber-800">
-                  Fiscal status: <strong>{currentReceipt.fbrStatus}</strong> — the FBR invoice number will appear on this invoice once FBR confirms it.
-                </div>
-              ) : null}
-
-              {/* Payment Method & Status */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Payment Method</p>
-                      <p className="font-bold text-gray-900">{currentReceipt.paymentMethod.toUpperCase()}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-10 h-10 ${currentReceipt.paymentStatus === 'COMPLETED' ? 'bg-green-100' : 'bg-yellow-100'} rounded-xl flex items-center justify-center`}>
-                      <CheckCircle2 className={`w-5 h-5 ${currentReceipt.paymentStatus === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider">Payment Status</p>
-                      <p className={`font-bold ${currentReceipt.paymentStatus === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'}`}>
-                        {currentReceipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thank You Footer */}
-              <div className="text-center py-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full shadow-lg mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-xl font-bold text-gray-900 mb-2">
-                  Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}!
-                </p>
-                {(selectedCompany?.phone || selectedBranch?.phone) && (
-                  <p className="text-gray-600 mb-2">
-                    For any queries, contact us at: {selectedCompany?.phone || selectedBranch?.phone}
+                  ))}
+                  <p className="flex justify-between gap-2 border-t-2 border-neutral-800 pt-1.5 text-[14px] font-bold text-neutral-900">
+                    <span>GRAND TOTAL:</span>
+                    <span>PKR {currentReceipt.total.toFixed(2)}</span>
                   </p>
-                )}
-                <p className="text-sm text-gray-500 italic">Your Health, Our Priority</p>
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-400">
-                    Powered by Zapeera Business Management Software
+                  <p className="flex justify-between gap-2 pt-1">
+                    <span>Payment:</span>
+                    <span className="font-bold text-neutral-900">
+                      {currentReceipt.paymentMethod.toUpperCase()} • {currentReceipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}
+                    </span>
                   </p>
+                  {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
+                    <p className="flex justify-between gap-2"><span>Points earned:</span><span>+{currentReceipt.pointsEarned} pts</span></p>
+                  )}
+                </div>
+
+                {currentReceipt.fbrInvoiceNumber ? (
+                  <div className="mt-3 flex flex-col items-center gap-1.5 border-t border-dashed border-neutral-300 pt-3 text-center">
+                    <FbrQrImage value={currentReceipt.fbrInvoiceNumber} size={84} />
+                    <p className="text-[11px]">FBR Invoice #: <span className="font-bold break-all">{currentReceipt.fbrInvoiceNumber}</span></p>
+                    <p className="text-[10px] text-neutral-500">Verify at FBR's invoice verification portal.</p>
+                  </div>
+                ) : currentReceipt.fbrStatus ? (
+                  <p className="mt-3 border-t border-dashed border-neutral-300 pt-3 text-center text-[11px]">
+                    Fiscal status: <strong>{currentReceipt.fbrStatus}</strong> — the FBR invoice number will appear once FBR confirms it.
+                  </p>
+                ) : null}
+
+                <div className="mt-4 border-t border-dashed border-neutral-300 pt-3 text-center">
+                  <p className="text-[13px] font-bold tracking-wide text-neutral-900">THANK YOU!</p>
+                  <p className="text-[11px]">Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}!</p>
+                  {(selectedCompany?.phone || selectedBranch?.phone) && (
+                    <p className="text-[11px]">For any queries, contact us at: {selectedCompany?.phone || selectedBranch?.phone}</p>
+                  )}
+                  <p className="mt-2 text-[10px] text-neutral-400">Powered by Zapeera Business Management Software</p>
                 </div>
               </div>
             </div>
           )}
+
+          <div className="flex shrink-0 gap-2 border-t border-[rgba(15,23,60,0.08)] bg-white px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={printReceipt}
+              className="h-12 flex-1 rounded-[12px] text-sm font-bold"
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print Thermal Receipt
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setIsReceiptDialogOpen(false)}
+              className="h-12 flex-1 rounded-[12px] text-sm font-bold"
+            >
+              New Sale
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
