@@ -70,6 +70,9 @@ import {
   getDashboardStats
 } from '../controllers/backoffice-dashboard.controller';
 import {
+  getBackofficeNotifications
+} from '../controllers/backoffice-notifications.controller';
+import {
   adminAuthenticate,
   adminRoleGuard
 } from '../middleware/admin-auth.middleware';
@@ -223,6 +226,14 @@ router.delete('/businesses/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN'
  * Single endpoint powering all Super Admin Dashboard widgets
  */
 router.get('/dashboard/stats', adminAuthenticate, getDashboardStats);
+
+/**
+ * Notifications Route
+ * Aggregated pending-work feed for the backoffice header bell
+ * (payment proofs, affiliate payouts/applications, new businesses,
+ * expiring trials, open support tickets)
+ */
+router.get('/notifications', adminAuthenticate, getBackofficeNotifications);
 
 /**
  * Users Management Routes

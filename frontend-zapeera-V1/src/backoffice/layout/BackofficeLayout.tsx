@@ -2,21 +2,19 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Zap,
-  ChevronDown,
-  Bell,
   ChevronLeft,
   ChevronRight,
   Search,
   LogOut,
   Menu,
-  Moon,
-  Sun,
   X,
 } from 'lucide-react';
 import { useBackofficeAuth } from '../auth/BackofficeAuthContext';
 import { getNavigation } from '../navigation';
 import { GlobalSearch } from '../components/search/GlobalSearch';
 import { ImpersonationBanner } from '../components/impersonation/ImpersonationBanner';
+import { NotificationsBell } from '../components/NotificationsBell';
+import { AdminMenu } from '../components/AdminMenu';
 
 interface BackofficeLayoutProps {
   children: React.ReactNode;
@@ -32,7 +30,6 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   // mirroring the tenant app's MainLayout pattern.
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -205,27 +202,9 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-              <button className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-              </button>
-              <button
-                onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
-                className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              >
-                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              </button>
+              <NotificationsBell />
               <div className="w-px h-8 bg-gray-200 hidden sm:block" />
-              <div className="flex items-center gap-3 sm:pl-2">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-blue-500/25">
-                  {admin.email.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden md:block">
-                  <p className="text-sm font-semibold text-gray-900">{admin.email.split('@')[0]}</p>
-                  <p className="text-xs text-gray-500">{admin.role}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-400 hidden sm:block" />
-              </div>
+              <AdminMenu />
             </div>
           </div>
         </header>

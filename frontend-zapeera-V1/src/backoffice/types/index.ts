@@ -425,3 +425,28 @@ export interface SystemHealth {
   cpu: { usage: number; cores: number };
   lastChecked: string;
 }
+
+// ── Header notifications (GET /backoffice/notifications) ──────────────────
+// Aggregated pending-work feed: every item is a real row from a live queue.
+export type BackofficeNotificationKind =
+  | 'payment_proof'
+  | 'affiliate_payout'
+  | 'affiliate_application'
+  | 'new_business'
+  | 'trial_expiring'
+  | 'support_ticket';
+
+export interface BackofficeNotificationItem {
+  id: string;
+  kind: BackofficeNotificationKind;
+  title: string;
+  detail: string;
+  createdAt: string;
+  link: string;
+}
+
+export interface BackofficeNotifications {
+  items: BackofficeNotificationItem[];
+  counts: Record<BackofficeNotificationKind, number>;
+  total: number;
+}
