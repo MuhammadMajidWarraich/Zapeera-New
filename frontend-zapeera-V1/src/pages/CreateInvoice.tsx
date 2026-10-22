@@ -288,6 +288,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [paymentStatus, setPaymentStatus] = useState<string>('COMPLETED'); // COMPLETED = Paid, PENDING = Unpaid
   const [paidAmount, setPaidAmount] = useState<number>(0); // Amount paid by customer
+  // POS reference pass: a barcode lookup that found a product parks
+  // here until the product's batch pool has loaded; the effect below
+  // then runs the exact same add path a card tap uses.
+  const [pendingScanAdd, setPendingScanAdd] = useState<{ product: any; batchId?: string } | null>(null);
   // Split tender (Wave B1): when enabled, the single amount/method
   // controls are replaced by per-method allocation rows.
   const [splitEnabled, setSplitEnabled] = useState(false);
@@ -803,8 +807,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     let cancelled = false;
     apiService.getStaff()
       .then((response) => {
-        if (cancelled || !response.success || !Array.isArray(response.data)) return;
-        const mine = response.data.find(
+        if (cancelled || !response.success) return;
+        // The staff endpoint returns a paginated envelope
+        // ({ staff, pagination }), not a bare array — reading only
+        // the array shape left the shift pill permanently unloaded.
+        const rows = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any)?.staff;
+        if (!Array.isArray(rows)) return;
+        const mine = rows.find(
           (s: any) => (s.membership?.userId || s.membership?.user?.id) === user.id,
         );
         if (mine?.id) setMyStaffProfileId(mine.id);
@@ -3409,6 +3420,57 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // CRITICAL FIX: Check if branch is selected for OWNER/ADMIN users
   // MANAGER/CASHIER use their assigned branch from membership
   const requiresBranchSelection = user?.role === 'OWNER' && !selectedBranchId;
+  // POS reference pass: barcode-scan wiring for the register catalog.
+  // The catalog's lookup (POST /barcodes/lookup) reports the found
+  // product + batch here; the add itself is deferred until the batch
+  // pool for that product has loaded, then runs the identical
+  // addToInvoiceCart path a product-card tap uses (FEFO/selected
+  // batch, stock validation, duplicate scans merge to +1).
+  const handleBarcodeFound = (foundProduct: any, foundBatch?: any) => {
+    const catalogProduct = products.find(p => p.id === foundProduct?.id);
+    const target = catalogProduct || foundProduct;
+    if (!target?.id) {
+      handleUnknownBarcode("");
+      return;
+    }
+    setPendingScanAdd({ product: target, batchId: foundBatch?.id });
+  };
+
+  const handleUnknownBarcode = (barcode: string) => {
+    toast({
+      title: "Barcode not found",
+      description: barcode
+        ? `No product in this business matches barcode ${barcode}.`
+        : "No product matches that barcode.",
+      variant: "destructive",
+    });
+  };
+
+  useEffect(() => {
+    if (!pendingScanAdd) return;
+    const pid = pendingScanAdd.product.id;
+    const batches = productBatches[pid];
+    if (!batches) {
+      fetchProductBatches(pid);
+      return;
+    }
+    // If the lookup named a batch that is in the pool, honour it
+    // (batch-level barcodes) before adding.
+    if (
+      pendingScanAdd.batchId &&
+      batches.some(b => b.id === pendingScanAdd.batchId) &&
+      selectedBatches[pid] !== pendingScanAdd.batchId
+    ) {
+      const batchId = pendingScanAdd.batchId;
+      setSelectedBatches(prev => ({ ...prev, [pid]: batchId }));
+      return;
+    }
+    const toAdd = pendingScanAdd.product;
+    setPendingScanAdd(null);
+    addToInvoiceCart(toAdd as Product, 1, "unit");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScanAdd, productBatches, selectedBatches]);
+
   const companyBranches = (allBranches || []).filter((branch: any) => branch.companyId === selectedCompanyId);
   const userBranchId = user?.role === 'OWNER' ? selectedBranchId : (user?.membership?.branchIds?.[0] || user?.branchId);
   // POS redesign: the billing panel's top section is "Patient &
@@ -3481,6 +3543,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     Open since {new Date(activeShift.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                   </span>
                 </span>
+                <span className="h-4 w-px bg-white/15" />
+                <span>
+                  Drawer:&nbsp;
+                  <span className="font-bold text-white">
+                    PKR {(Number(activeShift.openingBalance || 0) + Number(activeShift.cashIn || 0) - Number(activeShift.cashOut || 0)).toFixed(2)}
+                  </span>
+                </span>
               </>
             )}
           </div>
@@ -3545,6 +3614,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </Button>
             <Button
               type="button"
+              onClick={() => document.getElementById("pos-search-input")?.focus()}
+              className="h-10 gap-2 rounded-[10px] px-4 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
+            >
+              <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+              <span className="hidden sm:inline">Scan Barcode</span>
+            </Button>
+            <Button
+              type="button"
               variant="ghost"
               onClick={() => setIsRefundDialogOpen(true)}
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
@@ -3560,14 +3637,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             >
               <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" strokeLinecap="round" />
               <span className="hidden xl:inline">New Invoice</span>
-            </Button>
-            <Button
-              type="button"
-              onClick={() => document.getElementById("pos-search-input")?.focus()}
-              className="h-10 gap-2 rounded-[10px] px-4 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
-            >
-              <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-              <span className="hidden sm:inline">Scan Barcode</span>
             </Button>
           </div>
         </div>
@@ -3646,6 +3715,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 setSelectedBatches(prev => ({ ...prev, [productId]: batchId }));
               }}
               onAddToCart={addToInvoiceCart}
+              onBarcodeFound={handleBarcodeFound}
+              onUnknownBarcode={handleUnknownBarcode}
             />
           </div>
 
@@ -4201,6 +4272,28 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </>
                 )}
 
+                  {/* POS reference pass: the reference billing panel
+                      carries LARGE tender buttons of its own. Cash and
+                      Card are real Zapeera tenders — tapping one
+                      preselects that method and opens the same payment
+                      dialog (tendered / change / split live there).
+                      The reference's third panel button, Insurance,
+                      has no Zapeera backend and is deliberately absent. */}
+                  <div className="mt-3.5 grid grid-cols-2 gap-2">
+                    {PAYMENT_METHOD_OPTIONS.filter(o => o.key === 'CASH' || o.key === 'CARD').map(({ key, label, Icon }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={invoiceItems.length === 0}
+                        onClick={() => { setPaymentMethod(key); setIsPaymentDialogOpen(true); }}
+                        className="flex h-12 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Icon className="h-5 w-5" strokeWidth={2} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
                   {/* POS redesign: the rail's primary action opens the
                       payment dialog (reference layout); completing the
                       sale happens there. Clear Cart mirrors the rail
@@ -4209,7 +4302,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   <Button
                     onClick={() => setIsPaymentDialogOpen(true)}
                     disabled={invoiceItems.length === 0}
-                    className="mt-3.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                    className="mt-2 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
                   >
                     <Receipt className="mr-2 h-5 w-5" />
                     {invoiceItems.length > 0
