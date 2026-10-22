@@ -58,7 +58,7 @@ model ZapeeraUser {
   trialUsedAt       DateTime?
   signupRefCode     String? // affiliate ?ref= code captured at signup; converted to a referral at first business creation
   affiliateProfile  Affiliate?
-  referredReferral  AffiliateReferral?   @relation("referralReferredUser")
+  referredReferrals AffiliateReferral[]  @relation("referralReferredUser")
 
   @@map("zapeera_users")
 }
