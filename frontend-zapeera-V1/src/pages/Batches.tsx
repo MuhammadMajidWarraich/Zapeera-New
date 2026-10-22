@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '../components/ui/button';
+import { PageHeader } from '../components/ui/page-header';
+import { EmptyState } from '../components/ui/empty-state';
 import { Input } from '../components/ui/input';
 import { Card, CardHeader } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -1277,34 +1279,33 @@ const Batches = () => {
         aria-hidden
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
-      <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-        <div>
-          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Batches</h1>
-          <p className="text-sm text-[#8c95b0]">
-            Manage product batches and inventory
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadBatchHistory}
-            className="rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-white"
-          >
-            <Download className="mr-2 h-4 w-4" strokeWidth={2} />
-            Export history
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
-          >
-            <Plus className="mr-2 h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
-            Add batch
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        className="zv3-animate-fadeUp"
+        title="Batches"
+        description="Manage product batches and inventory"
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadBatchHistory}
+              className="rounded-[10px] font-semibold"
+            >
+              <Download className="mr-2 h-4 w-4" strokeWidth={2} />
+              Export history
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="rounded-[10px] px-[22px] py-2.5 text-sm font-semibold"
+            >
+              <Plus className="mr-2 h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
+              Add batch
+            </Button>
+          </>
+        }
+      />
 
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -1387,8 +1388,8 @@ const Batches = () => {
       {/* Filters and Search */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                   <TabsTrigger value="active">Active Batches</TabsTrigger>
@@ -1396,7 +1397,7 @@ const Batches = () => {
                 </TabsList>
               </Tabs>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -1407,7 +1408,7 @@ const Batches = () => {
                 />
               </div>
               <Select value={selectedSupplierFilter} onValueChange={setSelectedSupplierFilter}>
-                <SelectTrigger className="w-48 bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100">
+                <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by Supplier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1420,7 +1421,7 @@ const Batches = () => {
                 </SelectContent>
               </Select>
               <Select value={selectedManufacturerFilter} onValueChange={setSelectedManufacturerFilter}>
-                <SelectTrigger className="w-48 bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100">
+                <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by Manufacturer" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1437,41 +1438,40 @@ const Batches = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                  className="bg-indigo-50 border-indigo-200 text-indigo-900 hover:bg-indigo-100 focus:ring-indigo-500"
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   All Batches
                 </Button>
                 {showFilterDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-indigo-50 border border-indigo-200 rounded-md shadow-lg z-10">
+                  <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-md shadow-lg z-10">
                     <div className="py-1">
                       <button
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-100 hover:text-indigo-900 transition-colors duration-150 ${
-                          filterType === 'all' ? 'bg-indigo-100 text-indigo-900' : 'text-indigo-700'
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-muted hover:text-foreground transition-colors duration-150 ${
+                          filterType === 'all' ? 'bg-muted text-foreground' : 'text-muted-foreground'
                         }`}
                         onClick={() => handleFilterChange('all')}
                       >
                         All Batches
                       </button>
                       <button
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-100 hover:text-indigo-900 transition-colors duration-150 ${
-                          filterType === 'near-expiry' ? 'bg-indigo-100 text-indigo-900' : 'text-indigo-700'
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-muted hover:text-foreground transition-colors duration-150 ${
+                          filterType === 'near-expiry' ? 'bg-muted text-foreground' : 'text-muted-foreground'
                         }`}
                         onClick={() => handleFilterChange('near-expiry')}
                       >
                         Near Expiry
                       </button>
                       <button
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-100 hover:text-indigo-900 transition-colors duration-150 ${
-                          filterType === 'expired' ? 'bg-indigo-100 text-indigo-900' : 'text-indigo-700'
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-muted hover:text-foreground transition-colors duration-150 ${
+                          filterType === 'expired' ? 'bg-muted text-foreground' : 'text-muted-foreground'
                         }`}
                         onClick={() => handleFilterChange('expired')}
                       >
                         Expired
                       </button>
                       <button
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-100 hover:text-indigo-900 transition-colors duration-150 ${
-                          filterType === 'low-stock' ? 'bg-indigo-100 text-indigo-900' : 'text-indigo-700'
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-muted hover:text-foreground transition-colors duration-150 ${
+                          filterType === 'low-stock' ? 'bg-muted text-foreground' : 'text-muted-foreground'
                         }`}
                         onClick={() => handleFilterChange('low-stock')}
                       >
@@ -1511,12 +1511,14 @@ const Batches = () => {
       <div className="space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-2.5">
-            <Package className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+            <Package className="h-5 w-5 shrink-0 text-primary" strokeWidth={2} />
             <div>
-              <h2 className="text-[17px] font-bold text-[#0a1128]">Batch list</h2>
-              <p className="text-sm text-[#8c95b0]">Manage batches and track inventory</p>
+              <h2 className="text-[17px] font-bold text-foreground">
+                Batch list{" "}
+                <span className="text-sm font-medium text-muted-foreground">({totalCount})</span>
+              </h2>
+              <p className="text-sm text-muted-foreground">Manage batches and track inventory</p>
             </div>
-            <span className="text-sm font-medium text-[#8c95b0]">({totalCount})</span>
           </div>
         </div>
 
@@ -1561,11 +1563,12 @@ const Batches = () => {
               <tbody>
                 {filteredBatches.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={activeTab === "reported" ? 9 : 7}
-                      className="px-8 py-16 text-center text-sm text-[#8c95b0]"
-                    >
-                      No batches match your filters.
+                    <td colSpan={activeTab === "reported" ? 9 : 7} className="px-8 py-4">
+                      <EmptyState
+                        icon={Package}
+                        title="No batches match your filters"
+                        description="Try adjusting the search or filters — or add a new batch to get started."
+                      />
                     </td>
                   </tr>
                 ) : (

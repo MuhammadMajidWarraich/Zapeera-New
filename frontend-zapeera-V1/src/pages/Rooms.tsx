@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -208,30 +210,30 @@ const RoomsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <BedDouble className="h-6 w-6" /> Rooms
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            The housekeeping board. Occupied rooms change only through check-in and check-out.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setTypesDialog(true)}>
-            <Settings2 className="h-4 w-4 mr-1" /> Room types
-          </Button>
-          <Button variant="outline" onClick={load}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-          </Button>
-          <Button onClick={() => openRoomDialog()}>
-            <Plus className="h-4 w-4 mr-1" /> Add room
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="The housekeeping board. Occupied rooms change only through check-in and check-out."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setTypesDialog(true)}>
+              <Settings2 className="h-4 w-4 mr-1" /> Room types
+            </Button>
+            <Button variant="outline" onClick={load}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+            </Button>
+            <Button onClick={() => openRoomDialog()}>
+              <Plus className="h-4 w-4 mr-1" /> Add room
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {["all", "AVAILABLE", "OCCUPIED", "DIRTY", "MAINTENANCE"].map((status) => (
           <Button
             key={status}
@@ -251,8 +253,17 @@ const RoomsPage: React.FC = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : visibleRooms.length === 0 ? (
-        <div className="rounded-lg border p-10 text-center text-muted-foreground">
-          No rooms yet. Add a room type first if you have not, then add your rooms.
+        <div className="rounded-lg border">
+          <EmptyState
+            icon={BedDouble}
+            title="No rooms yet"
+            description="Add a room type first if you have not, then add your rooms."
+            action={
+              <Button size="sm" onClick={() => openRoomDialog()}>
+                <Plus className="h-4 w-4 mr-1" /> Add room
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">

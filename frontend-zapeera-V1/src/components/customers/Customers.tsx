@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -770,8 +771,8 @@ const Customers = () => {
 
   const totalPages = Math.max(1, pagination.pages || 1);
   const filterSelectTrigger = cn(
-    "h-[50px] min-w-[160px] w-full rounded-2xl border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[14px] font-medium text-[#0a1128] shadow-none",
-    "focus:ring-4 focus:ring-[rgba(26,82,197,0.06)] focus:ring-offset-0",
+    "h-[50px] min-w-[160px] w-full rounded-2xl border border-border bg-card text-[14px] font-medium text-foreground shadow-none",
+    "focus:ring-4 focus:ring-ring/10 focus:ring-offset-0",
   );
 
   return (
@@ -786,45 +787,46 @@ const Customers = () => {
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
-        <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">
-              Customer Management
-            </h1>
-            <p className="text-sm text-[#8c95b0]">
+        <PageHeader
+          className="zv3-animate-fadeUp"
+          title="Customer Management"
+          description={
+            <>
               Manage customer relationships and loyalty
               {selectedBranch?.name ? (
                 <>
                   {" "}
-                  • <b className="font-semibold text-[#4a5578]">{selectedBranch.name}</b>
+                  • <b className="font-semibold text-foreground">{selectedBranch.name}</b>
                 </>
               ) : null}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={loading}
-              onClick={() => void loadCustomers()}
-              className="h-auto rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-[22px] py-3 text-sm font-semibold text-[#4a5578] shadow-none transition-all hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
-            >
-              <RefreshCw
-                className={cn("mr-2 h-[18px] w-[18px] stroke-[2]", loading && "animate-spin")}
-                strokeLinecap="round"
-              />
-              {loading ? "Refreshing…" : "Refresh"}
-            </Button>
-            <button
-              type="button"
-              onClick={() => setIsAddDialogOpen(true)}
-              className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
-            >
-              <Plus className="h-[18px] w-[18px] stroke-[2.5]" strokeLinecap="round" />
-              Add Customer
-            </button>
-          </div>
-        </div>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                onClick={() => void loadCustomers()}
+                className="h-auto rounded-[10px] px-[22px] py-3 text-sm font-semibold shadow-none"
+              >
+                <RefreshCw
+                  className={cn("mr-2 h-[18px] w-[18px] stroke-[2]", loading && "animate-spin")}
+                  strokeLinecap="round"
+                />
+                {loading ? "Refreshing…" : "Refresh"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setIsAddDialogOpen(true)}
+                className="h-auto shrink-0 rounded-[10px] px-6 py-3 text-sm font-semibold"
+              >
+                <Plus className="h-[18px] w-[18px] stroke-[2.5]" strokeLinecap="round" />
+                Add Customer
+              </Button>
+            </>
+          }
+        />
 
         <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-5">
           {error && (
@@ -860,7 +862,7 @@ const Customers = () => {
                 placeholder="Search by name, phone, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-[50px] rounded-2xl border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white pl-12 pr-5 text-[15px] text-[#0a1128] shadow-none transition-all placeholder:text-[#8c95b0] placeholder:font-normal focus-visible:border-[#1a52c5] focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.06)]"
+                className="h-[50px] rounded-2xl border border-border bg-card pl-12 pr-5 text-[15px] text-foreground shadow-none transition-all placeholder:text-muted-foreground placeholder:font-normal focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/10"
               />
             </div>
           <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
@@ -909,28 +911,28 @@ const Customers = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] border-collapse">
+                <table className="w-full min-w-[820px] border-collapse">
                   <thead>
                     <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                      <th className="px-6 py-4 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 pl-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Customer
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Contact
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Total Purchases
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Khata Balance
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Last Visit
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Status
                       </th>
-                      <th className="px-6 py-4 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-2.5 py-4 pr-4 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
                         Actions
                       </th>
                     </tr>
@@ -941,39 +943,39 @@ const Customers = () => {
                         key={customer.id}
                         className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
                       >
-                        <td className="px-6 py-5 pl-8 align-middle">
-                          <div className="flex items-center gap-3.5">
+                        <td className="px-2.5 py-4 pl-4 align-middle">
+                          <div className="flex items-center gap-3">
                             <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)] text-sm font-bold text-[#1a52c5]">
                               {customerInitials(customer.name)}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-[15px] font-bold text-[#0a1128]">{customer.name}</div>
+                              <div className="max-w-[88px] truncate text-[15px] font-bold text-[#0a1128]" title={customer.name}>{customer.name}</div>
                               <div className="mt-0.5 truncate text-xs text-[#8c95b0]" title={customer.address || undefined}>
                                 {customer.address?.trim() || "—"}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-2.5 py-4 align-middle">
                           <div className="flex flex-col gap-1.5">
                             <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
                               <Phone className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
-                              <span>{customer.phone}</span>
+                              <span className="whitespace-nowrap">{customer.phone}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
                               <Mail className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
-                              <span className="max-w-[220px] truncate" title={customer.email || undefined}>
+                              <span className="max-w-[104px] truncate" title={customer.email || undefined}>
                                 {customer.email?.trim() || "—"}
                               </span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-2.5 py-4 align-middle">
                           <span className="text-[15px] font-bold text-[#1a52c5]">
                             PKR {customer.totalPurchases.toLocaleString()}
                           </span>
                         </td>
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-2.5 py-4 align-middle">
                           {customer.balance > 0 ? (
                             <span className="text-[15px] font-bold text-[#dc2626]">
                               PKR {customer.balance.toLocaleString()}
@@ -986,12 +988,12 @@ const Customers = () => {
                             <span className="text-[13px] font-medium text-[#8c95b0]">Settled</span>
                           )}
                         </td>
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-2.5 py-4 align-middle">
                           <span className="text-[13px] font-medium text-[#4a5578]">
                             {new Date(customer.lastVisit).toLocaleDateString()}
                           </span>
                         </td>
-                        <td className="px-6 py-5 align-middle">
+                        <td className="px-2.5 py-4 align-middle">
                           <span
                             className={cn(
                               "inline-flex rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide",
@@ -1003,12 +1005,12 @@ const Customers = () => {
                             {customer.isVIP ? "VIP" : "Regular"}
                           </span>
                         </td>
-                        <td className="px-6 py-5 pr-8 text-right align-middle">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-2.5 py-4 pr-4 text-right align-middle">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => void openKhata(customer)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-transparent px-2 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >
                               <BookOpen className="h-[15px] w-[15px]" strokeWidth={2} />
                               Khata
@@ -1016,7 +1018,7 @@ const Customers = () => {
                             <button
                               type="button"
                               onClick={() => void viewPurchaseHistory(customer)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-2 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-transparent px-2 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >
                               <Receipt className="h-[15px] w-[15px]" strokeWidth={2} />
                               History
@@ -1025,7 +1027,7 @@ const Customers = () => {
                               type="button"
                               onClick={() => openEditCustomer(customer)}
                               title="Edit customer"
-                              className="inline-flex items-center justify-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent p-2 text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="inline-flex items-center justify-center rounded-lg border border-border bg-transparent p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                             >
                               <Pencil className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -1033,7 +1035,7 @@ const Customers = () => {
                               type="button"
                               onClick={() => setCustomerToDelete(customer)}
                               title="Delete customer"
-                              className="inline-flex items-center justify-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent p-2 text-[#4a5578] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                              className="inline-flex items-center justify-center rounded-lg border border-border bg-transparent p-1.5 text-muted-foreground transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                             >
                               <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -1054,7 +1056,7 @@ const Customers = () => {
                     <select
                       value={pagination.limit}
                       onChange={(e) => setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                      className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                      className="h-[32px] rounded-lg border border-border bg-card px-2 text-sm font-semibold text-foreground outline-none focus:ring-2 focus:ring-ring/30"
                     >
                       <option value="10">10</option>
                       <option value="25">25</option>

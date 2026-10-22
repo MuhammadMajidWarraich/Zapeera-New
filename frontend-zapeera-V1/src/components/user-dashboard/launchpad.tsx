@@ -95,7 +95,7 @@ export function InvitationsStrip() {
       <button
         type="button"
         onClick={() => navigate("/zapeera/invitations")}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)]"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium"
       >
         Review
         <ArrowRight className="h-4 w-4" />

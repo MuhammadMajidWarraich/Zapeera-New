@@ -1510,7 +1510,7 @@ const BusinessDashboard = () => {
               role={stat.clickable ? "button" : undefined}
               tabIndex={stat.clickable ? 0 : undefined}
               className={cn(
-                "border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-300",
+                "rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-300",
                 stat.clickable && "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a52c5]/30",
                 !stat.clickable && "cursor-default"
               )}
@@ -1558,7 +1558,7 @@ const BusinessDashboard = () => {
         </div>
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-        <div className="overflow-hidden border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
             <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
               <ShoppingCart className="h-[19px] w-[19px] shrink-0 text-[#1a52c5]" strokeWidth={2} />
@@ -1610,7 +1610,7 @@ const BusinessDashboard = () => {
           </div>
         </div>
 
-        <div className="overflow-hidden border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
             <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
               <AlertTriangle className="h-[19px] w-[19px] shrink-0 text-amber-600" strokeWidth={2} />
@@ -1681,7 +1681,7 @@ const BusinessDashboard = () => {
       </div>
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-2">
-        <div className="overflow-hidden border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
             <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
               <TrendingUp className="h-[19px] w-[19px] shrink-0 text-[#1a52c5]" strokeWidth={2} />
@@ -1740,7 +1740,7 @@ const BusinessDashboard = () => {
           </div>
         </div>
 
-        <div className="overflow-hidden border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
             <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
               <TrendingUp className="h-[19px] w-[19px] shrink-0 rotate-180 text-[#1a52c5]" strokeWidth={2} />

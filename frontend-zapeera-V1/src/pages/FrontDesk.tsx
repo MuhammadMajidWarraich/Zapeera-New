@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
@@ -126,30 +127,30 @@ const FrontDeskPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <ConciergeBell className="h-6 w-6" /> Front Desk — {today}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Arrivals, in-house guests and departures for today.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={load}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-          </Button>
-          <Button onClick={postAllNights} disabled={posting}>
-            {posting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-            ) : (
-              <MoonStar className="h-4 w-4 mr-1" />
-            )}
-            Post tonight's room charges
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="Arrivals, in-house guests and departures for today."
+        actions={
+          <>
+            <Button variant="outline" onClick={load}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+            </Button>
+            <Button onClick={postAllNights} disabled={posting}>
+              {posting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <MoonStar className="h-4 w-4 mr-1" />
+              )}
+              Post tonight's room charges
+            </Button>
+          </>
+        }
+      />
 
       {audit && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">

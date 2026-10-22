@@ -469,7 +469,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                 <button
                   type="button"
                   onClick={() => openWorkspace(b)}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 py-3 text-sm font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-px hover:shadow-[0_6px_22px_rgba(26,82,197,0.32)] md:w-56 md:flex-none"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium md:w-56 md:flex-none"
                 >
                   Open Workspace
                   <ArrowRight className="h-4 w-4" />

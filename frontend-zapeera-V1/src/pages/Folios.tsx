@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -55,20 +57,20 @@ const FoliosPage: React.FC = () => {
   }, [load]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <BookOpen className="h-6 w-6" /> Folios
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Every stay's bill — charges, advances and the checkout invoice.
-          </p>
-        </div>
-        <Button variant="outline" onClick={load}>
-          <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-        </Button>
-      </div>
+          </span>
+        }
+        description="Every stay's bill — charges, advances and the checkout invoice."
+        actions={
+          <Button variant="outline" onClick={load}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -97,8 +99,12 @@ const FoliosPage: React.FC = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : records.length === 0 ? (
-        <div className="rounded-lg border p-10 text-center text-muted-foreground">
-          No folios match. Folios open when a reservation is checked in.
+        <div className="rounded-lg border">
+          <EmptyState
+            icon={BookOpen}
+            title="No folios match"
+            description="Folios open automatically when a reservation is checked in."
+          />
         </div>
       ) : (
         <div className="rounded-lg border divide-y">

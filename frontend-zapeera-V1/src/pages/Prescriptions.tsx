@@ -391,17 +391,17 @@ const Prescriptions = () => {
     <div className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
             <Stethoscope className="h-3.5 w-3.5" /> Pharmacy
           </div>
-          <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Prescriptions</h1>
-          <p className="mt-1 max-w-[720px] text-sm text-[#8c95b0]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[26px]">Prescriptions</h1>
+          <p className="mt-1 max-w-[720px] text-sm text-muted-foreground">
             The register of paper prescriptions received — patient, doctor and the medicines prescribed.
             Sales of prescription-only items attach to a record here. Records are never deleted; a mistaken
             record is voided with a reason and stays readable.
           </p>
         </div>
-        <Button onClick={openCreate} className="bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-90">
+        <Button onClick={openCreate}>
           <Plus className="mr-1.5 h-4 w-4" /> New Prescription
         </Button>
       </div>

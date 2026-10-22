@@ -67,7 +67,7 @@ export const DashboardHeader = ({
         <p className="text-[13px] font-medium text-[#8c95b0]">
           {now.toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
-        <p className="mt-0.5 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] bg-clip-text text-[20px] font-extrabold tracking-tight text-transparent">
+        <p className="mt-0.5 text-[20px] font-extrabold tracking-tight text-primary">
           {now.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </p>
       </div>
@@ -87,7 +87,7 @@ export const StatCard = ({
   sub?: ReactNode;
   hint?: string;
 }) => (
-  <div className="border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+  <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
     <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">{title}</p>
     <p className="mb-2 break-words text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
       {value}
@@ -132,7 +132,7 @@ export const Panel = ({
   emptyText?: string;
   children?: ReactNode;
 }) => (
-  <div className="overflow-hidden border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+  <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
     <div className="flex items-center justify-between px-7 pt-4 pb-0">
       <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
         {icon}
@@ -142,7 +142,7 @@ export const Panel = ({
         <Button
           type="button"
           variant="outline"
-          className="h-9 rounded-[10px] border-[#1a52c5]/20 px-3 text-xs font-semibold text-[#1a52c5] hover:bg-[#1a52c5]/10"
+          className="h-9 rounded-[10px] border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
           onClick={onAction}
         >
           {actionLabel}
@@ -152,7 +152,7 @@ export const Panel = ({
     <div className="px-7 pt-4 pb-8">
       {isEmpty ? (
         <div className="flex flex-col items-center px-5 py-8 text-center">
-          <div className="mb-3.5 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-[#1a52c5]/10">
+          <div className="mb-3.5 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-primary/10">
             {emptyIcon}
           </div>
           <h4 className="mb-1 text-sm font-bold text-[#0a1128]">{emptyTitle}</h4>
@@ -217,7 +217,7 @@ export const DashboardError = ({ message, onRetry }: { message: string; onRetry:
       <p className="mb-4 text-[13px] text-[#8c95b0]">The dashboard data could not be loaded.</p>
       <Button
         onClick={onRetry}
-        className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white"
+        className="rounded-[10px]"
       >
         Retry
       </Button>
