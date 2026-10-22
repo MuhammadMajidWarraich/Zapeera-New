@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, ScanBarcode, Loader2, Building2 } from 'lucide-react';
+import { Search, ScanBarcode, Loader2, Building2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
+import PosProductCard from './PosProductCard';
 import { apiService } from '@/services/api';
 import { toast } from '@/hooks/use-toast';
 import type { ProductVariantLite } from '@/utils/variants';
@@ -60,6 +61,11 @@ interface ProductSearchSectionProps {
   /** Use on full-width split layouts so the list grows with the column */
   layout?: 'default' | 'split';
   className?: string;
+  // POS redesign (split layout only): the business's real product
+  // categories as filter pills above the grid.
+  categories?: Array<{ id: string; name: string }>;
+  activeCategoryId?: string | null;
+  onSelectCategory?: (categoryId: string | null) => void;
 }
 
 const zapeeraCard =
@@ -107,6 +113,9 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   onBarcodeFound,
   layout = 'default',
   className,
+  categories,
+  activeCategoryId,
+  onSelectCategory,
 }) => {
   const isSplit = layout === 'split';
   const inputRef = useRef<HTMLInputElement>(null);
@@ -189,19 +198,21 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           isSplit && 'flex min-h-0 flex-1 flex-col',
         )}
       >
-        <div className="mb-4 flex shrink-0 items-start gap-3 sm:items-center">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12">
-            <ScanBarcode className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+        {!isSplit && (
+          <div className="mb-4 flex shrink-0 items-start gap-3 sm:items-center">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12">
+              <ScanBarcode className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[17px] font-bold tracking-tight text-[#0a1128]">
+                Scan or Search
+              </h3>
+              <p className="mt-0.5 text-sm text-[#8c95b0]">
+                Scan barcode or type to search by name, barcode, or SKU
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[17px] font-bold tracking-tight text-[#0a1128]">
-              Scan or Search
-            </h3>
-            <p className="mt-0.5 text-sm text-[#8c95b0]">
-              Scan barcode or type to search by name, barcode, or SKU
-            </p>
-          </div>
-        </div>
+        )}
 
         <div className="relative mb-4 shrink-0">
           {isLookingUp ? (
@@ -214,37 +225,99 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           )}
           <Input
             ref={inputRef}
-            placeholder="Scan barcode or search products..."
+            id={isSplit ? 'pos-search-input' : undefined}
+            placeholder={isSplit ? 'Search by brand name, generic name, or category — or scan a barcode…' : 'Scan barcode or search products...'}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={requiresBranchSelection || isLookingUp}
             autoFocus
             className={cn(
-              'h-[52px] rounded-[12px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 pr-11 text-[15px] text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
+              'border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
               'transition-[border-color,box-shadow] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/15',
+              isSplit ? 'h-14 rounded-2xl pr-12 text-[15px]' : 'h-[52px] rounded-[12px] pr-11 text-[15px]',
             )}
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8c95b0]">
-            Enter ↵
-          </div>
+          {isSplit && searchQuery ? (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#8c95b0] transition-colors hover:bg-[#eef1f7] hover:text-[#0a1128]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8c95b0]">
+              Enter ↵
+            </div>
+          )}
         </div>
+
+        {/* Category pills (split layout): the business's real product
+            categories; "All Products" clears the filter. */}
+        {isSplit && categories && categories.length > 0 && (
+          <div className="mb-4 flex shrink-0 items-center gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter by category">
+            <button
+              type="button"
+              onClick={() => onSelectCategory?.(null)}
+              aria-pressed={!activeCategoryId}
+              className={cn(
+                'whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+                !activeCategoryId
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
+              )}
+            >
+              All Products
+            </button>
+            {categories.map((category) => {
+              const isActive = activeCategoryId === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => onSelectCategory?.(isActive ? null : category.id)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    'whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
+                  )}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div
           className={cn(
-            'space-y-3 overflow-y-auto p-0.5',
-            isSplit ? 'min-h-0 flex-1' : 'max-h-80',
+            'overflow-y-auto p-0.5',
+            isSplit
+              ? 'grid min-h-0 flex-1 grid-cols-1 content-start gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+              : 'max-h-80 space-y-3',
           )}
         >
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-[#8c95b0]">
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-[#8c95b0]">
               <div
                 className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-[rgba(26,82,197,0.15)] border-t-[#1a52c5]"
                 aria-hidden
               />
               <p className="text-sm font-medium text-[#4a5578]">Loading products…</p>
             </div>
-          ) : searchQuery.trim() && Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
+          ) : requiresBranchSelection ? (
+            <div className="col-span-full">
+              <ListPlaceholder
+                icon={Building2}
+                title="Select a branch to start"
+                subtitle="Choose the branch above — products and stock for that branch will appear here."
+              />
+            </div>
+          ) : Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
             filteredProducts.map((product) => {
               const allBatches = productBatches[product.id] || [];
               const batches = getBatchesForProduct ? getBatchesForProduct(product.id) : allBatches;
@@ -257,48 +330,62 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               // when base stock actually exists for this product.
               const hasBaseStock = variants.length > 0 && allBatches.some(b => !b.variantId && b.quantity > 0);
 
-              return (
+              const sharedProps = {
+                product,
+                batches,
+                selectedBatch,
+                isLoadingBatch,
+                requiresBranchSelection,
+                onSelectBatch: (batchId: string) => onSelectBatch(product.id, batchId),
+                variants,
+                selectedVariant,
+                hasBaseStock,
+                onSelectVariant: onSelectVariant ? (variantId: string | null) => onSelectVariant(product.id, variantId) : undefined,
+              };
+
+              return isSplit ? (
+                <PosProductCard
+                  key={product.id}
+                  {...sharedProps}
+                  onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
+                />
+              ) : (
                 <ProductCard
                   key={product.id}
-                  product={product}
-                  batches={batches}
-                  selectedBatch={selectedBatch}
-                  isLoadingBatch={isLoadingBatch}
-                  requiresBranchSelection={requiresBranchSelection}
-                  onSelectBatch={(batchId) => onSelectBatch(product.id, batchId)}
+                  {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
-                  variants={variants}
-                  selectedVariant={selectedVariant}
-                  hasBaseStock={hasBaseStock}
-                  onSelectVariant={onSelectVariant ? (variantId) => onSelectVariant(product.id, variantId) : undefined}
                 />
               );
             })
           ) : searchQuery.trim() ? (
-            <ListPlaceholder
-              icon={Search}
-              title="No products found"
-              subtitle="Try another keyword or check spelling."
-            />
-          ) : !searchQuery.trim() ? (
-            requiresBranchSelection ? (
+            <div className="col-span-full">
               <ListPlaceholder
-                icon={Building2}
-                title="Select a branch to start"
-                subtitle="Choose the branch above — products and stock for that branch will appear here."
+                icon={Search}
+                title="No products found"
+                subtitle="Try another keyword or check spelling."
               />
-            ) : (
+            </div>
+          ) : activeCategoryId ? (
+            <div className="col-span-full">
+              <ListPlaceholder
+                icon={Search}
+                title="No products in this category"
+                subtitle="Nothing in the loaded catalog matches this category. Try All Products or a search."
+              />
+            </div>
+          ) : isSplit ? (
+            <div className="col-span-full">
               <ListPlaceholder
                 icon={ScanBarcode}
-                title="Ready to scan"
-                subtitle="Point your barcode scanner at a product, or type to search by name, barcode, or SKU."
+                title="No products to show"
+                subtitle="Products stocked at this branch will appear here. Scan a barcode or search by name, barcode, or SKU."
               />
-            )
+            </div>
           ) : (
             <ListPlaceholder
-              icon={Search}
-              title="No products found"
-              subtitle="Try a different search term."
+              icon={ScanBarcode}
+              title="Ready to scan"
+              subtitle="Point your barcode scanner at a product, or type to search by name, barcode, or SKU."
             />
           )}
         </div>
