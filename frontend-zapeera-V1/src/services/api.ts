@@ -384,6 +384,205 @@ export interface DoctorSettlementRecord {
   doctor?: { id: string; name: string; specialization?: string | null };
 }
 
+// Hotel pack (Wave C5): PMS-lite — room types + rooms, reservations,
+// folios. A folio is the stay's bill: its balance is computed by the
+// server from charge/payment rows (summary below), never stored.
+export type RoomStatus = 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'MAINTENANCE';
+
+export interface RoomTypeRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  ratePerNight: number;
+  capacity?: number | null;
+  description?: string | null;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { rooms: number };
+}
+
+export interface RoomTypePayload {
+  name: string;
+  ratePerNight?: number;
+  capacity?: number | null;
+  description?: string | null;
+}
+
+export interface RoomRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  roomTypeId: string;
+  number: string;
+  floor?: string | null;
+  status: RoomStatus;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  roomType?: { id: string; name: string; ratePerNight: number; capacity?: number | null };
+  folios?: Array<{ id: string; guestName: string; openedAt: string }>;
+}
+
+export interface RoomPayload {
+  roomTypeId: string;
+  number: string;
+  branchId?: string | null;
+  floor?: string | null;
+}
+
+export interface AvailabilityRoom extends RoomRecord {
+  bookable: boolean;
+  conflicts: Array<{
+    id: string;
+    guestName: string;
+    checkInDate: string;
+    checkOutDate: string;
+    status: string;
+  }>;
+}
+
+export type ReservationStatus =
+  | 'BOOKED'
+  | 'CHECKED_IN'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
+export interface ReservationRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  guestName: string;
+  guestPhone?: string | null;
+  guestCnic?: string | null;
+  roomId: string;
+  checkInDate: string;
+  checkOutDate: string;
+  adults?: number | null;
+  children?: number | null;
+  source?: string | null;
+  status: ReservationStatus;
+  folioId?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  room?: {
+    id: string;
+    number: string;
+    floor?: string | null;
+    status: string;
+    roomType?: { id: string; name: string; ratePerNight: number };
+  };
+  folio?: {
+    id: string;
+    status: string;
+    openedAt: string;
+    closedAt?: string | null;
+    rateSnapshot: number;
+  } | null;
+}
+
+export interface ReservationPayload {
+  guestName: string;
+  guestPhone?: string | null;
+  guestCnic?: string | null;
+  roomId: string;
+  branchId?: string | null;
+  checkInDate: string;
+  checkOutDate: string;
+  adults?: number | null;
+  children?: number | null;
+  source?: string | null;
+  notes?: string | null;
+}
+
+export type FolioChargeKind = 'ROOM_NIGHT' | 'SERVICE' | 'MANUAL';
+
+export interface FolioChargeRecord {
+  id: string;
+  folioId: string;
+  description: string;
+  amount: number;
+  kind: FolioChargeKind;
+  saleId?: string | null;
+  chargeDate: string;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface FolioPaymentRecord {
+  id: string;
+  folioId: string;
+  amount: number;
+  method: string;
+  paidAt: string;
+  note?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface FolioSummary {
+  totalCharges: number;
+  totalPayments: number;
+  balance: number;
+  roomNightCount: number;
+  roomNightTotal: number;
+  nativeTotal: number;
+  chargedToRoomTotal: number;
+}
+
+export interface FolioRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  reservationId?: string | null;
+  roomId: string;
+  guestName: string;
+  guestPhone?: string | null;
+  rateSnapshot: number;
+  status: 'OPEN' | 'CLOSED';
+  openedAt: string;
+  closedAt?: string | null;
+  saleId?: string | null;
+  writeOffAmount?: number | null;
+  writeOffNote?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  room?: RoomRecord;
+  reservation?: {
+    id: string;
+    checkInDate: string;
+    checkOutDate: string;
+    status: string;
+    source?: string | null;
+  } | null;
+  charges?: FolioChargeRecord[];
+  payments?: FolioPaymentRecord[];
+  summary?: FolioSummary;
+  checkoutSale?: {
+    id: string;
+    invoiceNumber?: string | null;
+    totalAmount: number;
+    paymentStatus: string;
+  } | null;
+}
+
+export interface NightAuditRecord {
+  date: string;
+  occupiedRooms: number;
+  arrivals: number;
+  departures: number;
+  openFolios: number;
+  folioRevenuePosted: number;
+  paymentsReceived: number;
+  expectedDepartures: number;
+}
+
 // The register summary a sale carries when it dispensed against a
 // prescription (receipts print "Rx: <patient> (Dr. <doctor>)").
 export interface SalePrescriptionSummary {
@@ -2102,6 +2301,240 @@ export class ApiService {
     });
   }
 
+  // Hotel pack (Wave C5) — Room types (ride the rooms module)
+  async getRoomTypes(params?: { isActive?: boolean }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<RoomTypeRecord[]>(`/room-types${query ? `?${query}` : ''}`);
+  }
+
+  async createRoomType(data: RoomTypePayload) {
+    return this.request<RoomTypeRecord>('/room-types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRoomType(roomTypeId: string, data: Partial<RoomTypePayload> & { isActive?: boolean }) {
+    return this.request<RoomTypeRecord>(`/room-types/${roomTypeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // DELETE deactivates the type (soft — rooms keep working);
+  // OWNER/MANAGER only on the server.
+  async deactivateRoomType(roomTypeId: string) {
+    return this.request<RoomTypeRecord>(`/room-types/${roomTypeId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Hotel pack (Wave C5) — Rooms
+  async getRooms(params?: {
+    roomTypeId?: string;
+    status?: string;
+    isActive?: boolean;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<RoomRecord[]>(`/rooms${query ? `?${query}` : ''}`);
+  }
+
+  async createRoom(data: RoomPayload) {
+    return this.request<RoomRecord>('/rooms', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateRoom(roomId: string, data: Partial<RoomPayload> & { isActive?: boolean }) {
+    return this.request<RoomRecord>(`/rooms/${roomId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Housekeeping board move — the server refuses to set or clear
+  // OCCUPIED here (check-in/out own it).
+  async updateRoomStatus(roomId: string, status: RoomStatus) {
+    return this.request<RoomRecord>(`/rooms/${roomId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deactivateRoom(roomId: string) {
+    return this.request<RoomRecord>(`/rooms/${roomId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Hotel pack (Wave C5) — Reservations
+  async getReservations(params?: {
+    page?: number;
+    limit?: number;
+    date?: string;
+    from?: string;
+    to?: string;
+    roomId?: string;
+    status?: string;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<ReservationRecord[]>(`/reservations${query ? `?${query}` : ''}`);
+  }
+
+  async getAvailability(params: { from: string; to: string; roomTypeId?: string }) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return this.request<AvailabilityRoom[]>(`/reservations/availability?${queryParams.toString()}`);
+  }
+
+  async createReservation(data: ReservationPayload) {
+    return this.request<ReservationRecord>('/reservations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateReservation(reservationId: string, data: Partial<ReservationPayload>) {
+    return this.request<ReservationRecord>(`/reservations/${reservationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Cancel / no-show only — check-in and completion are flows.
+  async updateReservationStatus(reservationId: string, status: 'CANCELLED' | 'NO_SHOW') {
+    return this.request<ReservationRecord>(`/reservations/${reservationId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // Check-in opens the stay's folio (first night posted, room →
+  // OCCUPIED) and returns { folio, firstNight, reservation }.
+  async checkInReservation(reservationId: string) {
+    return this.request<{
+      folio: FolioRecord;
+      firstNight: FolioChargeRecord;
+      reservation: ReservationRecord;
+    }>(`/reservations/${reservationId}/check-in`, {
+      method: 'POST',
+    });
+  }
+
+  // Hotel pack (Wave C5) — Folios
+  async getFolios(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    roomId?: string;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<FolioRecord[]>(`/folios${query ? `?${query}` : ''}`);
+  }
+
+  async getFolio(folioId: string) {
+    return this.request<FolioRecord>(`/folios/${folioId}`);
+  }
+
+  async addFolioCharge(folioId: string, data: { description: string; amount: number; kind?: 'SERVICE' | 'MANUAL' }) {
+    return this.request<FolioChargeRecord>(`/folios/${folioId}/charges`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // A negative amount is a refund of guest money (manager + note,
+  // enforced on the server).
+  async addFolioPayment(folioId: string, data: { amount: number; method: string; note?: string | null }) {
+    return this.request<FolioPaymentRecord>(`/folios/${folioId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async postNightCharge(folioId: string, date?: string) {
+    return this.request<FolioChargeRecord>(`/folios/${folioId}/post-night-charge`, {
+      method: 'POST',
+      body: JSON.stringify(date ? { date } : {}),
+    });
+  }
+
+  async postNightChargesBulk(date?: string) {
+    return this.request<{
+      date: string;
+      posted: Array<{ folioId: string; chargeId: string; amount: number }>;
+      skipped: Array<{ folioId: string; reason: string }>;
+      postedCount: number;
+      skippedCount: number;
+      postedTotal: number;
+    }>('/folios/post-night-charges-bulk', {
+      method: 'POST',
+      body: JSON.stringify(date ? { date } : {}),
+    });
+  }
+
+  // Check-out settles the folio (optional final payment, or an
+  // explicit manager write-off of the remainder) and returns the
+  // closed folio plus the checkout invoice sale, if one was billed.
+  async checkOutFolio(
+    folioId: string,
+    data: {
+      payment?: { amount: number; method: string; note?: string | null };
+      writeOff?: boolean;
+      writeOffNote?: string;
+    }
+  ) {
+    return this.request<{ folio: FolioRecord; sale: any | null }>(`/folios/${folioId}/check-out`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getNightAudit(date?: string) {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request<NightAuditRecord>(`/folios/night-audit${query}`);
+  }
+
   // FBR POS (Wave B7)
   async getFbrConfig() {
     return this.request<FbrConfigRecord>('/fbr/config');
@@ -2168,6 +2601,10 @@ export class ApiService {
   // Sales
   async createSale(saleData: {
     customerId?: string;
+    // Hotel pack (Wave C5): charge-to-room — set folioId together
+    // with paymentMethod 'FOLIO'; the sale is stored unpaid and its
+    // total lands on the folio as a SERVICE charge.
+    folioId?: string;
     branchId: string;
     items: Array<{
       productId: string;

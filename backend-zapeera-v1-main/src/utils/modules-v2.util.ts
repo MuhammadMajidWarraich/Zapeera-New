@@ -214,6 +214,10 @@ function getDefaultModuleIcon(moduleKey: string): string {
     patients: 'Users',
     doctors: 'HeartPulse',
     appointments: 'CalendarDays',
+    rooms: 'BedDouble',
+    reservations: 'CalendarCheck',
+    folios: 'BookOpen',
+    front_desk: 'ConciergeBell',
   };
 
   return iconMap[moduleKey] || 'Box';

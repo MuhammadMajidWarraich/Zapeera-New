@@ -41,6 +41,10 @@ import {
   Bell,
   Stethoscope,
   HeartPulse,
+  BedDouble,
+  CalendarCheck,
+  BookOpen,
+  ConciergeBell,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -397,6 +401,82 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         href: '/appointments',
         icon: CalendarDays,
         module: 'appointments',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
+  // ─── Hotel family (Wave C5) ─────────────────────────────────────────
+  // Four sibling modules with their own keys, exactly like the Clinic
+  // family — Front Desk (the day board), Rooms (with room types),
+  // Reservations, Folios. Placement mirrors the backend hierarchy:
+  // main section, right after the Clinic family, so the sidebar reads
+  // as one hotel family. Visibility is the business-type module gate
+  // (hotels enable the family).
+  {
+    module: 'front_desk',
+    label: 'Front Desk',
+    icon: ConciergeBell,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'front-desk',
+        label: 'Front Desk',
+        href: '/front-desk',
+        icon: ConciergeBell,
+        module: 'front_desk',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'rooms',
+    label: 'Rooms',
+    icon: BedDouble,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'rooms',
+        label: 'Rooms',
+        href: '/rooms',
+        icon: BedDouble,
+        module: 'rooms',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'reservations',
+    label: 'Reservations',
+    icon: CalendarCheck,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'reservations',
+        label: 'Reservations',
+        href: '/reservations',
+        icon: CalendarCheck,
+        module: 'reservations',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'folios',
+    label: 'Folios',
+    icon: BookOpen,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'folios',
+        label: 'Folios',
+        href: '/folios',
+        icon: BookOpen,
+        module: 'folios',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
     ],

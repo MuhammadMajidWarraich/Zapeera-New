@@ -155,6 +155,10 @@ model Business {
   doctors                   Doctor[]
   appointments              Appointment[]
   doctorSettlements         DoctorSettlement[]
+  roomTypes                 RoomType[]
+  rooms                     Room[]
+  reservations              Reservation[]
+  folios                    Folio[]
 
   @@index([createdBy], name: "idx_business_createdBy")
   @@index([businessType], name: "idx_business_type")
@@ -193,6 +197,9 @@ model Branch {
   prescriptions      Prescription[]
   patients           Patient[]
   appointments       Appointment[]
+  rooms              Room[]
+  reservations       Reservation[]
+  folios             Folio[]
   categories         Category[]
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
@@ -724,6 +731,13 @@ model Sale {
   // dispensed against, when one was attached at the POS. Null for
   // ordinary sales and for pre-C1 history.
   prescriptionId        String?
+  // Hotel pack (Wave C5): a POS sale charged to a guest's folio
+  // (charge-to-room) carries the folio's id here. Such a sale is
+  // stored unpaid (paymentStatus PENDING, paidAmount 0, paymentMethod
+  // 'FOLIO') and a SERVICE FolioCharge of the same total is written
+  // in the same transaction — the folio, not this sale, carries the
+  // debt. Null for every ordinary sale.
+  folioId               String?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -750,6 +764,9 @@ model Sale {
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])
   prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  folio    Folio?    @relation("SaleChargedToFolio", fields: [folioId], references: [id], onDelete: SetNull)
+  checkoutForFolios Folio[] @relation("FolioCheckoutInvoice")
+  folioCharges FolioCharge[]
   appointments Appointment[]
   user     ZapeeraUser @relation(fields: [userId], references: [id])
 
@@ -760,6 +777,7 @@ model Sale {
   @@index([saleDate], name: "idx_sale_date")
   @@index([status], name: "idx_sale_status")
   @@index([prescriptionId], name: "idx_sale_prescription")
+  @@index([folioId], name: "idx_sale_folio")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
   @@index([createdAt], name: "idx_sale_createdAt")
   @@map("sales")
@@ -2191,4 +2209,206 @@ model DoctorSettlement {
   @@index([doctorId], name: "idx_doctor_settlement_doctor")
   @@index([createdAt], name: "idx_doctor_settlement_createdAt")
   @@map("doctor_settlements")
+}
+
+// ─── Hotel pack (Wave C5) ────────────────────────────────────────────
+// Hotels previously had NO property management at all (stock/billing
+// only). This PMS-lite pack adds room types + rooms, reservations,
+// check-in/out, guest folios (room-night charges, POS charge-to-room,
+// manual/service charges, payments and advances), housekeeping room
+// states and a night-audit-lite daily summary.
+
+// A room category ("Deluxe King", "Twin", …) and its nightly rate.
+// The rate is a DEFAULT for future stays: check-in snapshots it onto
+// the Folio (rateSnapshot) and every room-night charge posts at the
+// snapshot, so editing a type's rate never reprices a stay already
+// in-house.
+model RoomType {
+  id           String   @id @default(cuid())
+  companyId    String
+  name         String
+  ratePerNight Float    @default(0)
+  capacity     Int?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  rooms   Room[]
+
+  @@index([companyId], name: "idx_room_type_company")
+  @@map("room_types")
+}
+
+// One physical room. `number` is the door number ("101") and is
+// unique per business. status is the front-desk board state:
+//   AVAILABLE → OCCUPIED (check-in) → DIRTY (check-out) → AVAILABLE
+//   (housekeeping marks it cleaned); AVAILABLE/DIRTY ⇄ MAINTENANCE
+//   by hand. OCCUPIED is set and cleared ONLY by check-in/check-out —
+//   the room status endpoint refuses to touch an occupied room.
+model Room {
+  id         String   @id @default(cuid())
+  companyId  String
+  branchId   String?
+  roomTypeId String
+  number     String
+  floor      String?
+  status     String   @default("AVAILABLE") // AVAILABLE | OCCUPIED | DIRTY | MAINTENANCE
+  isActive   Boolean  @default(true)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company      Business      @relation(fields: [companyId], references: [id])
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
+  reservations Reservation[]
+  folios       Folio[]
+
+  @@unique([companyId, number], name: "room_company_number")
+  @@index([companyId], name: "idx_room_company")
+  @@index([branchId], name: "idx_room_branch")
+  @@index([roomTypeId], name: "idx_room_type")
+  @@index([status], name: "idx_room_status")
+  @@map("rooms")
+}
+
+// A booking of one room for a date range. checkInDate/checkOutDate
+// are stored normalized to UTC midnight (the clinic pack's rule) so
+// the overlap test and the day queries agree exactly. Status flow:
+//   BOOKED → CHECKED_IN → COMPLETED
+//   BOOKED → CANCELLED | NO_SHOW
+// CHECKED_IN is reached only through the check-in endpoint, which
+// opens the stay's Folio; COMPLETED only through folio check-out.
+// folioId mirrors Folio.reservationId — check-in writes the link
+// from both sides in one transaction.
+model Reservation {
+  id           String   @id @default(cuid())
+  companyId    String
+  branchId     String?
+  guestName    String
+  guestPhone   String?
+  guestCnic    String?
+  roomId       String
+  checkInDate  DateTime
+  checkOutDate DateTime
+  adults       Int?
+  children     Int?
+  source       String?
+  status       String   @default("BOOKED") // BOOKED | CHECKED_IN | COMPLETED | CANCELLED | NO_SHOW
+  folioId      String?  @unique
+  notes        String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  room    Room     @relation(fields: [roomId], references: [id])
+  folio   Folio?   @relation("ReservationFolio", fields: [folioId], references: [id], onDelete: SetNull)
+  stayFolios Folio[] @relation("FolioReservation")
+
+  @@index([companyId], name: "idx_reservation_company")
+  @@index([branchId], name: "idx_reservation_branch")
+  @@index([roomId], name: "idx_reservation_room")
+  @@index([status], name: "idx_reservation_status")
+  @@index([checkInDate], name: "idx_reservation_checkin")
+  @@map("reservations")
+}
+
+// The stay itself — the hotel's bill for one room occupation, opened
+// by check-in and closed by check-out. rateSnapshot freezes the room
+// type's nightly rate at check-in. The folio's money truth is
+// computed from its rows, never stored:
+//   balance = Σ FolioCharge.amount − Σ FolioPayment.amount
+// saleId links the checkout invoice (a normal Sale whose service
+// lines summarize the folio-native charges — room nights plus
+// SERVICE/MANUAL charges; POS sales charged to the room are separate
+// sales and are NOT re-billed). A remaining balance at check-out can
+// be forgiven only as an explicit write-off (writeOffAmount +
+// writeOffNote, OWNER/MANAGER) — the folio records exactly what was
+// forgiven and why.
+model Folio {
+  id             String    @id @default(cuid())
+  companyId      String
+  branchId       String?
+  reservationId  String?
+  roomId         String
+  guestName      String
+  guestPhone     String?
+  rateSnapshot   Float     @default(0)
+  status         String    @default("OPEN") // OPEN | CLOSED
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  saleId         String?
+  writeOffAmount Float?
+  writeOffNote   String?
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company      Business       @relation(fields: [companyId], references: [id])
+  branch       Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  room         Room           @relation(fields: [roomId], references: [id])
+  reservation  Reservation?   @relation("FolioReservation", fields: [reservationId], references: [id], onDelete: SetNull)
+  forReservation Reservation? @relation("ReservationFolio")
+  checkoutSale Sale?          @relation("FolioCheckoutInvoice", fields: [saleId], references: [id], onDelete: SetNull)
+  chargedSales Sale[]         @relation("SaleChargedToFolio")
+  charges      FolioCharge[]
+  payments     FolioPayment[]
+
+  @@index([companyId], name: "idx_folio_company")
+  @@index([branchId], name: "idx_folio_branch")
+  @@index([roomId], name: "idx_folio_room")
+  @@index([reservationId], name: "idx_folio_reservation")
+  @@index([status], name: "idx_folio_status")
+  @@map("folios")
+}
+
+// One line the guest owes: a posted room night (ROOM_NIGHT, at the
+// folio's rateSnapshot), a POS sale charged to the room (SERVICE
+// with saleId set — the total of Sale <saleId>, written by the sale
+// engine in the sale's own transaction), or a desk-added charge
+// (SERVICE / MANUAL). Charges are an immutable ledger: rows are
+// never edited or deleted by the API (createdAt only, no updatedAt).
+model FolioCharge {
+  id          String   @id @default(cuid())
+  folioId     String
+  description String
+  amount      Float
+  kind        String   @default("MANUAL") // ROOM_NIGHT | SERVICE | MANUAL
+  saleId      String?
+  chargeDate  DateTime @default(now())
+  createdBy   String?
+  createdAt   DateTime @default(now())
+
+  folio Folio @relation(fields: [folioId], references: [id])
+  sale  Sale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([folioId], name: "idx_folio_charge_folio")
+  @@index([saleId], name: "idx_folio_charge_sale")
+  @@index([chargeDate], name: "idx_folio_charge_date")
+  @@map("folio_charges")
+}
+
+// Money the guest paid against the folio: a booking advance, an
+// in-stay payment, or the settling payment at check-out. `method`
+// reuses the sale tender set (SALE_PAYMENT_METHODS).
+model FolioPayment {
+  id        String   @id @default(cuid())
+  folioId   String
+  amount    Float
+  method    String
+  paidAt    DateTime @default(now())
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  folio Folio @relation(fields: [folioId], references: [id])
+
+  @@index([folioId], name: "idx_folio_payment_folio")
+  @@index([paidAt], name: "idx_folio_payment_date")
+  @@map("folio_payments")
 }

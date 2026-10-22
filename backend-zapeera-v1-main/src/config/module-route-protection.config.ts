@@ -33,6 +33,10 @@ export const MODULE_PAGES: Record<string, string[]> = {
   patients: ['overview', 'patients'],
   doctors: ['overview', 'doctors'],
   appointments: ['overview', 'appointments'],
+  rooms: ['overview', 'rooms'],
+  reservations: ['overview', 'reservations'],
+  folios: ['overview', 'folios'],
+  front_desk: ['overview', 'front-desk'],
   employee_portal: ['overview', 'dashboard', 'attendance', 'shifts', 'profile', 'notifications'],
   dashboard: ['overview', 'dashboard'],
 };
@@ -91,6 +95,13 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/patients': { module: 'patients', page: 'patients' },
   '/api/doctors': { module: 'doctors', page: 'doctors' },
   '/api/appointments': { module: 'appointments', page: 'appointments' },
+
+  // Hotel pack (Wave C5): rooms, reservations and folios are sibling
+  // modules, each its own page; room types ride the rooms module.
+  '/api/room-types': { module: 'rooms', page: 'rooms' },
+  '/api/rooms': { module: 'rooms', page: 'rooms' },
+  '/api/reservations': { module: 'reservations', page: 'reservations' },
+  '/api/folios': { module: 'folios', page: 'folios' },
 };
 
 /**
@@ -269,6 +280,10 @@ export const MODULE_DISPLAY_NAMES: Record<string, string> = {
   patients: 'Patients',
   doctors: 'Doctors',
   appointments: 'Appointments',
+  rooms: 'Rooms',
+  reservations: 'Reservations',
+  folios: 'Folios',
+  front_desk: 'Front Desk',
 };
 
 export type ModuleOperation = 'read' | 'create' | 'update' | 'delete' | 'export' | 'approve' | 'print';

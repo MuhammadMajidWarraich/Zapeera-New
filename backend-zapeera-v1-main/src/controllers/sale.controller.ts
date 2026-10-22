@@ -45,7 +45,11 @@ const createSaleSchema = Joi.object({
       totalPrice: Joi.number().min(0).optional() // Item total after discount
     })
   ).min(1).required(),
-  paymentMethod: Joi.string().valid(...SALE_PAYMENT_METHODS).required(),
+  // 'FOLIO' (Wave C5) is a headline-only marker for charge-to-room
+  // sales — never a tender: the payments[] allocations below keep
+  // validating against SALE_PAYMENT_METHODS, and a folio sale may
+  // not carry allocations at all (enforced in createSale).
+  paymentMethod: Joi.string().valid(...SALE_PAYMENT_METHODS, 'FOLIO').required(),
   // Split tender (Wave B1): optional per-method allocations. When
   // present, their sum must equal the amount paid (validated against
   // the server-computed paidAmount in createSale); when absent, a
@@ -72,6 +76,11 @@ const createSaleSchema = Joi.object({
   // business rule enforced in createSale (cart contents × the
   // requirePrescriptionAtPos setting), not a shape rule.
   prescriptionId: Joi.string().allow(null, '').optional(),
+  // Hotel pack (Wave C5): charge this sale to a guest folio instead
+  // of taking payment. Requires paymentMethod 'FOLIO' (and vice
+  // versa); the business rules live in createSale next to the other
+  // pre-transaction validations.
+  folioId: Joi.string().allow(null, '').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -936,12 +945,91 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // slightly reduces what the same bill earns). Zero for walk-ins.
     const pointsEarned = saleData.customerId ? Math.floor(totalAmount / 100) : 0;
 
+    // Hotel pack (Wave C5) — charge-to-room. A sale may be charged
+    // to a guest's OPEN folio instead of being paid at the counter.
+    // The representation (deliberately boring, and the one every
+    // money report already understands):
+    //   · paymentMethod is the marker 'FOLIO' — never a tender, so
+    //     no SalePayment allocation is ever written for the sale;
+    //   · the sale is stored UNPAID (paymentStatus PENDING,
+    //     paidAmount 0) whatever the client sent — no cash is
+    //     claimed anywhere, and FBR maps it to a credit sale;
+    //   · the debt lives on the folio: a SERVICE FolioCharge of the
+    //     sale's total is written inside the sale transaction below;
+    //   · the sale carries folioId so the link is queryable both
+    //     ways (Sale.folioId ↔ FolioCharge.saleId).
+    // Rules: folioId ⇔ paymentMethod 'FOLIO'; no split tender (no
+    // money moves); no customerId — a customer sale would ALSO post
+    // the unpaid total to the customer's khata (Wave B2), counting
+    // the same debt twice. The folio must exist in this business
+    // and be OPEN; its branch is re-checked inside the transaction
+    // against the sale's resolved branch.
+    let folioForSale: { id: string } | null = null;
+    {
+      const requestedFolioId = saleData.folioId ? String(saleData.folioId) : null;
+      const headlineMethod = String(saleData.paymentMethod || '').toUpperCase();
+      if (headlineMethod === 'FOLIO' && !requestedFolioId) {
+        const e: any = new HttpError(400, 'A sale with payment method FOLIO must name the folio it charges to');
+        e.code = 'FOLIO_REQUIRED';
+        throw e;
+      }
+      if (requestedFolioId) {
+        if (headlineMethod !== 'FOLIO') {
+          const e: any = new HttpError(400, 'A sale charged to a folio must use payment method FOLIO');
+          e.code = 'FOLIO_METHOD_REQUIRED';
+          throw e;
+        }
+        if (Array.isArray(saleData.payments) && saleData.payments.length > 0) {
+          const e: any = new HttpError(400, 'A folio sale takes no payment — the folio carries the full amount');
+          e.code = 'FOLIO_NO_TENDER';
+          throw e;
+        }
+        if (saleData.customerId) {
+          const e: any = new HttpError(400, 'A folio sale cannot also be a customer (khata) sale — the debt would be counted twice');
+          e.code = 'FOLIO_NO_CUSTOMER';
+          throw e;
+        }
+        let folioCompanyId: string | null = null;
+        if (req.user?.selectedCompanyId) {
+          folioCompanyId = req.user.selectedCompanyId;
+        } else if (saleData.branchId) {
+          const branchRow = await prisma.branch.findUnique({
+            where: { id: saleData.branchId },
+            select: { companyId: true }
+          });
+          folioCompanyId = branchRow?.companyId || null;
+        }
+        const folioRow = folioCompanyId
+          ? await prisma.folio.findFirst({
+              where: { id: requestedFolioId, companyId: folioCompanyId },
+              select: { id: true, status: true }
+            })
+          : null;
+        if (!folioRow) {
+          const e: any = new HttpError(400, 'The folio for this charge-to-room sale was not found in this business');
+          e.code = 'FOLIO_NOT_FOUND';
+          throw e;
+        }
+        if (folioRow.status !== 'OPEN') {
+          const e: any = new HttpError(400, 'This folio is closed and can no longer be charged to');
+          e.code = 'FOLIO_CLOSED';
+          throw e;
+        }
+        folioForSale = { id: folioRow.id };
+      }
+    }
+
     // Resolve payment status and the stored paidAmount BEFORE the
     // transaction: the split-tender validation below must mirror
     // exactly the paidAmount the sale will be stored with (the
     // client-sent value, or the full total for a COMPLETED sale).
-    const paymentStatus: PaymentStatus = (saleData.paymentStatus || 'COMPLETED') as PaymentStatus;
-    const paidAmount = saleData.paidAmount || (paymentStatus === 'COMPLETED' ? totalAmount : 0);
+    // A folio sale is always stored unpaid (see the block above).
+    const paymentStatus: PaymentStatus = (folioForSale
+      ? 'PENDING'
+      : (saleData.paymentStatus || 'COMPLETED')) as PaymentStatus;
+    const paidAmount = folioForSale
+      ? 0
+      : (saleData.paidAmount || (paymentStatus === 'COMPLETED' ? totalAmount : 0));
 
     // Split tender (Wave B1): when the client sends allocations, their
     // sum must equal the amount being paid. When it doesn't, the sale
@@ -1163,6 +1251,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Prescriptions (Wave C1): validated above (exists in this
           // business, active, covers the cart's Rx items).
           prescriptionId: saleData.prescriptionId || null,
+          // Hotel pack (Wave C5): the folio this sale charges to,
+          // validated above; the matching FolioCharge is written
+          // below in this same transaction.
+          folioId: folioForSale ? folioForSale.id : null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1194,6 +1286,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
               promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
               prescriptionId: saleData.prescriptionId || null,
+              folioId: folioForSale ? folioForSale.id : null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -1224,6 +1317,42 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           }
           console.warn('[Sales] membership_id write skipped (schema not ready):', membershipColumnError?.message || membershipColumnError);
         }
+      }
+
+      // Hotel pack (Wave C5): a charge-to-room sale posts its total
+      // to the folio HERE, in the sale's own transaction, so the
+      // guest's bill and the sale can never disagree — if the folio
+      // stopped being chargeable (closed meanwhile, or it belongs
+      // to another branch) the whole sale rolls back. The folio was
+      // validated before the transaction; this is the authoritative
+      // re-check under the transaction's own company/branch scope.
+      if (folioForSale) {
+        const folioRow = await tx.folio.findFirst({
+          where: { id: folioForSale.id, companyId: targetCompanyId },
+          select: {
+            id: true,
+            status: true,
+            branchId: true,
+            room: { select: { number: true } }
+          }
+        });
+        if (!folioRow || folioRow.status !== 'OPEN') {
+          throw new HttpError(400, 'The folio for this charge-to-room sale is not open');
+        }
+        if (folioRow.branchId && folioRow.branchId !== targetBranchId) {
+          throw new HttpError(400, 'This folio belongs to a different branch than the sale');
+        }
+        await tx.folioCharge.create({
+          data: {
+            folioId: folioRow.id,
+            description: `Room ${folioRow.room?.number || ''} — POS sale ${invoiceNumber}`.trim(),
+            amount: round2(totalAmount),
+            kind: 'SERVICE',
+            saleId: sale.id,
+            chargeDate: new Date(),
+            createdBy: req.user?.createdBy || req.user?.id || null
+          }
+        });
       }
 
       // Persist the tender allocations (Wave B1) in the same

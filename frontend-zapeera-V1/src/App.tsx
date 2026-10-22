@@ -47,6 +47,10 @@ const PrescriptionsPage = React.lazy(() => import("./pages/Prescriptions"));
 const PatientsPage = React.lazy(() => import("./pages/Patients"));
 const DoctorsPage = React.lazy(() => import("./pages/Doctors"));
 const AppointmentsPage = React.lazy(() => import("./pages/Appointments"));
+const FrontDeskPage = React.lazy(() => import("./pages/FrontDesk"));
+const RoomsPage = React.lazy(() => import("./pages/Rooms"));
+const ReservationsPage = React.lazy(() => import("./pages/Reservations"));
+const FoliosPage = React.lazy(() => import("./pages/Folios"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const AccountingPage = React.lazy(() => import("./pages/Accounting"));
@@ -373,6 +377,50 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <AppointmentsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/front-desk" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <FrontDeskPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/rooms" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <RoomsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/reservations" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <ReservationsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/folios" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <FoliosPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1246,6 +1294,62 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <AppointmentsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/front-desk" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <FrontDeskPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/rooms" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <RoomsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/reservations" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <ReservationsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/folios" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <FoliosPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

@@ -53,6 +53,12 @@ export const RESOURCES = {
   DOCTORS: 'doctors',
   APPOINTMENTS: 'appointments',
 
+  // Hotel Specific (Wave C5)
+  ROOMS: 'rooms',
+  RESERVATIONS: 'reservations',
+  FOLIOS: 'folios',
+  FRONT_DESK: 'front_desk',
+
   // Shift Management
   SHIFTS: 'shifts',
   SCHEDULED_SHIFTS: 'scheduled_shifts',

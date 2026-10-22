@@ -176,6 +176,18 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/doctors', policy: { kind: 'module', resourceKey: 'doctors.doctors' } },
   { prefix: '/api/appointments', policy: { kind: 'module', resourceKey: 'appointments.appointments' } },
 
+  // ── Hotel pack (Wave C5) ─────────────────────────────────────────────
+  // Four sibling modules (the Hotel family), each with its own key
+  // exactly like the clinic pack: rooms.rooms, reservations.
+  // reservations, folios.folios. Room types ride the rooms module
+  // (a room type is rooms configuration, not its own register). The
+  // Front Desk board has no API of its own — it composes the
+  // reservations + folios endpoints — so it needs no entry here.
+  { prefix: '/api/room-types', policy: { kind: 'module', resourceKey: 'rooms.rooms' } },
+  { prefix: '/api/rooms', policy: { kind: 'module', resourceKey: 'rooms.rooms' } },
+  { prefix: '/api/reservations', policy: { kind: 'module', resourceKey: 'reservations.reservations' } },
+  { prefix: '/api/folios', policy: { kind: 'module', resourceKey: 'folios.folios' } },
+
   // ── Backoffice (platform admin; router-guarded, public login/setup) ──────
   { prefix: '/api/backoffice/auth/login', policy: { kind: 'public' } },
   { prefix: '/api/backoffice/auth/setup', policy: { kind: 'public' } },

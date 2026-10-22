@@ -356,6 +356,84 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
     ],
   },
 
+  // ─── Hotel family (Wave C5) ─────────────────────────────────────────
+  // Four sibling modules, each with its own key exactly like the
+  // clinic family (rooms.rooms / reservations.reservations /
+  // folios.folios in the route-policy registry; front_desk has no API
+  // of its own — its board composes the reservations + folios APIs).
+  // They sit together here so the sidebar reads as one hotel family;
+  // which business types see them is the usual business-type module
+  // gate (business_type_modules, backoffice-managed) — hotels enable
+  // the family, everyone else can leave it off.
+  {
+    module: 'front_desk',
+    label: 'Front Desk',
+    icon: 'ConciergeBell',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'front-desk',
+        label: 'Front Desk',
+        href: '/front-desk',
+        icon: 'ConciergeBell',
+        module: 'front_desk',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'rooms',
+    label: 'Rooms',
+    icon: 'BedDouble',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'rooms',
+        label: 'Rooms',
+        href: '/rooms',
+        icon: 'BedDouble',
+        module: 'rooms',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'reservations',
+    label: 'Reservations',
+    icon: 'CalendarCheck',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'reservations',
+        label: 'Reservations',
+        href: '/reservations',
+        icon: 'CalendarCheck',
+        module: 'reservations',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+  {
+    module: 'folios',
+    label: 'Folios',
+    icon: 'BookOpen',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER', 'CASHIER'],
+    subModules: [
+      {
+        key: 'folios',
+        label: 'Folios',
+        href: '/folios',
+        icon: 'BookOpen',
+        module: 'folios',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
   // ─── Business Management Module ─────────────────────────────────────────
   {
     module: 'business_management',

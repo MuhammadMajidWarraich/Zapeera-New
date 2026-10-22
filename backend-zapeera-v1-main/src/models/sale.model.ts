@@ -25,6 +25,7 @@ export interface CreateSaleData {
   loyaltyPointsToRedeem?: number; // Loyalty redemption (Wave B3): points to spend on this sale
   couponCode?: string | null; // Promotions (Wave B4): the ONLY promotion input a client may send — the engine resolves the discount server-side
   prescriptionId?: string | null; // Prescriptions (Wave C1): register record this sale dispenses against; required at the POS for requiresPrescription items when enforcement is on
+  folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer
