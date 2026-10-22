@@ -647,11 +647,19 @@ async function loadPolicyCatalog(prisma: any): Promise<PolicyCatalog> {
   const opRows = await prisma.operation.findMany({ where: { isActive: true } });
 
   const modules = new Map<string, PolicyCatalogModule>();
+  const modulesById = new Map<string, PolicyCatalogModule>();
   for (const m of moduleRows) {
-    modules.set(String(m.key).toLowerCase(), { id: m.id, key: String(m.key).toLowerCase(), pages: new Map() });
+    const entry: PolicyCatalogModule = { id: m.id, key: String(m.key).toLowerCase(), pages: new Map() };
+    modules.set(entry.key, entry);
+    modulesById.set(String(m.id), entry);
   }
   for (const p of pageRows) {
-    const mod = modules.get(String(p.moduleId));
+    // module_pages.moduleId is the module definition's ID (cuid), NOT its
+    // key — pages must be attached through the id index. Looking them up in
+    // the key-keyed map instead left every module's page map empty, so the
+    // canonical policy publishes (plans / business types / roles) rejected
+    // any payload containing pages with "Unknown page <module>.<page>".
+    const mod = modulesById.get(String(p.moduleId));
     if (mod) mod.pages.set(String(p.key).toLowerCase(), p.id);
   }
   return { modules, operations: new Set(opRows.map((o: any) => String(o.key).toLowerCase())) };
@@ -735,6 +743,7 @@ export const publishPlanPolicy = async (req: AdminAuthRequest, res: Response) =>
     if (!plan) return res.status(404).json({ success: false, message: `Plan ${planId} not found` });
 
     const catalog = await loadPolicyCatalog(prisma);
+    await ensureModulePermissionTables(prisma);
     const seenModules = new Set<string>();
     const entitlements: Array<{ planId: string; moduleKey: string; pageKey: string | null; entitlementLevel: string }> = [];
 
@@ -769,6 +778,19 @@ export const publishPlanPolicy = async (req: AdminAuthRequest, res: Response) =>
       }
     }
 
+    // A published policy is TOTAL: catalog modules absent from the payload
+    // get an explicit module-level NONE row, never a missing row. The boot
+    // entitlement-coverage pass inserts FULL for any catalog module with
+    // no module-level entitlement row, so an excluded module would
+    // silently come back at the next restart — an explicit NONE row
+    // cannot (the resolver already treats NONE and absent identically:
+    // deny; only the coverage pass can no longer mistake it for a gap).
+    for (const moduleKey of catalog.modules.keys()) {
+      if (!seenModules.has(moduleKey)) {
+        entitlements.push({ planId, moduleKey, pageKey: null, entitlementLevel: 'NONE' });
+      }
+    }
+
     const previousRows = await prisma.planEntitlement.findMany({ where: { planId } });
     const before = previousRows.map((r: any) => ({ moduleKey: r.moduleKey, pageKey: r.pageKey, entitlementLevel: r.entitlementLevel }));
     const after = entitlements.map((e) => ({ moduleKey: e.moduleKey, pageKey: e.pageKey, entitlementLevel: e.entitlementLevel }));
@@ -781,6 +803,25 @@ export const publishPlanPolicy = async (req: AdminAuthRequest, res: Response) =>
       await tx.planEntitlement.deleteMany({ where: { planId } });
       if (entitlements.length > 0) {
         await tx.planEntitlement.createMany({ data: entitlements });
+      }
+      // Mirror into the legacy matrix tables: the backoffice Plans GET
+      // builds its checkbox state from plan_module_permissions /
+      // plan_sub_module_permissions (and the resolver keeps deny-only
+      // gates over them), so the published choices must land there too
+      // or the editor reads back stale state and the two gates disagree.
+      await tx.$executeRaw`DELETE FROM plan_module_permissions WHERE "planId" = ${planId}`;
+      for (const e of entitlements.filter((x) => !x.pageKey)) {
+        await tx.$executeRaw`
+          INSERT INTO plan_module_permissions (id, "planId", "moduleName", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${planId}, ${e.moduleKey}, ${e.entitlementLevel !== 'NONE'}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+      }
+      await tx.$executeRaw`DELETE FROM plan_sub_module_permissions WHERE "planId" = ${planId}`;
+      for (const e of entitlements.filter((x) => x.pageKey)) {
+        await tx.$executeRaw`
+          INSERT INTO plan_sub_module_permissions (id, "planId", "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${planId}, ${e.moduleKey}, ${e.pageKey as string}, ${e.entitlementLevel !== 'NONE'}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
       }
       await writePolicyAudit(tx, {
         entityType: 'PLAN',
@@ -941,9 +982,11 @@ export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Resp
     if (!businessType) return res.status(404).json({ success: false, message: `Business type ${businessTypeId} not found` });
 
     const catalog = await loadPolicyCatalog(prisma);
+    await ensureModulePermissionTables(prisma);
     const seenModules = new Set<string>();
     const moduleRows: Array<{ businessTypeId: string; moduleId: string; isEnabled: boolean }> = [];
     const pageRows: Array<{ businessTypeId: string; pageId: string; isEnabled: boolean }> = [];
+    const pageMirrorRows: Array<{ moduleKey: string; pageKey: string; isEnabled: boolean }> = [];
 
     for (const mod of modules) {
       const moduleKey = String(mod.key ?? '').toLowerCase().trim();
@@ -968,7 +1011,19 @@ export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Resp
             });
           }
           pageRows.push({ businessTypeId, pageId, isEnabled: !!page.enabled });
+          pageMirrorRows.push({ moduleKey, pageKey, isEnabled: !!page.enabled });
         }
+      }
+    }
+
+    // A published policy is TOTAL: catalog modules absent from the payload
+    // are recorded as explicit disabled rows, never as missing rows. The
+    // boot baseline gap-fills only genuinely missing (type × module) pairs,
+    // so a missing row would silently resurrect as enabled at the next
+    // restart — an explicit isEnabled=false row cannot.
+    for (const [moduleKey, moduleDef] of catalog.modules) {
+      if (!seenModules.has(moduleKey)) {
+        moduleRows.push({ businessTypeId, moduleId: moduleDef.id, isEnabled: false });
       }
     }
 
@@ -988,6 +1043,18 @@ export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Resp
       if (moduleRows.length > 0) await tx.businessTypeModule.createMany({ data: moduleRows });
       await tx.businessTypePage.deleteMany({ where: { businessTypeId } });
       if (pageRows.length > 0) await tx.businessTypePage.createMany({ data: pageRows });
+      // Mirror the page states into the legacy sub-module table: the
+      // backoffice Business Types GET builds its checkbox state from that
+      // table (and the resolver keeps a deny-only gate over it), so the
+      // saved choices must land there too or the editor reads back stale
+      // state and the two gates disagree.
+      await tx.$executeRaw`DELETE FROM business_type_sub_module_permissions WHERE "businessTypeId" = ${businessTypeId}`;
+      for (const row of pageMirrorRows) {
+        await tx.$executeRaw`
+          INSERT INTO business_type_sub_module_permissions (id, "businessTypeId", "moduleName", "subModuleKey", "enabled", "createdAt", "updatedAt")
+          VALUES (${crypto.randomUUID()}, ${businessTypeId}, ${row.moduleKey}, ${row.pageKey}, ${row.isEnabled}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `;
+      }
       await writePolicyAudit(tx, {
         entityType: 'BUSINESS_TYPE',
         entityId: businessTypeId,

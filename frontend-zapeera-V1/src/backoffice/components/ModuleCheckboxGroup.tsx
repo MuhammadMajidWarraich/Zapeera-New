@@ -56,7 +56,12 @@ export function ModuleCheckboxGroup({
   };
 
   const countEnabledSubs = (parentModule: string) => {
-    const subs = hierarchy.find(h => h.module === parentModule)?.subModules || [];
+    // Count over the same set as totalSubs (self-keyed entries excluded):
+    // a page whose key equals the module key (e.g. reports → "reports")
+    // has no toggle state, so counting it inflated the numerator past
+    // the total ("2/1 sub-modules enabled").
+    const subs = (hierarchy.find(h => h.module === parentModule)?.subModules || [])
+      .filter(s => s.key !== parentModule);
     return subs.filter(s => subModuleStates[`${parentModule}::${s.key}`] !== false).length;
   };
 
