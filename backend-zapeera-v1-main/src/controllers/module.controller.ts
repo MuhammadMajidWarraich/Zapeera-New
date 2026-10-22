@@ -181,33 +181,11 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
       .map((module) => {
         const status = moduleStatusMap.get(module.module.toLowerCase());
         if (!status) {
-          // Module not in V2 result — include as enabled by default (V2 should have evaluated it)
-          const accessibleSubModules = module.subModules.filter((sub) => {
-            const subKey = `${sub.module.toLowerCase()}::${sub.key.toLowerCase()}`;
-            const smr = subModuleReasonMap.get(subKey);
-            // If we have per-sub-module data, use it; otherwise fall back to flat set
-            if (smr) {
-              // Business type or role denied sub-modules → hidden; plan denied → show locked
-              if (!smr.enabled && smr.primaryDenialReason !== 'SUBSCRIPTION_PLAN') return false;
-              return true;
-            }
-            return !disabledSubModulesSet.has(subKey);
-          });
-          if (accessibleSubModules.length === 0) return null;
-          return {
-            ...module,
-            enabled: true,
-            disabledReason: null,
-            subModules: accessibleSubModules.map((sub) => {
-              const subKey = `${sub.module.toLowerCase()}::${sub.key.toLowerCase()}`;
-              const smr = subModuleReasonMap.get(subKey);
-              return {
-                ...sub,
-                enabled: smr ? smr.enabled : !disabledSubModulesSet.has(subKey),
-                disabledReason: smr?.primaryDenialReason || null,
-              };
-            }),
-          };
+          // Module not in V2 result — FAIL CLOSED (hide it). This used to
+          // include the module as enabled by default, which surfaced
+          // modules the resolver never evaluated (or had denied) in the
+          // sidebar for every business type.
+          return null;
         }
 
         if (status.disabledReason === 'BUSINESS_TYPE' || status.disabledReason === 'ROLE' || status.disabledReason === 'PARENT_MODULE') {

@@ -2,6 +2,7 @@ import { NextFunction, Response } from 'express';
 import { AuthRequest } from './auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { getBusinessEntitlementsSummary, SupportedBusinessType } from '../utils/subscription-entitlements.util';
+import { isModuleApplicableToBusinessType } from '../utils/module-applicability.util';
 import { hasPermission as hasConfiguredPermission } from '../config/permissions';
 
 const ALWAYS_ALLOWED_MODULES = new Set(['subscription']);
@@ -500,6 +501,20 @@ export const checkModule = (moduleName: string) => {
       if (!company) return next();
 
       console.log(`[checkModule:${moduleName}] Starting check for businessId=${businessId}, businessType=${company.businessType}`);
+
+      // HARD DENY — industry applicability (code-level, see
+      // module-applicability.util). Runs before every plan/type/business
+      // check below: a module outside this business's industry (hotel
+      // `rooms` on a PHARMACY, clinic `patients` on a HOTEL, …) is denied
+      // no matter what business_type_modules, plan_entitlements or
+      // business_modules rows say.
+      if (!isModuleApplicableToBusinessType(moduleName, company.businessType)) {
+        return res.status(403).json({
+          success: false,
+          message: `Module '${moduleName}' is not available for this business type.`,
+          details: { module: moduleName, code: 'MODULE_NOT_APPLICABLE_TO_BUSINESS_TYPE' }
+        });
+      }
 
       // NEW: Plan-based entitlement check
       const businessType = (String(company.businessType || '').toUpperCase() || 'PHARMACY') as SupportedBusinessType;
