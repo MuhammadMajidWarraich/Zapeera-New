@@ -12,6 +12,10 @@ import {
   PaymentProof,
   BackofficeCommission,
   BackofficeCommissionStats,
+  BackofficeAffiliate,
+  BackofficeAffiliateCommission,
+  BackofficeAffiliatePayout,
+  AffiliateProgramConfig,
   AuditLog,
   SupportTicket,
   SupportTicketMessage,
@@ -212,6 +216,52 @@ export const backofficeApi = {
   },
   getCommissionStats: (businessId?: string): Promise<{ success: boolean; data: BackofficeCommissionStats }> =>
     request(`/commissions/stats${businessId ? `?businessId=${encodeURIComponent(businessId)}` : ''}`),
+
+  // Affiliate program (partner referrals)
+  getAffiliates: (params?: { status?: string; search?: string; page?: number; limit?: number }): Promise<{ success: boolean; data: { affiliates: BackofficeAffiliate[]; pagination: { page: number; limit: number; total: number; pages: number } } }> => {
+    const qs = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') qs.append(key, value.toString());
+      });
+    }
+    const query = qs.toString();
+    return request(`/affiliates${query ? `?${query}` : ''}`);
+  },
+  updateAffiliate: (id: string, data: { status?: string; commissionRate?: number | null }) =>
+    request(`/affiliates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  attributeBusinessToAffiliate: (data: { affiliateId?: string; code?: string; businessId: string }) =>
+    request('/affiliates/attribute', { method: 'POST', body: JSON.stringify(data) }),
+  getAffiliateCommissions: (params?: { page?: number; limit?: number; status?: string; affiliateId?: string }): Promise<{ success: boolean; data: { commissions: BackofficeAffiliateCommission[]; pagination: { page: number; limit: number; total: number; pages: number } } }> => {
+    const qs = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') qs.append(key, value.toString());
+      });
+    }
+    const query = qs.toString();
+    return request(`/affiliate-commissions${query ? `?${query}` : ''}`);
+  },
+  approveAffiliateCommission: (id: string) =>
+    request(`/affiliate-commissions/${id}/approve`, { method: 'POST' }),
+  voidAffiliateCommission: (id: string) =>
+    request(`/affiliate-commissions/${id}/void`, { method: 'POST' }),
+  getAffiliatePayouts: (params?: { page?: number; limit?: number; status?: string }): Promise<{ success: boolean; data: { payouts: BackofficeAffiliatePayout[]; pagination: { page: number; limit: number; total: number; pages: number } } }> => {
+    const qs = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') qs.append(key, value.toString());
+      });
+    }
+    const query = qs.toString();
+    return request(`/affiliate-payouts${query ? `?${query}` : ''}`);
+  },
+  processAffiliatePayout: (id: string, data: { decision: 'PAID' | 'REJECTED'; note?: string }) =>
+    request(`/affiliate-payouts/${id}/process`, { method: 'POST', body: JSON.stringify(data) }),
+  getAffiliateConfig: (): Promise<{ success: boolean; data: AffiliateProgramConfig }> =>
+    request('/affiliates/config'),
+  updateAffiliateConfig: (data: Partial<AffiliateProgramConfig>) =>
+    request('/affiliates/config', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Audit Logs
   getAuditLogs: (params?: string): Promise<{ success: boolean; data: AuditLog[] }> =>

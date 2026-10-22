@@ -267,6 +267,29 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
       }
     );
 
+    // Affiliate commission: a NON-TRIAL assignment is marked PAID above
+    // (the admin is the payment authority), so it is a money-in moment
+    // with basis = plan price. sourceRef pins the accrual to this
+    // subscription + granted period end, so re-submitting the same
+    // assignment cannot double-accrue (UNIQUE sourceRef), while a
+    // genuinely new paid period accrues again. Trial grants never
+    // accrue. Never let an affiliate failure break an assignment.
+    if (!isTrial) {
+      try {
+        const { accrueAffiliateCommission } = await import('../utils/affiliate.util');
+        const accrual = await accrueAffiliateCommission(prisma, {
+          businessId,
+          sourceRef: `subscription_assign:${subscription.id}:${endDate.toISOString().slice(0, 10)}`,
+          basisAmount: plan.price
+        });
+        if (accrual.created) {
+          console.log(`[Affiliate] Commission ${accrual.commissionId} accrued: PKR ${accrual.amount} @ ${accrual.rateApplied}% for business ${businessId} (assign ${subscription.id})`);
+        }
+      } catch (affiliateError) {
+        console.error('[Affiliate] Commission accrual on assign failed (non-fatal):', affiliateError);
+      }
+    }
+
     return res.json({
       success: true,
       message: 'Plan assigned successfully',

@@ -47,6 +47,10 @@ const registerSchema = Joi.object({
       'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
     }),
   name: Joi.string().required(),
+  // Affiliate program: referral code from a ?ref=CODE signup link. It is
+  // stored on the user (signupRefCode) and converted into an
+  // AffiliateReferral when the user's FIRST business is created.
+  refCode: Joi.string().trim().max(20).allow('', null).optional(),
   branchId: Joi.string().allow('', null).optional(),
   branchData: Joi.object({
     name: Joi.string().required(),
@@ -537,7 +541,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { username, email, password, name } = req.body;
+    const { username, email, password, name, refCode } = req.body;
 
     // Get database client (works with SQLite or PostgreSQL)
     const prisma = await getPrisma();
@@ -588,6 +592,9 @@ user = await prisma.zapeeraUser.create({
     email,
     password: hashedPassword,
     name,
+    signupRefCode: typeof refCode === 'string' && refCode.trim()
+      ? refCode.trim().toUpperCase().replace(/^ZAP-/, '')
+      : null,
     isActive: true,
     emailVerified: false,
     emailVerificationToken: verificationToken,

@@ -59,7 +59,11 @@ const createCompanySchema = Joi.object({
   phone: Joi.string().max(20).optional(),
   email: Joi.string().email().optional(),
   businessType: Joi.string().max(100).optional(),
-  createdByUserId: Joi.string().optional()
+  createdByUserId: Joi.string().optional(),
+  // Affiliate program: referral code carried from the ?ref= signup link
+  // (frontend persists it in localStorage). Converted into an
+  // AffiliateReferral below when this is the creator's FIRST business.
+  refCode: Joi.string().trim().max(20).allow('', null).optional()
 });
 
 const updateCompanySchema = Joi.object({
@@ -679,7 +683,7 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     const userId = req.user.id;
-    const { name, description, address, phone, email, businessType, createdByUserId } = normalizedBody as any;
+    const { name, description, address, phone, email, businessType, createdByUserId, refCode } = normalizedBody as any;
     const createdById = userId;
 
     console.log('🔍 Creating company with userId:', createdById);
@@ -785,6 +789,24 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
         }
       }
     });
+
+    // Affiliate attribution: if this is the creator's first business
+    // and a referral code is known (payload refCode, else the code
+    // captured on the user at signup), record the referral. Never let
+    // an affiliate hiccup break business creation.
+    try {
+      const { attributeFirstBusinessIfReferred } = await import('../utils/affiliate.util');
+      const attribution = await attributeFirstBusinessIfReferred(prisma, {
+        businessId: company.id,
+        creatorUserId: createdById,
+        refCode: refCode ?? null
+      });
+      if (attribution.attributed) {
+        console.log(`[Affiliate] Business ${company.id} attributed via referral code`);
+      }
+    } catch (affiliateErr: any) {
+      console.warn('[Affiliate] Attribution failed (non-fatal):', affiliateErr?.message || affiliateErr);
+    }
 
     const isPostgreSQLMode = process.env.USE_POSTGRESQL === 'true';
 

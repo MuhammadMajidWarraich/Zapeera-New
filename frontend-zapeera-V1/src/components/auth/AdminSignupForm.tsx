@@ -178,6 +178,11 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
         email: formData.email,
         password: formData.password,
         name: formData.name,
+        // Affiliate program: forward the referral code persisted from a
+        // ?ref=CODE link (see AuthContainer) when present.
+        refCode: (() => {
+          try { return localStorage.getItem('zapeera_ref_code') || undefined; } catch { return undefined; }
+        })(),
         branchId: ""
         // Role is automatically set to USER by backend - no need to send it
         // No branchId or branchData needed - admin will create companies from dashboard
