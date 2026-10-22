@@ -2602,6 +2602,16 @@ class SyncService {
               continue; // Skip this user - don't update or delete
             }
 
+            // SYNC HARDENING ASSESSMENT (Path A): this replication path is
+            // deployment-scoped — the desktop backend's own SQLite against
+            // its own cloud PostgreSQL, one tenant per deployment — and it
+            // resolves conflicts per record by updatedAt last-writer-wins:
+            // a PG row overwrites the local row ONLY when it is newer
+            // (below), and pushes upsert by id, so replays are naturally
+            // idempotent. The per-op CONFLICT contract, op-id dedupe store
+            // and composite cursors live in Path B (sync-cloud-api), which
+            // is the multi-device API surface where stale writers are a
+            // real risk; Path A intentionally keeps full-table LWW.
             // Compare timestamps - only update if PostgreSQL record is newer
             const pgUpdatedAt = cleanData.updatedAt || cleanData.createdAt;
             const sqliteUpdatedAt = existingRecord.updatedAt || existingRecord.createdAt;

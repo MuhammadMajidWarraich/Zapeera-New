@@ -146,12 +146,27 @@ async function pushPendingToCloudApi(cloudApi) {
           id: op.id,
           entityType: op.entityType,
           entityId: op.entityId,
-          operation: op.operation,
+          operation: String(op.operation || '').toUpperCase(),
           payload: payload,
           idempotencyKey: op.idempotencyKey
         }]);
 
-        if (result.success !== false) {
+        // The cloud API answers per-op results: ACCEPTED and DUPLICATE
+        // (idempotent replay) complete the op; CONFLICT completes it too
+        // (the server copy wins and the next pull reconciles); FAILED /
+        // REJECTED park it as FAILED with the server's message.
+        const perOp = result && result.data && Array.isArray(result.data.results)
+          ? result.data.results[0]
+          : null;
+        if (perOp) {
+          if (perOp.status === 'ACCEPTED' || perOp.status === 'DUPLICATE' || perOp.status === 'CONFLICT') {
+            markCompleted(op.id);
+            pushed++;
+          } else {
+            markFailed(op.id, perOp.message || `Cloud API ${perOp.status}`);
+            failed++;
+          }
+        } else if (result.success !== false) {
           markCompleted(op.id);
           pushed++;
         } else {

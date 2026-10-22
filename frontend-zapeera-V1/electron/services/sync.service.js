@@ -98,6 +98,67 @@ function resolveLocalTable(entityType) {
   return ENTITY_TYPE_TO_TABLE[entityType] || entityType;
 }
 
+// ── Durable push queue wiring (Sync Hardening) ──────────────────────────
+// handleDataChange used to record writes ONLY in the JSON offline queue
+// (sync-queue.json), which nothing ever converted into cloud operations —
+// while pushChangesToCloud drains the durable sync_operations table, whose
+// only writer (sync-queue.service's enqueueOperation) had no callers. The
+// net effect was that desktop writes never reached the cloud push API.
+// handleDataChange now ALSO enqueues every pushable write into the durable
+// SQLite queue (idempotency-keyed; retried with exponential backoff),
+// which is the queue pushChangesToCloud actually drains. The JSON queue
+// remains as a lightweight activity log for the status UI.
+const TABLE_TO_ENTITY_TYPE = {};
+for (const [entityType, table] of Object.entries(ENTITY_TYPE_TO_TABLE)) {
+  TABLE_TO_ENTITY_TYPE[table] = entityType;
+}
+
+// Entity types the cloud push endpoint rejects by design — never enqueue:
+// khata/loyalty are server-derived (pull-only); FBR never leaves the
+// server. (No local module writes these tables; defence in depth.)
+const PUSH_BLOCKED_ENTITY_TYPES = new Set(['customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue']);
+
+// Tables owned by provisioning / auth, not by the operations API.
+const NON_PUSHABLE_TABLES = new Set(['companies', 'branches', 'users', 'memberships', 'device_activation']);
+
+let _syncQueueService = null;
+function getSyncQueueService() {
+  if (!_syncQueueService) {
+    try { _syncQueueService = require('./sync-queue.service'); } catch { _syncQueueService = null; }
+  }
+  return _syncQueueService;
+}
+
+function resolveBusinessIdForRecord(data) {
+  if (data && (data.companyId || data.businessId)) return data.companyId || data.businessId;
+  const ids = getLocalBusinessIds();
+  return ids.length === 1 ? ids[0] : null;
+}
+
+function durableEnqueue(tableName, operation, data) {
+  try {
+    if (NON_PUSHABLE_TABLES.has(tableName)) return;
+    const entityType = TABLE_TO_ENTITY_TYPE[tableName];
+    if (!entityType || PUSH_BLOCKED_ENTITY_TYPES.has(entityType)) return;
+    if (!data || !data.id) return;
+    const queueService = getSyncQueueService();
+    if (!queueService || typeof queueService.enqueueOperation !== 'function') return;
+    const businessId = resolveBusinessIdForRecord(data);
+    if (!businessId) return; // ambiguous multi-business context — provisioning/pull still reconcile
+    const op = String(operation || '').toUpperCase();
+    if (!['CREATE', 'UPDATE', 'DELETE'].includes(op)) return;
+    queueService.enqueueOperation(
+      entityType,
+      data.id,
+      op,
+      op === 'DELETE' ? { id: data.id } : data,
+      { businessId, branchId: data.branchId || null }
+    );
+  } catch (e) {
+    console.log(`[Sync] Durable enqueue failed for ${tableName}: ${e.message}`);
+  }
+}
+
 const SYNC_TABLES = [
   { name: 'companies', priority: 1 },
   { name: 'branches', priority: 2 },
@@ -222,6 +283,7 @@ async function pushChangesToCloud() {
   _syncInProgress = true;
   setConnectionState('SYNCING');
   try {
+    requeueFailedOperations();
     const pending = loadOperationsForPush();
     if (!pending || pending.length === 0) {
       _syncInProgress = false;
@@ -229,29 +291,60 @@ async function pushChangesToCloud() {
       return { status: 'SUCCESS', uploaded: 0, failed: 0 };
     }
     const businessGroups = {};
-    for (const op of pending) {
-      const key = op.businessId || 'default';
+    for (const row of pending) {
+      const key = row.businessId || 'default';
       if (!businessGroups[key]) businessGroups[key] = [];
-      businessGroups[key].push(op);
+      businessGroups[key].push(row);
     }
     let totalUploaded = 0;
     let totalFailed = 0;
-    for (const [businessId, operations] of Object.entries(businessGroups)) {
+    for (const [businessId, rows] of Object.entries(businessGroups)) {
+      const operations = rows.map(buildPushOperation);
+      let response;
       try {
-        const result = await cloudApi.pushOperations(businessId, operations);
-        if (result.success !== false) {
-          for (const op of operations) {
-            markOperationCompleted(op);
-          }
-          totalUploaded += operations.length;
-        } else {
-          totalFailed += operations.length;
-        }
+        response = await cloudApi.pushOperations(businessId, operations);
       } catch (e) {
         console.log(`[Sync] Push failed for ${businessId}: ${e.message}`);
-        totalFailed += operations.length;
-        for (const op of operations) {
-          markOperationFailed(op, e.message);
+        totalFailed += rows.length;
+        for (const row of rows) {
+          markOperationFailed(row, e.message);
+        }
+        continue;
+      }
+      const perOpResults = response && response.data && Array.isArray(response.data.results)
+        ? new Map(response.data.results.map(r => [r.id, r]))
+        : null;
+      if (!perOpResults) {
+        // Older server without per-op results: keep the wholesale contract.
+        if (response && response.success !== false) {
+          for (const row of rows) markOperationCompleted(row);
+          totalUploaded += rows.length;
+        } else {
+          totalFailed += rows.length;
+          for (const row of rows) markOperationFailed(row, (response && response.message) || 'Cloud rejected batch');
+        }
+        continue;
+      }
+      // Per-op reconciliation against the server's results.
+      for (const row of rows) {
+        const r = perOpResults.get(row.id);
+        if (!r) {
+          markOperationFailed(row, 'No result returned for operation');
+          totalFailed++;
+        } else if (r.status === 'ACCEPTED' || r.status === 'DUPLICATE') {
+          markOperationCompleted(row);
+          totalUploaded++;
+        } else if (r.status === 'CONFLICT') {
+          // The server holds a newer row; the next pull reconciles the
+          // local copy. Completing the op stops an endless stale re-push.
+          console.log(`[Sync] Conflict for ${row.entityType} ${row.entityId} — server copy wins, reconciles on next pull`);
+          markOperationCompleted(row);
+          totalUploaded++;
+        } else {
+          // FAILED retries via the backoff requeue; REJECTED is parked in
+          // FAILED too, which keeps it out of the PENDING drain.
+          markOperationFailed(row, r.message || `Cloud returned ${r.status}`);
+          totalFailed++;
         }
       }
     }
@@ -389,6 +482,54 @@ function loadOperationsForPush() {
   return query(
     `SELECT * FROM sync_operations WHERE status = 'PENDING' ORDER BY createdAt ASC LIMIT 100`
   );
+}
+
+// Failed pushes are retried with exponential backoff (30s → 1m → 2m → 4m,
+// capped at 30m) up to MAX_PUSH_ATTEMPTS, after which the op stays parked
+// in FAILED for inspection via the queue status routes.
+const MAX_PUSH_ATTEMPTS = 5;
+
+function requeueFailedOperations() {
+  if (!query || !run) return 0;
+  try {
+    const failed = query(
+      `SELECT id, attemptCount, updatedAt FROM sync_operations WHERE status = 'FAILED' AND attemptCount < ? LIMIT 200`,
+      [MAX_PUSH_ATTEMPTS]
+    );
+    let requeued = 0;
+    const nowMs = Date.now();
+    for (const row of failed || []) {
+      const backoffMs = Math.min(Math.pow(2, row.attemptCount || 1) * 30000, 30 * 60 * 1000);
+      const lastMs = new Date(row.updatedAt).getTime();
+      if (Number.isFinite(lastMs) && nowMs - lastMs >= backoffMs) {
+        run(`UPDATE sync_operations SET status = 'PENDING', updatedAt = ? WHERE id = ?`, [now(), row.id]);
+        requeued++;
+      }
+    }
+    if (requeued > 0) saveDatabase();
+    return requeued;
+  } catch (e) {
+    console.log(`[Sync] Requeue of failed operations error: ${e.message}`);
+    return 0;
+  }
+}
+
+// sync_operations rows store the payload as JSON text and the operation in
+// whatever case the writer used; the cloud API expects a parsed payload
+// object and an uppercase operation.
+function buildPushOperation(row) {
+  let payload = row.payload;
+  if (typeof payload === 'string') {
+    try { payload = JSON.parse(payload); } catch { payload = {}; }
+  }
+  return {
+    id: row.id,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    operation: String(row.operation || '').toUpperCase(),
+    payload,
+    idempotencyKey: row.idempotencyKey || undefined
+  };
 }
 
 function markOperationCompleted(op) {
@@ -563,6 +704,7 @@ function markTableForPush(tableName) {
 function handleDataChange(tableName, operation, data) {
   try {
     queueOfflineOperation(tableName, operation, data);
+    durableEnqueue(tableName, operation, data);
     setConnectionState('PENDING');
     if (_connectionState === 'SYNC_READY') {
       (async () => {

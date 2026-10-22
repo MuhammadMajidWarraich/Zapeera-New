@@ -2533,3 +2533,30 @@ model FolioPayment {
   @@index([paidAt], name: "idx_folio_payment_date")
   @@map("folio_payments")
 }
+
+// ── Cloud sync push idempotency (Sync Hardening) ─────────────────────────
+// One row per processed client sync operation, keyed by (companyId, opKey)
+// where opKey is the client's idempotencyKey when sent, else its op id.
+// A retried push batch (client timeout → resend of the SAME batch) finds
+// the recorded result here and returns it as DUPLICATE instead of
+// re-applying the write. Only deterministic outcomes are recorded
+// (ACCEPTED / CONFLICT / REJECTED); transient FAILED ops stay unrecorded
+// so a later retry can still succeed. Rows are pruned opportunistically
+// by the push endpoint once they are older than 7 days, which bounds the
+// table to roughly a week of sync traffic per business.
+model SyncProcessedOperation {
+  id         String   @id @default(cuid())
+  companyId  String
+  opKey      String
+  opId       String?
+  entityType String
+  entityId   String?
+  operation  String
+  status     String
+  message    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([companyId, opKey], name: "uq_sync_processed_op_key")
+  @@index([createdAt], name: "idx_sync_processed_op_created")
+  @@map("sync_processed_operations")
+}
