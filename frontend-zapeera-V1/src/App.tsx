@@ -84,6 +84,7 @@ const InvitationsPage = React.lazy(() => import("./components/user-dashboard/Inv
 const ProfileSecurityPage = React.lazy(() => import("./components/user-dashboard/ProfileSecurityPage"));
 const BillingPage = React.lazy(() => import("./components/user-dashboard/BillingPage"));
 const AffiliatePage = React.lazy(() => import("./pages/Affiliate"));
+const BecomePartnerPage = React.lazy(() => import("./pages/BecomePartner"));
 const NotificationsListPage = React.lazy(() => import("./components/user-dashboard/NotificationsListPage"));
 const NotificationPreferencesPage = React.lazy(() => import("./components/user-dashboard/NotificationPreferencesPage"));
 const SupportPage = React.lazy(() => import("./components/user-dashboard/SupportPage"));
@@ -797,6 +798,25 @@ const AppRoutes = () => {
           <AuthStatus>
             <ZapeeraLayout>
               <AffiliatePage />
+            </ZapeeraLayout>
+          </AuthStatus>
+        } />
+
+        {/* Become a Partner — white-label reseller application.
+            Account-level like affiliate (no business guards): the
+            applicant may own no business yet. */}
+        <Route path="/zapeera/become-a-partner" element={
+          <AuthStatus>
+            <ZapeeraLayout>
+              <BecomePartnerPage />
+            </ZapeeraLayout>
+          </AuthStatus>
+        } />
+
+        <Route path="/become-a-partner" element={
+          <AuthStatus>
+            <ZapeeraLayout>
+              <BecomePartnerPage />
             </ZapeeraLayout>
           </AuthStatus>
         } />

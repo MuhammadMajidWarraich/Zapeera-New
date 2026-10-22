@@ -47,6 +47,7 @@ const shapeAdminPartner = (partner: any) => ({
   tagline: partner.tagline || null,
   status: partner.status,
   adminUserId: partner.adminUserId,
+  pendingAdminEmail: partner.pendingAdminEmail || null,
   admin: partner.admin
     ? { id: partner.admin.id, name: partner.admin.name, email: partner.admin.email }
     : null,

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import Joi from 'joi';
 import { getPrisma } from '../utils/db.util';
+import { claimPendingPartnerAdmins } from '../utils/partner.util';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 // ─── Partner portal (White-label Feature 3) ───────────────────────────
@@ -63,6 +64,18 @@ const shapePartner = (partner: any) => ({
 /** GET /api/partners/me — the partner this user administers + totals. */
 export const getMyPartner = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    // Pending-claim resolution: a partner approved from an application
+    // whose email had no account yet carries pendingAdminEmail; the
+    // first /me call by that (now registered) user claims it.
+    if (req.user?.id) {
+      const prismaForClaim = await getPrisma();
+      const me = await prismaForClaim.zapeeraUser.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, email: true }
+      });
+      if (me) await claimPendingPartnerAdmins(prismaForClaim, me);
+    }
+
     const partner = await requirePartnerAdmin(req, res);
     if (!partner) return;
 

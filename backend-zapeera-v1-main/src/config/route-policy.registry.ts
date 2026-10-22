@@ -120,6 +120,13 @@ const ENTRIES: RegistryEntry[] = [
   // /api/partners is the tenant-side partner portal (account-level,
   // like the /zapeera area): authenticated, no module gate — the
   // controller resolves the caller as a partner admin by adminUserId.
+  // The application endpoints sit under the same prefix (longest prefix
+  // wins): the marketing site's Become-a-Partner form is public by
+  // design (rate-limited + honeypot in the router/controller); the
+  // in-app apply + my-application reads need the account session.
+  { prefix: '/api/partners/apply', policy: { kind: 'public' } },
+  { prefix: '/api/partners/apply-authenticated', policy: { kind: 'auth' } },
+  { prefix: '/api/partners/my-application', policy: { kind: 'auth' } },
   { prefix: '/api/partners', policy: { kind: 'auth' } },
 
   // ── Inventory module ──────────────────────────────────────────────────────

@@ -27,6 +27,23 @@ interface ApiResponse<T> {
   code?: string;
 }
 
+export interface PartnerApplicationItem {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  website?: string | null;
+  message?: string | null;
+  source: 'WEB' | 'APP' | string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
+  rejectionReason?: string | null;
+  createdPartnerId?: string | null;
+  createdPartner?: { id: string; name: string; slug: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SupportTicketMessageItem {
   id: string;
   ticketId: string;
@@ -1310,6 +1327,24 @@ export class ApiService {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  // ── Partner applications (white-label reseller onboarding) ──────────
+  async applyForPartner(data: {
+    companyName: string;
+    contactName?: string;
+    phone: string;
+    website?: string;
+    message?: string;
+  }) {
+    return this.request<PartnerApplicationItem>('/partners/apply-authenticated', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getMyPartnerApplication() {
+    return this.request<{ application: PartnerApplicationItem | null }>('/partners/my-application');
   }
 
   async getProfile() {

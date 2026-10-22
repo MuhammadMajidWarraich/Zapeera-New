@@ -51,6 +51,7 @@ model ZapeeraUser {
   scheduledShifts   ScheduledShiftUser[]
   memberships       Membership[]
   partnerAdminOf    Partner[]            @relation("partnerAdmin")
+  partnerApplications PartnerApplication[] @relation("partnerApplicationApplicant")
   invitationsSent   BusinessInvitation[] @relation("inviter")
   billingProfiles   BillingProfile[]     @relation("userBillingProfiles")
   notifications     Notification[]
@@ -2673,22 +2674,57 @@ model SyncProcessedOperation {
 // Partners sell the standard platform plans in v1; partner-level plan
 // pricing and partner custom domains are phase 2.
 model Partner {
-  id           String   @id @default(cuid())
-  name         String
-  slug         String   @unique
-  logoUrl      String?
-  primaryColor String?
-  supportEmail String?
-  tagline      String?
-  adminUserId  String
-  status       String   @default("ACTIVE") // ACTIVE | SUSPENDED
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  logoUrl           String?
+  primaryColor      String?
+  supportEmail      String?
+  tagline           String?
+  adminUserId       String?
+  pendingAdminEmail String?
+  status            String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  admin      ZapeeraUser @relation("partnerAdmin", fields: [adminUserId], references: [id])
-  businesses Business[]  @relation("businessPartner")
+  admin        ZapeeraUser?         @relation("partnerAdmin", fields: [adminUserId], references: [id])
+  businesses   Business[]           @relation("businessPartner")
+  applications PartnerApplication[] @relation("partnerApplicationCreatedPartner")
 
   @@index([adminUserId], name: "idx_partner_admin")
   @@index([status], name: "idx_partner_status")
   @@map("partners")
+}
+
+// ─── White-label partner applications ─────────────────────────────────
+// A prospective reseller applies (public marketing form = source WEB, or
+// in-app while signed in = source APP). Backoffice reviews the queue:
+// APPROVE creates the Partner (see approvePartnerApplication — when no
+// Zapeera user owns the application email yet, the partner is created
+// with pendingAdminEmail set and the admin claim resolves on that user's
+// signup / first /partners/me call). REJECTED applications may re-apply.
+model PartnerApplication {
+  id               String    @id @default(cuid())
+  companyName      String
+  contactName      String
+  email            String
+  phone            String
+  website          String?
+  message          String?
+  source           String    @default("WEB") // WEB | APP
+  applicantUserId  String?
+  status           String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdPartnerId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  applicantUser  ZapeeraUser? @relation("partnerApplicationApplicant", fields: [applicantUserId], references: [id])
+  createdPartner Partner?     @relation("partnerApplicationCreatedPartner", fields: [createdPartnerId], references: [id])
+
+  @@index([email, status], name: "idx_partner_application_email_status")
+  @@index([status], name: "idx_partner_application_status")
+  @@map("partner_applications")
 }

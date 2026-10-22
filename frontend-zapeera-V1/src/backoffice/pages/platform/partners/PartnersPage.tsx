@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCw, Ban, CheckCircle2, ArrowLeftRight, X } from 'lucide-react';
+import { Plus, RefreshCw, Ban, CheckCircle2, ArrowLeftRight, X, Inbox, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { backofficeApi } from '../../../services/api';
-import { BackofficePartner, Business } from '../../../types';
+import { BackofficePartner, BackofficePartnerApplication, Business } from '../../../types';
 
 // ─── White-label partners (Feature 3) ─────────────────────────────────
 // Platform-admin management of reseller partners: create + designate
@@ -20,6 +20,72 @@ export function PartnersPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [reassign, setReassign] = useState<{ businessId: string; partnerId: string } | null>(null);
   const [reassigning, setReassigning] = useState(false);
+
+  // Partner applications queue (2026-10-22): public marketing form +
+  // in-app applications land here as PENDING; approve creates the
+  // partner, reject records a reason the applicant sees in-app.
+  const [applications, setApplications] = useState<BackofficePartnerApplication[]>([]);
+  const [appsLoading, setAppsLoading] = useState(true);
+  const [appFilter, setAppFilter] = useState<string>('PENDING');
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<BackofficePartnerApplication | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const fetchApplications = useCallback(async (filter: string) => {
+    setAppsLoading(true);
+    try {
+      const res = await backofficeApi.getPartnerApplications(filter || undefined);
+      setApplications(res.data?.applications || []);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to load partner applications');
+    } finally {
+      setAppsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchApplications(appFilter);
+  }, [fetchApplications, appFilter]);
+
+  const approveApplication = async (a: BackofficePartnerApplication) => {
+    setReviewingId(a.id);
+    try {
+      const res = await backofficeApi.approvePartnerApplication(a.id);
+      if (res.data?.adminClaimPending) {
+        toast.success(
+          `Partner "${res.data.partner.name}" created — ${a.email} has no Zapeera account yet; they'll be claimed as admin when they sign up.`
+        );
+      } else {
+        toast.success(`Partner "${res.data?.partner?.name || a.companyName}" created — portal is live for ${a.email}`);
+      }
+      fetchApplications(appFilter);
+      fetchPartners();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to approve application');
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const rejectApplication = async () => {
+    if (!rejectTarget) return;
+    if (rejectReason.trim().length < 3) {
+      toast.error('Give a short reason — the applicant sees it');
+      return;
+    }
+    setReviewingId(rejectTarget.id);
+    try {
+      await backofficeApi.rejectPartnerApplication(rejectTarget.id, rejectReason.trim());
+      toast.success('Application rejected');
+      setRejectTarget(null);
+      setRejectReason('');
+      fetchApplications(appFilter);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to reject application');
+    } finally {
+      setReviewingId(null);
+    }
+  };
 
   const fetchPartners = useCallback(async () => {
     setLoading(true);
@@ -187,6 +253,11 @@ export function PartnersPage() {
                   <td className="px-4 py-3">
                     <div className="text-gray-900">{p.admin?.name || '—'}</div>
                     <div className="text-xs text-gray-500">{p.admin?.email || ''}</div>
+                    {!p.admin && p.pendingAdminEmail && (
+                      <div className="text-xs text-amber-600">
+                        {p.pendingAdminEmail} — awaiting signup (claimed automatically)
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">{p.businessCount ?? 0}</td>
                   <td className="px-4 py-3">
@@ -226,6 +297,192 @@ export function PartnersPage() {
         </table>
         </div>
       </div>
+
+      {/* Partner applications queue */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <Inbox className="h-5 w-5 text-blue-600" /> Partner Applications
+              {appFilter === 'PENDING' && applications.length > 0 && (
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                  {applications.length} pending
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Applications from the marketing site's Become-a-Partner form and from inside the app.
+              Approving creates the partner; the applicant's account becomes its admin.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {['PENDING', '', 'APPROVED', 'REJECTED'].map((f) => (
+              <button
+                key={f || 'ALL'}
+                onClick={() => setAppFilter(f)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  appFilter === f
+                    ? 'bg-blue-600 text-white'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {f || 'All'}
+              </button>
+            ))}
+            <button
+              onClick={() => fetchApplications(appFilter)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3">Company</th>
+                  <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3">Source</th>
+                  <th className="px-4 py-3">Applied</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appsLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-gray-400">Loading…</td>
+                  </tr>
+                ) : applications.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                      No applications{appFilter ? ` with status ${appFilter}` : ''} yet. Applications
+                      from the marketing site and the app will appear here.
+                    </td>
+                  </tr>
+                ) : (
+                  applications.map((a) => (
+                    <tr key={a.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{a.companyName}</div>
+                        {a.website && <div className="text-xs text-gray-500">{a.website}</div>}
+                        {a.message && (
+                          <div className="mt-0.5 max-w-[280px] truncate text-xs text-gray-400" title={a.message}>
+                            “{a.message}”
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-gray-900">{a.contactName}</div>
+                        <div className="text-xs text-gray-500">{a.email}</div>
+                        <div className="text-xs text-gray-500">{a.phone}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            a.source === 'APP' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'
+                          }`}
+                        >
+                          {a.source === 'APP' ? 'In-app' : 'Website'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{new Date(a.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            a.status === 'APPROVED'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : a.status === 'REJECTED'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {a.status}
+                        </span>
+                        {a.status === 'APPROVED' && a.createdPartner && (
+                          <div className="mt-0.5 font-mono text-xs text-gray-500">/join/{a.createdPartner.slug}</div>
+                        )}
+                        {a.status === 'REJECTED' && a.rejectionReason && (
+                          <div className="mt-0.5 max-w-[200px] truncate text-xs text-gray-400" title={a.rejectionReason}>
+                            {a.rejectionReason}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {a.status === 'PENDING' && (
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => approveApplication(a)}
+                              disabled={reviewingId === a.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              <Check className="h-3.5 w-3.5" /> Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRejectTarget(a);
+                                setRejectReason('');
+                              }}
+                              disabled={reviewingId === a.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                            >
+                              <X className="h-3.5 w-3.5" /> Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Reject application modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Reject application</h2>
+              <button onClick={() => setRejectTarget(null)} className="rounded-lg p-1 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-3 text-sm text-gray-600">
+              <b>{rejectTarget.companyName}</b> ({rejectTarget.email}) will see this reason in the app
+              and can apply again.
+            </p>
+            <label className="block">
+              <span className="text-xs font-medium text-gray-500">Reason *</span>
+              <textarea
+                className={inputCls}
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. We are not onboarding partners in your region yet"
+                maxLength={500}
+              />
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setRejectTarget(null)} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={rejectApplication}
+                disabled={reviewingId === rejectTarget.id}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {reviewingId === rejectTarget.id ? 'Rejecting…' : 'Reject application'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create partner modal */}
       {showCreate && (

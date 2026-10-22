@@ -26,6 +26,7 @@ import {
   Crown,
   ArrowRight,
   HandCoins,
+  Store,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
@@ -101,6 +102,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       setActiveTab("billing");
     } else if (path.startsWith("/zapeera/affiliate") || path.startsWith("/affiliate")) {
       setActiveTab("affiliate");
+    } else if (path.startsWith("/zapeera/become-a-partner") || path.startsWith("/become-a-partner")) {
+      setActiveTab("become-a-partner");
     } else if (path.startsWith("/zapeera/notifications")) {
       setActiveTab("notifications");
     } else if (path.startsWith("/zapeera/notification-settings")) {
@@ -306,6 +309,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
           {renderNavItem({ key: "settings", label: "Profile & Security", icon: ShieldCheck, to: "/settings" })}
           {renderNavItem({ key: "billing", label: "Billing & Payments", icon: CreditCard, to: "/zapeera/billing" })}
           {renderNavItem({ key: "affiliate", label: "Affiliate Program", icon: HandCoins, to: "/zapeera/affiliate" })}
+          {!viewer.isPartnerAdmin && renderNavItem({ key: "become-a-partner", label: "Become a Partner", icon: Store, to: "/zapeera/become-a-partner" })}
           {renderNavItem({ key: "notifications", label: "Notifications", icon: Bell, to: "/zapeera/notifications", badge: unreadCount > 0 ? unreadCount : undefined })}
           {renderNavItem({ key: "notification-settings", label: "Notification Settings", icon: Settings, to: "/zapeera/notification-settings" })}
           {renderNavItem({ key: "downloads", label: "Downloads", icon: Download, to: "/downloads" })}
