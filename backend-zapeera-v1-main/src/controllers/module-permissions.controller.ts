@@ -4,6 +4,11 @@ import { getPrisma } from '../utils/db.util';
 import { loadPricingPlans } from '../utils/subscription-entitlements.util';
 import { invalidateModuleCache, moduleAccessCache, clearModuleCache } from '../utils/modules-v2.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
+import {
+  planEntitlementsToPermissionShape,
+  rolePermissionsToPermissionShape,
+  PermissionShape,
+} from '../utils/policy-read.util';
 import crypto from 'crypto';
 
 const ALL_ROLES = ['OWNER', 'MANAGER', 'CASHIER'];
@@ -148,25 +153,48 @@ async function upsertSubModulePermission(
 export const getModulePermissionMatrix = async (req: AdminAuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    await ensureModulePermissionTables(prisma);
 
-    const roles = await prisma.$queryRaw<any[]>`SELECT "roleName", "moduleName", "enabled" FROM role_module_permissions ORDER BY "roleName", "moduleName"`;
-    const plans = await prisma.$queryRaw<any[]>`SELECT "planId", "moduleName", "enabled" FROM plan_module_permissions ORDER BY "planId", "moduleName"`;
-    const allModRows = await prisma.$queryRaw<any[]>`SELECT name FROM modules`;
+    // Canonical sources only: plan_entitlements for plans and
+    // role_permissions_v2 (platform roles) for roles. The legacy matrix
+    // tables are write-mirror only — no request path reads them to build
+    // UI state anymore (they survive as deny-only resolver gates).
+    const [entitlementRows, platformRoles, allModRows] = await Promise.all([
+      prisma.planEntitlement.findMany({
+        where: { pageKey: null },
+        select: { planId: true, moduleKey: true, entitlementLevel: true },
+      }),
+      prisma.role.findMany({
+        where: { businessId: null },
+        select: { id: true, name: true },
+      }),
+      prisma.$queryRaw<any[]>`SELECT name FROM modules`,
+    ]);
     const allModules = allModRows.map((row) => String(row.name).toLowerCase());
 
+    const roleNameById = new Map(platformRoles.map((r: any) => [String(r.id), String(r.name)]));
+    const rolePermRows = platformRoles.length
+      ? await prisma.rolePermissionV2.findMany({
+          where: { roleId: { in: platformRoles.map((r: any) => r.id) } },
+          include: { modulePage: { include: { module: true } } },
+        })
+      : [];
+
     const roleMap = new Map<string, Set<string>>();
-    for (const row of roles) {
-      const roleName = String(row.roleName);
+    for (const row of rolePermRows) {
+      const roleName = roleNameById.get(String(row.roleId));
+      if (!roleName) continue;
       if (!roleMap.has(roleName)) roleMap.set(roleName, new Set());
-      if (row.enabled) roleMap.get(roleName)!.add(String(row.moduleName).toLowerCase());
+      const moduleKey = row.modulePage?.module?.key;
+      if (row.allowed && moduleKey) roleMap.get(roleName)!.add(String(moduleKey).toLowerCase());
     }
 
     const planMap = new Map<string, Set<string>>();
-    for (const row of plans) {
+    for (const row of entitlementRows) {
       const planId = String(row.planId);
       if (!planMap.has(planId)) planMap.set(planId, new Set());
-      if (row.enabled) planMap.get(planId)!.add(String(row.moduleName).toLowerCase());
+      if (String(row.entitlementLevel).toUpperCase() !== 'NONE') {
+        planMap.get(planId)!.add(String(row.moduleKey).toLowerCase());
+      }
     }
 
     return res.json({
@@ -214,51 +242,51 @@ export async function getSubModuleStateMap(
 /**
  * GET /backoffice/module-permissions/plans
  * Returns all pricing plans with their enabled modules.
+ *
+ * CANONICAL READ: the checkbox state is shaped from plan_entitlements —
+ * the same store publishPlanPolicy writes and the resolver enforces.
+ * The legacy plan_module_permissions / plan_sub_module_permissions tables
+ * are write-mirror only (publish keeps them in sync for the resolver's
+ * deny-only gates); reading them here was a split-brain: the editor
+ * showed stale legacy state and a faithful "unchanged" republish then
+ * rewrote the canonical policy to match it (single-trial 18 -> 3).
  */
 export const getPlanModulePermissions = async (req: AdminAuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    await ensureModulePermissionTables(prisma);
     const plans = await loadPricingPlans(prisma);
 
-    const rows = await prisma.$queryRaw<any[]>`SELECT "planId", "moduleName", "enabled" FROM plan_module_permissions ORDER BY "planId", "moduleName"`;
+    const entitlementRows = await prisma.planEntitlement.findMany({
+      select: { planId: true, moduleKey: true, pageKey: true, entitlementLevel: true },
+    });
 
-    // Build map: planId -> Set<moduleName>
-    const dbMap = new Map<string, Set<string>>();
-    for (const row of rows) {
+    const rowsByPlan = new Map<string, typeof entitlementRows>();
+    for (const row of entitlementRows) {
       const pid = String(row.planId);
-      if (!dbMap.has(pid)) dbMap.set(pid, new Set());
-      if (row.enabled) dbMap.get(pid)!.add(String(row.moduleName).toLowerCase());
+      if (!rowsByPlan.has(pid)) rowsByPlan.set(pid, []);
+      rowsByPlan.get(pid)!.push(row);
     }
 
-    // Sub-module permissions per plan
-    const subMap = await getSubModuleStateMap(prisma, 'plan_sub_module_permissions', 'planId');
-
     const result = plans.map((plan) => {
-      const dbModules = dbMap.get(plan.id);
-      const modules = dbModules
-        ? Array.from(dbModules)
-        : (plan.modules || []).map((m) => m.toLowerCase());
-
-      // Default: all sub-modules enabled if no explicit row exists; only emit explicit overrides
-      const subModulesMap = subMap.get(plan.id) || new Map();
-      const subModules: string[] = [];
-      for (const [composite, enabled] of subModulesMap.entries()) {
-        if (enabled) subModules.push(composite); // "moduleName::subModuleKey"
+      const rows = rowsByPlan.get(plan.id);
+      if (!rows || rows.length === 0) {
+        // No canonical policy was ever published for this plan — fall
+        // back to the plan's declared module list, the same fallback the
+        // legacy read used when a plan had no permission rows at all.
+        return {
+          planId: plan.id,
+          planName: plan.name,
+          price: plan.price,
+          modules: (plan.modules || []).map((m) => m.toLowerCase()),
+          subModules: [] as string[],
+          disabledSubModules: [] as string[],
+        };
       }
-      // Disabled subs (explicit denies)
-      const disabledSubModules: string[] = [];
-      for (const [composite, enabled] of subModulesMap.entries()) {
-        if (!enabled) disabledSubModules.push(composite);
-      }
-
       return {
         planId: plan.id,
         planName: plan.name,
         price: plan.price,
-        modules,
-        subModules,
-        disabledSubModules,
+        ...planEntitlementsToPermissionShape(rows),
       };
     });
 
@@ -341,39 +369,61 @@ export const updatePlanModulePermissions = async (req: AdminAuthRequest, res: Re
 export const getRoleModulePermissions = async (req: AdminAuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    await ensureModulePermissionTables(prisma);
 
-    const rows = await prisma.$queryRaw<any[]>`SELECT "roleName", "moduleName", "enabled" FROM role_module_permissions ORDER BY "roleName", "moduleName"`;
-
+    // CANONICAL READ: checkbox state is shaped from role_permissions_v2
+    // of the platform roles (businessId = null) — the same store
+    // publishRolePolicy writes. The legacy role_module_permissions /
+    // role_sub_module_permissions tables are never read here anymore:
+    // they held a stale, divergent copy of role policy (the same
+    // read/write split-brain the Plans editor had), and publishRolePolicy
+    // — unlike the plan/business-type publishes — writes no mirror back,
+    // so any divergence was permanent.
     const allModRows = await prisma.$queryRawUnsafe<any[]>('SELECT name FROM modules');
     const allMods = allModRows.map((r) => String(r.name).toLowerCase());
 
-    // Build map: roleName -> Set<moduleName>
-    const dbMap = new Map<string, Set<string>>();
-    for (const row of rows) {
-      const rn = String(row.roleName);
-      if (!dbMap.has(rn)) dbMap.set(rn, new Set());
-      if (row.enabled) dbMap.get(rn)!.add(String(row.moduleName).toLowerCase());
+    const catalog = await loadPolicyCatalog(prisma);
+    const catalogPagesByModule = new Map<string, string[]>();
+    for (const mod of catalog.modules.values()) {
+      catalogPagesByModule.set(mod.key, Array.from(mod.pages.keys()));
     }
 
-    // Sub-module permissions per role
-    const subMap = await getSubModuleStateMap(prisma, 'role_sub_module_permissions', 'roleName');
-
-    const result = ALL_ROLES.map((role) => {
-      const subModulesMap = subMap.get(role) || new Map();
-      const subModules: string[] = [];
-      const disabledSubModules: string[] = [];
-      for (const [composite, enabled] of subModulesMap.entries()) {
-        (enabled ? subModules : disabledSubModules).push(composite);
-      }
-      return {
-        roleName: role,
-        modules: Array.from(dbMap.get(role) || new Set()),
-        allModules: allMods,
-        subModules,
-        disabledSubModules,
-      };
+    const platformRoles = await prisma.role.findMany({
+      where: { businessId: null },
+      select: { id: true, name: true },
     });
+    const roleIdsByName = new Map<string, string[]>();
+    for (const r of platformRoles) {
+      const name = String(r.name).toUpperCase();
+      if (!roleIdsByName.has(name)) roleIdsByName.set(name, []);
+      roleIdsByName.get(name)!.push(String(r.id));
+    }
+
+    const result = [];
+    for (const role of ALL_ROLES) {
+      const roleIds = roleIdsByName.get(role) || [];
+      let shape: PermissionShape = { modules: [], subModules: [], disabledSubModules: [] };
+      if (roleIds.length > 0) {
+        const rows = await prisma.rolePermissionV2.findMany({
+          where: { roleId: { in: roleIds } },
+          include: { modulePage: { include: { module: true } } },
+        });
+        shape = rolePermissionsToPermissionShape(
+          rows.map((r: any) => ({
+            moduleKey: String(r.modulePage?.module?.key ?? ''),
+            pageKey: String(r.modulePage?.key ?? ''),
+            allowed: !!r.allowed,
+          })),
+          catalogPagesByModule
+        );
+      }
+      result.push({
+        roleName: role,
+        modules: shape.modules,
+        allModules: allMods,
+        subModules: shape.subModules,
+        disabledSubModules: shape.disabledSubModules,
+      });
+    }
 
     return res.json({ success: true, data: result });
   } catch (error: any) {
@@ -805,10 +855,10 @@ export const publishPlanPolicy = async (req: AdminAuthRequest, res: Response) =>
         await tx.planEntitlement.createMany({ data: entitlements });
       }
       // Mirror into the legacy matrix tables: the backoffice Plans GET
-      // builds its checkbox state from plan_module_permissions /
-      // plan_sub_module_permissions (and the resolver keeps deny-only
-      // gates over them), so the published choices must land there too
-      // or the editor reads back stale state and the two gates disagree.
+      // reads canonical plan_entitlements, but the resolver keeps
+      // deny-only gates over these legacy tables (and the legacy
+      // subscription module sync reads them), so the published choices
+      // must land there too or the gates disagree with the policy.
       await tx.$executeRaw`DELETE FROM plan_module_permissions WHERE "planId" = ${planId}`;
       for (const e of entitlements.filter((x) => !x.pageKey)) {
         await tx.$executeRaw`
