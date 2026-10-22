@@ -2506,6 +2506,12 @@ model Reservation {
   guestName    String
   guestPhone   String?
   guestCnic    String?
+  // Guest documents (uploaded at booking): the CNIC scan and up to
+  // 5 person photos, stored as reservation-documents/<file> refs.
+  // Files live on disk and are served ONLY through the
+  // authenticated, business-scoped document route — never static.
+  cnicDocumentUrl String?
+  guestPhotoUrls  Json?
   roomId       String
   checkInDate  DateTime
   checkOutDate DateTime

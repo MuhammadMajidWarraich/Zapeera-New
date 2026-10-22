@@ -105,4 +105,15 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "zapeera_users" ADD COLUMN IF NOT EXISTS "signupRefCode" TEXT'
   );
+
+  // Reservation guest documents: the CNIC scan ref and the guest
+  // photo refs (JSON array, max 5) captured on the booking. The
+  // files themselves live under uploads/reservation-documents and
+  // are served only through the authenticated document route.
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "reservations" ADD COLUMN IF NOT EXISTS "cnicDocumentUrl" TEXT'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "reservations" ADD COLUMN IF NOT EXISTS "guestPhotoUrls" JSONB'
+  );
 }

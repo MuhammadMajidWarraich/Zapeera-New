@@ -13,6 +13,11 @@ import {
   rangesOverlap,
   DAY_MS
 } from '../utils/hotel.util';
+import {
+  MAX_GUEST_PHOTOS,
+  isCnicDocumentRef,
+  isGuestPhotoRef
+} from '../utils/reservation-documents.util';
 
 // ─── Reservations + check-in (Wave C5 — Hotel pack) ──────────────────
 // A reservation books ONE room for a normalized date range. Creation
@@ -24,7 +29,7 @@ import {
 // first night's ROOM_NIGHT charge, flips the room to OCCUPIED and
 // links reservation ↔ folio from both sides, all in one transaction.
 
-const resolveReservationCompanyId = (req: AuthRequest): string =>
+export const resolveReservationCompanyId = (req: AuthRequest): string =>
   req.business_id ||
   (req.headers['x-company-id'] as string) ||
   req.membership?.business_id ||
@@ -54,6 +59,16 @@ const reservationFields = {
   guestName: Joi.string().trim().min(1).max(160).required(),
   guestPhone: Joi.string().trim().max(40).allow('', null).optional(),
   guestCnic: Joi.string().trim().max(20).allow('', null).optional(),
+  // Document refs produced by POST /reservations/documents/upload.
+  // Shape + photo-count are enforced explicitly in
+  // validateReservationDocuments (clear error codes), so the Joi
+  // layer only bounds sizes here.
+  cnicDocumentUrl: Joi.string().trim().max(300).allow('', null).optional(),
+  guestPhotoUrls: Joi.array()
+    .items(Joi.string().trim().max(300))
+    .max(20)
+    .allow(null)
+    .optional(),
   roomId: Joi.string().required(),
   branchId: Joi.string().allow(null, '').optional(),
   checkInDate: Joi.date().required(),
@@ -82,6 +97,60 @@ const nullIfEmpty = (value: unknown): string | null => {
   if (value === undefined || value === null) return null;
   const text = String(value).trim();
   return text === '' ? null : text;
+};
+
+/**
+ * Validate + normalize the document refs on a create/update payload.
+ * Only refs in the exact shape the upload endpoint produces are
+ * accepted (an arbitrary URL or another tenant's path can never be
+ * attached), photos are images only, and the MAX_GUEST_PHOTOS cap is
+ * enforced here with its own code. Returns null after sending the
+ * error response.
+ */
+const validateReservationDocuments = (
+  res: Response,
+  value: any
+): { cnicDocumentUrl: string | null; guestPhotoUrls: string[] } | null => {
+  const cnicDocumentUrl = nullIfEmpty(value.cnicDocumentUrl);
+  if (cnicDocumentUrl !== null && !isCnicDocumentRef(cnicDocumentUrl)) {
+    res.status(400).json({
+      success: false,
+      message: 'cnicDocumentUrl is not a document uploaded through the reservation document upload',
+      code: 'INVALID_DOCUMENT_REF'
+    });
+    return null;
+  }
+
+  let guestPhotoUrls: string[] = [];
+  if (value.guestPhotoUrls !== undefined && value.guestPhotoUrls !== null) {
+    if (!Array.isArray(value.guestPhotoUrls)) {
+      res.status(400).json({
+        success: false,
+        message: 'guestPhotoUrls must be an array of uploaded photo references',
+        code: 'INVALID_DOCUMENT_REF'
+      });
+      return null;
+    }
+    guestPhotoUrls = value.guestPhotoUrls.map((ref: unknown) => String(ref));
+    if (guestPhotoUrls.length > MAX_GUEST_PHOTOS) {
+      res.status(400).json({
+        success: false,
+        message: `A reservation can carry at most ${MAX_GUEST_PHOTOS} guest photos`,
+        code: 'TOO_MANY_GUEST_PHOTOS'
+      });
+      return null;
+    }
+    if (guestPhotoUrls.some((ref) => !isGuestPhotoRef(ref))) {
+      res.status(400).json({
+        success: false,
+        message: 'Every guest photo must be an image uploaded through the reservation document upload',
+        code: 'INVALID_DOCUMENT_REF'
+      });
+      return null;
+    }
+  }
+
+  return { cnicDocumentUrl, guestPhotoUrls };
 };
 
 /** Blocking reservations of one room that overlap [checkIn, checkOut). */
@@ -147,6 +216,9 @@ export const createReservation = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const documents = validateReservationDocuments(res, value);
+    if (!documents) return;
+
     const room = await prisma.room.findFirst({
       where: { id: value.roomId, companyId },
       select: { id: true, branchId: true, isActive: true, status: true }
@@ -198,6 +270,8 @@ export const createReservation = async (req: AuthRequest, res: Response) => {
         guestName: value.guestName,
         guestPhone: nullIfEmpty(value.guestPhone),
         guestCnic: nullIfEmpty(value.guestCnic),
+        cnicDocumentUrl: documents.cnicDocumentUrl,
+        guestPhotoUrls: documents.guestPhotoUrls,
         roomId: room.id,
         checkInDate,
         checkOutDate,
@@ -443,6 +517,12 @@ export const updateReservation = async (req: AuthRequest, res: Response) => {
     if (value.guestName !== undefined) data.guestName = value.guestName;
     if (value.guestPhone !== undefined) data.guestPhone = nullIfEmpty(value.guestPhone);
     if (value.guestCnic !== undefined) data.guestCnic = nullIfEmpty(value.guestCnic);
+    if (value.cnicDocumentUrl !== undefined || value.guestPhotoUrls !== undefined) {
+      const documents = validateReservationDocuments(res, value);
+      if (!documents) return;
+      if (value.cnicDocumentUrl !== undefined) data.cnicDocumentUrl = documents.cnicDocumentUrl;
+      if (value.guestPhotoUrls !== undefined) data.guestPhotoUrls = documents.guestPhotoUrls;
+    }
     if (value.roomId !== undefined) data.roomId = value.roomId;
     if (value.branchId !== undefined) data.branchId = value.branchId || null;
     if (value.checkInDate !== undefined) data.checkInDate = checkInDate;

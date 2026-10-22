@@ -21,8 +21,10 @@ import { Loader2, MoonStar, LogOut, Plus, Wallet } from "lucide-react";
 import {
   apiService,
   type FolioRecord,
+  type ReservationRecord,
 } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
+import { ReservationDocumentsViewer } from "@/components/hotel/ReservationDocuments";
 
 // Folio detail (Wave C5 — Hotel pack), shared by the Front Desk
 // board, the Folios register and the Reservations page. The folio is
@@ -88,6 +90,26 @@ const FolioDialog: React.FC<FolioDialogProps> = ({ folioId, open, onOpenChange, 
       setLoading(false);
     }
   }, [folioId]);
+
+  // The stay's reservation carries the guest documents (CNIC scan +
+  // person photos) captured at booking — the desk needs them at
+  // check-in, so they surface here too.
+  const [reservation, setReservation] = useState<ReservationRecord | null>(null);
+
+  useEffect(() => {
+    setReservation(null);
+    if (!open || !folio?.reservationId) return;
+    let cancelled = false;
+    apiService
+      .getReservationById(folio.reservationId)
+      .then((response) => {
+        if (!cancelled && response.success && response.data) setReservation(response.data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, folio?.reservationId]);
 
   useEffect(() => {
     if (open && folioId) {
@@ -244,6 +266,17 @@ const FolioDialog: React.FC<FolioDialogProps> = ({ folioId, open, onOpenChange, 
                 covers the folio's own charges ({money(folio.summary?.nativeTotal)}).
               </p>
             )}
+            {reservation &&
+              (reservation.cnicDocumentUrl ||
+                (reservation.guestPhotoUrls && reservation.guestPhotoUrls.length > 0)) && (
+                <div className="rounded-lg border p-3">
+                  <ReservationDocumentsViewer
+                    reservationId={reservation.id}
+                    cnicRef={reservation.cnicDocumentUrl}
+                    photos={reservation.guestPhotoUrls}
+                  />
+                </div>
+              )}
             {folio.status === "CLOSED" && (
               <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
                 <div>

@@ -458,6 +458,8 @@ export interface ReservationRecord {
   guestName: string;
   guestPhone?: string | null;
   guestCnic?: string | null;
+  cnicDocumentUrl?: string | null;
+  guestPhotoUrls?: string[] | null;
   roomId: string;
   checkInDate: string;
   checkOutDate: string;
@@ -490,6 +492,8 @@ export interface ReservationPayload {
   guestName: string;
   guestPhone?: string | null;
   guestCnic?: string | null;
+  cnicDocumentUrl?: string | null;
+  guestPhotoUrls?: string[] | null;
   roomId: string;
   branchId?: string | null;
   checkInDate: string;
@@ -2687,6 +2691,83 @@ export class ApiService {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  async getReservationById(reservationId: string) {
+    return this.request<ReservationRecord>(`/reservations/${reservationId}`);
+  }
+
+  /**
+   * Upload one reservation guest document (the CNIC scan or a person
+   * photo) and get back the ref to attach on create/update. Raw fetch
+   * like submitPaymentProof — FormData can't ride this.request() (it
+   * would force a JSON Content-Type) — but it still needs the Bearer
+   * token, the business/branch context headers and the CSRF header.
+   */
+  async uploadReservationDocument(file: File, kind: 'cnic' | 'photo') {
+    const headers = new Headers();
+    const token = this._accessToken
+      || (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    try {
+      const ctx = this.contextGetter ? this.contextGetter() : null;
+      if (ctx?.companyId) headers.set('X-Business-ID', String(ctx.companyId));
+      if (ctx?.branchId) headers.set('X-Branch-ID', String(ctx.branchId));
+    } catch { /* ignore */ }
+    const csrfToken = this.getCSRFToken();
+    if (csrfToken) {
+      headers.set('X-CSRF-Token', csrfToken);
+    }
+    const formData = new FormData();
+    formData.append('kind', kind);
+    formData.append('file', file);
+    const response = await fetch(`${this.baseURL}/reservations/documents/upload`, {
+      method: 'POST',
+      body: formData,
+      headers,
+      credentials: 'include',
+    });
+    return response.json() as Promise<ApiResponse<{ ref: string; kind: string; mime: string }>>;
+  }
+
+  /**
+   * Fetch an attached reservation document's bytes (authenticated,
+   * business-scoped on the server) for blob-URL rendering — the same
+   * treatment the backoffice gives payment-proof screenshots.
+   */
+  async fetchReservationDocumentBlob(reservationId: string, ref: string): Promise<Blob> {
+    const filename = ref.split('/').pop();
+    if (!filename) throw new Error('Invalid document reference');
+    const headers = new Headers();
+    const token = this._accessToken
+      || (() => {
+        try { return localStorage.getItem('localAccessToken') || localStorage.getItem('token'); } catch { return null; }
+      })();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    try {
+      const ctx = this.contextGetter ? this.contextGetter() : null;
+      if (ctx?.companyId) headers.set('X-Business-ID', String(ctx.companyId));
+    } catch { /* ignore */ }
+
+    const response = await fetch(
+      `${this.baseURL}/reservations/${reservationId}/documents/${encodeURIComponent(filename)}`,
+      { method: 'GET', headers, credentials: 'include' }
+    );
+    if (!response.ok) {
+      let message = `Failed to load document (${response.status})`;
+      try {
+        const data = await response.json();
+        if (data?.message) message = data.message;
+      } catch { /* non-JSON error body */ }
+      throw new Error(message);
+    }
+    return response.blob();
   }
 
   // Cancel / no-show only — check-in and completion are flows.

@@ -8,6 +8,11 @@ import {
   updateReservationStatus,
   checkInReservation
 } from '../controllers/reservation.controller';
+import {
+  handleReservationDocumentUpload,
+  uploadReservationDocument,
+  serveReservationDocument
+} from '../controllers/reservation-document.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';
 
@@ -30,9 +35,14 @@ router.use(resolveBranch({ required: false }));
 router.use(checkModule('reservations'));
 
 router.post('/', createReservation);
+// Guest documents (CNIC scan + person photos): upload first, then the
+// returned ref is attached by create/update. Serving is scoped to the
+// owning reservation + business — there is no static path to a file.
+router.post('/documents/upload', handleReservationDocumentUpload, uploadReservationDocument);
 router.get('/availability', getAvailability);
 router.get('/', getReservations);
 router.get('/:id', getReservationById);
+router.get('/:id/documents/:filename', serveReservationDocument);
 router.put('/:id', updateReservation);
 router.patch('/:id/status', updateReservationStatus);
 router.post('/:id/check-in', checkInReservation);
