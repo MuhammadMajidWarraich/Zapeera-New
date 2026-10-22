@@ -163,12 +163,31 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           if (response.success && response.data?.product) {
             onBarcodeFound?.(response.data.product, response.data.batch);
             onSearchChange('');
-            toast({ title: 'Product found', description: `${response.data.product.name} added to cart` });
+            // Only claim the add when a parent actually consumes
+            // the result — parents without a handler keep the old
+            // silent behaviour rather than a false "added" toast.
+            if (onBarcodeFound) {
+              toast({ title: 'Product found', description: `${response.data.product.name} added to cart` });
+            }
+          } else if (onUnknownBarcode) {
+            onUnknownBarcode(barcode);
           } else {
-            onUnknownBarcode?.(barcode);
+            toast({
+              title: 'Barcode not found',
+              description: `No product matches barcode ${barcode}.`,
+              variant: 'destructive',
+            });
           }
         } catch {
-          onUnknownBarcode?.(barcode);
+          if (onUnknownBarcode) {
+            onUnknownBarcode(barcode);
+          } else {
+            toast({
+              title: 'Barcode not found',
+              description: `No product matches barcode ${barcode}.`,
+              variant: 'destructive',
+            });
+          }
         } finally {
           setIsLookingUp(false);
         }
