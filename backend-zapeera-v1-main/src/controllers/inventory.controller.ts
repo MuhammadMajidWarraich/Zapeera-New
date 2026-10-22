@@ -268,6 +268,7 @@ export const getInventoryByBatches = async (req: AuthRequest, res: Response) => 
               barcode: true,
               minStock: true,
               unitsPerPack: true,
+              unitsPerStrip: true, // Wave C2 - strip size for stock breakdowns
             },
           },
           supplier: {

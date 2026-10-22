@@ -24,6 +24,7 @@ export interface CreateProductData {
     minStock?: number;
     maxStock?: bigint;
     unitsPerPack?: number;
+    unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
   }
 
   export interface UpdateProductData {
@@ -49,6 +50,7 @@ export interface CreateProductData {
     minStock?: number;
     maxStock?: bigint;
     unitsPerPack?: number;
+    unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
   }
 
   export interface StockMovementData {

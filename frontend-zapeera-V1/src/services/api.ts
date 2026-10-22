@@ -1033,6 +1033,7 @@ export class ApiService {
         maxStock?: number;
         unitType: string;
         unitsPerPack: number;
+        unitsPerStrip: number | null;
         barcode?: string;
         requiresPrescription: boolean;
         isActive: boolean;
@@ -1064,6 +1065,7 @@ export class ApiService {
       maxStock?: number;
       unitType: string;
       unitsPerPack: number;
+        unitsPerStrip: number | null;
       barcode?: string;
       requiresPrescription: boolean;
       taxClassId?: string | null;
@@ -1151,6 +1153,7 @@ export class ApiService {
     minStock?: number;
     maxStock?: number;
     unitsPerPack?: number;
+    unitsPerStrip?: number | null;
   }) {
     return this.request<{
       id: string;
@@ -1172,6 +1175,7 @@ export class ApiService {
       minStock?: number;
       maxStock?: number;
       unitsPerPack?: number;
+    unitsPerStrip?: number | null;
     }>('/products', {
       method: 'POST',
       body: JSON.stringify(productData),
@@ -1192,6 +1196,7 @@ export class ApiService {
     maxStock?: number;
     unitType: string;
     unitsPerPack: number;
+        unitsPerStrip: number | null;
     barcode?: string;
     requiresPrescription?: boolean;
   }>) {
@@ -1210,6 +1215,7 @@ export class ApiService {
         maxStock?: number;
         unitType: string;
         unitsPerPack: number;
+        unitsPerStrip: number | null;
         barcode?: string;
         requiresPrescription: boolean;
         isActive: boolean;
@@ -1242,6 +1248,7 @@ export class ApiService {
     maxStock?: number;
     unitType?: string;
     unitsPerPack?: number;
+    unitsPerStrip?: number | null;
     barcode?: string;
     requiresPrescription?: boolean;
     isActive?: boolean;
@@ -1260,6 +1267,7 @@ export class ApiService {
       maxStock?: number;
       unitType: string;
       unitsPerPack: number;
+        unitsPerStrip: number | null;
       taxClass?: { id: string; name: string; rate: number } | null;
       barcode?: string;
       requiresPrescription: boolean;
@@ -1725,6 +1733,7 @@ export class ApiService {
       quantity: number;
       unitPrice: number;
       saleType?: string;
+      unitLevel?: string; // Wave C2 - PACK | STRIP | UNIT
       unitsDeducted?: number;
       unitsPerBox?: number;
       discountPercentage?: number;
@@ -1760,8 +1769,18 @@ export class ApiService {
       productId: string;
       quantity: number;
       unitPrice: number;
+      // Unit engine (Wave C2): when unitLevel is set, quantity is
+      // expressed in that level and unitPrice is per level unit.
+      unitLevel?: string;
+      saleType?: string;
+      unitsDeducted?: number;
+      unitsPerBox?: number;
+      batchId?: string;
       batchNumber?: string;
       expiryDate?: string;
+      discountPercentage?: number;
+      discountAmount?: number;
+      totalPrice?: number;
     }>;
     paymentMethod: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER';
     paymentStatus?: string;

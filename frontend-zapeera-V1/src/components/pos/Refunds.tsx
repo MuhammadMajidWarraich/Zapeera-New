@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import { apiService } from "@/services/api";
+import { describeStoredLine } from "@/utils/units";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
@@ -875,7 +876,7 @@ const Refunds = () => {
                               <div>
                                 <p className="text-sm font-medium text-[#0a1128]">{item.product?.name || "Product"}</p>
                                 <p className="text-xs text-[#8c95b0]">
-                                  {item.quantity} {item.product?.unitType || "units"} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
+                                  {describeStoredLine(item) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
                                 </p>
                               </div>
                               <p className="text-sm font-semibold text-[#0a1128]">PKR {item.totalPrice?.toFixed?.(2) || "0.00"}</p>

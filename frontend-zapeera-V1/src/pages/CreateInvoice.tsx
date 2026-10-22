@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { escapeHtml } from "@/utils/html-escape";
+import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, type UnitLevel } from "@/utils/units";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +79,7 @@ interface Product {
   requiresPrescription?: boolean;
   unitsPerPack?: number; // Number of units in a pack
   unitsPerBox?: number;
+  unitsPerStrip?: number | null; // Wave C2 - tablets per strip
 }
 
 interface Batch {
@@ -111,6 +113,20 @@ interface CartItem {
   // time so the rail can show the Prescription section even when the
   // product has since dropped out of the search results list.
   requiresPrescription?: boolean;
+  // Unit engine (Wave C2): for pack-structured products the line is
+  // sold at a LEVEL. `quantity` always stays in pieces (base units);
+  // levelQuantity is the amount as entered in the level, unitPrice is
+  // per LEVEL unit, and batchUnitPrice is the selected batch's
+  // per-tablet price (the derivation base for level switching).
+  // Merging two adds of one product normalizes the line back to
+  // per-piece UNIT pricing and clears these fields.
+  unitLevel?: UnitLevel;
+  unitFactor?: number;
+  levelQuantity?: number;
+  batchUnitPrice?: number;
+  unitsPerPack?: number;
+  unitsPerStrip?: number | null;
+  unitsDeducted?: number;
 }
 
 interface Receipt {
@@ -156,6 +172,19 @@ interface Receipt {
 }
 
 /**
+ * Unit engine (Wave C2): how a cart line's quantity reads on receipts
+ * and messages — "2 strips (20 tablets)" for leveled lines, the plain
+ * piece count for everything else.
+ */
+const cartItemQtyPhrase = (item: CartItem): string => {
+  if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+    const levelQty = item.levelQuantity ?? item.quantity / item.unitFactor;
+    return `${levelQty} ${levelLabel(item.unitLevel, levelQty)} (${item.quantity} tablets)`;
+  }
+  return `${item.quantity}`;
+};
+
+/**
  * Tax classes (Wave B5): per-class tax lines appear on a receipt only
  * when the sale actually used tax classes — more than one group, or a
  * single group tied to a real class. A single implicit "Default" group
@@ -182,7 +211,7 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
     `Date: ${receipt.date} ${receipt.time}`,
     "------------------------",
     ...receipt.items.map(
-      (item) => `${item.name} x${item.quantity} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
+      (item) => `${item.name} x${cartItemQtyPhrase(item)} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
     ),
     "------------------------",
     `Subtotal: PKR ${Number(receipt.subtotal || 0).toFixed(2)}`,
@@ -859,6 +888,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         const isBoxSale = (item.unitType || '').toString().toLowerCase() === 'box' || (item.unitType || '').toString().toLowerCase() === 'pack';
         const productForUnits = products.find(p => p.id === productId);
         const resolvedUnitsPerBox = item.unitsPerBox || productForUnits?.unitsPerBox || productForUnits?.unitsPerPack || 1;
+        // Unit engine (Wave C2): leveled lines validate in the C2
+        // contract, matching the sale payload below.
+        if (item.unitLevel && item.unitFactor) {
+          return {
+            productId: productId || '',
+            quantity: item.levelQuantity ?? item.quantity / item.unitFactor,
+            unitLevel: item.unitLevel,
+            saleType: isBoxSale ? 'BOX' : 'UNIT',
+            unitsPerBox: resolvedUnitsPerBox,
+            unitsDeducted: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercentage: item.discountPercentage || undefined,
+            discountAmount: item.discountAmount || undefined,
+          };
+        }
         return {
           productId: productId || '',
           quantity: item.quantity,
@@ -1097,7 +1141,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           barcode: product.barcode || '',
           requiresPrescription: product.requiresPrescription || false,
           unitsPerPack: product.unitsPerPack || product.unitsPerBox || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
-          unitsPerBox: product.unitsPerBox || product.unitsPerPack || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1
+          unitsPerBox: product.unitsPerBox || product.unitsPerPack || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
+          unitsPerStrip: product.unitsPerStrip ?? null
         }));
 
         setProducts(transformedProducts);
@@ -1151,19 +1196,30 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       : (inferredUnitsPerBox || product.unitsPerBox || product.unitsPerPack || 1);
     const unitsPerBox = resolvedUnitsPerBox;
     const isBoxSale = unitType === "box" || unitType === "pack";
+    const isStripSale = unitType === "strip";
 
     // DEBUG: Log product data to verify unitsPerBox
     // CRITICAL: If box is selected but unitsPerBox is 1, warn the user
     if (isBoxSale && unitsPerBox === 1) {
     }
+    // Unit engine (Wave C2): for pack-structured products the line
+    // is expressed in a selling LEVEL (pack / strip / tablet). The
+    // cart keeps quantity in pieces and unitPrice per LEVEL unit;
+    // levelQuantity remembers the entered amount and the submit
+    // path sends the C2 payload. Products without pack structure
+    // take the exact legacy flow (factor 1, no level fields).
+    const resolvedUnitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
+    const isStructuredProduct = (product.unitsPerPack || 0) > 1 || !!resolvedUnitsPerStrip;
+    const saleLevel: UnitLevel = isBoxSale ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
+    const levelFactor = saleLevel === "PACK" ? unitsPerBox : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
 
-    const finalQuantity = isBoxSale ? quantity * unitsPerBox : quantity;
-    const finalUnitType = isBoxSale ? "box" : product.unitType;
+    const finalQuantity = quantity * levelFactor;
+    const finalUnitType = isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType);
     const batchPrice = selectedBatch.sellingPrice || product.price;
 
-    // Calculate unit price: for box, it's the price per box (batchPrice * unitsPerBox)
-    // For unit, it's the price per unit (batchPrice)
-    const unitPrice = isBoxSale ? batchPrice * unitsPerBox : batchPrice;
+    // Calculate unit price: per LEVEL unit (batchPrice is per tablet,
+    // so a level unit costs batchPrice x its factor)
+    const unitPrice = batchPrice * levelFactor;
 
     // Calculate total price: unitPrice * original quantity (boxes or units)
     const totalPrice = unitPrice * quantity;
@@ -1202,11 +1258,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         return;
       }
 
-      // Calculate new unit price
+      // Calculate new unit price (per level unit of the added amount)
       const batchPrice = selectedBatch.sellingPrice || product.price;
-      const newUnitPrice = isBoxSale
-        ? batchPrice * unitsPerBox
-        : batchPrice;
+      const newUnitPrice = batchPrice * levelFactor;
       
       // Calculate total price: existing total + new total
       const existingTotalPrice = existingItem.totalPrice;
@@ -1226,6 +1280,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             unitsDeducted: totalUnits,
             unitPrice: averageUnitPrice,
             totalPrice: totalPrice,
+            // Wave C2: a merged line is plain per-piece pricing again
+            unitLevel: undefined,
+            unitFactor: undefined,
+            levelQuantity: undefined,
+            batchUnitPrice: batchPrice,
             // Update batch info to latest batch
             batchId: selectedBatch.id,
             batch: selectedBatch.batchNo,
@@ -1246,10 +1305,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         productId: product.id, // CRITICAL FIX: Store actual product ID separately
         name: product.name,
         quantity: finalQuantity, // Store as pieces for inventory tracking
-        unitPrice: unitPrice, // Use calculated unit price (pack or piece)
-        totalPrice: totalPrice, // Total = unitPrice * original quantity (packs or pieces)
+        unitPrice: unitPrice, // Use calculated unit price (per level unit)
+        totalPrice: totalPrice, // Total = unitPrice * original quantity (packs/strips/pieces)
         unitType: finalUnitType, // Store "box" if box was selected, otherwise product.unitType
         unitsPerBox: unitsPerBox,
+        unitLevel: isStructuredProduct ? saleLevel : undefined,
+        unitFactor: isStructuredProduct ? levelFactor : undefined,
+        levelQuantity: isStructuredProduct ? quantity : undefined,
+        batchUnitPrice: batchPrice,
+        unitsPerPack: product.unitsPerPack || unitsPerBox,
+        unitsPerStrip: resolvedUnitsPerStrip,
         batch: selectedBatch.batchNo,
         batchId: selectedBatch.id,
         expiry: expiryDate,
@@ -1268,6 +1333,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     } else {
       setInvoiceItems(invoiceItems.map(item => {
         if (item.id === itemId) {
+          // Wave C2: leveled lines price by the LEVEL quantity
+          // (the stepper moves in whole level units = factor pieces).
+          if (item.unitLevel && item.unitFactor) {
+            const levelQty = newQuantity / item.unitFactor;
+            const subtotal = item.unitPrice * levelQty;
+            const itemDiscount = item.discountPercentage ? (subtotal * item.discountPercentage / 100) : (item.discountAmount || 0);
+            return { ...item, quantity: newQuantity, levelQuantity: levelQty, totalPrice: subtotal - itemDiscount };
+          }
           // Find product to get units per box
           const product = products.find(p => p.id === item.productId);
           const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
@@ -1286,10 +1359,44 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   };
 
+  // Unit engine (Wave C2): switch a cart line's selling level. The
+  // entered quantity NUMBER stays (it is now read in the new level),
+  // the per-level price re-derives from the batch's per-tablet price,
+  // and pieces/total follow.
+  const changeCartItemLevel = (itemId: string, level: UnitLevel) => {
+    setInvoiceItems(invoiceItems.map(item => {
+      if (item.id !== itemId) return item;
+      const product = products.find(p => p.id === item.productId);
+      const structure = {
+        unitsPerPack: item.unitsPerPack || product?.unitsPerPack || item.unitsPerBox || 1,
+        unitsPerStrip: item.unitsPerStrip ?? product?.unitsPerStrip ?? null
+      };
+      const factor = level === "PACK" ? structure.unitsPerPack : level === "STRIP" ? structure.unitsPerStrip : 1;
+      if (!factor || factor < 1) return item;
+      const levelQty = item.levelQuantity ?? item.quantity / (item.unitFactor || 1);
+      const perUnit = item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1);
+      const unitPrice = levelPriceFromUnitPrice(perUnit, level, structure);
+      const subtotal = unitPrice * levelQty;
+      const discountAmount = item.discountPercentage ? (subtotal * item.discountPercentage / 100) : (item.discountAmount || 0);
+      return {
+        ...item,
+        unitLevel: level,
+        unitFactor: factor,
+        levelQuantity: levelQty,
+        quantity: Math.round(levelQty * factor),
+        unitPrice: unitPrice,
+        totalPrice: subtotal - discountAmount,
+        discountAmount: discountAmount,
+        unitType: level === "PACK" ? "box" : level === "STRIP" ? "strip" : (product?.unitType || "tablets"),
+        unitsPerBox: level === "PACK" ? factor : item.unitsPerBox
+      };
+    }));
+  };
+
   const updateItemDiscount = (itemId: string, discountPercentage: number) => {
     setInvoiceItems(invoiceItems.map(item => {
       if (item.id === itemId) {
-        const subtotal = item.unitPrice * item.quantity;
+        const subtotal = item.unitPrice * (item.levelQuantity ?? item.quantity);
         const discountAmount = discountPercentage > 0 ? (subtotal * discountPercentage / 100) : 0;
         const totalPrice = subtotal - discountAmount;
         return {
@@ -1324,11 +1431,22 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       : (inferredUnitsPerBox || product.unitsPerBox || product.unitsPerPack || 1);
     const unitsPerBox = resolvedUnitsPerBox;
     const isBoxSale = unitType === "box" || unitType === "pack";
+    const isStripSale = unitType === "strip";
+    // Unit engine (Wave C2): for pack-structured products the line
+    // is expressed in a selling LEVEL (pack / strip / tablet). The
+    // cart keeps quantity in pieces and unitPrice per LEVEL unit;
+    // levelQuantity remembers the entered amount and the submit
+    // path sends the C2 payload. Products without pack structure
+    // take the exact legacy flow (factor 1, no level fields).
+    const resolvedUnitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
+    const isStructuredProduct = (product.unitsPerPack || 0) > 1 || !!resolvedUnitsPerStrip;
+    const saleLevel: UnitLevel = isBoxSale ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
+    const levelFactor = saleLevel === "PACK" ? unitsPerBox : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
 
-    const finalQuantity = isBoxSale ? quantity * unitsPerBox : quantity;
-    const finalUnitType = isBoxSale ? "box" : product.unitType;
+    const finalQuantity = quantity * levelFactor;
+    const finalUnitType = isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType);
     const batchPrice = selectedBatch.sellingPrice || product.price;
-    const unitPrice = isBoxSale ? batchPrice * unitsPerBox : batchPrice;
+    const unitPrice = batchPrice * levelFactor;
     const totalPrice = unitPrice * quantity;
 
     if (finalQuantity > selectedBatch.quantity) {
@@ -1358,7 +1476,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         return;
       }
 
-      const newUnitPrice = isBoxSale ? batchPrice * unitsPerBox : batchPrice;
+      const newUnitPrice = batchPrice * levelFactor;
       const existingTotalPrice = existingItem.totalPrice;
       const newTotalPrice = newUnitPrice * quantity;
       const totalPrice = existingTotalPrice + newTotalPrice;
@@ -1373,6 +1491,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             unitsDeducted: totalUnits,
             unitPrice: averageUnitPrice,
             totalPrice: totalPrice,
+            // Wave C2: a merged line is plain per-piece pricing again
+            unitLevel: undefined,
+            unitFactor: undefined,
+            levelQuantity: undefined,
+            batchUnitPrice: batchPrice,
             batchId: selectedBatch.id,
             batch: selectedBatch.batchNo,
             expiry: selectedBatch.expireDate
@@ -1396,6 +1519,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         totalPrice: totalPrice,
         unitType: finalUnitType,
         unitsPerBox: unitsPerBox,
+        unitLevel: isStructuredProduct ? saleLevel : undefined,
+        unitFactor: isStructuredProduct ? levelFactor : undefined,
+        levelQuantity: isStructuredProduct ? quantity : undefined,
+        batchUnitPrice: batchPrice,
+        unitsPerPack: product.unitsPerPack || unitsPerBox,
+        unitsPerStrip: resolvedUnitsPerStrip,
         batch: selectedBatch.batchNo,
         batchId: selectedBatch.id,
         expiry: expiryDate,
@@ -1413,6 +1542,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     } else {
       setModalInvoiceItems(modalInvoiceItems.map(item => {
         if (item.id === itemId) {
+          // Wave C2: leveled lines price by the LEVEL quantity.
+          if (item.unitLevel && item.unitFactor) {
+            const levelQty = newQuantity / item.unitFactor;
+            const subtotal = item.unitPrice * levelQty;
+            const itemDiscount = item.discountPercentage ? (subtotal * item.discountPercentage / 100) : (item.discountAmount || 0);
+            return { ...item, quantity: newQuantity, levelQuantity: levelQty, totalPrice: subtotal - itemDiscount };
+          }
           const product = products.find(p => p.id === item.productId);
           const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
           const packOrPieceQty = (item.unitType === "pack" || item.unitType === "box")
@@ -1431,7 +1567,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const updateModalItemDiscount = (itemId: string, discountPercentage: number) => {
     setModalInvoiceItems(modalInvoiceItems.map(item => {
       if (item.id === itemId) {
-        const subtotal = item.unitPrice * item.quantity;
+        const subtotal = item.unitPrice * (item.levelQuantity ?? item.quantity);
         const discountAmount = discountPercentage > 0 ? (subtotal * discountPercentage / 100) : 0;
         const totalPrice = subtotal - discountAmount;
         return {
@@ -1633,6 +1769,28 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           
           // CRITICAL FIX: unitsDeducted should ALWAYS be item.quantity (pieces) - this is what gets deducted from batch
           const unitsDeducted = item.quantity; // Always in pieces
+
+          // Unit engine (Wave C2): leveled lines go out in the C2
+          // contract — quantity in the LEVEL, per-level price, level
+          // snapshot. The server resolves base units from the
+          // product; everything else keeps the legacy payload.
+          if (item.unitLevel && item.unitFactor) {
+            return {
+              productId: productId,
+              quantity: item.levelQuantity ?? item.quantity / item.unitFactor,
+              unitLevel: item.unitLevel,
+              saleType: item.unitLevel === 'PACK' ? 'BOX' : item.unitLevel,
+              unitsPerBox: item.unitLevel === 'PACK' ? item.unitFactor : resolvedUnitsPerBox,
+              unitsDeducted: item.quantity,
+              unitPrice: item.unitPrice,
+              batchId: item.batchId || undefined,
+              batchNumber: item.batch || undefined,
+              expiryDate: item.expiry || undefined,
+              discountPercentage: item.discountPercentage || undefined,
+              discountAmount: item.discountAmount || undefined,
+              totalPrice: item.totalPrice
+            };
+          }
 
           return {
             productId: productId, // CRITICAL FIX: Use actual productId, not composite id
@@ -1935,6 +2093,28 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             ? Math.round(item.quantity / resolvedUnitsPerBox)
             : item.quantity;
           const unitsDeducted = item.quantity;
+
+          // Unit engine (Wave C2): leveled lines go out in the C2
+          // contract — quantity in the LEVEL, per-level price, level
+          // snapshot. The server resolves base units from the
+          // product; everything else keeps the legacy payload.
+          if (item.unitLevel && item.unitFactor) {
+            return {
+              productId: productId,
+              quantity: item.levelQuantity ?? item.quantity / item.unitFactor,
+              unitLevel: item.unitLevel,
+              saleType: item.unitLevel === 'PACK' ? 'BOX' : item.unitLevel,
+              unitsPerBox: item.unitLevel === 'PACK' ? item.unitFactor : resolvedUnitsPerBox,
+              unitsDeducted: item.quantity,
+              unitPrice: item.unitPrice,
+              batchId: item.batchId || undefined,
+              batchNumber: item.batch || undefined,
+              expiryDate: item.expiry || undefined,
+              discountPercentage: item.discountPercentage || undefined,
+              discountAmount: item.discountAmount || undefined,
+              totalPrice: item.totalPrice
+            };
+          }
 
           return {
             productId: productId,
@@ -2667,8 +2847,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             let displayUnitType = item.unitType;
             let displayUnitPrice = item.unitPrice;
 
-            // Convert pieces to boxes for display if unitType is box/pack
-            if (item.unitType === "pack" || item.unitType === "box") {
+            // Wave C2: leveled lines read in their level, with the
+            // tablet count alongside ("2 STRIP (20 tablets)").
+            if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+              displayQuantity = item.quantity / item.unitFactor;
+              displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
+              displayUnitPrice = item.unitPrice;
+            } else if (item.unitType === "pack" || item.unitType === "box") {
+              // Convert pieces to boxes for display if unitType is box/pack
               displayQuantity = item.quantity / unitsPerPack;
               displayUnitType = "BOX";
               displayUnitPrice = item.unitPrice; // Already price per box
@@ -2792,6 +2978,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               totalPrice: item.totalPrice,
               batchNumber: item.batchNumber,
               expiryDate: item.expiryDate,
+              // Wave C2: stored level snapshot for the quantity label
+              unitLevel: item.unitLevel,
+              unitFactor: item.unitFactor,
               product: item.product
             })),
             receipts: [],
@@ -3200,7 +3389,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         ? batchForItem.unitsPerBox
                         : (inferredBatchUnitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1);
                     const isBoxItem = item.unitType === "pack" || item.unitType === "box";
-                    const quantityStep = isBoxItem ? unitsPerBox : 1;
+                    // Wave C2: leveled lines step in whole level units.
+                    const quantityStep = item.unitLevel ? (item.unitFactor || 1) : (isBoxItem ? unitsPerBox : 1);
 
                     return (
                       <div
@@ -3213,13 +3403,32 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             <p className="mt-0.5 truncate text-xs text-[#8c95b0]">
                               {item.batch ? `Batch ${item.batch}` : "—"}
                               {item.expiry ? ` • Exp ${item.expiry}` : ""}
-                              {` • PKR ${item.unitPrice.toFixed(2)} each`}
+                              {item.unitLevel
+                                ? ` • PKR ${item.unitPrice.toFixed(2)} per ${levelLabel(item.unitLevel)} • ${item.quantity} tablets`
+                                : ` • PKR ${item.unitPrice.toFixed(2)} each`}
                             </p>
                           </div>
                           <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#0a1128]">
                             PKR {displayPrice.toFixed(2)}
                           </p>
                         </div>
+                        {item.unitLevel && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Sold by</Label>
+                            <select
+                              value={item.unitLevel}
+                              onChange={(e) => changeCartItemLevel(item.id, e.target.value as UnitLevel)}
+                              className="h-8 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]"
+                              aria-label="Selling level"
+                            >
+                              <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                              {item.unitsPerStrip ? (
+                                <option value="STRIP">Strip ({item.unitsPerStrip} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                              ) : null}
+                              <option value="UNIT">Tablet — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                            </select>
+                          </div>
+                        )}
                         <div className="mt-2.5 flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             <Button
@@ -3232,7 +3441,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               <Minus className="h-4 w-4" />
                             </Button>
                             <span className="w-11 text-center text-[15px] font-extrabold tabular-nums text-[#0a1128]">
-                              {isBoxItem ? item.quantity : Math.max(0, item.quantity)}
+                              {item.unitLevel ? (item.levelQuantity ?? item.quantity / (item.unitFactor || 1)) : (isBoxItem ? item.quantity : Math.max(0, item.quantity))}
                             </span>
                             <Button
                               variant="outline"
@@ -4097,7 +4306,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     let displayUnitType = item.unitType;
                     let displayUnitPrice = item.unitPrice;
 
-                    if (item.unitType === "pack" || item.unitType === "box") {
+                    if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+                      // Wave C2: leveled lines read in their level.
+                      displayQuantity = item.quantity / item.unitFactor;
+                      displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
+                      displayUnitPrice = item.unitPrice;
+                    } else if (item.unitType === "pack" || item.unitType === "box") {
                       displayQuantity = item.quantity / unitsPerPack;
                       displayUnitType = "BOX";
                       displayUnitPrice = item.unitPrice;
@@ -4358,7 +4572,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{item.product.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {item.quantity} {item.product.unitType} × PKR {item.unitPrice.toFixed(2)}
+                                  {describeStoredLine(item) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice.toFixed(2)}
                                   {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                                   {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                                 </p>

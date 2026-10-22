@@ -35,6 +35,12 @@ export interface CreateSaleData {
 export interface SaleItemData {
   productId: string;
   quantity: number;
+  // Unit engine (Wave C2): the selling level `quantity` is expressed
+  // in (PACK | STRIP | UNIT). Absent = the historical UNIT/BOX
+  // contract (voice/desktop/legacy clients). When present, the
+  // server resolves the factor from the product and stores quantity
+  // as BASE units — see src/utils/unit.util.ts.
+  unitLevel?: 'PACK' | 'STRIP' | 'UNIT' | string;
   saleType?: 'UNIT' | 'BOX' | string;
   unitsDeducted?: number;
   unitsPerBox?: number;

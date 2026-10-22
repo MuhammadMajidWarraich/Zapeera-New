@@ -51,6 +51,9 @@ interface Purchase {
       name: string;
       sku: string;
       barcode?: string;
+      // Wave C2: structured purchases store quantity in packs
+      unitsPerPack?: number;
+      unitsPerStrip?: number | null;
     };
     batch?: {
       id: string;
@@ -69,6 +72,10 @@ interface Product {
   barcode?: string;
   unitType: string;
   price: number; // Price from batch data
+  // Unit engine (Wave C2): pack structure — purchases of structured
+  // products are received in PACKS at a per-pack price.
+  unitsPerPack?: number;
+  unitsPerStrip?: number | null;
 }
 
 interface Supplier {
@@ -125,6 +132,13 @@ const Purchases = () => {
     expireDate: new Date(),
     productionDate: new Date(),
   });
+
+  // Unit engine (Wave C2): when the item being added belongs to a
+  // pack-structured product, its quantity is entered in PACKS and its
+  // price is the price of one pack — the server lands
+  // packs x unitsPerPack base units (tablets) in the batch.
+  const newItemProduct = products.find(p => p.id === newItem.productId);
+  const newItemPerPack = newItemProduct?.unitsPerPack && newItemProduct.unitsPerPack > 1 ? newItemProduct.unitsPerPack : 1;
 
   // Load data
   const loadPurchases = useCallback(async () => {
@@ -925,7 +939,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="quantity">Quantity *</Label>
+                  <Label htmlFor="quantity">Quantity{newItemPerPack > 1 ? ' (packs)' : ''} *</Label>
                   <Input
                     id="quantity"
                     type="number"
@@ -933,10 +947,15 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                     onChange={(e) => handleNewItemChange('quantity', parseInt(e.target.value) || 1)}
                     min="1"
                   />
+                  {newItemPerPack > 1 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      = {(newItem.quantity * newItemPerPack).toLocaleString()} tablets at {newItemPerPack} per pack — stock is recorded in tablets.
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <Label htmlFor="unitPrice">Unit Price *</Label>
+                  <Label htmlFor="unitPrice">Unit Price{newItemPerPack > 1 ? ' (per pack)' : ''} *</Label>
                   <Input
                     id="unitPrice"
                     type="number"
@@ -1017,7 +1036,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                         <span className="font-medium">{product?.name}</span>
                         <span className="text-gray-500 ml-2">({product?.sku})</span>
                         <div className="text-sm text-gray-600">
-                          Qty: {item.quantity} × Rs. {item.unitPrice.toFixed(2)} = Rs. {(item.quantity * item.unitPrice).toFixed(2)}
+                          Qty: {item.quantity}{product?.unitsPerPack && product.unitsPerPack > 1 ? ` packs (= ${(item.quantity * product.unitsPerPack).toLocaleString()} tablets)` : ''} × Rs. {item.unitPrice.toFixed(2)} = Rs. {(item.quantity * item.unitPrice).toFixed(2)}
                           {item.batchNo && ` | Batch: ${item.batchNo}`}
                         </div>
                       </div>
@@ -1129,8 +1148,13 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                             <div className="text-sm text-gray-500">{item.product.sku}</div>
                           </div>
                         </TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>Rs. {item.unitPrice.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {item.quantity}
+                          {item.product.unitsPerPack && item.product.unitsPerPack > 1
+                            ? ` packs (= ${(item.quantity * item.product.unitsPerPack).toLocaleString()} tablets)`
+                            : ''}
+                        </TableCell>
+                        <TableCell>Rs. {item.unitPrice.toFixed(2)}{item.product.unitsPerPack && item.product.unitsPerPack > 1 ? ' / pack' : ''}</TableCell>
                         <TableCell>Rs. {item.totalPrice.toFixed(2)}</TableCell>
                         <TableCell>
                           {item.batch ? (

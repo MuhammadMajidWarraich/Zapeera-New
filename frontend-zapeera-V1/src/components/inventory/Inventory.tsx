@@ -77,6 +77,9 @@ interface Product {
     name: string;
     rate: number;
   } | null;
+  // Unit engine (Wave C2): pack structure - tablets per pack / strip.
+  unitsPerPack?: number;
+  unitsPerStrip?: number | null;
   branch: {
     id: string;
     name: string;
@@ -200,6 +203,8 @@ const Inventory = () => {
     requiresPrescription: false,
     taxClassId: "",
     pctCode: "",
+    unitsPerPack: 1,
+    unitsPerStrip: "",
     minStock: 10
   });
 
@@ -995,7 +1000,8 @@ const Inventory = () => {
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: 1
+        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
+        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)
       };
 
       // Find category name for optimistic product
@@ -1019,7 +1025,8 @@ const Inventory = () => {
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: 1,
+        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
+        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
         sku: `TEMP-${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -1043,6 +1050,8 @@ const Inventory = () => {
         requiresPrescription: false,
         taxClassId: "",
         pctCode: "",
+        unitsPerPack: 1,
+        unitsPerStrip: "",
         minStock: 10
       });
 
@@ -1183,7 +1192,9 @@ const Inventory = () => {
           barcode: freshProduct.barcode || product.barcode || "",
           requiresPrescription: freshProduct.requiresPrescription ?? product.requiresPrescription ?? false,
           taxClassId: freshProduct.taxClassId ?? product.taxClassId ?? "",
-          pctCode: freshProduct.pctCode ?? product.pctCode ?? "",
+          pctCode: freshProduct.pctCode ?? (product as any).pctCode ?? "",
+          unitsPerPack: freshProduct.unitsPerPack ?? product.unitsPerPack ?? 1,
+          unitsPerStrip: (freshProduct.unitsPerStrip ?? product.unitsPerStrip) != null ? String(freshProduct.unitsPerStrip ?? product.unitsPerStrip) : "",
           minStock: freshProduct.minStock ?? product.minStock ?? 10
         });
         setIsEditDialogOpen(true);
@@ -1198,7 +1209,9 @@ const Inventory = () => {
           barcode: product.barcode || "",
           requiresPrescription: product.requiresPrescription || false,
           taxClassId: product.taxClassId || "",
-          pctCode: product.pctCode || "",
+          pctCode: (product as any).pctCode || "",
+          unitsPerPack: product.unitsPerPack || 1,
+          unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
           minStock: product.minStock || 10
         });
         setIsEditDialogOpen(true);
@@ -1214,6 +1227,9 @@ const Inventory = () => {
         barcode: product.barcode || "",
         requiresPrescription: product.requiresPrescription || false,
         taxClassId: product.taxClassId || "",
+        pctCode: (product as any).pctCode || "",
+        unitsPerPack: product.unitsPerPack || 1,
+        unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
         minStock: product.minStock || 10
       });
       setIsEditDialogOpen(true);
@@ -1259,7 +1275,8 @@ const Inventory = () => {
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: 1
+        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
+        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)
       };
 
       // Update product via API
@@ -1334,6 +1351,8 @@ const Inventory = () => {
           requiresPrescription: false,
           taxClassId: "",
           pctCode: "",
+          unitsPerPack: 1,
+          unitsPerStrip: "",
           minStock: 10
         });
 
@@ -2452,6 +2471,50 @@ const Inventory = () => {
                     </p>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="unitsPerPack">Units per Pack</Label>
+                    <Input
+                      id="unitsPerPack"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 100"
+                      value={newMedicine.unitsPerPack}
+                      onChange={(e) => setNewMedicine({...newMedicine, unitsPerPack: Number(e.target.value) || 1})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tablets in one full pack/box. Leave at 1 for products sold only as single units.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unitsPerStrip">Units per Strip</Label>
+                    <Input
+                      id="unitsPerStrip"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 10 - optional"
+                      value={newMedicine.unitsPerStrip}
+                      onChange={(e) => setNewMedicine({...newMedicine, unitsPerStrip: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tablets in one strip (pharmacy). A pack must hold a whole number of strips.
+                    </p>
+                    {(() => {
+                      const upp = Number(newMedicine.unitsPerPack) || 1;
+                      const ups = newMedicine.unitsPerStrip === "" ? null : Number(newMedicine.unitsPerStrip);
+                      if (upp > 1) {
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single tablets. Stock is always counted in tablets.
+                            {ups !== null && ups > 0 && upp % ups !== 0 ? (
+                              <span className="text-destructive block">Pack size must be a whole multiple of the strip size - the server will reject this.</span>
+                            ) : null}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+
                 </div>
 
                 {/* Product Details */}
@@ -2563,6 +2626,9 @@ const Inventory = () => {
                 barcode: "",
                 requiresPrescription: false,
                 taxClassId: "",
+                pctCode: "",
+                unitsPerPack: 1,
+                unitsPerStrip: "",
                 minStock: 10
               });
             }
@@ -2644,6 +2710,50 @@ const Inventory = () => {
                     <p className="text-xs text-muted-foreground">
                       Pakistan Customs Tariff code printed on FBR fiscal invoices. Leave empty to use the FBR fallback (00000000).
                     </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-unitsPerPack">Units per Pack</Label>
+                    <Input
+                      id="edit-unitsPerPack"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 100"
+                      value={newMedicine.unitsPerPack}
+                      onChange={(e) => setNewMedicine({...newMedicine, unitsPerPack: Number(e.target.value) || 1})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tablets in one full pack/box. Leave at 1 for products sold only as single units.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-unitsPerStrip">Units per Strip</Label>
+                    <Input
+                      id="edit-unitsPerStrip"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 10 - optional"
+                      value={newMedicine.unitsPerStrip}
+                      onChange={(e) => setNewMedicine({...newMedicine, unitsPerStrip: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tablets in one strip (pharmacy). A pack must hold a whole number of strips.
+                    </p>
+                    {(() => {
+                      const upp = Number(newMedicine.unitsPerPack) || 1;
+                      const ups = newMedicine.unitsPerStrip === "" ? null : Number(newMedicine.unitsPerStrip);
+                      if (upp > 1) {
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single tablets. Stock is always counted in tablets.
+                            {ups !== null && ups > 0 && upp % ups !== 0 ? (
+                              <span className="text-destructive block">Pack size must be a whole multiple of the strip size - the server will reject this.</span>
+                            ) : null}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                 </div>

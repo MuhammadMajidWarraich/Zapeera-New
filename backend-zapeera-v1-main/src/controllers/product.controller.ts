@@ -4,6 +4,7 @@
 import { Request, Response } from 'express';
 import { getPrisma, isPostgreSQL } from '../utils/db.util';
 import { normalizePctCode } from '../utils/fbr.util';
+import { validateUnitStructure } from '../utils/unit.util';
 import { CreateProductData, UpdateProductData } from '../models/product.model';
 import { validate } from '../middleware/validation.middleware';
 import { AuthRequest, buildAdminWhereClause, buildBranchWhereClause } from '../middleware/auth.middleware';
@@ -67,7 +68,8 @@ const createProductSchema = Joi.object({
   isActive: Joi.boolean().default(true),
   minStock: Joi.number().min(0).default(1).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
-  unitsPerPack: Joi.number().min(1).default(1).optional()
+  unitsPerPack: Joi.number().min(1).default(1).optional(),
+  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
 });
 
 const updateProductSchema = Joi.object({
@@ -88,7 +90,8 @@ const updateProductSchema = Joi.object({
   isActive: Joi.boolean(),
   minStock: Joi.number().min(0).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
-  unitsPerPack: Joi.number().min(1).default(1).optional()
+  unitsPerPack: Joi.number().min(1).default(1).optional(),
+  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
 });
 
 // ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
@@ -362,6 +365,20 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
 
     const productData: CreateProductData = req.body;
 
+    // Unit engine (Wave C2): a strip size is only meaningful when it
+    // divides the pack evenly — reject anything else with a 400.
+    const createStructureError = validateUnitStructure({
+      unitsPerPack: productData.unitsPerPack || 1,
+      unitsPerStrip: productData.unitsPerStrip ?? null
+    });
+    if (createStructureError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: [createStructureError]
+      });
+    }
+
     // Generate SKU if not provided
     if (!productData.sku) {
       const generateSKU = (name: string): string => {
@@ -528,6 +545,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       minStock: productData.minStock || 1,
       maxStock: productData.maxStock || null,
       unitsPerPack: productData.unitsPerPack || 1,
+      unitsPerStrip: productData.unitsPerStrip || null, // Wave C2
       supplierId: validSupplierId, // Set to null if invalid/empty
       taxClassId: validTaxClassId, // Wave B5 - null = company default handling
       pctCode: normalizePctCode(productData.pctCode) // Wave B7 - digits-only wire format, null = FBR fallback
@@ -637,6 +655,21 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Unit engine (Wave C2): validate the MERGED structure — a strip
+    // size sent alone must divide the product's stored pack size, and
+    // a new pack size must stay divisible by the stored strip size.
+    const updateStructureError = validateUnitStructure({
+      unitsPerPack: updateData.unitsPerPack !== undefined ? updateData.unitsPerPack : existingProduct.unitsPerPack,
+      unitsPerStrip: updateData.unitsPerStrip !== undefined ? (updateData.unitsPerStrip || null) : existingProduct.unitsPerStrip
+    });
+    if (updateStructureError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: [updateStructureError]
+      });
+    }
+
     // Check if barcode already exists for this admin (if being updated)
     if (updateData.barcode && updateData.barcode !== existingProduct.barcode) {
       const barcodeExists = await prisma.product.findFirst({
@@ -669,6 +702,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.minStock !== undefined) updateFields.minStock = updateData.minStock;
     if (updateData.maxStock !== undefined) updateFields.maxStock = updateData.maxStock !== null ? Number(updateData.maxStock) : null;
     if (updateData.unitsPerPack !== undefined) updateFields.unitsPerPack = updateData.unitsPerPack;
+    if (updateData.unitsPerStrip !== undefined) updateFields.unitsPerStrip = updateData.unitsPerStrip || null; // Wave C2 - null clears the strip size
     if (updateData.barcode !== undefined) updateFields.barcode = updateData.barcode || null;
     if (updateData.additionalBarcodes !== undefined) {
       updateFields.additionalBarcodes = Array.isArray(updateData.additionalBarcodes)
@@ -937,6 +971,21 @@ export const bulkImportProducts = async (req: AuthRequest, res: Response) => {
           productData.unitsPerPack = 1; // Default pack size
         }
 
+        // Wave C2: an imported strip size that does not divide the
+        // pack evenly is dropped (with a warning) rather than failing
+        // the whole import row — the strict 400 lives on the single
+        // create/update endpoints.
+        if (productData.unitsPerStrip !== undefined && productData.unitsPerStrip !== null) {
+          const structureError = validateUnitStructure({
+            unitsPerPack: productData.unitsPerPack,
+            unitsPerStrip: productData.unitsPerStrip
+          });
+          if (structureError) {
+            console.warn(`[Products] Import: dropping invalid unitsPerStrip for "${productData.name}": ${structureError}`);
+            productData.unitsPerStrip = null;
+          }
+        }
+
         if (!productData.description || productData.description.trim() === '') {
           productData.description = 'Imported product'; // Default description
         }
@@ -1076,6 +1125,7 @@ export const bulkImportProducts = async (req: AuthRequest, res: Response) => {
                 // Price and stock are now managed through batches
                 description: productData.description || existingProduct.description,
                 unitsPerPack: productData.unitsPerPack || existingProduct.unitsPerPack,
+                unitsPerStrip: productData.unitsPerStrip !== undefined ? productData.unitsPerStrip : existingProduct.unitsPerStrip, // Wave C2
                 // Don't update barcode for existing products to avoid conflicts
                 requiresPrescription: productData.requiresPrescription !== undefined ? productData.requiresPrescription : existingProduct.requiresPrescription
               },
@@ -1187,6 +1237,7 @@ export const bulkImportProducts = async (req: AuthRequest, res: Response) => {
             minStock: productData.minStock || 10,
             maxStock: productData.maxStock || null,
             unitsPerPack: productData.unitsPerPack || 1,
+            unitsPerStrip: productData.unitsPerStrip || null, // Wave C2
             barcode: finalBarcode || null,
             requiresPrescription: productData.requiresPrescription || false,
             isActive: true,

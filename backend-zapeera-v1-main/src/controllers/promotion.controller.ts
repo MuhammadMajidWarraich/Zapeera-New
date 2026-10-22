@@ -11,6 +11,7 @@ import {
   PROMOTION_TYPES,
   PROMOTION_SCOPES
 } from '../utils/promotion.util';
+import { resolveSaleLineUnits } from '../utils/unit.util';
 
 // ─── Promotions & coupons (Wave B4) ─────────────────────────────────────
 // Management CRUD for the offers the sale engine (promotion.util.ts)
@@ -420,6 +421,7 @@ const validateCouponSchema = Joi.object({
       quantity: Joi.number().min(1).required(),
       unitPrice: Joi.number().positive().required(),
       saleType: Joi.string().valid('UNIT', 'BOX', 'unit', 'box').optional(),
+      unitLevel: Joi.string().valid('PACK', 'STRIP', 'UNIT', 'pack', 'strip', 'unit').optional(), // Wave C2
       unitsDeducted: Joi.number().min(1).optional(),
       unitsPerBox: Joi.number().min(1).optional(),
       discountPercentage: Joi.number().min(0).max(100).optional(),
@@ -462,9 +464,10 @@ export const validateCoupon = async (req: AuthRequest, res: Response) => {
       const productIds = [...new Set(value.items.map((item: any) => item.productId))];
       const products = await prisma.product.findMany({
         where: { id: { in: productIds }, companyId },
-        select: { id: true, categoryId: true }
+        select: { id: true, categoryId: true, unitsPerPack: true, unitsPerStrip: true }
       });
       const categoryByProduct = new Map(products.map((p: any) => [p.id, p.categoryId || null]));
+      const structureByProduct = new Map(products.map((p: any) => [p.id, { unitsPerPack: p.unitsPerPack ?? null, unitsPerStrip: p.unitsPerStrip ?? null }]));
       lines = value.items.map((item: any) => {
         const itemSubtotal = item.quantity * item.unitPrice;
         let itemDiscount = 0;
@@ -475,9 +478,17 @@ export const validateCoupon = async (req: AuthRequest, res: Response) => {
         }
         const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
         const unitsPerBox = item.unitsPerBox && item.unitsPerBox > 0 ? item.unitsPerBox : 1;
-        const units = item.unitsDeducted && item.unitsDeducted > 0
-          ? item.unitsDeducted
-          : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity);
+        // Unit engine (Wave C2): same rule createSale applies — a
+        // unitLevel line's stock units come from the product's
+        // structure. An unresolvable line falls back to the legacy
+        // rule here (preview only; the sale itself stays strict).
+        const structure = item.unitLevel ? structureByProduct.get(item.productId) : undefined;
+        const resolved = structure ? resolveSaleLineUnits(item, structure) : null;
+        const units = resolved && 'baseQty' in resolved
+          ? resolved.baseQty
+          : (item.unitsDeducted && item.unitsDeducted > 0
+            ? item.unitsDeducted
+            : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity));
         return {
           productId: item.productId,
           categoryId: categoryByProduct.get(item.productId) ?? null,

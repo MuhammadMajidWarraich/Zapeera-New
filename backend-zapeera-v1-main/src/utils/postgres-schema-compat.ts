@@ -45,4 +45,18 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "saleType" TEXT'
   );
+
+  // Unit engine (Wave C2): strip size on products, selling-level
+  // snapshot on sale items. The Prisma models carry these fields, so
+  // databases created before C2 need the columns added idempotently
+  // (same pattern as the sale_items columns above).
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "unitsPerStrip" INTEGER'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "unitLevel" TEXT'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "unitFactor" INTEGER'
+  );
 }

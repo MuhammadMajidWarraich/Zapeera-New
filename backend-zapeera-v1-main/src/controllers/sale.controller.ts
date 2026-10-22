@@ -13,6 +13,7 @@ import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoL
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
+import { resolveSaleLineUnits } from '../utils/unit.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -30,6 +31,9 @@ const createSaleSchema = Joi.object({
       productId: Joi.string().required(),
       quantity: Joi.number().min(1).required(),
       saleType: Joi.string().valid('UNIT', 'BOX', 'unit', 'box').optional(),
+      // Unit engine (Wave C2): the selling level `quantity` is
+      // expressed in. Absent = the historical UNIT/BOX contract.
+      unitLevel: Joi.string().valid('PACK', 'STRIP', 'UNIT', 'pack', 'strip', 'unit').optional(),
       unitsDeducted: Joi.number().min(1).optional(),
       unitsPerBox: Joi.number().min(1).optional(),
       unitPrice: Joi.number().positive().required(),
@@ -223,6 +227,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
                 unitsDeducted: true,
                 unitsPerBox: true,
                 saleType: true,
+                unitLevel: true,
+                unitFactor: true,
                 batchNumber: true,
                 expiryDate: true,
                 product: {
@@ -326,6 +332,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
                   unitsDeducted: true,
                   unitsPerBox: true,
                   saleType: true,
+                  unitLevel: true,
+                  unitFactor: true,
                   batchNumber: true,
                   expiryDate: true,
               product: {
@@ -687,7 +695,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const promoProductIds = [...new Set(saleData.items.map(item => item.productId))];
     const promoProducts = await prisma.product.findMany({
       where: { id: { in: promoProductIds } },
-      select: { id: true, name: true, categoryId: true, taxClassId: true, requiresPrescription: true }
+      select: { id: true, name: true, categoryId: true, taxClassId: true, requiresPrescription: true, unitsPerPack: true, unitsPerStrip: true }
     });
     const categoryByProductId = new Map<string, string | null>(
       promoProducts.map((p: any) => [p.id, p.categoryId || null])
@@ -696,6 +704,12 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // tax engine below from the same pre-fetch.
     const taxClassByProductId = new Map<string, string | null>(
       promoProducts.map((p: any) => [p.id, p.taxClassId || null])
+    );
+    // Unit engine (Wave C2): pack structure per product, so the
+    // promotions stage below can express C2 lines' units in base
+    // units with the same server-side factors the transaction uses.
+    const unitStructureByProductId = new Map<string, { unitsPerPack: number | null; unitsPerStrip: number | null }>(
+      promoProducts.map((p: any) => [p.id, { unitsPerPack: p.unitsPerPack ?? null, unitsPerStrip: p.unitsPerStrip ?? null }])
     );
     const promoLines: PromoLineInput[] = [];
 
@@ -724,12 +738,28 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       // (the same unitsDeducted rule the transaction applies below).
       const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
       const unitsPerBox = item.unitsPerBox && item.unitsPerBox > 0 ? item.unitsPerBox : 1;
+      // Unit engine (Wave C2): a line carrying unitLevel gets its
+      // base units from the PRODUCT's structure (server-authoritative),
+      // never from client-sent unitsDeducted/unitsPerBox. An unknown
+      // product keeps the legacy rule here — the transaction produces
+      // its proper not-found error for it below.
+      const lineStructure = (item as any).unitLevel ? unitStructureByProductId.get(item.productId) : undefined;
+      let promoUnits: number;
+      if (lineStructure) {
+        const resolved = resolveSaleLineUnits(item as any, lineStructure);
+        if ('error' in resolved) {
+          throw new HttpError(400, resolved.error);
+        }
+        promoUnits = resolved.baseQty;
+      } else {
+        promoUnits = item.unitsDeducted && item.unitsDeducted > 0
+          ? item.unitsDeducted
+          : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity);
+      }
       promoLines.push({
         productId: item.productId,
         categoryId: categoryByProductId.get(item.productId) ?? null,
-        units: item.unitsDeducted && item.unitsDeducted > 0
-          ? item.unitsDeducted
-          : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity),
+        units: promoUnits,
         lineTotal: computedTotal
       });
 
@@ -1279,9 +1309,6 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         const item = saleData.items[itemIndex];
         const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
         const unitsPerBox = item.unitsPerBox && item.unitsPerBox > 0 ? item.unitsPerBox : 1;
-        const unitsRequired = item.unitsDeducted && item.unitsDeducted > 0
-          ? item.unitsDeducted
-          : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity);
 
         // Check product availability
         console.log(`Looking for product with ID: ${item.productId}`);
@@ -1297,6 +1324,24 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           console.log('Available products:', allProducts);
           throw new Error(`Product with ID ${item.productId} not found`);
         }
+
+        // Unit engine (Wave C2): when the line carries unitLevel, the
+        // factor comes from the product itself (server-authoritative)
+        // and the line's base quantity is quantity x factor. Client-
+        // sent unitsDeducted/unitsPerBox do not apply to C2 lines.
+        // Lines without unitLevel keep the historical rule untouched.
+        const rawUnitResolution = (item as any).unitLevel !== undefined && (item as any).unitLevel !== null && (item as any).unitLevel !== ''
+          ? resolveSaleLineUnits(item as any, product, product.name)
+          : null;
+        if (rawUnitResolution && 'error' in rawUnitResolution) {
+          throw new HttpError(400, rawUnitResolution.error);
+        }
+        const unitResolution = rawUnitResolution && 'baseQty' in rawUnitResolution ? rawUnitResolution : null;
+        const unitsRequired = unitResolution
+          ? unitResolution.baseQty
+          : (item.unitsDeducted && item.unitsDeducted > 0
+            ? item.unitsDeducted
+            : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity));
 
         // Check stock availability through batches
         // Use explicit select to avoid reportReason column issues
@@ -1463,10 +1508,21 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             productId: item.productId,
             batchId: selectedBatch.id,
             createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
-            quantity: item.quantity, // Boxes or units (as entered)
+            // Unit engine (Wave C2): C2 lines store quantity as BASE
+            // units (== unitsDeducted) plus the level snapshot, so
+            // every quantity-keyed consumer reads base units; the
+            // entered level quantity is quantity / unitFactor and
+            // unitPrice stays the per-LEVEL price, keeping totalPrice
+            // the money truth. Legacy lines store quantity as
+            // entered, exactly as before.
+            quantity: unitResolution ? unitResolution.baseQty : item.quantity,
             unitsDeducted: unitsRequired,
-            unitsPerBox: unitsPerBox,
-            saleType: normalizedSaleType,
+            unitsPerBox: unitResolution && unitResolution.level === 'PACK' ? unitResolution.factor : unitsPerBox,
+            saleType: unitResolution
+              ? (unitResolution.level === 'PACK' ? 'BOX' : unitResolution.level)
+              : normalizedSaleType,
+            unitLevel: unitResolution ? unitResolution.level : null,
+            unitFactor: unitResolution ? unitResolution.factor : null,
             unitPrice: item.unitPrice, // Price per unit or per box (as sent)
             totalPrice: calculatedTotalPrice, // Use provided totalPrice for correct box/unit calculation
             batchNumber: item.batchNumber || selectedBatch.batchNo,
@@ -2231,11 +2287,17 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
       if (existingSale.status === 'COMPLETED') {
         for (const item of existingSale.items) {
           if (item.batchId) {
-            // Restore quantity to batch
+            // Restore the BASE units this line deducted — the same
+            // unitsDeducted-first rule refunds apply. Wave C2 lines
+            // store quantity == unitsDeducted == base, and on
+            // UNIT/voice/desktop lines the two are always equal, so
+            // only legacy BOX lines change: they now restock fully
+            // instead of by their box count.
+            const restoreQty = item.unitsDeducted && item.unitsDeducted > 0 ? item.unitsDeducted : item.quantity;
             // Update batch quantity - use raw SQL directly to avoid reportReason column issues
             await tx.$executeRawUnsafe(
               `UPDATE batches 
-               SET quantity = quantity + ${item.quantity},
+               SET quantity = quantity + ${restoreQty},
                    "updatedAt" = CURRENT_TIMESTAMP
                WHERE id = '${item.batchId}'`
             );
@@ -2245,7 +2307,7 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
               data: {
                 productId: item.productId,
                 type: 'IN',
-                quantity: item.quantity,
+                quantity: restoreQty,
                 reason: 'Sale Deletion - Stock Restored',
                 reference: id,
                 createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'

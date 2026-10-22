@@ -42,6 +42,57 @@ const updatePurchaseSchema = Joi.object({
 
 class StockConflictError extends Error {}
 
+// Unit engine (Wave C2): purchases RECEIVE stock. For a
+// pack-structured product (unitsPerPack > 1) a purchase line's
+// quantity is expressed in PACKS and its unitPrice is the price of
+// ONE pack — that is how suppliers bill. The batch the line lands in
+// always records BASE units: quantity = packs x unitsPerPack, and
+// purchasePrice / sellingPrice per BASE unit (the basis Batch prices
+// have always used — COGS reads batch.purchasePrice x base qty).
+// The PurchaseItem itself keeps the supplier's terms (packs, price
+// per pack), so purchase totals are unchanged. Unstructured products
+// (unitsPerPack 1/null) take the historical path exactly.
+interface PurchaseLineStock {
+  baseQty: number;
+  purchasePrice: number;
+  sellingPrice: number;
+  totalBoxes?: number;
+  unitsPerBox?: number;
+}
+const purchaseLineStock = (
+  product: { unitsPerPack?: number | null } | null | undefined,
+  item: { quantity: number; unitPrice: number }
+): PurchaseLineStock => {
+  const perPack = product?.unitsPerPack && product.unitsPerPack > 1 ? product.unitsPerPack : 1;
+  if (perPack <= 1) {
+    return { baseQty: item.quantity, purchasePrice: item.unitPrice, sellingPrice: item.unitPrice * 1.2 };
+  }
+  const perUnitCost = item.unitPrice / perPack;
+  return {
+    baseQty: item.quantity * perPack,
+    purchasePrice: perUnitCost,
+    sellingPrice: perUnitCost * 1.2, // Same 20% markup as the legacy path
+    totalBoxes: item.quantity,
+    unitsPerBox: perPack
+  };
+};
+
+// The base units a STORED purchase line put into its batch — the
+// reversal counterpart of purchaseLineStock, resolved from the
+// product's current pack size.
+const purchaseLineBaseQty = async (
+  tx: any,
+  productId: string,
+  lineQuantity: number
+): Promise<number> => {
+  const product = await tx.product.findUnique({
+    where: { id: productId },
+    select: { unitsPerPack: true }
+  });
+  const perPack = product?.unitsPerPack && product.unitsPerPack > 1 ? product.unitsPerPack : 1;
+  return lineQuantity * perPack;
+};
+
 // ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
 // By-id purchase handlers previously fetched by raw id — any authenticated
 // user could read/update/delete another tenant's purchases. Scope them to
@@ -104,6 +155,8 @@ export const getPurchases = async (req: AuthRequest, res: Response) => {
                   name: true,
                   sku: true,
                   barcode: true,
+                  unitsPerPack: true, // Wave C2 - the detail view labels pack-based quantities
+                  unitsPerStrip: true,
                 },
               },
               batch: {
@@ -169,6 +222,8 @@ export const getPurchaseById = async (req: AuthRequest, res: Response) => {
                 name: true,
                 sku: true,
                 barcode: true,
+                unitsPerPack: true, // Wave C2 - the detail view labels pack-based quantities
+                unitsPerStrip: true,
               },
             },
             batch: {
@@ -298,6 +353,7 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
         // silently losing the inventory (E2E D-17).
         let batchId = null;
         {
+          const lineStock = purchaseLineStock(product, item);
           const batch = await tx.batch.create({
             data: {
               batchNo: item.batchNo || `AUTO-${purchase.id.slice(0, 8)}-${purchaseItemSeq++}`,
@@ -305,9 +361,11 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
               branchId,
               companyId,
               supplierId: purchaseData.supplierId,
-              quantity: item.quantity,
-              purchasePrice: item.unitPrice,
-              sellingPrice: item.unitPrice * 1.2, // Calculate selling price (20% markup)
+              quantity: lineStock.baseQty,
+              purchasePrice: lineStock.purchasePrice,
+              sellingPrice: lineStock.sellingPrice, // 20% markup over cost, per base unit
+              totalBoxes: lineStock.totalBoxes,
+              unitsPerBox: lineStock.unitsPerBox,
               expireDate: item.expireDate ? new Date(item.expireDate) : null,
               productionDate: item.productionDate ? new Date(item.productionDate) : null,
               createdBy: req.user?.id,
@@ -356,6 +414,8 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
                 name: true,
                 sku: true,
                 barcode: true,
+                unitsPerPack: true, // Wave C2 - the detail view labels pack-based quantities
+                unitsPerStrip: true,
               },
             },
             batch: {
@@ -475,14 +535,18 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
               where: { id: oldItem.batchId },
             });
             if (!batch) continue;
-            if ((batch.quantity || 0) < oldItem.quantity) {
+            // Wave C2: the batch holds BASE units — a structured
+            // line put quantity x unitsPerPack in, so the reversal
+            // takes the same base amount back out.
+            const oldBaseQty = await purchaseLineBaseQty(tx, oldItem.productId, oldItem.quantity);
+            if ((batch.quantity || 0) < oldBaseQty) {
               throw new StockConflictError(
-                `Cannot replace the lines of this purchase: batch ${batch.batchNo} holds ${batch.quantity || 0} unit(s) but this purchase put ${oldItem.quantity} in — some units have already been sold. Nothing was changed.`
+                `Cannot replace the lines of this purchase: batch ${batch.batchNo} holds ${batch.quantity || 0} unit(s) but this purchase put ${oldBaseQty} in — some units have already been sold. Nothing was changed.`
               );
             }
             await tx.batch.update({
               where: { id: batch.id },
-              data: { quantity: { decrement: oldItem.quantity } },
+              data: { quantity: { decrement: oldBaseQty } },
             });
           }
 
@@ -499,6 +563,7 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
               throw new Error(`Product not found: ${item.productId}`);
             }
 
+            const lineStock = purchaseLineStock(product, item);
             const batch = await tx.batch.create({
               data: {
                 batchNo: item.batchNo || `AUTO-${id.slice(0, 8)}-${purchaseItemSeq++}`,
@@ -506,9 +571,11 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
                 branchId: existingPurchase.branchId,
                 companyId: existingPurchase.companyId,
                 supplierId: updateData.supplierId || existingPurchase.supplierId,
-                quantity: item.quantity,
-                purchasePrice: item.unitPrice,
-                sellingPrice: item.unitPrice * 1.2, // Same 20% markup as create
+                quantity: lineStock.baseQty,
+                purchasePrice: lineStock.purchasePrice,
+                sellingPrice: lineStock.sellingPrice, // Same 20% markup as create, per base unit
+                totalBoxes: lineStock.totalBoxes,
+                unitsPerBox: lineStock.unitsPerBox,
                 expireDate: item.expireDate ? new Date(item.expireDate) : null,
                 productionDate: item.productionDate ? new Date(item.productionDate) : null,
                 createdBy: req.user?.id,
@@ -567,6 +634,8 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
                       name: true,
                       sku: true,
                       barcode: true,
+                      unitsPerPack: true, // Wave C2
+                      unitsPerStrip: true,
                     },
                   },
                   batch: {
@@ -639,6 +708,8 @@ export const updatePurchase = async (req: AuthRequest, res: Response) => {
                 name: true,
                 sku: true,
                 barcode: true,
+                unitsPerPack: true, // Wave C2 - the detail view labels pack-based quantities
+                unitsPerStrip: true,
               },
             },
             batch: {

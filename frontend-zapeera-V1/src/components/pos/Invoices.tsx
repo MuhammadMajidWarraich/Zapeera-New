@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiService } from "@/services/api";
+import { describeStoredLine } from "@/utils/units";
 import type { TaxBreakdownLine } from "@/services/api";
 import QRCode from "qrcode";
 import { FiscalChip, FbrQrImage } from "@/components/common/FbrFiscal";
@@ -48,6 +49,10 @@ interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  // Unit engine (Wave C2): stored level snapshot — quantity is in
+  // base units (tablets) for these lines.
+  unitLevel?: string | null;
+  unitFactor?: number | null;
   batchId?: string;
   batchNumber?: string;
   expiryDate?: string;
@@ -172,6 +177,8 @@ const Invoices = () => {
   const [refundItems, setRefundItems] = useState<Array<{
     productId: string;
     productName: string;
+    unitLevel?: string | null;
+    unitFactor?: number | null;
     maxQuantity: number;
     quantity: number;
     unitPrice: number;
@@ -405,6 +412,8 @@ const Invoices = () => {
               batchId: item.batchId || item.batch?.id || null,
               batchNumber: item.batchNumber || item.batch?.batchNo || null,
               expiryDate: item.expiryDate || item.batch?.expireDate || null,
+              unitLevel: item.unitLevel ?? null,
+              unitFactor: item.unitFactor ?? null,
               product: {
                 id: item.product?.id || item.productId,
                 name: item.product?.name || 'Unknown Product',
@@ -912,7 +921,7 @@ const Invoices = () => {
               ${invoice.items.map(item => `
                 <tr>
                   <td>${escapeHtml(item.product.name)}</td>
-                  <td>${item.quantity} ${escapeHtml(item.product.unitType)}</td>
+                  <td>${escapeHtml(describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`)}</td>
                   <td>PKR ${item.unitPrice.toFixed(2)}</td>
                   <td>PKR ${item.totalPrice.toFixed(2)}</td>
                 </tr>
@@ -998,6 +1007,10 @@ const Invoices = () => {
       return {
         productId: item.productId,
         productName: item.product?.name || 'Unknown Product',
+        // Wave C2: for leveled lines the refundable quantity is in
+        // base units (tablets) — the dialog labels it as such.
+        unitLevel: (item as any).unitLevel ?? null,
+        unitFactor: (item as any).unitFactor ?? null,
         maxQuantity: item.quantity,
         quantity: 0, // Start with 0 quantity for refund
         unitPrice: item.unitPrice,
@@ -1525,7 +1538,7 @@ const Invoices = () => {
                       <div className="flex-1">
                         <p className="font-medium">{item.product.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.quantity} {item.product.unitType} × PKR {item.unitPrice.toFixed(2)}
+                          {describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
                           {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                           {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                         </p>
@@ -1681,14 +1694,19 @@ const Invoices = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-muted-foreground">
-                                Max: {item.maxQuantity} units
+                                Max: {item.maxQuantity} {item.unitLevel ? 'tablets' : 'units'}
                               </p>
+                              {item.unitLevel && item.unitFactor && item.unitFactor > 1 && (
+                                <p className="text-xs text-muted-foreground">
+                                  sold as {item.maxQuantity / item.unitFactor} {item.unitLevel.toLowerCase()}s
+                                </p>
+                              )}
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <label className="text-sm font-medium">Quantity to Refund</label>
+                              <label className="text-sm font-medium">Quantity to Refund{item.unitLevel ? ' (tablets)' : ''}</label>
                               <Input
                                 type="number"
                                 min="0"

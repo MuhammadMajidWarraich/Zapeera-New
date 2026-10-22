@@ -14,6 +14,7 @@ import { BarcodeLabelPrint } from '../components/barcode/BarcodeLabelPrint';
 import { BarcodeGenerator } from '../components/barcode/BarcodeGenerator';
 import { useToast } from '../hooks/use-toast';
 import { apiService } from '../services/api';
+import { breakdownStock, isStructured } from '../utils/units';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/useAdmin';
 import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, Eye, Flag, RotateCcw, Printer } from 'lucide-react';
@@ -115,6 +116,9 @@ interface Batch {
     id: string;
     name: string;
     sku: string;
+    // Unit engine (Wave C2): pack structure for stock breakdowns
+    unitsPerPack?: number;
+    unitsPerStrip?: number | null;
   };
   supplier?: {
     id: string;
@@ -302,7 +306,9 @@ const Batches = () => {
           product: {
             id: batch.product.id,
             name: batch.product.name,
-            sku: batch.product.sku || ''
+            sku: batch.product.sku || '',
+            unitsPerPack: batch.product.unitsPerPack,
+            unitsPerStrip: batch.product.unitsPerStrip ?? null
           },
           supplier: batch.supplier ? {
             id: batch.supplier.id,
@@ -406,7 +412,9 @@ const Batches = () => {
           product: {
             id: batch.product.id,
             name: batch.product.name,
-            sku: batch.product.sku || ''
+            sku: batch.product.sku || '',
+            unitsPerPack: batch.product.unitsPerPack,
+            unitsPerStrip: batch.product.unitsPerStrip ?? null
           },
           supplier: batch.supplier ? {
             id: batch.supplier.id,
@@ -1580,6 +1588,11 @@ const Batches = () => {
                               <span className="text-[11px] font-medium uppercase tracking-wide text-[#8c95b0]">
                                 units
                               </span>
+                              {isStructured(batch.product) && (
+                                <span className="text-[11px] font-medium normal-case tracking-normal text-[#4a5578]">
+                                  {breakdownStock(qty, batch.product).text}
+                                </span>
+                              )}
                               {qty <= 10 && (
                                 <span className="mt-0.5 inline-flex w-fit rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-800">
                                   Low stock
@@ -1895,6 +1908,11 @@ const Batches = () => {
                         </span>
                         <span className="text-gray-600">units</span>
                       </div>
+                      {isStructured(viewingBatch.product) && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          {breakdownStock(viewingBatch.quantity || 0, viewingBatch.product).text}
+                        </div>
+                      )}
                       {(viewingBatch.quantity || 0) <= 10 && (
                         <Badge className="bg-red-100 text-red-800 text-xs mt-2">
                           Low Stock

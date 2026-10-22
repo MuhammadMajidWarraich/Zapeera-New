@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Package, Plus, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BatchSelectionTable from './BatchSelectionTable';
+import { breakdownStock, isStructured, levelPriceFromUnitPrice } from '@/utils/units';
 
 interface Product {
   id: string;
@@ -16,6 +17,7 @@ interface Product {
   requiresPrescription?: boolean;
   unitsPerPack?: number;
   unitsPerBox?: number;
+  unitsPerStrip?: number | null; // Wave C2 - tablets per strip
 }
 
 interface Batch {
@@ -62,10 +64,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
     product.unitsPerPack ||
     computedUnitsFromBatch ||
     1;
+  // Wave C2: pack structure for strip selling + stock breakdowns.
+  const structure = { unitsPerPack: unitsPerBox, unitsPerStrip: product.unitsPerStrip ?? null };
+  const unitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
   const maxQuantity =
     selectedUnitType === 'box'
       ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerBox))
-      : selectedBatch?.quantity || product.stock;
+      : selectedUnitType === 'strip' && unitsPerStrip
+        ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerStrip))
+        : selectedBatch?.quantity || product.stock;
 
   const handleAddClick = (unitType: string) => {
     if (quantity > 0) {
@@ -114,6 +121,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <p className="mt-1 flex flex-wrap items-center gap-x-1 text-sm text-[#8c95b0]">
                 <span className="font-medium text-[#4a5578]">
                   Stock: {selectedBatch?.quantity ?? product.stock} units
+                  {isStructured(structure) ? (
+                    <span className="text-[#8c95b0]"> ({breakdownStock(selectedBatch?.quantity ?? product.stock, structure).text})</span>
+                  ) : null}
                 </span>
                 {selectedBatch?.expireDate && (
                   <span
@@ -149,7 +159,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   PKR {Number(selectedBatch.sellingPrice || 0).toFixed(2)}
                 </p>
                 <p className="text-[11px] font-medium leading-tight text-[#8c95b0]">
-                  per unit{unitsPerBox > 1 ? ` • PKR ${(Number(selectedBatch.sellingPrice || 0) * unitsPerBox).toFixed(2)} / box` : ''}
+                  per unit{unitsPerBox > 1 ? ` • PKR ${(Number(selectedBatch.sellingPrice || 0) * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(Number(selectedBatch.sellingPrice || 0), 'STRIP', structure).toFixed(2)} / strip` : ''}
                 </p>
               </div>
             )}
@@ -200,7 +210,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <div
               className="inline-flex rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] p-1"
               role="group"
-              aria-label="Sell by unit or box"
+              aria-label="Sell by unit, strip or box"
             >
               <Button
                 type="button"
@@ -216,6 +226,23 @@ const ProductCard: React.FC<ProductCardProps> = ({
               >
                 Unit
               </Button>
+              {unitsPerStrip ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  title={`Sell by strip of ${unitsPerStrip} units`}
+                  className={cn(
+                    'h-8 rounded-[8px] px-3 text-xs font-semibold transition-all',
+                    selectedUnitType === 'strip'
+                      ? 'bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] hover:text-white'
+                      : 'text-[#4a5578] hover:bg-white/80 hover:text-[#0a1128]',
+                  )}
+                  onClick={() => setSelectedUnitType('strip')}
+                >
+                  Strip
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="sm"

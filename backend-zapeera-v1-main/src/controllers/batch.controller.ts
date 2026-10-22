@@ -967,9 +967,18 @@ export const createBatch = async (req: any, res: Response) => {
     });
 
     if (batchData.unitsPerBox && batchData.unitsPerBox > 1) {
+      const syncedProduct = await prisma.product.findUnique({
+        where: { id: batchData.productId },
+        select: { unitsPerStrip: true }
+      });
       await prisma.product.update({
         where: { id: batchData.productId },
-        data: { unitsPerPack: batchData.unitsPerBox }
+        data: {
+          unitsPerPack: batchData.unitsPerBox,
+          ...(syncedProduct?.unitsPerStrip && batchData.unitsPerBox % syncedProduct.unitsPerStrip !== 0
+            ? { unitsPerStrip: null }
+            : {})
+        }
       });
     }
 
@@ -1211,9 +1220,18 @@ export const updateBatch = async (req: any, res: Response) => {
     }
 
     if (batchData.unitsPerBox && batchData.unitsPerBox > 1) {
+      const syncedProduct = await prisma.product.findUnique({
+        where: { id: existingBatch.productId },
+        select: { unitsPerStrip: true }
+      });
       await prisma.product.update({
         where: { id: existingBatch.productId },
-        data: { unitsPerPack: batchData.unitsPerBox }
+        data: {
+          unitsPerPack: batchData.unitsPerBox,
+          ...(syncedProduct?.unitsPerStrip && batchData.unitsPerBox % syncedProduct.unitsPerStrip !== 0
+            ? { unitsPerStrip: null }
+            : {})
+        }
       });
     }
 

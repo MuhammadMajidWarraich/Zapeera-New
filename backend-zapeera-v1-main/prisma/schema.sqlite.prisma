@@ -352,6 +352,14 @@ model Product {
   minStock             Int       @default(10)
   maxStock             Int?
   unitsPerPack         Int       @default(1)
+  // Unit engine (Wave C2): tablets per STRIP for pack-structured
+  // pharmacy products (a pack of 100 may hold 10 strips of 10).
+  // Null = the product is not sold by the strip. When both are set,
+  // unitsPerPack must be a whole multiple of unitsPerStrip
+  // (validated in the product controller, 400 otherwise). Stock is
+  // always counted in base units (tablets); unitsPerPack /
+  // unitsPerStrip only describe how those units are packaged.
+  unitsPerStrip        Int?
   barcode              String?   @unique
   additionalBarcodes   String?   // JSON array of additional barcodes: ["CODE1","CODE2"]
   barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
@@ -746,6 +754,19 @@ model SaleItem {
   unitsDeducted Int? // Actual units deducted (box => qty * unitsPerBox)
   unitsPerBox   Int? // Units per box for this sale item
   saleType      String? // UNIT | BOX
+  // Unit engine (Wave C2): the selling level the line was entered at
+  // (PACK | STRIP | UNIT) and the base-units-per-level snapshot taken
+  // from the product at sale time. Null on pre-C2 lines and on lines
+  // whose client sent no unitLevel (voice/desktop/legacy BOX flows) —
+  // those keep their historical representation exactly. On C2 lines
+  // `quantity` and `unitsDeducted` BOTH hold BASE units (tablets):
+  // the entered level quantity is quantity / unitFactor, and the
+  // stored unitPrice is the price per LEVEL unit, so the stored
+  // totalPrice (level qty x unitPrice) stays the money truth while
+  // every quantity-keyed consumer (stock, COGS, refunds, reports)
+  // reads base units.
+  unitLevel     String? // PACK | STRIP | UNIT (Wave C2)
+  unitFactor    Int? // Base units per unitLevel unit, snapshot (Wave C2)
   unitPrice     Float
   totalPrice    Float
   batchNumber   String? // Keep for backward compatibility
