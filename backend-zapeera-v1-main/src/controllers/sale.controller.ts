@@ -1884,27 +1884,43 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
 
       // Generate receipt number - Short format: RCN-XXXXX (4-5 digits)
-      // Get the last receipt number to increment, or start from 1
-      const lastReceipt = await tx.receipt.findFirst({
-        orderBy: { id: 'desc' }, // Use id for ordering since createdAt might not be available
-        select: { receiptNumber: true }
-      });
+      // Base the next number on the numerically-largest existing receipt
+      // number and verify the candidate is free before using it. Ordering
+      // by id is NOT safe here: rows inserted by backup restore / imports
+      // carry fresh cuid2 ids that do not sort by creation time, so
+      // "last by id" can name an old receipt whose +1 already exists —
+      // that collision (P2002, no retry) used to fail the whole sale.
+      let receiptNumber: string | null = null;
+      for (let attempt = 0; attempt < 20 && !receiptNumber; attempt++) {
+        const topReceipt = await tx.receipt.findFirst({
+          orderBy: { receiptNumber: 'desc' },
+          select: { receiptNumber: true }
+        });
 
-      let receiptNumber: string;
-      if (lastReceipt?.receiptNumber) {
-        // Extract number from last receipt (format: RCN-XXXXX)
-        const match = lastReceipt.receiptNumber.match(/RCN-(\d+)/);
+        let candidate: string;
+        const match = topReceipt?.receiptNumber?.match(/RCN-(\d+)/);
         if (match) {
-          const lastNumber = parseInt(match[1], 10);
-          const nextNumber = (lastNumber + 1) % 99999; // Wrap around at 99999
-          receiptNumber = `RCN-${String(nextNumber).padStart(5, '0')}`;
-        } else {
+          const nextNumber = (parseInt(match[1], 10) + 1 + attempt) % 99999 || 10000; // Wrap around at 99999
+          candidate = `RCN-${String(nextNumber).padStart(5, '0')}`;
+        } else if (topReceipt) {
           // Fallback: generate random 4-5 digit number
-          receiptNumber = `RCN-${String(Math.floor(Math.random() * 90000) + 10000)}`;
+          candidate = `RCN-${String(Math.floor(Math.random() * 90000) + 10000)}`;
+        } else {
+          // First receipt: start from 10000
+          candidate = 'RCN-10000';
         }
-      } else {
-        // First receipt: start from 10000
-        receiptNumber = `RCN-10000`;
+
+        const existingReceipt = await tx.receipt.findUnique({
+          where: { receiptNumber: candidate },
+          select: { id: true }
+        });
+        if (!existingReceipt) {
+          receiptNumber = candidate;
+        }
+      }
+      if (!receiptNumber) {
+        // Defensive fallback (mirrors the invoice-number generator)
+        receiptNumber = `RCN-${Date.now().toString().slice(-8)}`;
       }
 
       // Create receipt
