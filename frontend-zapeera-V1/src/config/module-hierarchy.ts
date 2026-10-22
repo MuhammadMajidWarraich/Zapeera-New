@@ -45,6 +45,7 @@ import {
   CalendarCheck,
   BookOpen,
   ConciergeBell,
+  ClipboardList,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -224,6 +225,27 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         href: '/batches',
         icon: Package,
         module: 'inventory',
+        roles: ['OWNER', 'MANAGER'],
+      },
+    ],
+  },
+
+  // ─── Stock Takes (Wave C6 — Inventory family) ─────────────────────
+  // Own module key (stock_takes), mirroring the backend hierarchy:
+  // a formal count is a manager-grade register of its own.
+  {
+    module: 'stock_takes',
+    label: 'Stock Takes',
+    icon: ClipboardList,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER'],
+    pages: [
+      {
+        key: 'stock-takes',
+        label: 'Stock Takes',
+        href: '/stock-takes',
+        icon: ClipboardList,
+        module: 'stock_takes',
         roles: ['OWNER', 'MANAGER'],
       },
     ],

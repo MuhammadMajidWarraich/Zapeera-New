@@ -37,6 +37,7 @@ export const MODULE_PAGES: Record<string, string[]> = {
   reservations: ['overview', 'reservations'],
   folios: ['overview', 'folios'],
   front_desk: ['overview', 'front-desk'],
+  stock_takes: ['overview', 'stock-takes'],
   employee_portal: ['overview', 'dashboard', 'attendance', 'shifts', 'profile', 'notifications'],
   dashboard: ['overview', 'dashboard'],
 };
@@ -102,6 +103,9 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/rooms': { module: 'rooms', page: 'rooms' },
   '/api/reservations': { module: 'reservations', page: 'reservations' },
   '/api/folios': { module: 'folios', page: 'folios' },
+
+  // Stock-take (Wave C6): an Inventory-family module of its own.
+  '/api/stock-takes': { module: 'stock_takes', page: 'stock-takes' },
 };
 
 /**
@@ -284,6 +288,7 @@ export const MODULE_DISPLAY_NAMES: Record<string, string> = {
   reservations: 'Reservations',
   folios: 'Folios',
   front_desk: 'Front Desk',
+  stock_takes: 'Stock Takes',
 };
 
 export type ModuleOperation = 'read' | 'create' | 'update' | 'delete' | 'export' | 'approve' | 'print';

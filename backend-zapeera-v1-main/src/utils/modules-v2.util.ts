@@ -218,6 +218,7 @@ function getDefaultModuleIcon(moduleKey: string): string {
     reservations: 'CalendarCheck',
     folios: 'BookOpen',
     front_desk: 'ConciergeBell',
+    stock_takes: 'ClipboardList',
   };
 
   return iconMap[moduleKey] || 'Box';

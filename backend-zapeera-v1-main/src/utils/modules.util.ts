@@ -12,6 +12,7 @@ const isMissingTableError = (error: any): boolean => {
 const STANDARD_MODULES = [
   { name: 'sales',               displayName: 'Sales',                description: 'Point of sale, invoices, refunds and customers' },
   { name: 'inventory',           displayName: 'Inventory',            description: 'Products, categories, manufacturers, shelves and batches' },
+  { name: 'stock_takes',         displayName: 'Stock Takes',          description: 'Formal physical stock counts with variance reports (Inventory family)' },
   { name: 'purchases',           displayName: 'Purchases',            description: 'Suppliers and purchase orders' },
   { name: 'reports',             displayName: 'Reports & Analytics',  description: 'Basic and advanced business reports' },
   { name: 'prescriptions',       displayName: 'Prescriptions',        description: 'Prescription management' },
@@ -741,6 +742,82 @@ export async function ensureFreshInstallPolicyBaseline(): Promise<void> {
   }
 }
 
+/**
+ * Wave C6 — plan-entitlement catalog coverage.
+ *
+ * The fresh-install baseline above only fills entitlements for plans
+ * that are still UNCONFIGURED: once a plan's policy has been
+ * published (or baseline-flipped to CONFIGURED), later boots never
+ * touch it again. That is the right safety rule for PUBLISHED
+ * policy — but it has a hole: a module shipped AFTER a plan was
+ * configured exists in the policy catalog (module_definitions) with
+ * NO entitlement row on that plan, and the authorization service
+ * reads "no row" as deny. The Wave C5 hotel modules hit exactly
+ * this live: rooms / reservations / folios / front_desk returned
+ * 403 PLAN_NOT_ENTITLED on every plan until each plan was manually
+ * republished with the new keys added at FULL.
+ *
+ * This pass closes the hole the same way ensureEmployeePortalEnabled
+ * step 2b closed it for that one module, generalized to the whole
+ * catalog: for EVERY plan, any catalog module key with no
+ * module-level entitlement row (pageKey NULL) gets one inserted at
+ * FULL — the level the clinic and hotel packs enjoy on every plan.
+ *
+ * Safety: it ONLY inserts missing rows. An existing row is never
+ * modified or deleted, so a BackOffice-published NONE / LIMITED for
+ * a module that was in the catalog when the policy was written
+ * stands untouched. Fully idempotent across restarts.
+ */
+export async function ensurePlanEntitlementsCoverCatalog(): Promise<void> {
+  const prisma = await getPrisma();
+  try {
+    try {
+      const { ensureModuleAccessV2SeedData } = await import('./modules-v2.util');
+      await ensureModuleAccessV2SeedData(prisma as any);
+    } catch (seedErr: any) {
+      console.error('[EntitlementCoverage] ❌ Module definition seeding failed:', seedErr?.message || seedErr);
+    }
+
+    const moduleDefinitions: any[] = await (prisma.moduleDefinition as any).findMany({
+      select: { key: true },
+    });
+    const catalogKeys = [...new Set(moduleDefinitions.map((m: any) => String(m.key)))];
+    if (catalogKeys.length === 0) {
+      console.error('[EntitlementCoverage] ❌ module_definitions is empty — cannot check catalog coverage.');
+      return;
+    }
+
+    const plans: any[] = await (prisma.plan as any).findMany({ select: { id: true } });
+    for (const plan of plans) {
+      try {
+        const existingRows: any[] = await (prisma.planEntitlement as any).findMany({
+          where: { planId: plan.id, pageKey: null },
+          select: { moduleKey: true },
+        });
+        const entitled = new Set(existingRows.map((r: any) => String(r.moduleKey)));
+        const missing = catalogKeys.filter((key) => !entitled.has(key));
+        for (const moduleKey of missing) {
+          await (prisma.planEntitlement as any).create({
+            data: { planId: plan.id, moduleKey, pageKey: null, entitlementLevel: 'FULL' },
+          });
+        }
+        if (missing.length > 0) {
+          console.log(`[EntitlementCoverage] ✅ Plan ${plan.id}: inserted FULL entitlement(s) for previously-uncovered module(s): ${missing.join(', ')}`);
+        }
+      } catch (planErr: any) {
+        if (isMissingTableError(planErr)) throw planErr;
+        console.error(`[EntitlementCoverage] ❌ Plan ${plan.id} coverage failed:`, planErr?.message || planErr);
+      }
+    }
+  } catch (error: any) {
+    if (isMissingTableError(error)) {
+      console.error('[EntitlementCoverage] ❌ Skipped — a required table is missing:', error?.message || error);
+      return;
+    }
+    console.error('[EntitlementCoverage] ❌ Failed:', error?.message || error);
+  }
+}
+
 export default {
   ensureModulesExist,
   ensureBusinessTypesExist,
@@ -748,5 +825,6 @@ export default {
   ensureEmployeePortalEnabled,
   ensureModulePermissionTablesExist,
   ensureFreshInstallPolicyBaseline,
+  ensurePlanEntitlementsCoverCatalog,
   enableDefaultModulesForBusiness,
 };

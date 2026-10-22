@@ -86,6 +86,7 @@ import roomTypeRoutes from './routes/room-type.routes';
 import roomRoutes from './routes/room.routes';
 import reservationRoutes from './routes/reservation.routes';
 import folioRoutes from './routes/folio.routes';
+import stockTakeRoutes from './routes/stock-take.routes';
 import reportRoutes from './routes/report.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import adminRoutes from './routes/admin.routes';
@@ -130,7 +131,7 @@ import { getPrisma } from './utils/db.util';
 import { validateCSRF } from './middleware/csrf.middleware';
 import { applyUniversalModuleProtection } from './middleware/universal-module-protection.middleware';
 import { ensurePostgresSchemaCompatibility } from './utils/postgres-schema-compat';
-import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled, ensureFreshInstallPolicyBaseline } from './utils/modules.util';
+import { ensureModulesExist, ensureBusinessTypesExist, ensureDefaultPlansExist, ensureEmployeePortalEnabled, ensureFreshInstallPolicyBaseline, ensurePlanEntitlementsCoverCatalog } from './utils/modules.util';
 
 // Import middleware
 import { errorHandler, sanitizeErrorResponses } from './middleware/error.middleware';
@@ -167,6 +168,13 @@ try {
           // is usable without manual DB edits. Idempotent; never overwrites
           // BackOffice-published policies.
           await ensureFreshInstallPolicyBaseline();
+          // Wave C6: catalog coverage — a module shipped after a
+          // plan was CONFIGURED would otherwise sit in the policy
+          // catalog with no entitlement row on that plan and 403 as
+          // PLAN_NOT_ENTITLED (the C5 hotel modules did exactly this
+          // live). Inserts missing module-level FULL rows only;
+          // published NONE/LIMITED rows are never touched.
+          await ensurePlanEntitlementsCoverCatalog();
           console.log('[Server] ✅ Standard modules, business types, plans, and employee portal ensured');
           startSubscriptionCron();
           // FBR POS (Wave B7): drain the fiscal outbox every 30s.
@@ -589,6 +597,7 @@ app.use('/api/v1/room-types', roomTypeRoutes);
 app.use('/api/v1/rooms', roomRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
 app.use('/api/v1/folios', folioRoutes);
+app.use('/api/v1/stock-takes', stockTakeRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/admin', adminRoutes);
@@ -645,6 +654,7 @@ app.use('/api/room-types', roomTypeRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/folios', folioRoutes);
+app.use('/api/stock-takes', stockTakeRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);

@@ -13,6 +13,13 @@ import {
   getMedicineMasterCatalog,
   importMedicineMaster
 } from '../controllers/product.controller';
+import {
+  getProductVariants,
+  createProductVariant,
+  generateProductVariants,
+  updateProductVariant,
+  deactivateProductVariant
+} from '../controllers/product-variant.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
 
@@ -43,5 +50,15 @@ router.delete('/:id', checkPermission('delete_product'), deleteProduct);
 
 // Activate all products (permission guarded)
 router.post('/activate-all', checkPermission('activate_all_products'), activateAllProducts);
+
+// Product variants (Wave C6 — Retail pack): the size x colour matrix
+// as child resources of the product. DELETE is a soft deactivate.
+// Two-segment paths, so they cannot collide with the /:id routes
+// above. Permissions mirror the product operations they extend.
+router.get('/:id/variants', checkPermission('read_product'), getProductVariants);
+router.post('/:id/variants', checkPermission('create_product'), createProductVariant);
+router.post('/:id/variants/generate', checkPermission('create_product'), generateProductVariants);
+router.put('/:id/variants/:variantId', checkPermission('update_product'), updateProductVariant);
+router.delete('/:id/variants/:variantId', checkPermission('delete_product'), deactivateProductVariant);
 
 export default router;

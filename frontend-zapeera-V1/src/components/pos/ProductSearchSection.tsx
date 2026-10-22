@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import { apiService } from '@/services/api';
 import { toast } from '@/hooks/use-toast';
+import type { ProductVariantLite } from '@/utils/variants';
 
 interface Product {
   id: string;
@@ -16,6 +17,8 @@ interface Product {
   requiresPrescription?: boolean;
   unitsPerPack?: number;
   unitsPerBox?: number;
+  // Product variants (Wave C6): the ACTIVE variant matrix.
+  variants?: ProductVariantLite[];
 }
 
 interface Batch {
@@ -23,6 +26,7 @@ interface Batch {
   batchNo: string;
   quantity: number;
   sellingPrice: number;
+  variantId?: string | null;
   unitsPerBox?: number;
   totalBoxes?: number;
   expireDate?: string;
@@ -42,6 +46,13 @@ interface ProductSearchSectionProps {
   getSelectedBatch: (productId: string) => Batch | null;
   onSelectBatch: (productId: string, batchId: string) => void;
   onAddToCart: (product: Product, quantity: number, unitType: string) => void;
+  // Product variants (Wave C6, main rail only): the batches to
+  // DISPLAY for a product (its selected variant's pool), the
+  // effective variant id per product, and the chip callback. The
+  // modal rail omits all three and keeps the legacy display.
+  getBatchesForProduct?: (productId: string) => Batch[];
+  getEffectiveVariantId?: (product: Product) => string | null;
+  onSelectVariant?: (productId: string, variantId: string | null) => void;
   /** Callback when a barcode is scanned and not found */
   onUnknownBarcode?: (barcode: string) => void;
   /** Callback when a barcode is found - adds product directly */
@@ -89,6 +100,9 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   getSelectedBatch,
   onSelectBatch,
   onAddToCart,
+  getBatchesForProduct,
+  getEffectiveVariantId,
+  onSelectVariant,
   onUnknownBarcode,
   onBarcodeFound,
   layout = 'default',
@@ -232,9 +246,16 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
             </div>
           ) : searchQuery.trim() && Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
             filteredProducts.map((product) => {
-              const batches = productBatches[product.id] || [];
+              const allBatches = productBatches[product.id] || [];
+              const batches = getBatchesForProduct ? getBatchesForProduct(product.id) : allBatches;
               const selectedBatch = getSelectedBatch(product.id);
               const isLoadingBatch = !!loadingBatches[product.id] && batches.length === 0;
+              const variants = product.variants || [];
+              const effectiveVariantId = getEffectiveVariantId ? getEffectiveVariantId(product) : null;
+              const selectedVariant = variants.find(v => v.id === effectiveVariantId) || null;
+              // The "Standard" (base pool) chip only makes sense
+              // when base stock actually exists for this product.
+              const hasBaseStock = variants.length > 0 && allBatches.some(b => !b.variantId && b.quantity > 0);
 
               return (
                 <ProductCard
@@ -246,6 +267,10 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                   requiresBranchSelection={requiresBranchSelection}
                   onSelectBatch={(batchId) => onSelectBatch(product.id, batchId)}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
+                  variants={variants}
+                  selectedVariant={selectedVariant}
+                  hasBaseStock={hasBaseStock}
+                  onSelectVariant={onSelectVariant ? (variantId) => onSelectVariant(product.id, variantId) : undefined}
                 />
               );
             })

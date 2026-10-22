@@ -15,6 +15,7 @@ import { ExtractedDataReview } from "./ExtractedDataReview";
 import { BarcodeLabelPrint } from "../barcode/BarcodeLabelPrint";
 import { BarcodeGenerator } from "../barcode/BarcodeGenerator";
 import MedicineCatalogImport from "./MedicineCatalogImport";
+import ProductVariantsManager from "./ProductVariantsManager";
 import {
   Search,
   Plus,
@@ -38,7 +39,8 @@ import {
   FileSpreadsheet,
   Image,
   FolderOpen,
-  Printer
+  Printer,
+  Layers
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,6 +189,7 @@ const Inventory = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [labelProduct, setLabelProduct] = useState<Product | null>(null); // Product whose barcode label is being printed
+  const [variantsProduct, setVariantsProduct] = useState<Product | null>(null); // Product whose variants are being managed (Wave C6)
   const [isBarcodeGeneratorOpen, setIsBarcodeGeneratorOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [importedProducts, setImportedProducts] = useState<any[]>([]);
@@ -3464,6 +3467,14 @@ const Inventory = () => {
                               </button>
                               <button
                                 type="button"
+                                title="Variants (size × colour)"
+                                onClick={() => setVariantsProduct(product)}
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              >
+                                <Layers className="h-[15px] w-[15px]" strokeWidth={2} />
+                              </button>
+                              <button
+                                type="button"
                                 title="Edit"
                                 onClick={() => handleEditProduct(product)}
                                 className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
@@ -3569,6 +3580,14 @@ const Inventory = () => {
           sku={labelProduct.sku}
         />
       )}
+
+      {/* Product variants manager (Wave C6) */}
+      <ProductVariantsManager
+        product={variantsProduct}
+        open={!!variantsProduct}
+        onOpenChange={(isOpen) => { if (!isOpen) setVariantsProduct(null); }}
+        onChanged={() => { void loadData(true); }}
+      />
 
       {/* Real barcode generator (validates format / generates via the
           barcode API) — replaces the old unvalidated random number used

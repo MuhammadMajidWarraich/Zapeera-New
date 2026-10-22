@@ -51,6 +51,7 @@ const FrontDeskPage = React.lazy(() => import("./pages/FrontDesk"));
 const RoomsPage = React.lazy(() => import("./pages/Rooms"));
 const ReservationsPage = React.lazy(() => import("./pages/Reservations"));
 const FoliosPage = React.lazy(() => import("./pages/Folios"));
+const StockTakesPage = React.lazy(() => import("./pages/StockTakes"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const AccountingPage = React.lazy(() => import("./pages/Accounting"));
@@ -421,6 +422,17 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <FoliosPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/stock-takes" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <StockTakesPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1350,6 +1362,20 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <FoliosPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/stock-takes" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <StockTakesPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

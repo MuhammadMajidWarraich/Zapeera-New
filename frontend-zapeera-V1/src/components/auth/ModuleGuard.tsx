@@ -367,6 +367,7 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/rooms': 'rooms',
   '/reservations': 'reservations',
   '/folios': 'folios',
+  '/stock-takes': 'stock_takes',
   '/branches': 'business_management',
   '/staff': 'business_management',
   '/shifts': 'business_management',
@@ -411,6 +412,7 @@ const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
   rooms: 'rooms',
   reservations: 'reservations',
   folios: 'folios',
+  'stock-takes': 'stock_takes',
   'employee-portal': 'employee_portal',
 };
 
@@ -460,6 +462,7 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   '/rooms': { parentModule: 'rooms', subModuleKey: 'rooms', label: 'Rooms' },
   '/reservations': { parentModule: 'reservations', subModuleKey: 'reservations', label: 'Reservations' },
   '/folios': { parentModule: 'folios', subModuleKey: 'folios', label: 'Folios' },
+  '/stock-takes': { parentModule: 'stock_takes', subModuleKey: 'stock-takes', label: 'Stock Takes' },
   '/branches': { parentModule: 'business_management', subModuleKey: 'branches', label: 'Branches' },
   '/staff': { parentModule: 'business_management', subModuleKey: 'staff', label: 'Staff' },
   '/shifts': { parentModule: 'business_management', subModuleKey: 'shifts', label: 'Shifts' },
@@ -493,6 +496,7 @@ const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   rooms: { parentModule: 'rooms', subModuleKey: 'rooms', label: 'Rooms' },
   reservations: { parentModule: 'reservations', subModuleKey: 'reservations', label: 'Reservations' },
   folios: { parentModule: 'folios', subModuleKey: 'folios', label: 'Folios' },
+  'stock-takes': { parentModule: 'stock_takes', subModuleKey: 'stock-takes', label: 'Stock Takes' },
   branches: { parentModule: 'business_management', subModuleKey: 'branches', label: 'Branches' },
   staff: { parentModule: 'business_management', subModuleKey: 'staff', label: 'Staff' },
   shifts: { parentModule: 'business_management', subModuleKey: 'shifts', label: 'Shifts' },

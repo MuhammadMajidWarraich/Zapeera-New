@@ -208,6 +208,23 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
             rate: true
           }
         },
+          // Product variants (Wave C6): the ACTIVE matrix rides the
+          // list so the POS can offer variant chips without a second
+          // call. Products without variants get an empty array and
+          // every consumer behaves exactly as before.
+          variants: {
+            where: { isActive: true },
+            orderBy: { name: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              barcode: true,
+              attributes: true,
+              priceDelta: true,
+              isActive: true
+            }
+          },
           batches: {
             where: {
               isActive: true,
@@ -321,6 +338,21 @@ export const getProduct = async (req: AuthRequest, res: Response) => {
             id: true,
             name: true,
             rate: true
+          }
+        },
+        // Product variants (Wave C6): the full matrix (active and
+        // deactivated) rides the detail so the Variants manager can
+        // edit/reactivate without a second call.
+        variants: {
+          orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            barcode: true,
+            attributes: true,
+            priceDelta: true,
+            isActive: true
           }
         },
         stockMovements: {

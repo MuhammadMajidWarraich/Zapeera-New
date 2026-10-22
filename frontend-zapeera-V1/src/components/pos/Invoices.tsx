@@ -52,6 +52,8 @@ interface InvoiceItem {
   // Unit engine (Wave C2): stored level snapshot — quantity is in
   // base units (tablets) for these lines.
   unitLevel?: string | null;
+  // Product variants (Wave C6): name snapshot from the sale line.
+  variantName?: string | null;
   unitFactor?: number | null;
   batchId?: string;
   batchNumber?: string;
@@ -178,6 +180,8 @@ const Invoices = () => {
     productId: string;
     productName: string;
     unitLevel?: string | null;
+  // Product variants (Wave C6): name snapshot from the sale line.
+  variantName?: string | null;
     unitFactor?: number | null;
     maxQuantity: number;
     quantity: number;
@@ -413,6 +417,7 @@ const Invoices = () => {
               batchNumber: item.batchNumber || item.batch?.batchNo || null,
               expiryDate: item.expiryDate || item.batch?.expireDate || null,
               unitLevel: item.unitLevel ?? null,
+              variantName: item.variantName ?? null,
               unitFactor: item.unitFactor ?? null,
               product: {
                 id: item.product?.id || item.productId,
@@ -920,7 +925,7 @@ const Invoices = () => {
             <tbody>
               ${invoice.items.map(item => `
                 <tr>
-                  <td>${escapeHtml(item.product.name)}</td>
+                  <td>${escapeHtml(item.product.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</td>
                   <td>${escapeHtml(describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`)}</td>
                   <td>PKR ${item.unitPrice.toFixed(2)}</td>
                   <td>PKR ${item.totalPrice.toFixed(2)}</td>
@@ -1536,7 +1541,7 @@ const Invoices = () => {
                   {selectedInvoice.items.map((item) => (
                     <div key={item.id} className="flex justify-between items-center py-2 border-b border-dashed">
                       <div className="flex-1">
-                        <p className="font-medium">{item.product.name}</p>
+                        <p className="font-medium">{item.product.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
                         <p className="text-sm text-muted-foreground">
                           {describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
                           {item.batchNumber && ` • Batch: ${item.batchNumber}`}

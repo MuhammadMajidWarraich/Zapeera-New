@@ -14,6 +14,7 @@ import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, Tax
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
+import { variantBatchWhere } from '../utils/variant.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -37,6 +38,11 @@ const createSaleSchema = Joi.object({
       unitsDeducted: Joi.number().min(1).optional(),
       unitsPerBox: Joi.number().min(1).optional(),
       unitPrice: Joi.number().positive().required(),
+      // Product variants (Wave C6): the variant this line sells.
+      // Optional — its business rules (variant exists for the
+      // product in this business, is active, and the line's batch
+      // comes from the variant's pool) live in createSale.
+      variantId: Joi.string().allow(null, '').optional(),
       batchId: Joi.string().allow(null, ''), // Link to specific batch
       batchNumber: Joi.string().allow(''), // Keep for backward compatibility
       expiryDate: Joi.string().allow(''),
@@ -81,6 +87,10 @@ const createSaleSchema = Joi.object({
   // versa); the business rules live in createSale next to the other
   // pre-transaction validations.
   folioId: Joi.string().allow(null, '').optional(),
+  // Salesperson attribution (Wave C6): the staff member credited
+  // with the sale when it is not the cashier. Optional — validated
+  // in createSale to be an ACTIVE member of the sale's business.
+  salespersonId: Joi.string().allow(null, '').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -1141,6 +1151,40 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Salesperson attribution (Wave C6): when the POS credits the
+    // sale to a salesperson other than the cashier, that user must be
+    // an ACTIVE member of the sale's business — an arbitrary user id
+    // must never land on a sale (commission aggregation trusts it).
+    // Null/absent = the cashier is the seller, exactly as before.
+    let salespersonForSale: { id: string } | null = null;
+    {
+      const requestedSalespersonId = saleData.salespersonId ? String(saleData.salespersonId) : null;
+      if (requestedSalespersonId) {
+        let salespersonCompanyId: string | null = null;
+        if (req.user?.selectedCompanyId) {
+          salespersonCompanyId = req.user.selectedCompanyId;
+        } else if (saleData.branchId) {
+          const branchRow = await prisma.branch.findUnique({
+            where: { id: saleData.branchId },
+            select: { companyId: true }
+          });
+          salespersonCompanyId = branchRow?.companyId || null;
+        }
+        const membership = salespersonCompanyId
+          ? await prisma.membership.findFirst({
+              where: { userId: requestedSalespersonId, businessId: salespersonCompanyId, status: 'ACTIVE' },
+              select: { id: true }
+            })
+          : null;
+        if (!membership) {
+          const e: any = new HttpError(400, 'The salesperson for this sale is not an active member of this business');
+          e.code = 'SALESPERSON_NOT_IN_BUSINESS';
+          throw e;
+        }
+        salespersonForSale = { id: requestedSalespersonId };
+      }
+    }
+
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
@@ -1255,6 +1299,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // validated above; the matching FolioCharge is written
           // below in this same transaction.
           folioId: folioForSale ? folioForSale.id : null,
+          // Salesperson attribution (Wave C6): validated above to
+          // be an ACTIVE member of this business; null = cashier.
+          salespersonId: salespersonForSale ? salespersonForSale.id : null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1287,6 +1334,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
               prescriptionId: saleData.prescriptionId || null,
               folioId: folioForSale ? folioForSale.id : null,
+              salespersonId: salespersonForSale ? salespersonForSale.id : null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -1468,6 +1516,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               saleId: sale.id,
               productId: item.productId,
               batchId: null,
+              // Services (Wave C4) never carry a variant.
+              variantId: null,
+              variantName: null,
               createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
               quantity: item.quantity,
               unitsDeducted: 0,
@@ -1503,6 +1554,41 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             ? item.unitsDeducted
             : (normalizedSaleType === 'BOX' ? item.quantity * unitsPerBox : item.quantity));
 
+        // Product variants (Wave C6): THE ISOLATION RULE — a line
+        // naming a variant draws ONLY from that variant's batches; a
+        // variant-less line on a product WITH active variants draws
+        // ONLY from the base pool (variantId null); a product with no
+        // variants adds no constraint at all, so its path below is
+        // byte-identical to before (variant.util.variantBatchWhere).
+        // An explicitly selected batch outside the pool simply does
+        // not resolve, which refuses the sale like any bad batch.
+        let lineVariant: { id: string; name: string } | null = null;
+        let variantPool: { variantId: string } | { variantId: null } | Record<string, never> = {};
+        const requestedVariantId = (item as any).variantId ? String((item as any).variantId) : null;
+        if (requestedVariantId) {
+          const variantRow = await tx.productVariant.findFirst({
+            where: { id: requestedVariantId, productId: item.productId, companyId: targetCompanyId },
+            select: { id: true, name: true, isActive: true }
+          });
+          if (!variantRow) {
+            const e: any = new HttpError(400, `Variant not found for ${product.name}`);
+            e.code = 'VARIANT_NOT_FOUND';
+            throw e;
+          }
+          if (!variantRow.isActive) {
+            const e: any = new HttpError(400, `Variant "${variantRow.name}" of ${product.name} is no longer active`);
+            e.code = 'VARIANT_INACTIVE';
+            throw e;
+          }
+          lineVariant = { id: variantRow.id, name: variantRow.name };
+          variantPool = variantBatchWhere(lineVariant.id, true);
+        } else {
+          const activeVariantCount = await tx.productVariant.count({
+            where: { productId: item.productId, companyId: targetCompanyId, isActive: true }
+          });
+          variantPool = variantBatchWhere(null, activeVariantCount > 0);
+        }
+
         // Check stock availability through batches
         // Use explicit select to avoid reportReason column issues
         const availableBatches = await tx.batch.findMany({
@@ -1510,7 +1596,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             productId: item.productId,
             branchId: targetBranchId,
             quantity: { gt: 0 },
-            isActive: true
+            isActive: true,
+            ...variantPool
           },
           orderBy: { expireDate: 'asc' }, // FIFO - First In, First Out
           select: {
@@ -1545,7 +1632,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               id: item.batchId,
               productId: item.productId,
               branchId: targetBranchId,
-              isActive: true
+              isActive: true,
+              ...variantPool
             },
             select: {
               id: true,
@@ -1578,7 +1666,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               quantity: {
                 gte: unitsRequired
               },
-              isActive: true
+              isActive: true,
+              ...variantPool
             },
             orderBy: { expireDate: 'asc' }, // FIFO - First In, First Out
             select: {
@@ -1608,7 +1697,8 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               quantity: {
                 gte: unitsRequired
               },
-              isActive: true
+              isActive: true,
+              ...variantPool
             },
             orderBy: { expireDate: 'asc' }, // FIFO - First In, First Out
             select: {
@@ -1667,6 +1757,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             saleId: sale.id,
             productId: item.productId,
             batchId: selectedBatch.id,
+            // Product variants (Wave C6): the variant sold + its
+            // name snapshot, so history/receipts stay truthful even
+            // if the variant is later renamed or deactivated.
+            variantId: lineVariant ? lineVariant.id : null,
+            variantName: lineVariant ? lineVariant.name : null,
             createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
             // Unit engine (Wave C2): C2 lines store quantity as BASE
             // units (== unitsDeducted) plus the level snapshot, so
@@ -1858,6 +1953,15 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           }
         },
         user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        },
+        // Salesperson attribution (Wave C6): surfaced beside the
+        // cashier so receipts and history can credit the seller.
+        salesperson: {
           select: {
             id: true,
             name: true,

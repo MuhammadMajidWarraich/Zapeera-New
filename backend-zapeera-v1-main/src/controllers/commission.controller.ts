@@ -97,8 +97,19 @@ export const calculateCommission = async (req: Request, res: Response) => {
     // Sales are recorded against the seller's USER id — the old code
     // filtered by membershipId, which never matches a Sale.userId, so
     // commissions always computed over zero sales (P4-3).
+    // Salesperson attribution (Wave C6): a sale counts for the staff
+    // member it was ATTRIBUTED to (Sale.salespersonId) when set, and
+    // for its cashier (Sale.userId) otherwise — an attributed sale
+    // never double-counts for the cashier who rang it up.
+    const staffUserId = staffProfile.membership.userId;
     const salesData = await prisma.sale.aggregate({
-      where: { userId: staffProfile.membership.userId, branchId, createdAt: { gte: startDate, lte: endDate }, status: 'COMPLETED' },
+      where: {
+        OR: [
+          { salespersonId: staffUserId },
+          { salespersonId: null, userId: staffUserId }
+        ],
+        branchId, createdAt: { gte: startDate, lte: endDate }, status: 'COMPLETED'
+      },
       _sum: { totalAmount: true },
       _count: { id: true }
     });
@@ -308,7 +319,13 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
       where: {
         sale: {
           // Sales key on the seller's USER id, not the membership id (P4-3).
-          userId: staffProfile?.membership?.userId || '',
+          // Salesperson attribution (Wave C6): the same OR rule as
+          // calculateCommission — attributed to salespersonId when
+          // set, else to the cashier.
+          OR: [
+            { salespersonId: staffProfile?.membership?.userId || '' },
+            { salespersonId: null, userId: staffProfile?.membership?.userId || '' }
+          ],
           status: 'COMPLETED',
           ...(startDate || endDate ? { createdAt: { ...(startDate ? { gte: new Date(startDate as string) } : {}), ...(endDate ? { lte: new Date(endDate as string) } : {}) } } : {})
         }

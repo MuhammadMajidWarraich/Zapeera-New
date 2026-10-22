@@ -69,4 +69,23 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "reorderQuantity" INTEGER'
   );
+
+  // Retail pack (Wave C6): variant pool on batches, the variant
+  // snapshot on sale lines, and salesperson attribution on sales.
+  // All nullable — pre-C6 rows stay null and every read path treats
+  // null exactly as it did before. (The new tables — product_variants,
+  // stock_takes, stock_take_lines — arrive via schema heal like the
+  // C4/C5 tables did.)
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "batches" ADD COLUMN IF NOT EXISTS "variantId" TEXT'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "variantId" TEXT'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "variantName" TEXT'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "salespersonId" TEXT'
+  );
 }

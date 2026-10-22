@@ -95,7 +95,11 @@ const createBatchSchema = Joi.object({
   unitsPerBox: Joi.number().positive().required().messages({
     'number.positive': 'Units per box must be positive',
     'any.required': 'Units per box is required'
-  })
+  }),
+  // Product variants (Wave C6): the variant this batch's stock belongs
+  // to; null/absent = the base product pool. Validated to belong to
+  // the batch's product + business in createBatch.
+  variantId: Joi.string().allow('', null).optional()
 });
 
 const updateBatchSchema = Joi.object({
@@ -125,7 +129,11 @@ const updateBatchSchema = Joi.object({
   }),
   unitsPerBox: Joi.number().positive().optional().messages({
     'number.positive': 'Units per box must be positive'
-  })
+  }),
+  // Product variants (Wave C6): reassign the batch to a variant (or
+  // back to the base pool with null). Validated against the batch's
+  // product in updateBatch.
+  variantId: Joi.string().allow('', null).optional()
 });
 
 // ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
@@ -519,6 +527,13 @@ export const getBatches = async (req: any, res: Response) => {
       where.productId = productId;
     }
 
+    // Product variants (Wave C6): filter by owning variant; the
+    // literal string 'null' selects the base pool (no variant).
+    const variantIdFilter = req.query.variantId as string | undefined;
+    if (variantIdFilter !== undefined && variantIdFilter !== '') {
+      where.variantId = variantIdFilter === 'null' ? null : variantIdFilter;
+    }
+
     console.log('🔍 Query where clause:', where);
 
     // Use explicit select from start to avoid reportReason column issues
@@ -557,6 +572,15 @@ export const getBatches = async (req: any, res: Response) => {
             createdAt: true,
             updatedAt: true,
             createdBy: true,
+            // Product variants (Wave C6): which variant pool this
+            // batch's stock belongs to (null = base pool).
+            variantId: true,
+            variant: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           product: {
             select: {
               id: true,
@@ -620,6 +644,13 @@ export const getBatches = async (req: any, res: Response) => {
               createdAt: true,
               updatedAt: true,
               createdBy: true,
+              variantId: true,
+              variant: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
               product: {
                 select: {
                   id: true,
@@ -745,6 +776,13 @@ export const getBatches = async (req: any, res: Response) => {
               createdAt: true,
               updatedAt: true,
               createdBy: true,
+              variantId: true,
+              variant: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
               product: {
                 select: {
                   id: true,
@@ -930,6 +968,26 @@ export const createBatch = async (req: any, res: Response) => {
       });
     }
 
+    // Product variants (Wave C6): a batch may carry stock for ONE
+    // variant of its product (or the base pool when null). A variant
+    // id that is not a variant of THIS product in THIS business is
+    // refused — a batch must never hold another product's variant
+    // stock (the sale engine's isolation rule trusts this link).
+    const requestedVariantId = batchData.variantId ? String(batchData.variantId).trim() : '';
+    if (requestedVariantId) {
+      const variant = await prisma.productVariant.findFirst({
+        where: { id: requestedVariantId, productId: batchData.productId, companyId },
+        select: { id: true }
+      });
+      if (!variant) {
+        return res.status(400).json({
+          success: false,
+          message: 'The selected variant does not belong to this product',
+          code: 'VARIANT_NOT_FOR_PRODUCT',
+        });
+      }
+    }
+
     // Map frontend field names to database field names
     const mappedData = {
       ...batchData,
@@ -939,6 +997,7 @@ export const createBatch = async (req: any, res: Response) => {
       totalBoxes: batchData.totalBoxes || 0,
       unitsPerBox: batchData.unitsPerBox || 1,
       quantity: batchData.quantity,
+      variantId: requestedVariantId || null,
       branchId,
       companyId,
       createdBy: req.user?.id,
@@ -1089,6 +1148,28 @@ export const updateBatch = async (req: any, res: Response) => {
       }
     }
 
+    // Product variants (Wave C6): assigning (or clearing) the batch's
+    // variant — the variant must belong to the batch's (possibly new)
+    // product in the same business, the same rule as createBatch.
+    if (batchData.variantId !== undefined) {
+      const targetProductId = batchData.productId || existingBatch.productId;
+      const requestedVariantId = batchData.variantId ? String(batchData.variantId).trim() : '';
+      if (requestedVariantId) {
+        const variant = await prisma.productVariant.findFirst({
+          where: { id: requestedVariantId, productId: targetProductId, companyId: existingBatch.companyId },
+          select: { id: true },
+        });
+        if (!variant) {
+          return res.status(400).json({
+            success: false,
+            message: 'The selected variant does not belong to this product',
+            code: 'VARIANT_NOT_FOR_PRODUCT',
+          });
+        }
+      }
+      batchData.variantId = requestedVariantId || null;
+    }
+
     // If updating batch number, check for duplicates
     if (batchData.batchNo && batchData.batchNo !== existingBatch.batchNo) {
       let duplicateBatch;
@@ -1144,6 +1225,7 @@ export const updateBatch = async (req: any, res: Response) => {
     if (batchData.shelfName !== undefined) mappedData.shelfName = batchData.shelfName || null;
     if (batchData.isActive !== undefined) mappedData.isActive = batchData.isActive;
     if (batchData.isReported !== undefined) mappedData.isReported = batchData.isReported;
+    if (batchData.variantId !== undefined) mappedData.variantId = batchData.variantId;
     // Conditionally include reportReason only if column exists or if we're not trying to set it
     // We'll handle the missing column error in the catch block
     if (batchData.reportReason !== undefined) {

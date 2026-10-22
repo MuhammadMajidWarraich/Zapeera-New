@@ -109,6 +109,10 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/shelves', policy: { kind: 'module', resourceKey: 'inventory.shelves' } },
   { prefix: '/api/batches', policy: { kind: 'module', resourceKey: 'inventory.batches' } },
   { prefix: '/api/transfers', policy: { kind: 'module', resourceKey: 'inventory.overview' } },
+  // Stock-take (Wave C6): its own module key in the Inventory family
+  // (stock_takes.stock-takes) — a formal count is a manager-grade
+  // register of its own, not a products sub-page.
+  { prefix: '/api/stock-takes', policy: { kind: 'module', resourceKey: 'stock_takes.stock-takes' } },
 
   // ── Sales & POS module ────────────────────────────────────────────────────
   { prefix: '/api/sales', policy: { kind: 'module', resourceKey: 'sales.invoices' } },

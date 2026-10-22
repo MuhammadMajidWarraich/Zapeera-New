@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { escapeHtml } from "@/utils/html-escape";
 import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, type UnitLevel } from "@/utils/units";
+import { batchInLinePool, variantUnitPrice, type ProductVariantLite } from "@/utils/variants";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,10 @@ interface Product {
   unitsPerPack?: number; // Number of units in a pack
   unitsPerBox?: number;
   unitsPerStrip?: number | null; // Wave C2 - tablets per strip
+  // Product variants (Wave C6): the ACTIVE variant matrix, riding
+  // the products list from the server. Absent/empty = no variants,
+  // every POS path behaves exactly as before.
+  variants?: ProductVariantLite[];
 }
 
 interface Batch {
@@ -87,6 +92,9 @@ interface Batch {
   batchNo: string;
   quantity: number;
   sellingPrice: number;
+  // Product variants (Wave C6): the variant pool this batch's stock
+  // belongs to; null/absent = the base pool.
+  variantId?: string | null;
   unitsPerBox?: number;
   totalBoxes?: number;
   expireDate?: string;
@@ -127,6 +135,10 @@ interface CartItem {
   unitsPerPack?: number;
   unitsPerStrip?: number | null;
   unitsDeducted?: number;
+  // Product variants (Wave C6): the variant sold on this line +
+  // its name snapshot. Lines merge only within the same variant.
+  variantId?: string | null;
+  variantName?: string | null;
 }
 
 interface Receipt {
@@ -211,7 +223,7 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
     `Date: ${receipt.date} ${receipt.time}`,
     "------------------------",
     ...receipt.items.map(
-      (item) => `${item.name} x${cartItemQtyPhrase(item)} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
+      (item) => `${item.name}${item.variantName ? ` (${item.variantName})` : ''} x${cartItemQtyPhrase(item)} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
     ),
     "------------------------",
     `Subtotal: PKR ${Number(receipt.subtotal || 0).toFixed(2)}`,
@@ -323,6 +335,17 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // Batch management state
   const [productBatches, setProductBatches] = useState<Record<string, Batch[]>>({});
   const [selectedBatches, setSelectedBatches] = useState<Record<string, string>>({}); // productId -> batchId
+  // Product variants (Wave C6): productId -> chosen variantId.
+  // Absent = untouched (the first variant is the effective choice
+  // for a variant product); explicit null = the "Standard" base
+  // pool. Only the main rail uses variants — the modal quick-sale
+  // stays variant-less (its lines carry no variantId), as with C2
+  // levels.
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string | null>>({});
+  // Salesperson attribution (Wave C6): the staff USER id credited
+  // with this sale when it is not the cashier; '' = the cashier.
+  const [salespersonId, setSalespersonId] = useState<string>('');
+  const [salesStaff, setSalesStaff] = useState<Array<{ userId: string; name: string }>>([]);
   const [loadingBatches, setLoadingBatches] = useState<Record<string, boolean>>({});
   const batchLoadingTimeouts = useRef<Record<string, number>>({});
   const [fetchedProducts, setFetchedProducts] = useState<Set<string>>(new Set());
@@ -332,6 +355,31 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // Load products on component mount
   useEffect(() => {
     loadProducts();
+  }, []);
+
+  // Salesperson attribution (Wave C6): the staff list for the
+  // checkout picker. Best-effort — without it the picker simply
+  // stays hidden and sales attribute to the cashier, as before.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiService.getStaff({ page: 1, limit: 100, isActive: true });
+        if (cancelled || !response.success) return;
+        const staff = ((response.data as any)?.staff || []) as any[];
+        const people = staff
+          .map((s: any) => ({
+            userId: s.membership?.userId || s.membership?.user?.id || '',
+            name: s.membership?.user?.name || s.membership?.user?.username || 'Staff',
+          }))
+          .filter((p: any) => p.userId && p.userId !== user?.id);
+        if (!cancelled) setSalesStaff(people);
+      } catch {
+        // Picker stays hidden; attribution is optional.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch batches for a specific product
@@ -443,6 +491,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               id: batch.id,
               batchNo: batch.batchNo || batch.batchNumber || `BATCH-${batch.id}`,
               quantity,
+              variantId: batch.variantId ?? null,
               sellingPrice: batch.sellingPrice || batch.unitPrice || batch.sellingPricePerUnit || 0,
               unitsPerBox: batch.unitsPerBox ||
                 (computedUnitsPerBox > 0 ? computedUnitsPerBox : undefined) ||
@@ -1076,8 +1125,34 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   }, [modalFilteredProducts.map(p => p.id).sort().join(',')]);
 
   // Get selected batch for a product, or auto-select nearest expiry
-  const getSelectedBatch = (productId: string): Batch | null => {
+  // Product variants (Wave C6): the variant a product card is
+  // currently selling. An untouched variant product defaults to its
+  // FIRST variant (a variant product is sold by variant); an
+  // explicit null selection is the "Standard" base pool.
+  const getEffectiveVariant = (product: Product | undefined): ProductVariantLite | null => {
+    const variants = product?.variants || [];
+    if (!product || variants.length === 0) return null;
+    const chosen = selectedVariants[product.id];
+    if (chosen === null) return null;
+    if (chosen) return variants.find(v => v.id === chosen) || variants[0];
+    return variants[0];
+  };
+
+  // The batches a line for this product may draw from — the pool of
+  // the effective variant (utils/variants.batchInLinePool mirrors
+  // the server rule). Variant-less products: all batches, as before.
+  // The modal quick-sale passes ignoreVariant (scoped out, C2-style).
+  const getPoolBatches = (productId: string, opts?: { ignoreVariant?: boolean }): Batch[] => {
     const batches = productBatches[productId] || [];
+    if (opts?.ignoreVariant) return batches;
+    const product = products.find(p => p.id === productId);
+    if (!product?.variants?.length) return batches;
+    const variant = getEffectiveVariant(product);
+    return batches.filter(b => batchInLinePool(b.variantId, variant ? variant.id : null, true));
+  };
+
+  const getSelectedBatch = (productId: string, opts?: { ignoreVariant?: boolean }): Batch | null => {
+    const batches = getPoolBatches(productId, opts);
     if (batches.length === 0) return null;
 
     const selectedBatchId = selectedBatches[productId];
@@ -1142,7 +1217,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           requiresPrescription: product.requiresPrescription || false,
           unitsPerPack: product.unitsPerPack || product.unitsPerBox || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
           unitsPerBox: product.unitsPerBox || product.unitsPerPack || product.currentBatch?.unitsPerBox || product.batches?.[0]?.unitsPerBox || 1,
-          unitsPerStrip: product.unitsPerStrip ?? null
+          unitsPerStrip: product.unitsPerStrip ?? null,
+          variants: Array.isArray(product.variants) ? product.variants : []
         }));
 
         setProducts(transformedProducts);
@@ -1188,6 +1264,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       return;
     }
 
+    // Product variants (Wave C6): the line sells the card's
+    // effective variant; getSelectedBatch already drew the batch
+    // from that variant's pool. The unit price pre-fills as batch
+    // price + the variant's delta (the server does not force it —
+    // unitPrice flows as sent, like every other line).
+    const lineVariant = getEffectiveVariant(product);
+
     const inferredUnitsPerBox = selectedBatch.totalBoxes && selectedBatch.quantity
       ? Math.round(selectedBatch.quantity / selectedBatch.totalBoxes)
       : 0;
@@ -1215,7 +1298,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
     const finalQuantity = quantity * levelFactor;
     const finalUnitType = isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType);
-    const batchPrice = selectedBatch.sellingPrice || product.price;
+    const batchPrice = variantUnitPrice(selectedBatch.sellingPrice || product.price, lineVariant?.priceDelta);
 
     // Calculate unit price: per LEVEL unit (batchPrice is per tablet,
     // so a level unit costs batchPrice x its factor)
@@ -1233,9 +1316,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       return;
     }
 
-    // Find existing item by productId only (merge same products regardless of saleType/UNIT/BOX)
+    // Find existing item by productId (merge same products regardless
+    // of saleType/UNIT/BOX) — Wave C6: and by VARIANT, so two
+    // variants of one product stay separate lines with separate
+    // stock pools. Variant-less products merge exactly as before.
     const existingItem = invoiceItems.find(item =>
-      item.productId === product.id
+      item.productId === product.id &&
+      (item.variantId || null) === (lineVariant ? lineVariant.id : null)
     );
 
     if (existingItem) {
@@ -1259,7 +1346,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       }
 
       // Calculate new unit price (per level unit of the added amount)
-      const batchPrice = selectedBatch.sellingPrice || product.price;
+      const batchPrice = variantUnitPrice(selectedBatch.sellingPrice || product.price, lineVariant?.priceDelta);
       const newUnitPrice = batchPrice * levelFactor;
       
       // Calculate total price: existing total + new total
@@ -1315,6 +1402,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         batchUnitPrice: batchPrice,
         unitsPerPack: product.unitsPerPack || unitsPerBox,
         unitsPerStrip: resolvedUnitsPerStrip,
+        variantId: lineVariant ? lineVariant.id : null,
+        variantName: lineVariant ? lineVariant.name : null,
         batch: selectedBatch.batchNo,
         batchId: selectedBatch.id,
         expiry: expiryDate,
@@ -1412,7 +1501,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
   // Modal Invoice Functions (separate state for quick sales)
   const addToModalCart = (product: Product, quantity: number, unitType: string) => {
-    const selectedBatch = getSelectedBatch(product.id);
+    // Product variants (Wave C6): SCOPED OUT of the modal rail —
+    // modal lines stay variant-less and batch selection ignores the
+    // main rail's variant choice (the C2 levels precedent).
+    const selectedBatch = getSelectedBatch(product.id, { ignoreVariant: true });
 
     if (!selectedBatch) {
       toast({
@@ -1651,7 +1743,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       // sharing a method are merged (references joined); the stored
       // paidAmount becomes exactly the allocated sum, which is what
       // the server validates the allocations against.
-      let splitPayload: Array<{ method: string; amount: number; reference?: string }> | undefined;
+      let splitPayload: Array<{ method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER'; amount: number; reference?: string }> | undefined;
       let effectivePaidAmount = paidAmount || 0;
       if (splitEnabled) {
         const rows = splitPayments.filter(row => (Number(row.amount) || 0) > 0);
@@ -1680,7 +1772,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           });
           return;
         }
-        const merged = new Map<string, { method: string; amount: number; reference?: string }>();
+        const merged = new Map<string, { method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER'; amount: number; reference?: string }>();
         for (const row of rows) {
           const key = row.method.toUpperCase();
           const existing = merged.get(key);
@@ -1690,7 +1782,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             if (ref) existing.reference = existing.reference ? `${existing.reference}, ${ref}` : ref;
           } else {
             merged.set(key, {
-              method: key,
+              method: key as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
               amount: Number(row.amount),
               reference: row.reference.trim() || undefined,
             });
@@ -1783,6 +1875,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               unitsPerBox: item.unitLevel === 'PACK' ? item.unitFactor : resolvedUnitsPerBox,
               unitsDeducted: item.quantity,
               unitPrice: item.unitPrice,
+              // Product variants (Wave C6): levels and variants are
+              // orthogonal — a leveled line may also carry a variant.
+              variantId: item.variantId || undefined,
               batchId: item.batchId || undefined,
               batchNumber: item.batch || undefined,
               expiryDate: item.expiry || undefined,
@@ -1799,6 +1894,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             unitsPerBox: resolvedUnitsPerBox,
             unitsDeducted: unitsDeducted, // Also send explicitly for backend verification
             unitPrice: item.unitPrice,
+            // Product variants (Wave C6): the variant this line
+            // sells; the server validates it and pools the stock.
+            variantId: item.variantId || undefined,
             batchId: item.batchId || undefined, // Use batchId if available
             batchNumber: item.batch || undefined, // Fallback to batchNumber
             expiryDate: item.expiry || undefined,
@@ -1824,6 +1922,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // not voided, covers the cart's Rx items) and enforces the
         // requirePrescriptionAtPos rule when none is attached.
         prescriptionId: selectedPrescription?.id || undefined,
+        // Salesperson attribution (Wave C6): the staff member
+        // credited with this sale when it is not the cashier —
+        // commissions aggregate on salespersonId ?? cashier.
+        salespersonId: salespersonId || undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -1951,6 +2053,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setLoyaltyPointsInput("");
       // Reset the attached prescription for the next sale
       setSelectedPrescription(null);
+      // Salesperson attribution (Wave C6): each sale starts
+      // un-attributed (the cashier) again.
+      setSalespersonId('');
       setRxSearch("");
       setRxResults([]);
       setShowRxCreate(false);
@@ -2469,7 +2574,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               return `
               <div class="item">
                 <div>
-                  <div class="item-name">${escapeHtml(item.name)}</div>
+                  <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
                   <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
                   ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
                 </div>
@@ -2865,7 +2970,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             return `
             <div class="item">
               <div>
-                <div class="item-name">${escapeHtml(item.name)}</div>
+                <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
                 <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
                 ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
               </div>
@@ -3326,6 +3431,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               loadingBatches={loadingBatches}
               requiresBranchSelection={requiresBranchSelection}
               getSelectedBatch={getSelectedBatch}
+              getBatchesForProduct={(productId) => getPoolBatches(productId)}
+              getEffectiveVariantId={(product) => getEffectiveVariant(product as Product)?.id ?? null}
+              onSelectVariant={(productId, variantId) => {
+                setSelectedVariants(prev => ({ ...prev, [productId]: variantId }));
+              }}
               onSelectBatch={(productId, batchId) => {
                 setSelectedBatches(prev => ({ ...prev, [productId]: batchId }));
               }}
@@ -3399,7 +3509,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-bold leading-snug text-[#0a1128]">{item.name}</p>
+                            <p className="text-sm font-bold leading-snug text-[#0a1128]">
+                              {item.name}
+                              {item.variantName ? <span className="text-[#1a52c5]"> — {item.variantName}</span> : null}
+                            </p>
                             <p className="mt-0.5 truncate text-xs text-[#8c95b0]">
                               {item.batch ? `Batch ${item.batch}` : "—"}
                               {item.expiry ? ` • Exp ${item.expiry}` : ""}
@@ -3870,6 +3983,26 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
+                    {/* Salesperson attribution (Wave C6): credit this
+                        sale to a salesperson other than the cashier.
+                        Hidden when no staff list is available. */}
+                    {salesStaff.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Salesperson</Label>
+                        <Select value={salespersonId || '__cashier__'} onValueChange={(v) => setSalespersonId(v === '__cashier__' ? '' : v)}>
+                          <SelectTrigger className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] font-medium focus:ring-[#1a52c5]/12">
+                            <SelectValue placeholder="Me (cashier)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__cashier__">Me (cashier)</SelectItem>
+                            {salesStaff.map((person) => (
+                              <SelectItem key={person.userId} value={person.userId}>{person.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     {!splitEnabled && (
                       <>
                     <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
@@ -4326,7 +4459,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                               <Package className="w-4 h-4 text-blue-600" />
                             </div>
-                            <p className="font-bold text-gray-900">{item.name}</p>
+                            <p className="font-bold text-gray-900">{item.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
                           </div>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg font-semibold">
@@ -4695,7 +4828,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 selectedBatches={selectedBatches}
                 loadingBatches={loadingBatches}
                 requiresBranchSelection={requiresBranchSelection}
-                getSelectedBatch={getSelectedBatch}
+                getSelectedBatch={(productId) => getSelectedBatch(productId, { ignoreVariant: true })}
                 onSelectBatch={(productId, batchId) => {
                   setSelectedBatches(prev => ({ ...prev, [productId]: batchId }));
                 }}

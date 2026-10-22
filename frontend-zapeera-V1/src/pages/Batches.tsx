@@ -80,6 +80,10 @@ interface Batch {
   batchNo: string;
   barcode?: string | null; // Batch-level barcode from the API (may be null)
   productId: string;
+  // Product variants (Wave C6): the variant pool this batch's stock
+  // belongs to; null = the base product pool.
+  variantId?: string | null;
+  variant?: { id: string; name: string } | null;
   supplierId?: string;
   supplierName?: string;
   supplierOutstanding: number;
@@ -210,6 +214,7 @@ const Batches = () => {
   const [formData, setFormData] = useState({
     batchNo: '',
     productId: '',
+    variantId: '', // Wave C6: '' = base pool (no variant)
     supplierId: '',
     supplierName: '',
     expireDate: '',
@@ -271,6 +276,8 @@ const Batches = () => {
             id: batch.id,
             batchNo: batch.batchNo,
             productId: batch.productId,
+            variantId: batch.variantId || null,
+            variant: (batch as any).variant || null,
             supplierId: batch.supplierId,
             supplierName: batch.supplierName,
             supplierOutstanding: batch.supplierOutstanding || 0,
@@ -662,6 +669,8 @@ const Batches = () => {
       const cleanedFormData: any = {
         batchNo: formData.batchNo,
         productId: formData.productId,
+        // Product variants (Wave C6): empty = the base pool.
+        variantId: formData.variantId || null,
         supplierId: formData.supplierId,
         supplierName: formData.supplierName || null,
         shelfId: formData.shelfId, // Required field - don't set to null
@@ -829,6 +838,7 @@ const Batches = () => {
     setFormData({
       batchNo: '',
       productId: '',
+      variantId: '',
       supplierId: '',
       supplierName: '',
       expireDate: '',
@@ -856,6 +866,7 @@ const Batches = () => {
     setFormData({
       batchNo: '',
       productId: '',
+      variantId: '',
       supplierId: '',
       supplierName: '',
       expireDate: '',
@@ -901,6 +912,7 @@ const Batches = () => {
     setFormData({
       batchNo: batch.batchNo,
       productId: batch.productId,
+      variantId: batch.variantId || '',
       supplierId: batch.supplierId || '',
       supplierName: batch.supplierName || '',
       expireDate: safeFormatDateForInput(batch.expireDate),
@@ -1572,6 +1584,9 @@ const Batches = () => {
                         <td className="px-5 py-4 align-middle">
                           <div className="font-semibold text-[#0a1128]">{batch.product.name}</div>
                           <div className="mt-0.5 text-[13px] text-[#8c95b0]">{batch.product.sku}</div>
+                          {batch.variant?.name && (
+                            <div className="mt-0.5 text-[12px] font-medium text-[#1a52c5]">Variant: {batch.variant.name}</div>
+                          )}
                         </td>
                         <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
                           {batch.supplierName || "N/A"}
@@ -2288,6 +2303,30 @@ const BatchForm: React.FC<BatchFormProps> = ({
   setIsShelfDialogOpen,
   batchType = 'medical' // Default to medical
 }) => {
+  // Product variants (Wave C6): variants of the form's product,
+  // loaded when the product changes. The picker below only renders
+  // when the product actually has variants.
+  const [formProductVariants, setFormProductVariants] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
+
+  useEffect(() => {
+    if (!formData.productId) {
+      setFormProductVariants([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiService.getProductVariants(formData.productId);
+        if (!cancelled && response.success && Array.isArray(response.data)) {
+          setFormProductVariants(response.data as any);
+        }
+      } catch {
+        if (!cancelled) setFormProductVariants([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [formData.productId]);
+
   // Calculate total stock (units) from boxes
   const totalStockUnits = (formData.totalBoxes || 0) * (formData.unitsPerBox || 1);
 
@@ -2407,7 +2446,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
                 label: product.name
               }))}
               value={formData.productId}
-              onValueChange={(value) => setFormData({ ...formData, productId: value })}
+              onValueChange={(value) => setFormData({ ...formData, productId: value, variantId: '' })}
               placeholder="Select product"
               emptyText="No product found"
               className="flex-1 bg-green-50 border-green-200 text-green-900 hover:bg-green-100 focus:ring-green-500"
@@ -2423,6 +2462,35 @@ const BatchForm: React.FC<BatchFormProps> = ({
             </Button>
           </div>
         </div>
+        {/* Product variants (Wave C6): which variant's stock this
+            batch holds. Only for products that have variants;
+            "Base product" keeps the stock in the base pool. */}
+        {formProductVariants.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="batchVariant">Variant</Label>
+            <Select
+              value={formData.variantId || '__base__'}
+              onValueChange={(value) => setFormData({ ...formData, variantId: value === '__base__' ? '' : value })}
+            >
+              <SelectTrigger id="batchVariant">
+                <SelectValue placeholder="Base product (no variant)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__base__">Base product (no variant)</SelectItem>
+                {formProductVariants
+                  .filter((v) => v.isActive || v.id === formData.variantId)
+                  .map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.name}{v.isActive ? '' : ' (inactive)'}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Variant stock sells only against that variant at the POS; base stock sells on variant-less lines.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Batch Details */}

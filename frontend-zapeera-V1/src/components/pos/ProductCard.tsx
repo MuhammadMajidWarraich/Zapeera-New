@@ -7,6 +7,7 @@ import { Package, Plus, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import BatchSelectionTable from './BatchSelectionTable';
 import { breakdownStock, isStructured, levelPriceFromUnitPrice } from '@/utils/units';
+import { variantUnitPrice, type ProductVariantLite } from '@/utils/variants';
 
 interface Product {
   id: string;
@@ -40,6 +41,14 @@ interface ProductCardProps {
   requiresBranchSelection: boolean;
   onSelectBatch: (batchId: string) => void;
   onAddToCart: (quantity: number, unitType: string) => void;
+  // Product variants (Wave C6): the ACTIVE matrix + the variant
+  // currently chosen on this card. `batches` is already the chosen
+  // variant's pool (the parent filters); the chips only switch the
+  // selection. hasBaseStock offers the "Standard" base-pool chip.
+  variants?: ProductVariantLite[];
+  selectedVariant?: ProductVariantLite | null;
+  hasBaseStock?: boolean;
+  onSelectVariant?: (variantId: string | null) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -50,6 +59,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   requiresBranchSelection,
   onSelectBatch,
   onAddToCart,
+  variants,
+  selectedVariant,
+  hasBaseStock,
+  onSelectVariant,
 }) => {
   const [selectedUnitType, setSelectedUnitType] = useState<string>('unit');
   const [quantity, setQuantity] = useState<number>(1);
@@ -80,6 +93,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
       setQuantity(1);
     }
   };
+
+  // Product variants (Wave C6): the displayed unit price is the
+  // selected batch's price + the chosen variant's delta.
+  const displayUnitPrice = selectedBatch
+    ? variantUnitPrice(Number(selectedBatch.sellingPrice || 0), selectedVariant?.priceDelta)
+    : 0;
+  const variantList = variants || [];
 
   const addDisabled = batches.length === 0 || isLoadingBatch || !selectedBatch;
 
@@ -156,10 +176,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {selectedBatch && (
               <div className="mr-1 text-right">
                 <p className="text-[17px] font-extrabold leading-tight tabular-nums text-[#0a1128]">
-                  PKR {Number(selectedBatch.sellingPrice || 0).toFixed(2)}
+                  PKR {displayUnitPrice.toFixed(2)}
                 </p>
                 <p className="text-[11px] font-medium leading-tight text-[#8c95b0]">
-                  per unit{unitsPerBox > 1 ? ` • PKR ${(Number(selectedBatch.sellingPrice || 0) * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(Number(selectedBatch.sellingPrice || 0), 'STRIP', structure).toFixed(2)} / strip` : ''}
+                  per unit{unitsPerBox > 1 ? ` • PKR ${(displayUnitPrice * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(displayUnitPrice, 'STRIP', structure).toFixed(2)} / strip` : ''}
                 </p>
               </div>
             )}
@@ -292,6 +312,51 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </Button>
           </div>
         </div>
+
+        {variantList.length > 0 && onSelectVariant && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Choose variant">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Variant</span>
+            {variantList.map((variant) => {
+              const isChosen = selectedVariant?.id === variant.id;
+              return (
+                <button
+                  key={variant.id}
+                  type="button"
+                  onClick={() => onSelectVariant(variant.id)}
+                  aria-pressed={isChosen}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-semibold transition-all',
+                    isChosen
+                      ? 'border-transparent bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)]'
+                      : 'border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-[#1a52c5]/30',
+                  )}
+                >
+                  {variant.name}
+                  {variant.priceDelta ? (
+                    <span className="ml-1 opacity-80">
+                      {variant.priceDelta > 0 ? '+' : '−'}PKR {Math.abs(variant.priceDelta).toFixed(0)}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+            {hasBaseStock && (
+              <button
+                type="button"
+                onClick={() => onSelectVariant(null)}
+                aria-pressed={!selectedVariant}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-semibold transition-all',
+                  !selectedVariant
+                    ? 'border-transparent bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)]'
+                    : 'border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-[#1a52c5]/30',
+                )}
+              >
+                Standard
+              </button>
+            )}
+          </div>
+        )}
 
         <BatchSelectionTable
           batches={batches}

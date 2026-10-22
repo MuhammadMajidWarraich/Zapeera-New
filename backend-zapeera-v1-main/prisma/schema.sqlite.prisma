@@ -46,7 +46,8 @@ model ZapeeraUser {
   card_details      card_details[]
   receipts          Receipt[]
   refunds           Refund[]
-  sales             Sale[]
+  sales             Sale[]               @relation("SaleCashier")
+  salespersonSales  Sale[]               @relation("SaleSalesperson")
   scheduledShifts   ScheduledShiftUser[]
   memberships       Membership[]
   invitationsSent   BusinessInvitation[] @relation("inviter")
@@ -159,6 +160,8 @@ model Business {
   rooms                     Room[]
   reservations              Reservation[]
   folios                    Folio[]
+  productVariants           ProductVariant[]
+  stockTakes                StockTake[]
 
   @@index([createdBy], name: "idx_business_createdBy")
   @@index([businessType], name: "idx_business_type")
@@ -200,6 +203,7 @@ model Branch {
   rooms              Room[]
   reservations       Reservation[]
   folios             Folio[]
+  stockTakes         StockTake[]
   categories         Category[]
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
@@ -416,6 +420,8 @@ model Product {
   saleItems      SaleItem[]
   stockMovements StockMovement[]
   batches        Batch[]
+  variants       ProductVariant[]
+  stockTakeLines StockTakeLine[]
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
   prescriptionItems PrescriptionItem[]
@@ -430,6 +436,40 @@ model Product {
   @@index([taxClassId], name: "idx_product_tax_class")
   @@index([isActive], name: "idx_product_active")
   @@map("products")
+}
+
+// Product variants (Wave C6 — Retail pack): the size x colour matrix
+// of a retail product. A variant is a purchasable flavour of its
+// product: stock lives on batches OF the variant (Batch.variantId),
+// and a sale line either names a variant (and only ever consumes
+// that variant's batches) or names none (and only ever consumes
+// variant-less "base" batches when the product has variants) — the
+// two pools never mix (sale.controller). priceDelta adjusts the
+// batch sellingPrice for this flavour: the POS pre-fills
+// batch price + delta as the line's unitPrice; the server never
+// forces it (unitPrice was always client-sent, server-totalled).
+model ProductVariant {
+  id         String   @id @default(cuid())
+  companyId  String
+  productId  String
+  name       String // e.g. "Large / Red" — built from attributes, editable
+  sku        String?
+  barcode    String?
+  attributes Json? // { size?: string, color?: string, ... } free-form pairs
+  priceDelta Float    @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company   Business   @relation(fields: [companyId], references: [id])
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batches   Batch[]
+  saleItems SaleItem[]
+
+  @@index([companyId], name: "idx_productVariant_company")
+  @@index([productId], name: "idx_productVariant_product")
+  @@index([isActive], name: "idx_productVariant_active")
+  @@map("product_variants")
 }
 
 model Batch {
@@ -450,6 +490,11 @@ model Batch {
   paidAmount          Float          @default(0)
   supplierOutstanding Float          @default(0)
   supplierInvoiceNo   String?
+  // Product variants (Wave C6): the variant this batch stocks.
+  // Null = the product's base pool. Variant sale lines never touch
+  // null-variant batches of a variant product, and variant-less
+  // lines never touch variant batches (sale.controller).
+  variantId           String?
   purchasingMethod    String?
   expireDate          DateTime?
   productionDate      DateTime?
@@ -467,6 +512,8 @@ model Batch {
   shelf               Shelf?         @relation(fields: [shelfId], references: [id])
   supplier            Supplier?      @relation(fields: [supplierId], references: [id])
   purchaseItems       PurchaseItem[]
+  variant             ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  stockTakeLines      StockTakeLine[]
   transferItemsOut    StockTransferItem[] @relation("transferSourceBatch")
   transferItemsIn     StockTransferItem[] @relation("transferDestBatch")
   saleItems           SaleItem[]
@@ -477,6 +524,7 @@ model Batch {
   @@index([productId], name: "idx_batch_product")
   @@index([isActive], name: "idx_batch_active")
   @@index([expireDate], name: "idx_batch_expireDate")
+  @@index([variantId], name: "idx_batch_variant")
   @@map("batches")
 }
 
@@ -587,6 +635,61 @@ model StockMovement {
   @@index([type], name: "idx_stockMovement_type")
   @@index([createdAt], name: "idx_stockMovement_createdAt")
   @@map("stock_movements")
+}
+
+// Stock-take (Wave C6 — Retail pack): a formal physical count of one
+// branch. A session is OPEN while counting; completing it posts every
+// counted line's variance as a batch correction plus a
+// STOCK_TAKE_ADJUSTMENT stock movement, all in one transaction, and
+// freezes the lines. systemQty is the batch quantity snapshotted
+// when the line was counted, so a variance always reads against the
+// moment of the count, never the moment of completion. At most one
+// OPEN session per branch (controller-enforced, 409
+// STOCK_TAKE_ALREADY_OPEN) so two counts can never fight over the
+// same batches.
+model StockTake {
+  id          String    @id @default(cuid())
+  companyId   String
+  branchId    String
+  status      String    @default("OPEN") // OPEN | COMPLETED | CANCELLED
+  startedBy   String?
+  completedBy String?
+  note        String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company Business        @relation(fields: [companyId], references: [id])
+  branch  Branch          @relation(fields: [branchId], references: [id])
+  lines   StockTakeLine[]
+
+  @@index([companyId], name: "idx_stockTake_company")
+  @@index([branchId], name: "idx_stockTake_branch")
+  @@index([status], name: "idx_stockTake_status")
+  @@map("stock_takes")
+}
+
+model StockTakeLine {
+  id                   String   @id @default(cuid())
+  stockTakeId          String
+  productId            String
+  batchId              String
+  systemQty            Int // batch quantity when the line was counted
+  countedQty           Int? // null = not counted yet
+  variance             Int? // countedQty - systemQty, frozen at completion
+  adjustmentMovementId String? // StockMovement written at completion (non-zero variance only)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  stockTake StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+  batch     Batch     @relation(fields: [batchId], references: [id])
+
+  @@unique([stockTakeId, batchId], name: "uq_stockTakeLine_take_batch")
+  @@index([stockTakeId], name: "idx_stockTakeLine_take")
+  @@index([productId], name: "idx_stockTakeLine_product")
+  @@index([batchId], name: "idx_stockTakeLine_batch")
+  @@map("stock_take_lines")
 }
 
 model Customer {
@@ -738,6 +841,13 @@ model Sale {
   // in the same transaction — the folio, not this sale, carries the
   // debt. Null for every ordinary sale.
   folioId               String?
+  // Salesperson attribution (Wave C6 — Retail pack): the staff
+  // member credited with this sale when it is NOT the cashier who
+  // rang it up (Sale.userId). Null = the cashier is the seller.
+  // Commission aggregation attributes salespersonId ?? userId, so
+  // unattributed sales keep counting for their cashier exactly as
+  // before. Validated at sale time to be a member of the business.
+  salespersonId         String?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -768,7 +878,8 @@ model Sale {
   checkoutForFolios Folio[] @relation("FolioCheckoutInvoice")
   folioCharges FolioCharge[]
   appointments Appointment[]
-  user     ZapeeraUser @relation(fields: [userId], references: [id])
+  user     ZapeeraUser  @relation("SaleCashier", fields: [userId], references: [id])
+  salesperson ZapeeraUser? @relation("SaleSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
 
   @@index([companyId], name: "idx_sale_company")
   @@index([branchId], name: "idx_sale_branch")
@@ -778,6 +889,7 @@ model Sale {
   @@index([status], name: "idx_sale_status")
   @@index([prescriptionId], name: "idx_sale_prescription")
   @@index([folioId], name: "idx_sale_folio")
+  @@index([salespersonId], name: "idx_sale_salesperson")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
   @@index([createdAt], name: "idx_sale_createdAt")
   @@map("sales")
@@ -806,14 +918,23 @@ model SaleItem {
   // reads base units.
   unitLevel     String? // PACK | STRIP | UNIT (Wave C2)
   unitFactor    Int? // Base units per unitLevel unit, snapshot (Wave C2)
+  // Product variants (Wave C6): the variant this line sold and its
+  // name snapshot (a variant may later be renamed or deactivated).
+  // Null on variant-less lines and on all pre-C6 history. The line's
+  // batchId always belongs to the named variant's pool — or to the
+  // base pool when this is null — enforced in sale.controller.
+  variantId     String?
+  variantName   String?
   unitPrice     Float
   totalPrice    Float
   batchNumber   String? // Keep for backward compatibility
   expiryDate    DateTime?
   product       Product   @relation(fields: [productId], references: [id])
   batch         Batch?    @relation(fields: [batchId], references: [id])
+  variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   sale          Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
+  @@index([variantId], name: "idx_saleItem_variant")
   @@map("sale_items")
 }
 

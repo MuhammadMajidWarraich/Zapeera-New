@@ -59,6 +59,9 @@ export const RESOURCES = {
   FOLIOS: 'folios',
   FRONT_DESK: 'front_desk',
 
+  // Retail Specific (Wave C6)
+  STOCK_TAKES: 'stock_takes',
+
   // Shift Management
   SHIFTS: 'shifts',
   SCHEDULED_SHIFTS: 'scheduled_shifts',

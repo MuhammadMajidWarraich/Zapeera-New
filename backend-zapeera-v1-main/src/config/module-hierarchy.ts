@@ -172,6 +172,30 @@ export const MODULE_HIERARCHY: ModuleConfig[] = [
     ],
   },
 
+  // ─── Stock Takes (Wave C6 — Inventory family) ─────────────────────
+  // A formal physical count is a manager-grade register of its own,
+  // so it carries its own module key (stock_takes.stock-takes in the
+  // route-policy registry) while sitting in the Inventory family,
+  // right under the Inventory module it audits. Products ride the
+  // parent inventory module; the count sessions live here.
+  {
+    module: 'stock_takes',
+    label: 'Stock Takes',
+    icon: 'ClipboardList',
+    section: 'main',
+    defaultRoles: ['OWNER', 'MANAGER'],
+    subModules: [
+      {
+        key: 'stock-takes',
+        label: 'Stock Takes',
+        href: '/stock-takes',
+        icon: 'ClipboardList',
+        module: 'stock_takes',
+        roles: ['OWNER', 'MANAGER'],
+      },
+    ],
+  },
+
   // ─── Purchases Module ─────────────────────────────────────────────────
   {
     module: 'purchases',

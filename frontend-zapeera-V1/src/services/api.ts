@@ -1702,6 +1702,112 @@ export class ApiService {
     });
   }
 
+  // Product variants (Wave C6 — Retail pack): the size x colour
+  // matrix of a product. Stock lives on batches of a variant; the
+  // variant itself carries identity + a price delta.
+  async getProductVariants(productId: string) {
+    return this.request<Array<{
+      id: string; productId: string; name: string;
+      sku?: string | null; barcode?: string | null;
+      attributes?: Record<string, string> | null;
+      priceDelta: number; isActive: boolean; stock: number;
+    }>>(`/products/${productId}/variants`);
+  }
+
+  async createProductVariant(productId: string, data: {
+    name?: string;
+    sku?: string | null;
+    barcode?: string | null;
+    attributes?: Record<string, string>;
+    priceDelta?: number;
+  }) {
+    return this.request<any>(`/products/${productId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateProductVariants(productId: string, data: { sizes?: string[]; colors?: string[] }) {
+    return this.request<{ created: any[]; skipped: number; total: number }>(`/products/${productId}/variants/generate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProductVariant(productId: string, variantId: string, data: {
+    name?: string;
+    sku?: string | null;
+    barcode?: string | null;
+    attributes?: Record<string, string>;
+    priceDelta?: number;
+    isActive?: boolean;
+  }) {
+    return this.request<any>(`/products/${productId}/variants/${variantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deactivateProductVariant(productId: string, variantId: string) {
+    return this.request<any>(`/products/${productId}/variants/${variantId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Stock-takes (Wave C6 — Retail pack): physical counts with
+  // variance. Completing a session rewrites batch quantities to the
+  // counted values and posts STOCK_TAKE_ADJUSTMENT movements.
+  async getStockTakes(params?: { branchId?: string; status?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any[]>(`/stock-takes${query ? `?${query}` : ''}`);
+  }
+
+  async createStockTake(data: { branchId: string; note?: string }) {
+    return this.request<any>('/stock-takes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getStockTake(id: string) {
+    return this.request<any>(`/stock-takes/${id}`);
+  }
+
+  async upsertStockTakeLine(id: string, data: { batchId: string; countedQty: number }) {
+    return this.request<any>(`/stock-takes/${id}/lines`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteStockTakeLine(id: string, lineId: string) {
+    return this.request<any>(`/stock-takes/${id}/lines/${lineId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async completeStockTake(id: string) {
+    return this.request<any>(`/stock-takes/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async cancelStockTake(id: string) {
+    return this.request<any>(`/stock-takes/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
   async bulkDeleteProducts(productIds: string[]) {
     return this.request<{
       message: string;
@@ -2616,6 +2722,10 @@ export class ApiService {
       saleType?: string;
       unitsDeducted?: number;
       unitsPerBox?: number;
+      // Product variants (Wave C6): the variant this line sells;
+      // the server draws stock only from that variant's batches and
+      // snapshots the variant name on the line.
+      variantId?: string;
       batchId?: string;
       batchNumber?: string;
       expiryDate?: string;
@@ -2646,6 +2756,10 @@ export class ApiService {
     // prescription-only items and the business enforces it
     // (requirePrescriptionAtPos); the server validates coverage.
     prescriptionId?: string;
+    // Salesperson attribution (Wave C6): the staff USER id credited
+    // with the sale when it is not the cashier. Commissions read
+    // salespersonId ?? cashier; omit for a cashier's own sale.
+    salespersonId?: string;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -6820,6 +6934,9 @@ export class ApiService {
     productId?: string;
     branchId?: string;
     companyId?: string;
+    // Product variants (Wave C6): filter by owning variant; the
+    // literal 'null' selects the base pool.
+    variantId?: string;
   } = {}) {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
@@ -6830,6 +6947,7 @@ export class ApiService {
     if (params.productId) queryParams.append('productId', params.productId);
     if (params.branchId) queryParams.append('branchId', params.branchId);
     if (params.companyId) queryParams.append('companyId', params.companyId);
+    if (params.variantId) queryParams.append('variantId', params.variantId);
 
     const queryString = queryParams.toString();
     const endpoint = queryString ? `/batches?${queryString}` : '/batches';
@@ -6929,6 +7047,9 @@ export class ApiService {
   async createBatch(batchData: {
     batchNo: string;
     productId: string;
+    // Product variants (Wave C6): the variant this batch's stock
+    // belongs to; omit/null = the base product pool.
+    variantId?: string | null;
     supplierId?: string;
     supplierName?: string;
     totalBoxes?: number;
@@ -6996,6 +7117,10 @@ export class ApiService {
 
   async updateBatch(id: string, batchData: {
     batchNo?: string;
+    productId?: string;
+    // Product variants (Wave C6): reassign the batch's variant
+    // (null returns it to the base pool).
+    variantId?: string | null;
     supplierId?: string;
     supplierName?: string;
     totalBoxes?: number;
