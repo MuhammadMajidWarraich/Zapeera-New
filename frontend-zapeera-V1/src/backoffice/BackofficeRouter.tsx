@@ -10,6 +10,7 @@ import { MembershipsPage } from './pages/tenant/memberships/MembershipsPage';
 import { BusinessTypesPage } from './pages/platform/business-types/BusinessTypesPage';
 import { ModulesPage } from './pages/platform/modules/ModulesPage';
 import { PlansPage } from './pages/platform/plans/PlansPage';
+import { PartnersPage } from './pages/platform/partners/PartnersPage';
 import { RolesPage } from './pages/platform/roles/RolesPage';
 import { FeatureFlagsPage } from './pages/platform/feature-flags/FeatureFlagsPage';
 import { FinancePage } from './pages/finance/FinancePage';
@@ -87,6 +88,11 @@ export function BackofficeRouter() {
         <Route path="plans" element={
           <ProtectedBackofficeRoute>
             <BackofficeLayout><PlansPage /></BackofficeLayout>
+          </ProtectedBackofficeRoute>
+        } />
+        <Route path="partners" element={
+          <ProtectedBackofficeRoute>
+            <BackofficeLayout><PartnersPage /></BackofficeLayout>
           </ProtectedBackofficeRoute>
         } />
         <Route path="roles" element={

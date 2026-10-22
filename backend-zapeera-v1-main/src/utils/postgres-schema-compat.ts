@@ -88,4 +88,12 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "salespersonId" TEXT'
   );
+
+  // White-label partners (Feature 3): businesses gain the nullable
+  // partner attribution column. The partners table itself arrives via
+  // schema heal like the C4/C5 tables did. Pre-existing businesses
+  // stay null (= sold direct under the Zapeera brand).
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "businesses" ADD COLUMN IF NOT EXISTS "partnerId" TEXT'
+  );
 }

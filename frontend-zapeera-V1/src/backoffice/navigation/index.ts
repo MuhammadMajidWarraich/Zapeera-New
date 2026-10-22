@@ -54,6 +54,7 @@ export function getNavigation(role: BackofficeRole): NavSection[] {
         { label: 'Business Types', path: '/backoffice/business-types', icon: FileStack, permission: 'business-type.manage' },
         { label: 'Modules', path: '/backoffice/modules', icon: Puzzle, permission: 'module.manage' },
         { label: 'Plans', path: '/backoffice/plans', icon: DollarSign, permission: 'plan.manage' },
+        { label: 'Partners', path: '/backoffice/partners', icon: Users, permission: 'plan.manage' },
         { label: 'Roles', path: '/backoffice/roles', icon: Shield, permission: 'role.manage' },
         { label: 'Feature Flags', path: '/backoffice/feature-flags', icon: Settings, permission: 'feature-flags.manage' },
       ].filter(i => !i.permission || can(i.permission)),

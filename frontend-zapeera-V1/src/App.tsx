@@ -21,6 +21,8 @@ import BusinessSlugGate from "./components/auth/BusinessSlugGate";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ModuleGuard, AutoModuleGuard } from "./components/auth/ModuleGuard";
 import { RuntimeProvider } from "./contexts/RuntimeProvider";
+import { BrandingProvider } from "./contexts/BrandingContext";
+import JoinPartnerPage from "./components/auth/JoinPartnerPage";
 import { SyncProvider } from "./contexts/SyncProvider";
 import { NotificationProvider } from "./contexts/NotificationContext";
 
@@ -62,6 +64,7 @@ const UserManagement = React.lazy(() => import("./components/admin/UserManagemen
 const ManagerUserManagement = React.lazy(() => import("./components/manager/ManagerUserManagement"));
 const BranchManagement = React.lazy(() => import("./components/admin/BranchManagement"));
 const BusinessManagement = React.lazy(() => import("./components/admin/BusinessManagement"));
+const PartnerPortalPage = React.lazy(() => import("./pages/PartnerPortal"));
 const AdminReports = React.lazy(() => import("./components/admin/AdminReports"));
 const RoleManagement = React.lazy(() => import("./components/admin/RoleManagement"));
 const RoleBasedDashboard = React.lazy(() => import("./components/dashboard/RoleBasedDashboard"));
@@ -270,6 +273,9 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<AuthContainer />} />
+        {/* White-label partner join link (Feature 3): stores the slug
+            and lands on the normal register, partner-branded. */}
+        <Route path="/join/:slug" element={<JoinPartnerPage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
 
@@ -820,6 +826,17 @@ const AppRoutes = () => {
                 </ZapeeraLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        {/* Partner portal (Feature 3) — account-level like /zapeera;
+            the page itself resolves partner-admin identity and shows
+            a plain empty state for everyone else. */}
+        <Route path="/partner" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <ZapeeraLayout>
+              <PartnerPortalPage />
+            </ZapeeraLayout>
           </AuthStatus>
         } />
 
@@ -1499,6 +1516,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <RuntimeProvider>
         <AuthProvider>
+          <BrandingProvider>
           <AdminProvider>
             <DashboardDataProvider>
               <SyncProvider>
@@ -1512,6 +1530,7 @@ const App = () => {
               </SyncProvider>
             </DashboardDataProvider>
           </AdminProvider>
+          </BrandingProvider>
         </AuthProvider>
       </RuntimeProvider>
     </QueryClientProvider>

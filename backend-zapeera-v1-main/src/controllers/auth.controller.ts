@@ -47,6 +47,15 @@ const registerSchema = Joi.object({
       'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
     }),
   name: Joi.string().required(),
+  // White-label attribution (Feature 3): the register surface accepts
+  // the partner slug the visitor arrived with (?partner=<slug> /
+  // /join/<slug>). A user account itself carries no partner — the slug
+  // is attribution metadata for the BUSINESS the user goes on to
+  // create, where createCompany resolves it to business.partnerId. It
+  // is accepted here so the signup payload can carry it end-to-end
+  // without a validation error; the client also persists it in
+  // localStorage for the (later, post-verification) business creation.
+  partnerSlug: Joi.string().trim().max(80).allow('', null).optional(),
   branchId: Joi.string().allow('', null).optional(),
   branchData: Joi.object({
     name: Joi.string().required(),

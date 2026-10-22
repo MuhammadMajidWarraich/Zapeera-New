@@ -12,6 +12,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Globe, Zap, Lock, Circle, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranding } from '@/contexts/BrandingContext';
 import { useAdmin } from '@/contexts/useAdmin';
 import { useSidebarContext } from '@/components/layout/sidebar-context';
 import { cn } from '@/lib/utils';
@@ -326,6 +327,7 @@ function SidebarSection({
 
 export const RoleBasedSidebar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { branding } = useBranding();
   const location = useLocation();
   const { selectedCompanyId, selectedCompany, allCompanies } = useAdmin();
   const { isCollapsed, setIsCollapsed, mobileOpen } = useSidebarContext();
@@ -623,14 +625,33 @@ export const RoleBasedSidebar: React.FC = () => {
         )}
       >
         <div className={cn('flex min-w-0 items-center gap-3.5', effectiveCollapsed && 'justify-center')}>
-          <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
-            <Zap className="h-[22px] w-[22px] fill-white text-white" />
-          </div>
-          {!effectiveCollapsed && (
-            <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
-              Zap
-              <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
-            </span>
+          {branding.partnerSlug ? (
+            <>
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.productName} className="h-[42px] w-[42px] shrink-0 rounded-[13px] bg-white object-contain" />
+              ) : (
+                <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#1a52c5' }}>
+                  <span className="text-lg font-extrabold">{branding.productName.charAt(0)}</span>
+                </div>
+              )}
+              {!effectiveCollapsed && (
+                <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
+                  {branding.productName}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
+                <Zap className="h-[22px] w-[22px] fill-white text-white" />
+              </div>
+              {!effectiveCollapsed && (
+                <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
+                  Zap
+                  <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
+                </span>
+              )}
+            </>
           )}
         </div>
         <button
@@ -688,7 +709,7 @@ export const RoleBasedSidebar: React.FC = () => {
           title={effectiveCollapsed ? 'Zapeera' : undefined}
         >
           <Globe className="h-5 w-5 shrink-0 stroke-[1.8]" />
-          {!effectiveCollapsed && <span>Zapeera</span>}
+          {!effectiveCollapsed && <span>{branding.productName}</span>}
         </Link>
         <button
           type="button"

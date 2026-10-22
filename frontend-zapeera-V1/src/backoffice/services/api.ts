@@ -20,6 +20,7 @@ import {
   FeatureFlag,
   SystemHealth,
   BackofficeAdmin,
+  BackofficePartner,
 } from '../types';
 
 const BASE_URL = config.backoffice.baseUrl;
@@ -134,6 +135,16 @@ export const backofficeApi = {
     request(`/subscriptions/${id}/extend-trial`, { method: 'POST', body: JSON.stringify({ days }) }),
 
   // Plans
+  // White-label partners (Feature 3)
+  getPartners: (): Promise<{ success: boolean; data: BackofficePartner[] }> =>
+    request('/partners'),
+  createPartner: (data: { name: string; adminEmail: string; slug?: string; primaryColor?: string; supportEmail?: string; tagline?: string }): Promise<{ success: boolean; data: BackofficePartner }> =>
+    request('/partners', { method: 'POST', body: JSON.stringify(data) }),
+  updatePartner: (id: string, data: Partial<{ name: string; status: string; adminEmail: string; primaryColor: string | null; supportEmail: string | null; tagline: string | null }>): Promise<{ success: boolean; data: BackofficePartner }> =>
+    request(`/partners/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  reassignBusinessPartner: (businessId: string, partnerId: string | null): Promise<{ success: boolean; data: unknown }> =>
+    request(`/businesses/${businessId}/partner`, { method: 'PATCH', body: JSON.stringify({ partnerId }) }),
+
   getPlans: (): Promise<{ success: boolean; data: Plan[] }> => request('/plans'),
   getPlan: (id: string): Promise<{ success: boolean; data: Plan }> => request(`/plans/${id}`),
   createPlan: (data: Partial<Plan>): Promise<{ success: boolean; data: Plan }> =>

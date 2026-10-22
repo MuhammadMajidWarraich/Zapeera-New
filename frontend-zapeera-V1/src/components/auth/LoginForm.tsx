@@ -30,6 +30,7 @@ import { apiService } from "@/services/api";
 import { normalizeAppRole } from "@/utils/app-role";
 import { toast } from "@/hooks/use-toast";
 import AccountDeactivationModal from "./AccountDeactivationModal";
+import { useBranding } from "@/contexts/BrandingContext";
 import { clearStoredSession, readStoredUser, writeStoredUser } from "@/lib/session-storage";
 
 interface LoginFormProps {
@@ -45,6 +46,7 @@ interface FieldErrors {
 
 const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps) => {
   const navigate = useNavigate();
+  const { branding } = useBranding();
   const [formData, setFormData] = useState({
     username: "",
     password: ""
@@ -324,10 +326,10 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white border-2 border-gray-200 rounded-2xl mb-4 shadow-lg shadow-gray-200">
-              <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Zapeera" className="w-10 h-10 object-contain" />
+              <img src={branding.logoUrl || `${import.meta.env.BASE_URL}images/favicon.png`} alt={branding.productName} className="w-10 h-10 object-contain" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your Zapeera account</p>
+            <p className="text-gray-600">Sign in to your {branding.productName} account</p>
           </div>
 
           {/* Form */}
@@ -509,16 +511,16 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
         <div className="relative z-10 text-center w-full max-w-md">
           {/* Logo */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl mb-4 shadow-2xl">
-            <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Zapeera" className="w-10 h-10 object-contain" />
+            <img src={branding.logoUrl || `${import.meta.env.BASE_URL}images/favicon.png`} alt={branding.productName} className="w-10 h-10 object-contain" />
           </div>
 
           {/* Title */}
-          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Zapeera</h1>
+          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">{branding.productName}</h1>
           <div className="w-16 h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto mb-6" />
 
           {/* Subtitle */}
           <p className="text-base text-white/80 leading-relaxed mb-8">
-            The All-in-One Business Management Platform empowering owners, managers & teams to seamlessly manage sales, inventory, branches & growth from anywhere — even offline.
+            {branding.tagline || "The All-in-One Business Management Platform empowering owners, managers & teams to seamlessly manage sales, inventory, branches & growth from anywhere — even offline."}
           </p>
 
           {/* Top 8 Core Features */}

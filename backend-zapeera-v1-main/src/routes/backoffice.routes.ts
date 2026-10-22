@@ -107,6 +107,12 @@ import {
   getBackofficeCommissions,
   getBackofficeCommissionStats,
 } from '../controllers/backoffice-commissions.controller';
+import {
+  getAllPartners,
+  createPartner,
+  updatePartner,
+  reassignBusinessPartner,
+} from '../controllers/backoffice-partners.controller';
 
 const router = Router();
 
@@ -243,6 +249,17 @@ router.post('/payment-proofs/:id/reject', adminAuthenticate, adminRoleGuard('SUP
   (req as any).params.proofId = req.params.id;
   rejectBackofficePaymentProof(req as any, res);
 });
+
+/**
+ * White-Label Partners Routes (Feature 3)
+ * Platform resellers: create + designate admin by email, update /
+ * suspend / activate, and reassign a business's partner attribution
+ * (the only post-creation change path for business.partnerId).
+ */
+router.get('/partners', adminAuthenticate, getAllPartners);
+router.post('/partners', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), createPartner);
+router.patch('/partners/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), updatePartner);
+router.patch('/businesses/:id/partner', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), reassignBusinessPartner);
 
 /**
  * Commissions Routes (read-only platform visibility; tenant commissions

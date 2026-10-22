@@ -20,6 +20,7 @@ import {
 import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { storedPartnerSlug } from "@/contexts/BrandingContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -115,7 +116,13 @@ const ZapeeraDashboard = () => {
     }
 
     try {
-      const response = await apiService.createCompany(formData as any);
+      // White-label attribution (Feature 3): a partner slug captured
+      // from ?partner=<slug> / /join/<slug> attributes the new
+      // business to that partner server-side.
+      const response = await apiService.createCompany({
+        ...(formData as any),
+        partnerSlug: storedPartnerSlug() || undefined,
+      });
       if (response.success) {
         toast({ title: "Success", description: "Business created successfully!" });
         setFormData({ name: "", businessType: "PHARMACY", description: "", address: "", phone: "", email: "" });

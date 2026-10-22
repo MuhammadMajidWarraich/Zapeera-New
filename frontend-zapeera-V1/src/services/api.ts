@@ -1105,6 +1105,7 @@ export class ApiService {
     name: string;
     role?: string;
     branchId: string;
+    partnerSlug?: string;
     branchData?: {
       name: string;
       address: string;
@@ -1155,6 +1156,76 @@ export class ApiService {
     // Store the promise in the lock
     this.authRequestLocks.set(lockKey, registerPromise);
     return registerPromise;
+  }
+
+  // ─── White-label branding + partner portal (Feature 3) ─────────────
+  // GET /branding is public (optional auth): with a slug it returns
+  // that partner's public branding; authenticated without a slug it
+  // resolves the partner behind the caller's current business.
+  async getBranding(slug?: string) {
+    const query = slug ? `?slug=${encodeURIComponent(slug)}` : '';
+    return this.request<{
+      productName: string;
+      logoUrl: string | null;
+      primaryColor: string | null;
+      tagline: string | null;
+      supportEmail: string | null;
+      partnerSlug: string | null;
+      viewer: {
+        isPartnerAdmin: boolean;
+        partnerSlug: string | null;
+        partnerStatus: string | null;
+      };
+    }>(`/branding${query}`);
+  }
+
+  async getMyPartner() {
+    return this.request<{
+      partner: {
+        id: string;
+        name: string;
+        slug: string;
+        logoUrl: string | null;
+        primaryColor: string | null;
+        supportEmail: string | null;
+        tagline: string | null;
+        status: string;
+        createdAt: string;
+        updatedAt: string;
+      };
+      totals: { businessCount: number; activeBusinessCount: number };
+    }>('/partners/me');
+  }
+
+  async getMyPartnerBusinesses() {
+    return this.request<
+      Array<{
+        id: string;
+        name: string;
+        slug: string | null;
+        businessType: string | null;
+        isActive: boolean;
+        createdAt: string;
+        planName: string | null;
+        planPrice: number | null;
+        subscriptionStatus: string | null;
+        billingStatus: string | null;
+        currentPeriodEnd: string | null;
+      }>
+    >('/partners/me/businesses');
+  }
+
+  async updateMyPartnerBranding(data: {
+    name?: string;
+    logoUrl?: string | null;
+    primaryColor?: string | null;
+    tagline?: string | null;
+    supportEmail?: string | null;
+  }) {
+    return this.request<{ partner: { id: string; name: string; slug: string } }>('/partners/me/branding', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 
   async getProfile() {
