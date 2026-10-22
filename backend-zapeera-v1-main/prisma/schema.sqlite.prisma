@@ -50,6 +50,7 @@ model ZapeeraUser {
   salespersonSales  Sale[]               @relation("SaleSalesperson")
   scheduledShifts   ScheduledShiftUser[]
   memberships       Membership[]
+  partnerAdminOf    Partner[]            @relation("partnerAdmin")
   invitationsSent   BusinessInvitation[] @relation("inviter")
   billingProfiles   BillingProfile[]     @relation("userBillingProfiles")
   notifications     Notification[]
@@ -120,6 +121,7 @@ model Business {
   website      String?
   businessType String?
   createdBy    String?
+  partnerId    String?
   isActive     Boolean  @default(true)
   policyVersion Int      @default(0) // Bumped on auth-relevant changes (membership/override/subscription/business-type)
   uuid         String?  @unique
@@ -163,7 +165,10 @@ model Business {
   productVariants           ProductVariant[]
   stockTakes                StockTake[]
 
+  partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
+
   @@index([createdBy], name: "idx_business_createdBy")
+  @@index([partnerId], name: "idx_business_partner")
   @@index([businessType], name: "idx_business_type")
   @@index([isActive], name: "idx_business_active")
   @@map("businesses")
@@ -2532,4 +2537,36 @@ model FolioPayment {
   @@index([folioId], name: "idx_folio_payment_folio")
   @@index([paidAt], name: "idx_folio_payment_date")
   @@map("folio_payments")
+}
+
+// ─── White-label partners (Feature 3) ─────────────────────────────────
+// A Partner is a reseller company that sells Zapeera under its own
+// branding. Businesses created through the partner's join link
+// (?partner=<slug> / /join/<slug>) carry partnerId — set once at
+// business creation, immutable for tenants afterwards (Backoffice can
+// reassign). The partner's single v1 admin is adminUserId (a regular
+// ZapeeraUser) who signs in to the tenant app and opens /partner.
+// logoUrl is a base64 data-URI (same storage pattern as profile photos
+// and prescription images — downscaled client-side before upload).
+// Partners sell the standard platform plans in v1; partner-level plan
+// pricing and partner custom domains are phase 2.
+model Partner {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  logoUrl      String?
+  primaryColor String?
+  supportEmail String?
+  tagline      String?
+  adminUserId  String
+  status       String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  admin      ZapeeraUser @relation("partnerAdmin", fields: [adminUserId], references: [id])
+  businesses Business[]  @relation("businessPartner")
+
+  @@index([adminUserId], name: "idx_partner_admin")
+  @@index([status], name: "idx_partner_status")
+  @@map("partners")
 }

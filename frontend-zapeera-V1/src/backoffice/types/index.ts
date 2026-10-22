@@ -92,6 +92,23 @@ export interface Subscription {
   amount: number;
 }
 
+// White-label partner (Feature 3) — mirrors GET /backoffice/partners.
+export interface BackofficePartner {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  supportEmail?: string | null;
+  tagline?: string | null;
+  status: string;
+  adminUserId: string;
+  admin?: { id: string; name: string; email: string } | null;
+  businessCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Plan {
   id: string;
   name: string;

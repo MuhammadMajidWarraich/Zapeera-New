@@ -27,6 +27,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useRuntime } from "@/lib/runtime";
@@ -63,6 +64,7 @@ function getGreeting(): string {
 
 const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   const { user, logout } = useAuth();
+  const { branding, viewer } = useBranding();
   const { allCompanies } = useAdmin();
   const { unreadCount } = useNotifications();
   const runtime = useRuntime();
@@ -198,7 +200,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       id: "welcome",
       icon: Sparkles,
       iconClass: "bg-gradient-to-br from-[#1a52c5]/15 to-[#28c2ce]/15 text-[#1a52c5]",
-      title: `Welcome to Zapeera, ${user?.name?.split(" ")[0] || ""}`,
+      title: `Welcome to ${branding.productName}, ${user?.name?.split(" ")[0] || ""}`,
       body: "Everything in your account is in one place.",
     });
 
@@ -252,14 +254,31 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
       {/* Brand */}
       <div className="relative z-[2] flex w-full shrink-0 items-center justify-between px-5 pb-6 pt-8">
-        <div className="flex min-w-0 items-center gap-3" aria-label="Zapeera">
-          <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
-            <Zap className="h-[21px] w-[21px] fill-white text-white" aria-hidden />
-          </div>
-          <span className="truncate text-[21px] font-extrabold tracking-tight text-white">
-            Zap
-            <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
-          </span>
+        <div className="flex min-w-0 items-center gap-3" aria-label={branding.productName}>
+          {branding.partnerSlug ? (
+            <>
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.productName} className="h-[40px] w-[40px] shrink-0 rounded-[13px] bg-white object-contain" />
+              ) : (
+                <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#1a52c5' }}>
+                  <span className="text-base font-extrabold">{branding.productName.charAt(0)}</span>
+                </div>
+              )}
+              <span className="truncate text-[21px] font-extrabold tracking-tight text-white">
+                {branding.productName}
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
+                <Zap className="h-[21px] w-[21px] fill-white text-white" aria-hidden />
+              </div>
+              <span className="truncate text-[21px] font-extrabold tracking-tight text-white">
+                Zap
+                <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
+              </span>
+            </>
+          )}
         </div>
         <button
           type="button"
@@ -286,6 +305,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
           {renderNavItem({ key: "notifications", label: "Notifications", icon: Bell, to: "/zapeera/notifications", badge: unreadCount > 0 ? unreadCount : undefined })}
           {renderNavItem({ key: "notification-settings", label: "Notification Settings", icon: Settings, to: "/zapeera/notification-settings" })}
           {renderNavItem({ key: "downloads", label: "Downloads", icon: Download, to: "/downloads" })}
+          {/* Partner portal (Feature 3): only for partner admins. */}
+          {viewer.isPartnerAdmin && renderNavItem({ key: "partner", label: "Partner Portal", icon: Briefcase, to: "/partner" })}
         </div>
         <div>
           <div className="px-3.5 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[1.8px] text-white/40">Support</div>
@@ -303,7 +324,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
           <div className="relative flex items-start justify-between gap-2">
             <div>
               <h4 className="text-[13px] font-semibold leading-snug text-white">Grow Your Business</h4>
-              <p className="text-[13px] font-semibold leading-snug text-white">With Zapeera</p>
+              <p className="text-[13px] font-semibold leading-snug text-white">With {branding.productName}</p>
             </div>
             <Crown className="h-4 w-4 shrink-0 text-amber-400" />
           </div>

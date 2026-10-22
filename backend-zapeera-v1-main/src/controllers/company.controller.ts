@@ -7,6 +7,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { validateStaffCreationAllowance } from '../utils/subscription-entitlements.util';
 import { ensureStandardRoles } from '../services/standard-roles.service';
+import { resolvePartnerAttribution } from '../utils/partner.util';
 import {
   deleteMembershipByUserBusiness,
   ensureBusinessRole,
@@ -59,7 +60,11 @@ const createCompanySchema = Joi.object({
   phone: Joi.string().max(20).optional(),
   email: Joi.string().email().optional(),
   businessType: Joi.string().max(100).optional(),
-  createdByUserId: Joi.string().optional()
+  createdByUserId: Joi.string().optional(),
+  // White-label attribution (Feature 3): slug of the partner whose
+  // join link brought this signup. Resolved to business.partnerId at
+  // creation when it names an ACTIVE partner; ignored otherwise.
+  partnerSlug: Joi.string().trim().max(80).allow('', null).optional()
 });
 
 const updateCompanySchema = Joi.object({
@@ -682,6 +687,15 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
     const { name, description, address, phone, email, businessType, createdByUserId } = normalizedBody as any;
     const createdById = userId;
 
+    // White-label attribution (Feature 3): set ONCE here, at business
+    // creation, from the partner slug the signup carried. Immutable for
+    // tenants afterwards — only Backoffice can reassign it. An unknown
+    // or suspended partner's slug simply means a direct Zapeera sale.
+    const partnerId = await resolvePartnerAttribution(
+      prisma,
+      (normalizedBody as any).partnerSlug
+    );
+
     console.log('🔍 Creating company with userId:', createdById);
 
     // Check if company name already exists
@@ -773,6 +787,7 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
         email,
         businessType: normalizedBusinessType,
         createdBy: createdById,
+        partnerId,
         isActive: true
       },
       include: {

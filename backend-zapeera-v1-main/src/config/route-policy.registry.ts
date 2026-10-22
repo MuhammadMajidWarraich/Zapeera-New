@@ -100,6 +100,18 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/sse', policy: { kind: 'public' } },
   { prefix: '/api/health', policy: { kind: 'public' } },
 
+  // ── White-label branding + partner portal (Feature 3) ─────────────
+  // /api/branding is public BY DESIGN: the login/register/join surfaces
+  // resolve partner branding before any session exists. Identity on
+  // that route is optional (soft-auth in the router) — an authenticated
+  // caller additionally gets the branding of their current business and
+  // the partner-admin viewer flag; anonymous callers use ?slug=.
+  { prefix: '/api/branding', policy: { kind: 'public' } },
+  // /api/partners is the tenant-side partner portal (account-level,
+  // like the /zapeera area): authenticated, no module gate — the
+  // controller resolves the caller as a partner admin by adminUserId.
+  { prefix: '/api/partners', policy: { kind: 'auth' } },
+
   // ── Inventory module ──────────────────────────────────────────────────────
   { prefix: '/api/inventory', policy: { kind: 'module', resourceKey: 'inventory.overview' } },
   { prefix: '/api/products', policy: { kind: 'module', resourceKey: 'inventory.products' } },
