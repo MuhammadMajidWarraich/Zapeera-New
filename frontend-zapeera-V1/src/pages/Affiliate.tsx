@@ -157,7 +157,7 @@ const Affiliate: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-gray-500">
+      <div className="flex items-center justify-center px-4 py-24 text-gray-500">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading affiliate dashboard…
       </div>
     );
@@ -166,7 +166,7 @@ const Affiliate: React.FC = () => {
   // ── Not an affiliate yet ────────────────────────────────────────────
   if (!data?.hasProfile) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Zapeera Affiliate Program</h1>
           <p className="mt-1 text-sm text-gray-500">Earn commission on every paid subscription from businesses you refer.</p>
@@ -205,7 +205,7 @@ const Affiliate: React.FC = () => {
   const stats = data.stats!;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1200px] space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Affiliate Program</h1>
@@ -266,13 +266,14 @@ const Affiliate: React.FC = () => {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Referred businesses */}
-        <Card className="border-0 bg-white shadow-soft lg:col-span-2">
+        <Card className="min-w-0 border-0 bg-white shadow-soft lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Referred businesses</CardTitle></CardHeader>
           <CardContent className="p-0">
             {referrals.length === 0 ? (
               <p className="p-6 text-sm text-gray-500">No referrals yet — share your link to get started.</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase tracking-wide text-gray-400">
                     <th className="px-4 py-2">Business</th>
@@ -292,12 +293,13 @@ const Affiliate: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Payout details + request */}
-        <Card className="border-0 bg-white shadow-soft">
+        <Card className="min-w-0 border-0 bg-white shadow-soft">
           <CardHeader><CardTitle className="text-base">Payouts</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -361,13 +363,14 @@ const Affiliate: React.FC = () => {
       </div>
 
       {/* Commissions */}
-      <Card className="border-0 bg-white shadow-soft">
+      <Card className="min-w-0 border-0 bg-white shadow-soft">
         <CardHeader><CardTitle className="text-base">Commissions</CardTitle></CardHeader>
         <CardContent className="p-0">
           {commissions.length === 0 ? (
             <p className="p-6 text-sm text-gray-500">No commissions yet. They appear here when a referred business pays for a subscription.</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-2">Date</th>
@@ -391,6 +394,7 @@ const Affiliate: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </CardContent>
       </Card>
