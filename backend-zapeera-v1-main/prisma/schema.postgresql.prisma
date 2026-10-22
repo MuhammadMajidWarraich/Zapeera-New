@@ -1185,6 +1185,28 @@ model FbrConfig {
   @@map("fbr_configs")
 }
 
+// ─── Backup safety snapshots ─────────────────────────────────────
+// Before a backup UPDATE is applied to a business, the service saves
+// a full export of that business's CURRENT state to a file under
+// uploads/backup-safety/ and records it here, so the pre-update state
+// stays downloadable (and itself restorable) afterwards. Plain scalar
+// references on purpose: zero impact on the existing models.
+model BackupSafetySnapshot {
+  id           String   @id @default(cuid())
+  businessId   String
+  businessName String
+  ownerId      String
+  fileName     String // stored file name under uploads/backup-safety/
+  sizeBytes    Int      @default(0)
+  reason       String   @default("PRE_UPDATE")
+  sourceKind   String? // 'business' | 'account' — kind of the update's source file
+  createdAt    DateTime @default(now())
+
+  @@index([businessId], name: "idx_backup_safety_business")
+  @@index([ownerId], name: "idx_backup_safety_owner")
+  @@map("backup_safety_snapshots")
+}
+
 // FBR POS fiscal integration (Wave B7): the durable outbox for fiscal
 // postings. One row per fiscal document: the sale itself
 // (kind = SALE, InvoiceType 1) and one per fiscalized refund
