@@ -270,7 +270,21 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     }
   }, [isAuthenticated, user?.id, getMembershipRole, selectedBusinessId]); // Removed selectedBranchId dependency to prevent infinite loop
 
-  
+  // Load branches whenever the selected business becomes known/changes.
+  // The init effect fires refreshBranches() before any business is selected
+  // (OWNER + no selection early-returns by design), and the selection
+  // handler's setTimeout re-trigger can capture a stale null selection —
+  // so for a single-business owner landing on a deep link, no trigger ever
+  // landed with a selection and the POS showed "No branches available".
+  // Making branch loading reactive to the selection removes that race.
+  const branchesLoadedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthenticated || !selectedBusinessId) return;
+    if (localStorage.getItem('backofficeToken') || window.location.pathname.startsWith('/backoffice')) return;
+    if (branchesLoadedForRef.current === selectedBusinessId) return;
+    branchesLoadedForRef.current = selectedBusinessId;
+    refreshBranches();
+  }, [isAuthenticated, selectedBusinessId, refreshBranches]);
 
   // Prefetch core datasets after branch/company selection so tabs feel instant
   // CRITICAL FIX: Fetch enabled modules FIRST, then only prefetch for enabled modules
