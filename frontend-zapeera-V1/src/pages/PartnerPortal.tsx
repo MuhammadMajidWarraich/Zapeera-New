@@ -195,7 +195,7 @@ const PartnerPortal = () => {
   const signupUrl = `${origin}/signup?partner=${partner.slug}`;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    <div className="w-full space-y-6 px-4 py-8">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-4">
         {form.logoUrl ? (

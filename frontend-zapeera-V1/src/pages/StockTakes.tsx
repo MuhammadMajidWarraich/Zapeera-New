@@ -287,7 +287,7 @@ const StockTakes: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
+    <div className="w-full space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
         <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12">
           <ClipboardList className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />

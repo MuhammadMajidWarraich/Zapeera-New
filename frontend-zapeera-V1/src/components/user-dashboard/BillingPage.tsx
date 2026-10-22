@@ -120,7 +120,7 @@ const BillingPage = () => {
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+    <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-7">
         <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
           <CreditCard className="h-3.5 w-3.5" />

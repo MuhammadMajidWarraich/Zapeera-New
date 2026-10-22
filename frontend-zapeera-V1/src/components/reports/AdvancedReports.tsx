@@ -1226,7 +1226,7 @@ const AdvancedReports = () => {
 
   return (
     <div className="font-[Montserrat] px-6 py-6 md:px-10 md:py-8">
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

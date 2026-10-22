@@ -352,7 +352,7 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="w-full p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{businessName}</h1>
         <p className="text-muted-foreground">Employee Portal</p>

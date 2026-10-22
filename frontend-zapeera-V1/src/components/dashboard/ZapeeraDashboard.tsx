@@ -228,7 +228,7 @@ const ZapeeraDashboard = () => {
 
   return (
     <ZapeeraLayout>
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+      <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         {/* Pending invitations are actionable — surface them first */}
         <InvitationsStrip />
 

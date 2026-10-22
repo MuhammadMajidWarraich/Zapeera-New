@@ -166,7 +166,7 @@ const Affiliate: React.FC = () => {
   // ── Not an affiliate yet ────────────────────────────────────────────
   if (!data?.hasProfile) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+      <div className="w-full space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Zapeera Affiliate Program</h1>
           <p className="mt-1 text-sm text-gray-500">Earn commission on every paid subscription from businesses you refer.</p>
@@ -205,7 +205,7 @@ const Affiliate: React.FC = () => {
   const stats = data.stats!;
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
+    <div className="w-full space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Affiliate Program</h1>

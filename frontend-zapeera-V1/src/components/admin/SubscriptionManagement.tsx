@@ -1146,7 +1146,7 @@ const SubscriptionManagement = () => {
 
   return (
     <div className="font-[Montserrat] px-6 py-6 md:px-10 md:py-8">
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="w-full">
         <div className="mb-8 flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subscription & Billing</h1>
           <p className="text-sm text-slate-500">Manage your plan, limits, and payment details.</p>
