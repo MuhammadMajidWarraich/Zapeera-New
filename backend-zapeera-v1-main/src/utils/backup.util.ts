@@ -281,7 +281,7 @@ export function remapRow(
 }
 
 /** Validate the envelope of a parsed backup file. */
-export function validateBackupEnvelope(payload: any): { ok: true } | { ok: false; message: string } {
+export function validateBackupEnvelope(payload: any): { ok: boolean; message?: string } {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return { ok: false, message: 'Backup file must be a JSON object' };
   }
