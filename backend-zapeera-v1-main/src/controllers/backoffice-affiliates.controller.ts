@@ -42,6 +42,8 @@ const configSchema = Joi.object({
 export const listAffiliates = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
     const prisma = await getPrisma();
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '20'), 10) || 20));
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
@@ -56,14 +58,19 @@ export const listAffiliates = async (req: AdminAuthRequest, res: Response): Prom
       ];
     }
 
-    const affiliates = await prisma.affiliate.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true, email: true, username: true } },
-        _count: { select: { referrals: true } }
-      }
-    });
+    const [affiliates, total] = await Promise.all([
+      prisma.affiliate.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          user: { select: { id: true, name: true, email: true, username: true } },
+          _count: { select: { referrals: true } }
+        }
+      }),
+      prisma.affiliate.count({ where })
+    ]);
 
     const ids = affiliates.map((a: any) => a.id);
     const commissions = ids.length
@@ -82,17 +89,20 @@ export const listAffiliates = async (req: AdminAuthRequest, res: Response): Prom
 
     res.json({
       success: true,
-      data: affiliates.map((a: any) => ({
-        id: a.id,
-        code: a.code,
-        status: a.status,
-        commissionRate: a.commissionRate,
-        payoutDetails: a.payoutDetails ?? null,
-        createdAt: a.createdAt,
-        user: a.user,
-        referralsCount: a._count.referrals,
-        totalEarned: Math.round((earnedByAffiliate.get(a.id) || 0) * 100) / 100
-      }))
+      data: {
+        affiliates: affiliates.map((a: any) => ({
+          id: a.id,
+          code: a.code,
+          status: a.status,
+          commissionRate: a.commissionRate,
+          payoutDetails: a.payoutDetails ?? null,
+          createdAt: a.createdAt,
+          user: a.user,
+          referralsCount: a._count.referrals,
+          totalEarned: Math.round((earnedByAffiliate.get(a.id) || 0) * 100) / 100
+        })),
+        pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) }
+      }
     });
   } catch (error: any) {
     console.error('[BackofficeAffiliates] listAffiliates error:', error);
