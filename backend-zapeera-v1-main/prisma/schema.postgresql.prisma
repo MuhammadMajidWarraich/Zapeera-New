@@ -351,6 +351,12 @@ model Product {
   createdBy            String?
   minStock             Int       @default(10)
   maxStock             Int?
+  // Auto-reorder (Wave C3): opt-in reorder point. Only products with
+  // reorderLevel set participate in reorder suggestions; the suggested
+  // quantity is reorderQuantity when set, else 2 x reorderLevel minus
+  // current stock. minStock stays the low-stock ALERT threshold.
+  reorderLevel         Int?
+  reorderQuantity      Int?
   unitsPerPack         Int       @default(1)
   // Unit engine (Wave C2): tablets per STRIP for pack-structured
   // pharmacy products (a pack of 100 may hold 10 strips of 10).

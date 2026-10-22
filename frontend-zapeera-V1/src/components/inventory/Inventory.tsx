@@ -14,6 +14,7 @@ import { DocumentScanner } from "./DocumentScanner";
 import { ExtractedDataReview } from "./ExtractedDataReview";
 import { BarcodeLabelPrint } from "../barcode/BarcodeLabelPrint";
 import { BarcodeGenerator } from "../barcode/BarcodeGenerator";
+import MedicineCatalogImport from "./MedicineCatalogImport";
 import {
   Search,
   Plus,
@@ -80,6 +81,9 @@ interface Product {
   // Unit engine (Wave C2): pack structure - tablets per pack / strip.
   unitsPerPack?: number;
   unitsPerStrip?: number | null;
+  // Auto-reorder (Wave C3): opt-in reorder point + fixed reorder qty.
+  reorderLevel?: number | null;
+  reorderQuantity?: number | null;
   branch: {
     id: string;
     name: string;
@@ -167,6 +171,7 @@ const Inventory = () => {
   const [isCreateCategoryDialogOpen, setIsCreateCategoryDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isCatalogImportOpen, setIsCatalogImportOpen] = useState(false); // Wave C3 - medicine master catalog
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -205,6 +210,8 @@ const Inventory = () => {
     pctCode: "",
     unitsPerPack: 1,
     unitsPerStrip: "",
+    reorderLevel: "",
+    reorderQuantity: "",
     minStock: 10
   });
 
@@ -1001,7 +1008,9 @@ const Inventory = () => {
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
         unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
-        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)
+        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
+        reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity)
       };
 
       // Find category name for optimistic product
@@ -1027,6 +1036,8 @@ const Inventory = () => {
         maxStock: 1000,
         unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
         unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
+        reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity),
         sku: `TEMP-${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -1052,6 +1063,8 @@ const Inventory = () => {
         pctCode: "",
         unitsPerPack: 1,
         unitsPerStrip: "",
+        reorderLevel: "",
+        reorderQuantity: "",
         minStock: 10
       });
 
@@ -1195,6 +1208,8 @@ const Inventory = () => {
           pctCode: freshProduct.pctCode ?? (product as any).pctCode ?? "",
           unitsPerPack: freshProduct.unitsPerPack ?? product.unitsPerPack ?? 1,
           unitsPerStrip: (freshProduct.unitsPerStrip ?? product.unitsPerStrip) != null ? String(freshProduct.unitsPerStrip ?? product.unitsPerStrip) : "",
+          reorderLevel: (freshProduct.reorderLevel ?? product.reorderLevel) != null ? String(freshProduct.reorderLevel ?? product.reorderLevel) : "",
+          reorderQuantity: (freshProduct.reorderQuantity ?? product.reorderQuantity) != null ? String(freshProduct.reorderQuantity ?? product.reorderQuantity) : "",
           minStock: freshProduct.minStock ?? product.minStock ?? 10
         });
         setIsEditDialogOpen(true);
@@ -1212,6 +1227,8 @@ const Inventory = () => {
           pctCode: (product as any).pctCode || "",
           unitsPerPack: product.unitsPerPack || 1,
           unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
+          reorderLevel: product.reorderLevel != null ? String(product.reorderLevel) : "",
+          reorderQuantity: product.reorderQuantity != null ? String(product.reorderQuantity) : "",
           minStock: product.minStock || 10
         });
         setIsEditDialogOpen(true);
@@ -1230,6 +1247,8 @@ const Inventory = () => {
         pctCode: (product as any).pctCode || "",
         unitsPerPack: product.unitsPerPack || 1,
         unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
+        reorderLevel: product.reorderLevel != null ? String(product.reorderLevel) : "",
+        reorderQuantity: product.reorderQuantity != null ? String(product.reorderQuantity) : "",
         minStock: product.minStock || 10
       });
       setIsEditDialogOpen(true);
@@ -1276,7 +1295,9 @@ const Inventory = () => {
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
         unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
-        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)
+        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
+        reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity)
       };
 
       // Update product via API
@@ -1353,6 +1374,8 @@ const Inventory = () => {
           pctCode: "",
           unitsPerPack: 1,
           unitsPerStrip: "",
+          reorderLevel: "",
+          reorderQuantity: "",
           minStock: 10
         });
 
@@ -2223,6 +2246,20 @@ const Inventory = () => {
               <Upload className="h-[17px] w-[17px]" strokeWidth={2} />
               Export
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCatalogImportOpen(true)}
+              className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-3 text-sm font-semibold text-[#4a5578] shadow-none hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+            >
+              <Pill className="h-[17px] w-[17px]" strokeWidth={2} />
+              Medicine Catalog
+            </Button>
+            <MedicineCatalogImport
+              open={isCatalogImportOpen}
+              onOpenChange={setIsCatalogImportOpen}
+              onImported={() => loadData()}
+            />
             <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -2570,6 +2607,35 @@ const Inventory = () => {
                       Product will be flagged as low stock when total batch stock reaches this value.
                     </p>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reorderLevel">Reorder Level (optional)</Label>
+                    <Input
+                      id="reorderLevel"
+                      type="number"
+                      min={0}
+                      placeholder="e.g., 20 — leave empty for no reorder watch"
+                      value={newMedicine.reorderLevel}
+                      onChange={(e) => setNewMedicine({...newMedicine, reorderLevel: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      When total stock falls to this level, the product appears in Purchases → Reorder Suggestions.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reorderQuantity">Reorder Quantity (optional)</Label>
+                    <Input
+                      id="reorderQuantity"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 100 — empty = 2 × level − stock"
+                      value={newMedicine.reorderQuantity}
+                      onChange={(e) => setNewMedicine({...newMedicine, reorderQuantity: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Fixed quantity suggested for each reorder. Quantities are in base units (tablets / pieces).
+                    </p>
+                  </div>
 
                   {/* Prescription Required Checkbox */}
                   <div className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -2629,6 +2695,8 @@ const Inventory = () => {
                 pctCode: "",
                 unitsPerPack: 1,
                 unitsPerStrip: "",
+                reorderLevel: "",
+                reorderQuantity: "",
                 minStock: 10
               });
             }
@@ -2809,6 +2877,35 @@ const Inventory = () => {
                     />
                     <p className="text-xs text-muted-foreground">
                       Product will be flagged as low stock when total batch stock reaches this value.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-reorderLevel">Reorder Level (optional)</Label>
+                    <Input
+                      id="edit-reorderLevel"
+                      type="number"
+                      min={0}
+                      placeholder="e.g., 20 — leave empty for no reorder watch"
+                      value={newMedicine.reorderLevel}
+                      onChange={(e) => setNewMedicine({...newMedicine, reorderLevel: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      When total stock falls to this level, the product appears in Purchases → Reorder Suggestions.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-reorderQuantity">Reorder Quantity (optional)</Label>
+                    <Input
+                      id="edit-reorderQuantity"
+                      type="number"
+                      min={1}
+                      placeholder="e.g., 100 — empty = 2 × level − stock"
+                      value={newMedicine.reorderQuantity}
+                      onChange={(e) => setNewMedicine({...newMedicine, reorderQuantity: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Fixed quantity suggested for each reorder. Quantities are in base units (tablets / pieces).
                     </p>
                   </div>
 

@@ -814,3 +814,383 @@ export const deletePurchase = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+// ─── Auto-reorder suggestions (Wave C3) ────────────────────────────────────
+// Products opt in by setting reorderLevel (Product.reorderLevel). Stock is
+// counted in BASE units — the same basis batch.quantity, minStock and the
+// low-stock reports use — summing only live, non-expired batches.
+// Suggested quantity = the product's fixed reorderQuantity when set, else
+// 2 x reorderLevel - current stock (the same top-up formula the batch
+// low-stock view has always used), minimum 1. Lines are grouped by the
+// supplier of the product's most recent batch; products with no supplier
+// history land in a single "unassigned" group (supplier: null).
+export const getReorderSuggestions = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const companyId = resolvePurchaseCompanyId(req);
+    const branchId =
+      req.branch_id || (req.headers['x-branch-id'] as string | undefined);
+
+    const products = await prisma.product.findMany({
+      where: {
+        companyId,
+        isActive: true,
+        reorderLevel: { not: null },
+        ...(branchId ? { branchId: String(branchId) } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        branchId: true,
+        reorderLevel: true,
+        reorderQuantity: true,
+        unitsPerPack: true,
+        unitsPerStrip: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    if (products.length === 0) {
+      return res.json({
+        success: true,
+        data: { groups: [], totals: { products: 0, units: 0, estimatedCost: 0 }, participatingProducts: 0 },
+      });
+    }
+
+    const productIds = products.map((p: any) => p.id);
+    const now = new Date();
+    const batches = await prisma.batch.findMany({
+      where: { companyId, productId: { in: productIds }, isActive: true },
+      select: {
+        productId: true,
+        quantity: true,
+        purchasePrice: true,
+        supplierId: true,
+        expireDate: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Per product: live stock (non-expired batches only) + latest batch
+    // (any status — it carries the most recent cost and supplier).
+    const stockByProduct = new Map<string, number>();
+    const latestBatchByProduct = new Map<string, any>();
+    for (const batch of batches as any[]) {
+      if (!latestBatchByProduct.has(batch.productId)) {
+        latestBatchByProduct.set(batch.productId, batch);
+      }
+      const expired = batch.expireDate && new Date(batch.expireDate) <= now;
+      if (!expired) {
+        stockByProduct.set(
+          batch.productId,
+          (stockByProduct.get(batch.productId) || 0) + (batch.quantity || 0)
+        );
+      }
+    }
+
+    interface ReorderLine {
+      productId: string;
+      productName: string;
+      sku: string;
+      branchId: string;
+      currentStock: number;
+      reorderLevel: number;
+      reorderQuantity: number | null;
+      suggestedQty: number;
+      lastCost: number | null;
+      unitsPerPack: number;
+      unitsPerStrip: number | null;
+    }
+
+    const linesBySupplier = new Map<string, ReorderLine[]>();
+    const supplierIds = new Set<string>();
+    let belowLevel = 0;
+
+    for (const product of products as any[]) {
+      const currentStock = stockByProduct.get(product.id) || 0;
+      if (currentStock > product.reorderLevel) continue;
+      belowLevel += 1;
+
+      const latest = latestBatchByProduct.get(product.id);
+      const suggestedQty = product.reorderQuantity
+        ? product.reorderQuantity
+        : Math.max(1, product.reorderLevel * 2 - currentStock);
+
+      const line: ReorderLine = {
+        productId: product.id,
+        productName: product.name,
+        sku: product.sku,
+        branchId: product.branchId,
+        currentStock,
+        reorderLevel: product.reorderLevel,
+        reorderQuantity: product.reorderQuantity,
+        suggestedQty,
+        lastCost: latest ? latest.purchasePrice : null,
+        unitsPerPack: product.unitsPerPack || 1,
+        unitsPerStrip: product.unitsPerStrip ?? null,
+      };
+
+      const supplierKey = latest?.supplierId || '__unassigned__';
+      if (latest?.supplierId) supplierIds.add(latest.supplierId);
+      const group = linesBySupplier.get(supplierKey) || [];
+      group.push(line);
+      linesBySupplier.set(supplierKey, group);
+    }
+
+    const suppliers = supplierIds.size
+      ? await prisma.supplier.findMany({
+          where: { id: { in: Array.from(supplierIds) } },
+          select: { id: true, name: true, contactPerson: true, phone: true },
+        })
+      : [];
+    const supplierById = new Map((suppliers as any[]).map(s => [s.id, s]));
+
+    const groups = Array.from(linesBySupplier.entries()).map(([key, lines]) => {
+      const estimatedCost = lines.reduce(
+        (sum, l) => sum + (l.lastCost ? l.suggestedQty * l.lastCost : 0),
+        0
+      );
+      return {
+        supplier: key === '__unassigned__' ? null : supplierById.get(key) || null,
+        lines,
+        totalEstimatedCost: estimatedCost,
+      };
+    });
+    // Named suppliers first (alphabetical), unassigned group last.
+    groups.sort((a, b) => {
+      if (!a.supplier) return 1;
+      if (!b.supplier) return -1;
+      return a.supplier.name.localeCompare(b.supplier.name);
+    });
+
+    const totals = {
+      products: groups.reduce((n, g) => n + g.lines.length, 0),
+      units: groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + l.suggestedQty, 0), 0),
+      estimatedCost: groups.reduce((n, g) => n + g.totalEstimatedCost, 0),
+    };
+
+    return res.json({
+      success: true,
+      data: { groups, totals, participatingProducts: products.length },
+    });
+  } catch (error) {
+    console.error('Get reorder suggestions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
+const createFromSuggestionsSchema = Joi.object({
+  supplierId: Joi.string().required(),
+  branchId: Joi.string().optional(),
+  notes: Joi.string().optional().allow(''),
+  lines: Joi.array()
+    .items(
+      Joi.object({
+        productId: Joi.string().required(),
+        // Quantity in BASE units — the unit the suggestions are shown in.
+        quantity: Joi.number().integer().min(1).required(),
+        // Optional cost override, per BASE unit.
+        unitPrice: Joi.number().min(0).optional(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+// POST /purchases/draft-from-suggestions — one-click order creation from
+// reorder suggestions. HONEST SCOPE: Zapeera purchases have no draft /
+// receive lifecycle — Purchase.status is a PAYMENT status (PENDING /
+// PARTIAL / COMPLETED, derived from paidAmount) and creating a purchase
+// lands stock immediately. So this creates a REAL purchase order through
+// the exact createPurchase flow (stock lands, paidAmount 0 -> status
+// PENDING = "ordered, unpaid") rather than inventing a draft state the
+// rest of the app would not understand. Quantities arrive in BASE units;
+// for pack-structured products they are converted to whole packs (rounded
+// UP) at a per-pack price, which purchaseLineStock converts back to base
+// units — identical stock/cost semantics to a hand-typed purchase.
+export const createPurchaseFromSuggestions = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const { error, value } = createFromSuggestionsSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map((d: any) => d.message),
+      });
+    }
+
+    const companyId = resolvePurchaseCompanyId(req);
+    const branchId =
+      req.branch_id ||
+      (req.headers['x-branch-id'] as string | undefined) ||
+      value.branchId;
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Branch context required. Please ensure you have proper access permissions.',
+      });
+    }
+
+    // Supplier must belong to this branch/company (same guard as create).
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        id: value.supplierId,
+        OR: [{ companyId }, { branchId }, { branch: { companyId } }],
+      },
+    });
+    if (!supplier) {
+      return res.status(400).json({
+        success: false,
+        message: 'Supplier not found',
+      });
+    }
+
+    // Resolve products + their latest cost; every line needs a price
+    // (override or purchase history) before anything is created.
+    const productIds = value.lines.map((l: any) => l.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, companyId },
+      select: { id: true, name: true, unitsPerPack: true },
+    });
+    const productById = new Map((products as any[]).map(p => [p.id, p]));
+
+    const latestBatches = await prisma.batch.findMany({
+      where: { companyId, productId: { in: productIds } },
+      select: { productId: true, purchasePrice: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const lastCostByProduct = new Map<string, number>();
+    for (const batch of latestBatches as any[]) {
+      if (!lastCostByProduct.has(batch.productId)) {
+        lastCostByProduct.set(batch.productId, batch.purchasePrice);
+      }
+    }
+
+    const unpriced: string[] = [];
+    const createLines: Array<{ productId: string; quantity: number; unitPrice: number }> = [];
+    for (const line of value.lines as any[]) {
+      const product = productById.get(line.productId);
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found: ${line.productId}`,
+        });
+      }
+      const perBaseUnit = line.unitPrice ?? lastCostByProduct.get(line.productId);
+      if (perBaseUnit === undefined || perBaseUnit === null) {
+        unpriced.push(product.name);
+        continue;
+      }
+      const perPack = product.unitsPerPack && product.unitsPerPack > 1 ? product.unitsPerPack : 1;
+      if (perPack > 1) {
+        // Whole packs only — round UP so the reorder target is covered.
+        const packs = Math.ceil(line.quantity / perPack);
+        createLines.push({
+          productId: line.productId,
+          quantity: packs,
+          unitPrice: perBaseUnit * perPack,
+        });
+      } else {
+        createLines.push({
+          productId: line.productId,
+          quantity: line.quantity,
+          unitPrice: perBaseUnit,
+        });
+      }
+    }
+    if (unpriced.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `No purchase cost on record for: ${unpriced.join(', ')}. Add a cost for these lines or receive a purchase for them first.`,
+      });
+    }
+
+    const totalAmount = createLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      const purchase = await tx.purchase.create({
+        data: {
+          supplierId: value.supplierId,
+          branchId: String(branchId),
+          companyId,
+          purchaseDate: new Date(),
+          totalAmount,
+          paidAmount: 0,
+          outstanding: totalAmount,
+          status: 'PENDING',
+          notes: value.notes || 'Created from reorder suggestions',
+          createdBy: req.user?.id,
+        },
+      });
+
+      const purchaseItems = [];
+      let purchaseItemSeq = 1;
+      for (const item of createLines) {
+        const product = productById.get(item.productId);
+        const lineStock = purchaseLineStock(product, item);
+        const batch = await tx.batch.create({
+          data: {
+            batchNo: `AUTO-${purchase.id.slice(0, 8)}-${purchaseItemSeq++}`,
+            productId: item.productId,
+            branchId: String(branchId),
+            companyId,
+            supplierId: value.supplierId,
+            quantity: lineStock.baseQty,
+            purchasePrice: lineStock.purchasePrice,
+            sellingPrice: lineStock.sellingPrice,
+            totalBoxes: lineStock.totalBoxes,
+            unitsPerBox: lineStock.unitsPerBox,
+            createdBy: req.user?.id,
+          },
+        });
+        const purchaseItem = await tx.purchaseItem.create({
+          data: {
+            purchaseId: purchase.id,
+            productId: item.productId,
+            batchId: batch.id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.quantity * item.unitPrice,
+          },
+        });
+        purchaseItems.push(purchaseItem);
+      }
+      return { purchase, purchaseItems };
+    });
+
+    const completePurchase = await prisma.purchase.findUnique({
+      where: { id: result.purchase.id },
+      include: {
+        supplier: { select: { id: true, name: true, contactPerson: true, phone: true } },
+        purchaseItems: {
+          include: {
+            product: { select: { id: true, name: true, sku: true, barcode: true, unitsPerPack: true, unitsPerStrip: true } },
+            batch: { select: { id: true, batchNo: true, quantity: true, expireDate: true } },
+          },
+        },
+      },
+    });
+
+    syncAfterOperation('purchase', 'create', completePurchase).catch((err: any) => {
+      console.error('[Sync] Purchase-from-suggestions sync failed:', err.message);
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: completePurchase,
+      message: 'Purchase order created from reorder suggestions',
+    });
+  } catch (error) {
+    console.error('Create purchase from suggestions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};

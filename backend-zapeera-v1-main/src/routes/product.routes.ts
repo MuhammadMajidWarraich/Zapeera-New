@@ -9,7 +9,9 @@ import {
   activateAllProducts,
   getAllProducts,
   bulkDeleteProducts,
-  getStockMovements
+  getStockMovements,
+  getMedicineMasterCatalog,
+  importMedicineMaster
 } from '../controllers/product.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -27,10 +29,13 @@ router.use(checkModule('inventory'));
 router.get('/', checkPermission('read_product'), getProducts);
 router.get('/all', checkPermission('read_product'), getAllProducts); // Get all products including inactive ones
 router.get('/stock-movements', checkPermission('read_product'), getStockMovements); // Get stock movements with date filtering
+// Medicine master catalog (Wave C3) — before /:id so the literal wins
+router.get('/master-catalog', checkPermission('read_product'), getMedicineMasterCatalog);
 router.get('/:id', checkPermission('read_product'), getProduct);
 
 // Product management (permission guarded)
 router.post('/', checkPermission('create_product'), createProduct);
+router.post('/import-master', checkPermission('create_product'), importMedicineMaster); // Wave C3
 router.post('/bulk-import', checkPermission('bulk_import_products'), bulkImportProducts);
 router.post('/bulk-delete', checkPermission('bulk_delete_products'), bulkDeleteProducts);
 router.put('/:id', checkPermission('update_product'), updateProduct);

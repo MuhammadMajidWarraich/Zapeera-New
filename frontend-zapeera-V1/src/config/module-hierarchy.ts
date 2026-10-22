@@ -240,6 +240,14 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         module: 'purchases',
         roles: ['OWNER', 'MANAGER'],
       },
+      {
+        key: 'reorder-suggestions',
+        label: 'Reorder Suggestions',
+        href: '/reorder-suggestions',
+        icon: ShoppingCart,
+        module: 'purchases',
+        roles: ['OWNER', 'MANAGER'],
+      },
     ],
   },
 

@@ -59,4 +59,14 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "sale_items" ADD COLUMN IF NOT EXISTS "unitFactor" INTEGER'
   );
+
+  // Auto-reorder (Wave C3): opt-in reorder point + fixed reorder
+  // quantity on products (nullable — only set products participate in
+  // reorder suggestions).
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "reorderLevel" INTEGER'
+  );
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "reorderQuantity" INTEGER'
+  );
 }

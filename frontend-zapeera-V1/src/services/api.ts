@@ -1031,6 +1031,8 @@ export class ApiService {
         stock: number;
         minStock: number;
         maxStock?: number;
+        reorderLevel?: number | null;
+        reorderQuantity?: number | null;
         unitType: string;
         unitsPerPack: number;
         unitsPerStrip: number | null;
@@ -1063,6 +1065,8 @@ export class ApiService {
       stock: number;
       minStock: number;
       maxStock?: number;
+      reorderLevel?: number | null;
+      reorderQuantity?: number | null;
       unitType: string;
       unitsPerPack: number;
         unitsPerStrip: number | null;
@@ -1152,6 +1156,8 @@ export class ApiService {
     stock?: number;
     minStock?: number;
     maxStock?: number;
+    reorderLevel?: number | null;
+    reorderQuantity?: number | null;
     unitsPerPack?: number;
     unitsPerStrip?: number | null;
   }) {
@@ -1246,6 +1252,8 @@ export class ApiService {
     stock?: number;
     minStock?: number;
     maxStock?: number;
+    reorderLevel?: number | null;
+    reorderQuantity?: number | null;
     unitType?: string;
     unitsPerPack?: number;
     unitsPerStrip?: number | null;
@@ -1282,6 +1290,41 @@ export class ApiService {
   async deleteProduct(productId: string) {
     return this.request<{ message: string }>(`/products/${productId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Medicine master catalog (Wave C3): curated starter dataset of common
+  // Pakistani-pharmacy medicines, annotated with alreadyExists per business.
+  async getMedicineMasterCatalog() {
+    return this.request<{
+      entries: Array<{
+        index: number;
+        id: string;
+        brandName: string;
+        genericName: string;
+        strength: string;
+        form: string;
+        packSize: number;
+        unitsPerStrip: number | null;
+        manufacturer: string;
+        category: string;
+        requiresPrescription: boolean;
+        productName: string;
+        alreadyExists: boolean;
+      }>;
+      total: number;
+      existingCount: number;
+    }>('/products/master-catalog');
+  }
+
+  async importMedicineMaster(entries: Array<string | number>) {
+    return this.request<{
+      created: Array<{ entryId: string; productId: string; name: string }>;
+      skipped: Array<{ entryId: string; name: string; reason: string }>;
+      failed: Array<{ entryId: string; name: string; error: string }>;
+    }>('/products/import-master', {
+      method: 'POST',
+      body: JSON.stringify({ entries }),
     });
   }
 
@@ -6482,6 +6525,55 @@ export class ApiService {
     }>('/purchases', {
       method: 'POST',
       body: JSON.stringify(purchaseData),
+    });
+  }
+
+  // Auto-reorder suggestions (Wave C3): products at/below their reorder
+  // level, grouped by the supplier of their most recent batch.
+  async getReorderSuggestions() {
+    return this.request<{
+      groups: Array<{
+        supplier: {
+          id: string;
+          name: string;
+          contactPerson?: string;
+          phone?: string;
+        } | null;
+        lines: Array<{
+          productId: string;
+          productName: string;
+          sku: string;
+          branchId: string;
+          currentStock: number;
+          reorderLevel: number;
+          reorderQuantity: number | null;
+          suggestedQty: number;
+          lastCost: number | null;
+          unitsPerPack: number;
+          unitsPerStrip: number | null;
+        }>;
+        totalEstimatedCost: number;
+      }>;
+      totals: { products: number; units: number; estimatedCost: number };
+      participatingProducts: number;
+    }>('/purchases/reorder-suggestions');
+  }
+
+  // Creates a REAL purchase order from suggestion lines (quantities in
+  // base units). Zapeera purchases have no draft state — the created
+  // purchase is PENDING (unpaid) and lands stock, like any purchase.
+  async createPurchaseFromSuggestions(payload: {
+    supplierId: string;
+    notes?: string;
+    lines: Array<{ productId: string; quantity: number; unitPrice?: number }>;
+  }) {
+    return this.request<{
+      id: string;
+      totalAmount: number;
+      status: string;
+    }>('/purchases/draft-from-suggestions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 

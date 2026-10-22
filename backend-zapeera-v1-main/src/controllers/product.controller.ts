@@ -12,6 +12,7 @@ import { notifyProductChange, notifyInventoryChange } from '../routes/sse.routes
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { createSearchConditions, serializeBigInt as serializeBigIntHelper } from '../utils/query-helper';
 import Joi from 'joi';
+import medicineMasterData from '../data/medicine-master.json';
 
 // Utility function to convert BigInt and Date values to strings for JSON serialization
 function serializeBigInt(obj: any): any {
@@ -68,6 +69,8 @@ const createProductSchema = Joi.object({
   isActive: Joi.boolean().default(true),
   minStock: Joi.number().min(0).default(1).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
+  reorderLevel: Joi.number().integer().min(0).allow(null).optional(), // Wave C3 - opt-in reorder point
+  reorderQuantity: Joi.number().integer().min(1).allow(null).optional(), // Wave C3 - fixed reorder qty
   unitsPerPack: Joi.number().min(1).default(1).optional(),
   unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
 });
@@ -90,6 +93,8 @@ const updateProductSchema = Joi.object({
   isActive: Joi.boolean(),
   minStock: Joi.number().min(0).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
+  reorderLevel: Joi.number().integer().min(0).allow(null).optional(), // Wave C3 - null clears the reorder point
+  reorderQuantity: Joi.number().integer().min(1).allow(null).optional(), // Wave C3 - null clears the fixed qty
   unitsPerPack: Joi.number().min(1).default(1).optional(),
   unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
 });
@@ -544,6 +549,8 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       requiresPrescription: productData.requiresPrescription || false,
       minStock: productData.minStock || 1,
       maxStock: productData.maxStock || null,
+      reorderLevel: productData.reorderLevel ?? null, // Wave C3
+      reorderQuantity: productData.reorderQuantity ?? null, // Wave C3
       unitsPerPack: productData.unitsPerPack || 1,
       unitsPerStrip: productData.unitsPerStrip || null, // Wave C2
       supplierId: validSupplierId, // Set to null if invalid/empty
@@ -701,6 +708,8 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.branchId !== undefined) updateFields.branchId = updateData.branchId;
     if (updateData.minStock !== undefined) updateFields.minStock = updateData.minStock;
     if (updateData.maxStock !== undefined) updateFields.maxStock = updateData.maxStock !== null ? Number(updateData.maxStock) : null;
+    if (updateData.reorderLevel !== undefined) updateFields.reorderLevel = updateData.reorderLevel !== null ? Number(updateData.reorderLevel) : null; // Wave C3
+    if (updateData.reorderQuantity !== undefined) updateFields.reorderQuantity = updateData.reorderQuantity !== null ? Number(updateData.reorderQuantity) : null; // Wave C3
     if (updateData.unitsPerPack !== undefined) updateFields.unitsPerPack = updateData.unitsPerPack;
     if (updateData.unitsPerStrip !== undefined) updateFields.unitsPerStrip = updateData.unitsPerStrip || null; // Wave C2 - null clears the strip size
     if (updateData.barcode !== undefined) updateFields.barcode = updateData.barcode || null;
@@ -1588,6 +1597,291 @@ export const getStockMovements = async (req: AuthRequest, res: Response): Promis
   } catch (error) {
     console.error('Get stock movements error:', error);
     res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// ─── Medicine master catalog (Wave C3) ─────────────────────────────────────
+// Curated starter dataset of common Pakistani-pharmacy medicines, shipped
+// in-repo at src/data/medicine-master.json. Pharmacies import the entries
+// they stock instead of typing every product by hand. The Product model
+// has no manufacturer relation, so the manufacturer is carried in the
+// product description; the generic/salt goes to Product.formula (the
+// composition field pharmacists read at the counter).
+interface MedicineMasterEntry {
+  id: string;
+  brandName: string;
+  genericName: string;
+  strength: string;
+  form: string;
+  packSize: number;
+  unitsPerStrip?: number | null;
+  manufacturer: string;
+  category: string;
+  requiresPrescription: boolean;
+}
+
+const MEDICINE_MASTER: MedicineMasterEntry[] =
+  ((medicineMasterData as any)?.entries as MedicineMasterEntry[]) || [];
+
+const masterProductName = (e: MedicineMasterEntry): string =>
+  `${e.brandName} ${e.strength} ${e.form}`.replace(/\s+/g, ' ').trim();
+
+const masterNameKey = (name: string): string =>
+  name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+// Strip sizes only make sense for tablets/capsules and must divide the
+// pack (same rule the C2 unit engine validates on product create/update).
+const masterUnitsPerStrip = (e: MedicineMasterEntry): number | null => {
+  if (!e.unitsPerStrip) return null;
+  if (e.form !== 'Tablet' && e.form !== 'Capsule') return null;
+  if (!e.packSize || e.packSize % e.unitsPerStrip !== 0) return null;
+  return e.unitsPerStrip;
+};
+
+const importMasterSchema = Joi.object({
+  // Entry ids (preferred) or catalog indexes — both accepted.
+  entries: Joi.array().items(Joi.alternatives().try(Joi.string(), Joi.number())).min(1).required(),
+  branchId: Joi.string().optional(),
+});
+
+// GET /products/master-catalog — the dataset, annotated per caller
+// business: alreadyExists is matched on the exact product name the import
+// would create ("<Brand> <Strength> <Form>") within the caller's company.
+export const getMedicineMasterCatalog = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const companyId = resolveProductCompanyId(req);
+
+    const existing = await prisma.product.findMany({
+      where: { companyId },
+      select: { name: true }
+    });
+    const existingKeys = new Set(existing.map((p: any) => masterNameKey(p.name)));
+
+    const entries = MEDICINE_MASTER.map((e, index) => {
+      const name = masterProductName(e);
+      return {
+        index,
+        id: e.id,
+        brandName: e.brandName,
+        genericName: e.genericName,
+        strength: e.strength,
+        form: e.form,
+        packSize: e.packSize,
+        unitsPerStrip: masterUnitsPerStrip(e),
+        manufacturer: e.manufacturer,
+        category: e.category,
+        requiresPrescription: e.requiresPrescription,
+        productName: name,
+        alreadyExists: existingKeys.has(masterNameKey(name))
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        entries,
+        total: entries.length,
+        existingCount: entries.filter(e => e.alreadyExists).length
+      }
+    });
+  } catch (error) {
+    console.error('Get medicine master catalog error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// POST /products/import-master — create products for the selected
+// catalog entries. Entries that already exist in the caller's company
+// (same generated name) are skipped, never duplicated. Categories are
+// found-or-created by name (type MEDICAL) in the target branch.
+export const importMedicineMaster = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const { error, value } = importMasterSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(d => d.message)
+      });
+    }
+
+    // Resolve the selected entries (ids or indexes), de-duplicated,
+    // preserving catalog order.
+    const byId = new Map(MEDICINE_MASTER.map(e => [e.id, e]));
+    const selected: MedicineMasterEntry[] = [];
+    const seen = new Set<string>();
+    for (const ref of value.entries as Array<string | number>) {
+      const entry = typeof ref === 'number'
+        ? MEDICINE_MASTER[ref]
+        : byId.get(String(ref));
+      if (entry && !seen.has(entry.id)) {
+        seen.add(entry.id);
+        selected.push(entry);
+      }
+    }
+    if (selected.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid catalog entries selected'
+      });
+    }
+
+    // Resolve branch/company context the same way createProduct does.
+    const headerBranchId = req.headers['x-branch-id'] as string | undefined;
+    const headerCompanyId = req.headers['x-company-id'] as string | undefined;
+    const resolvedCompanyId = req.business_id || headerCompanyId || req.user?.selectedCompanyId;
+    const resolvedBranchId = req.branch_id || headerBranchId || req.user?.selectedBranchId;
+
+    let targetCompanyId: string;
+    let targetBranchId: string;
+    if (resolvedCompanyId && resolvedBranchId) {
+      targetCompanyId = String(resolvedCompanyId);
+      targetBranchId = String(resolvedBranchId);
+    } else if (value.branchId) {
+      const branch = await prisma.branch.findUnique({
+        where: { id: value.branchId },
+        select: { companyId: true }
+      });
+      // Tenancy guard (A-02): same rule as createProduct — a body-supplied
+      // branch may only be adopted when the validated business context
+      // confirms it is the caller's own.
+      if (!branch || String(req.business_id || '') !== String(branch.companyId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Branch not found'
+        });
+      }
+      targetCompanyId = branch.companyId;
+      targetBranchId = value.branchId;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Branch and company context required. Please ensure you have proper access permissions.'
+      });
+    }
+
+    // Existing products in the company (for skip detection) and existing
+    // SKUs (SKU is globally unique — generated SKUs must not collide).
+    const existingProducts = await prisma.product.findMany({
+      where: { companyId: targetCompanyId },
+      select: { name: true, sku: true }
+    });
+    const existingNameKeys = new Set(existingProducts.map((p: any) => masterNameKey(p.name)));
+    const existingSkus = new Set(existingProducts.map((p: any) => p.sku));
+
+    // Categories of this branch/company, matched case-insensitively by
+    // name; missing ones are created on demand (type MEDICAL, mirroring
+    // the pharmacy seed categories).
+    const branchCategories = await prisma.category.findMany({
+      where: {
+        OR: [
+          { branchId: targetBranchId },
+          { companyId: targetCompanyId }
+        ]
+      },
+      select: { id: true, name: true }
+    });
+    const categoryByKey = new Map(
+      branchCategories.map((c: any) => [masterNameKey(c.name), c.id as string])
+    );
+    const resolveCategoryId = async (categoryName: string): Promise<string> => {
+      const key = masterNameKey(categoryName);
+      const found = categoryByKey.get(key);
+      if (found) return found;
+      const created = await prisma.category.create({
+        data: {
+          name: categoryName,
+          description: `${categoryName} medicines (medicine catalog)`,
+          type: 'MEDICAL',
+          branchId: targetBranchId,
+          companyId: targetCompanyId,
+          createdBy: req.user?.createdBy || req.user?.id || null
+        },
+        select: { id: true }
+      });
+      categoryByKey.set(key, created.id);
+      return created.id;
+    };
+
+    const createdBy = req.user?.createdBy || req.user?.id || null;
+    const stamp = Date.now().toString().slice(-6);
+    let skuSeq = 0;
+    const generateMasterSku = (name: string): string => {
+      const cleanName = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      let sku = '';
+      do {
+        skuSeq += 1;
+        sku = `MED${cleanName.slice(0, 4)}${stamp}${skuSeq}`;
+      } while (existingSkus.has(sku));
+      existingSkus.add(sku);
+      return sku;
+    };
+
+    const results: {
+      created: Array<{ entryId: string; productId: string; name: string }>;
+      skipped: Array<{ entryId: string; name: string; reason: string }>;
+      failed: Array<{ entryId: string; name: string; error: string }>;
+    } = { created: [], skipped: [], failed: [] };
+
+    for (const entry of selected) {
+      const name = masterProductName(entry);
+      if (existingNameKeys.has(masterNameKey(name))) {
+        results.skipped.push({ entryId: entry.id, name, reason: 'Product already exists' });
+        continue;
+      }
+      try {
+        const categoryId = await resolveCategoryId(entry.category);
+        const unitsPerStrip = masterUnitsPerStrip(entry);
+        const structureError = validateUnitStructure({
+          unitsPerPack: entry.packSize || 1,
+          unitsPerStrip
+        });
+        const product = await prisma.product.create({
+          data: {
+            name,
+            description: `${entry.genericName} — ${entry.manufacturer}`,
+            formula: entry.genericName, // Product.formula = composition / salt
+            sku: generateMasterSku(name),
+            categoryId,
+            branchId: targetBranchId,
+            companyId: targetCompanyId,
+            createdBy,
+            requiresPrescription: entry.requiresPrescription,
+            minStock: 10,
+            unitsPerPack: entry.packSize || 1,
+            unitsPerStrip: structureError ? null : unitsPerStrip,
+            isActive: true
+          },
+          select: { id: true, name: true }
+        });
+        existingNameKeys.add(masterNameKey(name));
+        results.created.push({ entryId: entry.id, productId: product.id, name: product.name });
+      } catch (createError: any) {
+        console.error(`Medicine master import failed for ${entry.id}:`, createError);
+        results.failed.push({
+          entryId: entry.id,
+          name,
+          error: createError?.message || 'Failed to create product'
+        });
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: results,
+      message: `Imported ${results.created.length} medicines (${results.skipped.length} skipped, ${results.failed.length} failed)`
+    });
+  } catch (error) {
+    console.error('Import medicine master error:', error);
+    return res.status(500).json({
       success: false,
       message: 'Internal server error'
     });

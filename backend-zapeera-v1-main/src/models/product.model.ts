@@ -23,6 +23,8 @@ export interface CreateProductData {
     stock?: number;
     minStock?: number;
     maxStock?: bigint;
+    reorderLevel?: number | null; // Wave C3 - opt-in reorder point; null = no reorder suggestions
+    reorderQuantity?: number | null; // Wave C3 - fixed reorder qty; null = derive from reorderLevel
     unitsPerPack?: number;
     unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
   }
@@ -49,6 +51,8 @@ export interface CreateProductData {
     stock?: number;
     minStock?: number;
     maxStock?: bigint;
+    reorderLevel?: number | null; // Wave C3
+    reorderQuantity?: number | null; // Wave C3
     unitsPerPack?: number;
     unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
   }
