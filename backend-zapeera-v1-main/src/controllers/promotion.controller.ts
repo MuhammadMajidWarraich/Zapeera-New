@@ -461,7 +461,7 @@ export const validateCoupon = async (req: AuthRequest, res: Response) => {
     let lines: PromoLineInput[] = [];
     let subtotal = 0;
     if (hasItems) {
-      const productIds = [...new Set(value.items.map((item: any) => item.productId))];
+      const productIds: string[] = [...new Set<string>(value.items.map((item: any) => String(item.productId)))];
       const products = await prisma.product.findMany({
         where: { id: { in: productIds }, companyId },
         select: { id: true, categoryId: true, unitsPerPack: true, unitsPerStrip: true }

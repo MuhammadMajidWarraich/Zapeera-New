@@ -269,7 +269,7 @@ const markFailed = async (
       attempts,
       nextAttemptAt: exhausted ? null : new Date(Date.now() + BACKOFF_MS[Math.min(attempts - 1, BACKOFF_MS.length - 1)]),
       lastError: message.slice(0, 500),
-      ...(requestPayload ? { requestPayload } : {})
+      ...(requestPayload ? { requestPayload: requestPayload as any } : {})
     }
   });
   if (row.kind === 'SALE') {
@@ -296,7 +296,7 @@ const markSent = async (
       status,
       attempts,
       fbrInvoiceNumber: invoiceNumber,
-      requestPayload,
+      requestPayload: requestPayload as any,
       responsePayload: responsePayload as any,
       lastError: null,
       nextAttemptAt: null,

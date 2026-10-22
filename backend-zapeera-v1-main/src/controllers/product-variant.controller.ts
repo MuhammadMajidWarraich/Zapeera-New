@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -139,7 +140,7 @@ export const createProductVariant = async (req: AuthRequest, res: Response) => {
         name,
         sku: nullIfEmpty(value.sku),
         barcode: nullIfEmpty(value.barcode),
-        attributes,
+        attributes: attributes === null ? Prisma.DbNull : attributes,
         priceDelta: value.priceDelta ?? 0
       }
     });
