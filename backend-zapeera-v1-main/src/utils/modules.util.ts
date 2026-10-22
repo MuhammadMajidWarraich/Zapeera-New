@@ -1,4 +1,5 @@
 import { getPrisma } from './db.util';
+import { isModuleApplicableToBusinessType } from './module-applicability.util';
 
 const isMissingTableError = (error: any): boolean => {
   const message = String(error?.message || '').toLowerCase();
@@ -213,9 +214,12 @@ export async function ensureBusinessTypesExist(): Promise<void> {
           let insertErrors = 0;
           for (const mod of moduleDefinitions) {
             try {
+              // Seed PER industry applicability: a module that does not
+              // belong to this type's industry starts DISABLED, never
+              // enabled (see module-applicability.util).
               inserted += await prisma.$executeRaw`
                 INSERT INTO business_type_modules ("businessTypeId", "moduleId", "isEnabled", "sortOrder", "createdAt", "updatedAt")
-                VALUES (${type.id}, ${mod.id}, true, 0, ${now}, ${now})
+                VALUES (${type.id}, ${mod.id}, ${isModuleApplicableToBusinessType(mod.key, type.id)}, 0, ${now}, ${now})
                 ON CONFLICT ("businessTypeId", "moduleId") DO NOTHING
               `;
             } catch (insertErr: any) {
@@ -320,7 +324,11 @@ export async function enableDefaultModulesForBusiness(businessId: string): Promi
     for (const module of allModules) {
       const moduleKey = String(module.name).toLowerCase();
       const shouldEnable =
-        moduleKey === 'subscription' || enabledModuleNames.has(moduleKey);
+        moduleKey === 'subscription' ||
+        (enabledModuleNames.has(moduleKey) &&
+          // Never copy a wrong-industry module into a business's rows,
+          // even if the type template was (mis)configured with it on.
+          isModuleApplicableToBusinessType(moduleKey, businessTypeName));
       const existing = await prisma.businessModule.findFirst({ where: { businessId, moduleId: module.id } });
       if (existing) {
         await prisma.businessModule.update({
@@ -685,13 +693,44 @@ export async function ensureFreshInstallPolicyBaseline(): Promise<void> {
         });
         if (existing) continue;
         await (prisma.businessTypeModule as any).create({
-          data: { businessTypeId: bt.id, moduleId: mod.id, isEnabled: true, sortOrder: 0 },
+          data: {
+            businessTypeId: bt.id,
+            moduleId: mod.id,
+            // Gap-fill PER industry applicability — a wrong-industry pair
+            // is created DISABLED (present for admin visibility, never a
+            // grant). See module-applicability.util.
+            isEnabled: isModuleApplicableToBusinessType(mod.key, type.id),
+            sortOrder: 0,
+          },
         });
         btmInserted++;
       }
     }
     if (btmInserted > 0) {
       console.log(`[PolicyBaseline] ✅ business_type_modules: filled ${btmInserted} missing row(s)`);
+    }
+
+    // 1b) Industry applicability SELF-HEAL: disable any business_type_modules
+    //     row whose module does not belong to the type's industry. Older
+    //     seeders enabled the whole catalog for every type (that is how the
+    //     Wave C clinic/hotel modules lit up for pharmacies), and step 1
+    //     never touches existing rows — so without this pass the poisoned
+    //     rows would survive forever. Only ever DISABLES; the resolver also
+    //     hard-denies these pairs in code, so this is belt-and-braces for
+    //     every other consumer of the table.
+    let btmDisabled = 0;
+    for (const type of DEFAULT_BUSINESS_TYPES) {
+      for (const mod of moduleDefinitions) {
+        if (isModuleApplicableToBusinessType(mod.key, type.id)) continue;
+        const res: any = await (prisma.businessTypeModule as any).updateMany({
+          where: { businessTypeId: type.id, moduleId: mod.id, isEnabled: true },
+          data: { isEnabled: false },
+        });
+        btmDisabled += Number(res?.count || 0);
+      }
+    }
+    if (btmDisabled > 0) {
+      console.log(`[PolicyBaseline] ✅ business_type_modules: disabled ${btmDisabled} wrong-industry row(s)`);
     }
 
     // 2) plan_entitlements + permissionState for runtime plans that have no

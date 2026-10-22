@@ -33,6 +33,18 @@
  */
 
 import { authPolicyCache } from '../utils/auth-policy-cache';
+import { isModuleApplicableToBusinessType } from '../utils/module-applicability.util';
+
+/** The business's type key for industry-applicability checks (raw column
+ *  first — it holds the canonical id/name — then the resolved type row). */
+function contextBusinessTypeKey(context: AuthContext): string | null {
+  return (
+    context.business?.businessType ??
+    context.businessType?.name ??
+    context.businessType?.id ??
+    null
+  );
+}
 
 export type AccessReason =
   | 'ALLOWED'
@@ -491,6 +503,14 @@ export async function evaluateModuleLayers(
   // ── Core modules (dashboard, subscription, account) bypass commercial layers
   const isCore = !!module.isCore;
   if (!isCore && moduleKey !== 'subscription') {
+    // ── Industry applicability gate (HARD DENY, code-level) ─────────────
+    // A module that does not belong to this business's industry (e.g. hotel
+    // `rooms` for a PHARMACY) is denied regardless of business_type_modules
+    // rows, plan entitlements or overrides. See module-applicability.util.
+    if (!isModuleApplicableToBusinessType(moduleKey, contextBusinessTypeKey(context))) {
+      return { allowed: false, reason: 'BUSINESS_TYPE_DENIED', moduleKey, scope };
+    }
+
     // ── Business type gate ──────────────────────────────────────────────────
     const btEntry = context.businessTypeModules.get(moduleKey);
     if (!btEntry || !btEntry.isEnabled) {
@@ -744,6 +764,14 @@ export async function authorizeBusinessAction(
     const isCore = !!module.isCore || moduleKey === 'subscription';
 
     if (!isCore) {
+      // ── Layer 2a: industry applicability (HARD DENY, code-level) ────────
+      // Independent of every DB row: a hotel module on a pharmacy business
+      // is denied even if business_type_modules / plan entitlements were
+      // (mis)configured to allow it. See module-applicability.util.
+      if (!isModuleApplicableToBusinessType(moduleKey, contextBusinessTypeKey(context))) {
+        return deny('BUSINESS_TYPE_DENIED');
+      }
+
       // ── Layer 2: business type gate ──────────────────────────────────────
       const btEntry = context.businessTypeModules.get(moduleKey);
       if (!btEntry || !btEntry.isEnabled) {
