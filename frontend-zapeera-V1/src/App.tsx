@@ -45,6 +45,7 @@ const PromotionsPage = React.lazy(() => import("./pages/Promotions"));
 const TaxClassesPage = React.lazy(() => import("./pages/TaxClasses"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
+const AccountingPage = React.lazy(() => import("./pages/Accounting"));
 const SettingsPage = React.lazy(() => import("./pages/Settings"));
 const ExpenseManagement = React.lazy(() => import("./pages/ExpenseManagement"));
 const ShiftManagement = React.lazy(() => import("./pages/ShiftManagement"));
@@ -537,6 +538,19 @@ const AppRoutes = () => {
                 <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
                   <MainLayout>
                     <AdvancedReportsPage />
+                  </MainLayout>
+                </RoleProtectedRoute>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/accounting" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
+                  <MainLayout>
+                    <AccountingPage />
                   </MainLayout>
                 </RoleProtectedRoute>
               </AutoModuleGuard>
@@ -1156,6 +1170,21 @@ const AppRoutes = () => {
                   <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
                     <MainLayout>
                       <AdvancedReportsPage />
+                    </MainLayout>
+                  </RoleProtectedRoute>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/accounting" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
+                    <MainLayout>
+                      <AccountingPage />
                     </MainLayout>
                   </RoleProtectedRoute>
                 </AutoModuleGuard>

@@ -336,6 +336,14 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         module: 'advanced_reports',
         roles: ['OWNER', 'MANAGER'],
       },
+      {
+        key: 'accounting',
+        label: 'Accounting',
+        href: '/accounting',
+        icon: BarChart3,
+        module: 'reports',
+        roles: ['OWNER', 'MANAGER'],
+      },
     ],
   },
 

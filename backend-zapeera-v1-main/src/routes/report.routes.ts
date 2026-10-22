@@ -36,6 +36,12 @@ import {
   getAdvancedTurnoverReport,
   getAdvancedDailyReport,
 } from '../controllers/advanced-report.controller';
+import {
+  getAccountingPnl,
+  getReceivablesAgeing,
+  getPayables,
+  getCashbook
+} from '../controllers/accounting-report.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { requireBusinessDashboardAccess } from '../middleware/business-dashboard-access.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -90,5 +96,11 @@ router.get('/advanced/discount', checkPermission('reports.read'), getAdvancedDis
 router.get('/advanced/product', checkPermission('reports.read'), getAdvancedProductReport);
 router.get('/advanced/turnover', checkPermission('reports.read'), getAdvancedTurnoverReport);
 router.get('/advanced/daily', checkPermission('reports.read'), getAdvancedDailyReport);
+
+// Accounting-lite (Wave B8): read-only P&L / ageing / payables / cashbook
+router.get('/accounting/pnl', checkPermission('reports.read'), getAccountingPnl);
+router.get('/accounting/receivables-ageing', checkPermission('reports.read'), getReceivablesAgeing);
+router.get('/accounting/payables', checkPermission('reports.read'), getPayables);
+router.get('/accounting/cashbook', checkPermission('reports.read'), getCashbook);
 
 export default router;

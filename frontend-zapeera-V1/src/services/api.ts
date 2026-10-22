@@ -2602,6 +2602,23 @@ export class ApiService {
     return this.request<any>(`/reports/advanced/daily${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
+  // Accounting-lite (Wave B8): read-only P&L / ageing / payables / cashbook
+  async getAccountingPnl(params?: any) {
+    return this.request<any>(`/reports/accounting/pnl${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async getReceivablesAgeing(params?: any) {
+    return this.request<any>(`/reports/accounting/receivables-ageing${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async getPayables(params?: any) {
+    return this.request<any>(`/reports/accounting/payables${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async getCashbook(params?: any) {
+    return this.request<any>(`/reports/accounting/cashbook${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
   // Admin Management (Platform Admin only)
   async getAdmins(params?: {
     page?: number;
