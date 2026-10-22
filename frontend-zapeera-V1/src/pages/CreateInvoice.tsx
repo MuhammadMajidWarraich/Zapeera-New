@@ -56,6 +56,12 @@ import type { TaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } fr
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
+import { useWedgeScanner } from "@/hooks/useWedgeScanner";
+import { useMembershipRole } from "@/hooks/useMembershipRole";
+import { CameraScannerDialog } from "@/components/barcode/CameraScannerDialog";
+import { UnknownBarcodeDialog } from "@/components/barcode/UnknownBarcodeDialog";
+import { resolveBarcodeScanningEnabled, resolveScanLookup } from "@/lib/barcode-scan";
+import { playScanFailureSound, playScanSuccessSound } from "@/lib/scan-sound";
 
 // Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAISA
 // are first-class rails alongside cash/card; MOBILE is the legacy
@@ -288,10 +294,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [paymentStatus, setPaymentStatus] = useState<string>('COMPLETED'); // COMPLETED = Paid, PENDING = Unpaid
   const [paidAmount, setPaidAmount] = useState<number>(0); // Amount paid by customer
-  // POS reference pass: a barcode lookup that found a product parks
-  // here until the product's batch pool has loaded; the effect below
-  // then runs the exact same add path a card tap uses.
-  const [pendingScanAdd, setPendingScanAdd] = useState<{ product: any; batchId?: string } | null>(null);
   // Split tender (Wave B1): when enabled, the single amount/method
   // controls are replaced by per-method allocation rows.
   const [splitEnabled, setSplitEnabled] = useState(false);
@@ -336,6 +338,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; name: string; estimatedDiscount: number } | null>(null);
   const [couponError, setCouponError] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
+  // Barcode scanning (wedge + camera): the raw stored setting
+  // ('true' | 'false' | null = Automatic, resolved against the
+  // business type below), the header feedback pill for the last
+  // scan, and the camera / unknown-barcode dialog state. The cart a
+  // scan belongs to is remembered so a scan that started in the New
+  // Sale modal resolves back into the modal cart after assignment.
+  const [barcodeScanningSetting, setBarcodeScanningSetting] = useState<string | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const scanFeedbackTimer = useRef<number | null>(null);
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
+  const [scanTarget, setScanTarget] = useState<"main" | "modal">("main");
+  const membershipRole = useMembershipRole();
+  const canCreateProducts =
+    membershipRole === "OWNER" || membershipRole === "MANAGER" || user?.role === "OWNER";
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -1120,6 +1137,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           if (Number.isFinite(parsed) && parsed > 0) {
             setLoyaltyPointValue(parsed);
           }
+          const rawBarcodeScanning = (response.data as any).barcodeScanningEnabled;
+          setBarcodeScanningSetting(
+            rawBarcodeScanning === null || rawBarcodeScanning === undefined
+              ? null
+              : String(rawBarcodeScanning)
+          );
         }
       })
       .catch(() => { /* keep the default of 1 PKR per point */ });
@@ -1384,9 +1407,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   };
 
-  const addToInvoiceCart = (product: Product, quantity: number, unitType: string) => {
-    // Get the selected batch or auto-select nearest expiry
-    const selectedBatch = getSelectedBatch(product.id);
+  const addToInvoiceCart = (product: Product, quantity: number, unitType: string, opts?: { batchOverride?: Batch | null; variantOverrideId?: string | null }) => {
+    // Get the selected batch or auto-select nearest expiry. A
+    // barcode scan of a batch-coded label pins its own batch (and
+    // variant) instead — the cashier scanned that physical stock.
+    const selectedBatch = opts?.batchOverride ?? getSelectedBatch(product.id);
 
     if (!selectedBatch) {
       toast({
@@ -1402,7 +1427,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     // from that variant's pool. The unit price pre-fills as batch
     // price + the variant's delta (the server does not force it —
     // unitPrice flows as sent, like every other line).
-    const lineVariant = getEffectiveVariant(product);
+    const lineVariant = opts?.variantOverrideId
+      ? (product.variants || []).find(v => v.id === opts.variantOverrideId) ?? getEffectiveVariant(product)
+      : getEffectiveVariant(product);
 
     const inferredUnitsPerBox = selectedBatch.totalBoxes && selectedBatch.quantity
       ? Math.round(selectedBatch.quantity / selectedBatch.totalBoxes)
@@ -1633,11 +1660,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   };
 
   // Modal Invoice Functions (separate state for quick sales)
-  const addToModalCart = (product: Product, quantity: number, unitType: string) => {
+  const addToModalCart = (product: Product, quantity: number, unitType: string, opts?: { batchOverride?: Batch | null }) => {
     // Product variants (Wave C6): SCOPED OUT of the modal rail —
     // modal lines stay variant-less and batch selection ignores the
-    // main rail's variant choice (the C2 levels precedent).
-    const selectedBatch = getSelectedBatch(product.id, { ignoreVariant: true });
+    // main rail's variant choice (the C2 levels precedent). A
+    // batch-barcode scan still pins its batch here.
+    const selectedBatch = opts?.batchOverride ?? getSelectedBatch(product.id, { ignoreVariant: true });
 
     if (!selectedBatch) {
       toast({
@@ -1758,6 +1786,222 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         discountAmount: 0
       };
       setModalInvoiceItems([...modalInvoiceItems, newItem]);
+    }
+  };
+
+  // ---- Barcode scanning -------------------------------------------------
+  // One resolver for every scan source: the USB/Bluetooth wedge
+  // (useWedgeScanner below), the camera dialog, and the search box's
+  // burst-Enter. A hit goes through the SAME add path as a card tap —
+  // FEFO batch choice, prescription flagging and the unit engine
+  // included — with the batch pinned when the scanned code belongs
+  // to one specific batch. A miss is reported truthfully and offers
+  // assignment / product creation (the UnknownBarcodeDialog).
+  const scanBusinessType =
+    (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
+  const barcodeScanningEnabled = resolveBarcodeScanningEnabled(
+    barcodeScanningSetting,
+    scanBusinessType
+  );
+
+  const showScanFeedback = useCallback((kind: "success" | "error", text: string) => {
+    setScanFeedback({ kind, text });
+    if (scanFeedbackTimer.current) window.clearTimeout(scanFeedbackTimer.current);
+    scanFeedbackTimer.current = window.setTimeout(() => setScanFeedback(null), 4000);
+  }, []);
+
+  // Map an API batch row onto the POS Batch shape — the same field
+  // rules fetchProductBatches applies.
+  const toPosBatchFromScan = (batch: any): Batch | null => {
+    if (!batch || !batch.id) return null;
+    const totalBoxes = batch.totalBoxes || 0;
+    const quantity = batch.quantity || batch.totalStock || batch.stockQuantity || 0;
+    const computedUnitsPerBox =
+      totalBoxes > 0 && quantity > 0 ? Math.round(quantity / totalBoxes) : 0;
+    const expireDate = batch.expireDate || batch.expiryDate;
+    let expiryStatus: Batch["expiryStatus"] = "GOOD";
+    let daysUntilExpiry: number | undefined;
+    if (expireDate) {
+      daysUntilExpiry = Math.ceil(
+        (new Date(expireDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysUntilExpiry < 0) expiryStatus = "EXPIRED";
+      else if (daysUntilExpiry <= 7) expiryStatus = "CRITICAL";
+      else if (daysUntilExpiry <= 30) expiryStatus = "WARNING";
+    }
+    return {
+      id: batch.id,
+      batchNo: batch.batchNo || batch.batchNumber || `BATCH-${batch.id}`,
+      quantity,
+      variantId: batch.variantId ?? null,
+      sellingPrice: batch.sellingPrice || batch.unitPrice || 0,
+      unitsPerBox:
+        batch.unitsPerBox || (computedUnitsPerBox > 0 ? computedUnitsPerBox : undefined),
+      totalBoxes: totalBoxes || undefined,
+      expireDate,
+      expiryStatus,
+      daysUntilExpiry,
+    };
+  };
+
+  // Map an API product row onto the POS Product shape — the same
+  // transform loadProducts applies to the catalog list.
+  const toPosProductFromScan = (apiProduct: any): Product => ({
+    id: apiProduct.id,
+    name: apiProduct.name,
+    price: apiProduct.price || 0,
+    stock:
+      apiProduct.stock ||
+      (Array.isArray(apiProduct.batches)
+        ? apiProduct.batches.reduce((sum: number, b: any) => sum + (b.quantity || 0), 0)
+        : 0),
+    unitType: apiProduct.unitType || "tablets",
+    batch: apiProduct.batches?.[0]?.batchNo || "BATCH001",
+    expiry: apiProduct.batches?.[0]?.expireDate
+      ? new Date(apiProduct.batches[0].expireDate).toLocaleDateString()
+      : "Dec 2025",
+    formula: apiProduct.formula || "",
+    barcode: apiProduct.barcode || "",
+    categoryId: apiProduct.category?.id || apiProduct.categoryId || undefined,
+    categoryName: apiProduct.category?.name || undefined,
+    minStock: apiProduct.minStock ?? 0,
+    reorderLevel: apiProduct.reorderLevel ?? null,
+    requiresPrescription: apiProduct.requiresPrescription || false,
+    unitsPerPack:
+      apiProduct.unitsPerPack || apiProduct.unitsPerBox || apiProduct.batches?.[0]?.unitsPerBox || 1,
+    unitsPerBox:
+      apiProduct.unitsPerBox || apiProduct.unitsPerPack || apiProduct.batches?.[0]?.unitsPerBox || 1,
+    unitsPerStrip: apiProduct.unitsPerStrip ?? null,
+    variants: Array.isArray(apiProduct.variants) ? apiProduct.variants : [],
+  });
+
+  // Deliberately NOT memoized: the cart add functions close over the
+  // current cart state, so this handler must be rebuilt every render
+  // (the wedge hook reads the latest options through a ref).
+  const handleBarcodeScanned = async (rawCode: string, target: "main" | "modal" = "main") => {
+      const code = (rawCode || "").trim();
+      if (!code || !barcodeScanningEnabled) return;
+
+      if (requiresBranchSelection) {
+        playScanFailureSound();
+        toast({
+          title: "Select a branch first",
+          description: "Choose the branch above before scanning products.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let response: any = null;
+      try {
+        response = await apiService.lookupBarcode(code);
+      } catch {
+        response = null;
+      }
+      const resolution = resolveScanLookup(response, code);
+
+      if (resolution.type === "miss") {
+        playScanFailureSound();
+        showScanFeedback("error", `No product found for barcode ${code}`);
+        toast({
+          title: "Product not found",
+          description: `No product found for barcode ${code}`,
+          variant: "destructive",
+        });
+        setScanTarget(target);
+        setUnknownBarcode(code);
+        if (target === "main") setSearchQuery("");
+        else setModalSearchQuery("");
+        return;
+      }
+
+      const apiProduct = resolution.product;
+      const pinnedBatch =
+        resolution.matchType === "batch" ? toPosBatchFromScan(resolution.batch) : null;
+
+      // A batch-coded label on expired stock must not sell.
+      if (pinnedBatch && pinnedBatch.expiryStatus === "EXPIRED") {
+        playScanFailureSound();
+        showScanFeedback("error", `${apiProduct.name} — batch ${pinnedBatch.batchNo} is expired`);
+        toast({
+          title: "Batch expired",
+          description: `${apiProduct.name} — batch ${pinnedBatch.batchNo} has expired and cannot be sold.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const product = toPosProductFromScan(apiProduct);
+
+      // Make the scanned product's batches known to the cart
+      // machinery (its card may not be in the loaded catalog page).
+      // Branch guard: a scan must only ever draw stock from the
+      // branch being sold at, never another branch's batch.
+      const scannedBatches = (Array.isArray(apiProduct.batches) ? apiProduct.batches : [])
+        .filter((b: any) => !b?.branchId || b.branchId === selectedBranch?.id)
+        .map(toPosBatchFromScan)
+        .filter((b: Batch | null): b is Batch => !!b);
+      const allBatches = [...scannedBatches];
+      if (pinnedBatch && !allBatches.some((b) => b.id === pinnedBatch.id)) {
+        allBatches.push(pinnedBatch);
+      }
+      if (allBatches.length > 0) {
+        setProductBatches((prev) => ({ ...prev, [product.id]: allBatches }));
+      }
+      if (pinnedBatch) {
+        setSelectedBatches((prev) => ({ ...prev, [product.id]: pinnedBatch.id }));
+        if (pinnedBatch.variantId) {
+          setSelectedVariants((prev) => ({ ...prev, [product.id]: pinnedBatch.variantId }));
+        }
+      }
+
+      // Batch to sell from: the pinned batch for batch codes; the
+      // FEFO batch the lookup returned for product codes — unless the
+      // cashier already picked a batch on the product's card, which
+      // an unpinned scan respects.
+      const fefoBatch =
+        resolution.batch && (!resolution.batch.branchId || resolution.batch.branchId === selectedBranch?.id)
+          ? toPosBatchFromScan(resolution.batch)
+          : null;
+      const cashierPickedBatch =
+        !!selectedBatches[product.id] && (productBatches[product.id] || []).length > 0;
+      const batchOverride =
+        pinnedBatch ?? (cashierPickedBatch ? null : fefoBatch);
+
+      if (target === "modal") {
+        addToModalCart(product, 1, product.unitType, { batchOverride });
+      } else {
+        addToInvoiceCart(product, 1, product.unitType, {
+          batchOverride,
+          variantOverrideId: pinnedBatch?.variantId ?? null,
+        });
+      }
+
+      playScanSuccessSound();
+      showScanFeedback("success", `Added ${product.name}`);
+      if (target === "main") setSearchQuery("");
+      else setModalSearchQuery("");
+  };
+
+  // Wedge capture for the main register. Suspended automatically
+  // while any dialog is open (payment / shift / camera / unknown),
+  // so a scan can never fire mid-payment.
+  useWedgeScanner({
+    enabled: barcodeScanningEnabled,
+    onScan: (code) => {
+      void handleBarcodeScanned(code, "main");
+    },
+  });
+
+  // Unknown-barcode "create product": the product form lives on the
+  // Products page — it opens with this barcode prefilled. Only
+  // offered to roles that may create products.
+  const handleCreateProductFromScan = (code: string) => {
+    const slug = (selectedCompany as any)?.slug;
+    if (slug) {
+      navigate(
+        `/business/${encodeURIComponent(slug)}/products?addBarcode=${encodeURIComponent(code)}`
+      );
     }
   };
 
@@ -3420,57 +3664,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // CRITICAL FIX: Check if branch is selected for OWNER/ADMIN users
   // MANAGER/CASHIER use their assigned branch from membership
   const requiresBranchSelection = user?.role === 'OWNER' && !selectedBranchId;
-  // POS reference pass: barcode-scan wiring for the register catalog.
-  // The catalog's lookup (POST /barcodes/lookup) reports the found
-  // product + batch here; the add itself is deferred until the batch
-  // pool for that product has loaded, then runs the identical
-  // addToInvoiceCart path a product-card tap uses (FEFO/selected
-  // batch, stock validation, duplicate scans merge to +1).
-  const handleBarcodeFound = (foundProduct: any, foundBatch?: any) => {
-    const catalogProduct = products.find(p => p.id === foundProduct?.id);
-    const target = catalogProduct || foundProduct;
-    if (!target?.id) {
-      handleUnknownBarcode("");
-      return;
-    }
-    setPendingScanAdd({ product: target, batchId: foundBatch?.id });
-  };
-
-  const handleUnknownBarcode = (barcode: string) => {
-    toast({
-      title: "Barcode not found",
-      description: barcode
-        ? `No product in this business matches barcode ${barcode}.`
-        : "No product matches that barcode.",
-      variant: "destructive",
-    });
-  };
-
-  useEffect(() => {
-    if (!pendingScanAdd) return;
-    const pid = pendingScanAdd.product.id;
-    const batches = productBatches[pid];
-    if (!batches) {
-      fetchProductBatches(pid);
-      return;
-    }
-    // If the lookup named a batch that is in the pool, honour it
-    // (batch-level barcodes) before adding.
-    if (
-      pendingScanAdd.batchId &&
-      batches.some(b => b.id === pendingScanAdd.batchId) &&
-      selectedBatches[pid] !== pendingScanAdd.batchId
-    ) {
-      const batchId = pendingScanAdd.batchId;
-      setSelectedBatches(prev => ({ ...prev, [pid]: batchId }));
-      return;
-    }
-    const toAdd = pendingScanAdd.product;
-    setPendingScanAdd(null);
-    addToInvoiceCart(toAdd as Product, 1, "unit");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingScanAdd, productBatches, selectedBatches]);
-
   const companyBranches = (allBranches || []).filter((branch: any) => branch.companyId === selectedCompanyId);
   const userBranchId = user?.role === 'OWNER' ? selectedBranchId : (user?.membership?.branchIds?.[0] || user?.branchId);
   // POS redesign: the billing panel's top section is "Patient &
@@ -3612,9 +3805,39 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden xl:inline">Shift Report</span>
             </Button>
+            {scanFeedback && (
+              <span
+                role="status"
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-[10px] border px-3 text-[13px] font-semibold",
+                  scanFeedback.kind === "success"
+                    ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-50"
+                    : "border-red-300/40 bg-red-400/15 text-red-50"
+                )}
+              >
+                {scanFeedback.kind === "success" ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                ) : (
+                  <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                )}
+                <span className="max-w-[280px] truncate">{scanFeedback.text}</span>
+              </span>
+            )}
             <Button
               type="button"
-              onClick={() => document.getElementById("pos-search-input")?.focus()}
+              onClick={() => {
+                if (barcodeScanningEnabled) {
+                  setScanTarget("main");
+                  setIsCameraScannerOpen(true);
+                } else {
+                  document.getElementById("pos-search-input")?.focus();
+                }
+              }}
+              title={
+                barcodeScanningEnabled
+                  ? "Scan with the camera — a USB/Bluetooth scanner works anytime without this window"
+                  : "Barcode scanning is turned off for this business (Settings → POS)"
+              }
               className="h-10 gap-2 rounded-[10px] px-4 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
             >
               <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
@@ -3715,8 +3938,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 setSelectedBatches(prev => ({ ...prev, [productId]: batchId }));
               }}
               onAddToCart={addToInvoiceCart}
-              onBarcodeFound={handleBarcodeFound}
-              onUnknownBarcode={handleUnknownBarcode}
+              onScanSubmit={(code) => { void handleBarcodeScanned(code, "main"); }}
+              scanningEnabled={barcodeScanningEnabled}
             />
           </div>
 
@@ -5277,6 +5500,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   setSelectedBatches(prev => ({ ...prev, [productId]: batchId }));
                 }}
                 onAddToCart={addToModalCart}
+                onScanSubmit={(code) => { void handleBarcodeScanned(code, "modal"); }}
+                scanningEnabled={barcodeScanningEnabled}
               />
 
               {/* Customer Details Section */}
@@ -5643,6 +5868,22 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Barcode scanning: camera capture + unknown-code resolution */}
+      <CameraScannerDialog
+        open={isCameraScannerOpen}
+        onOpenChange={setIsCameraScannerOpen}
+        onScan={(code) => { void handleBarcodeScanned(code, scanTarget); }}
+      />
+      <UnknownBarcodeDialog
+        open={!!unknownBarcode}
+        barcode={unknownBarcode || ""}
+        onClose={() => setUnknownBarcode(null)}
+        onCreateProduct={canCreateProducts ? handleCreateProductFromScan : undefined}
+        onAssigned={() => {
+          if (unknownBarcode) void handleBarcodeScanned(unknownBarcode, scanTarget);
+        }}
+      />
     </div>
   );
 };

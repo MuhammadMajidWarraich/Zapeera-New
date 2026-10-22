@@ -33,6 +33,7 @@ import { apiService } from "@/services/api";
 import { config } from "@/lib/config";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { isBarcodeApplicableBusinessType } from "@/lib/barcode-scan";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
 
 type DeviceIcon = ComponentType<{ className?: string; strokeWidth?: string | number }>;
@@ -64,7 +65,7 @@ const ZV3_POS_SWITCH =
 
 const Settings = () => {
   const { user } = useAuth();
-  const { selectedCompanyId } = useAdmin();
+  const { selectedCompanyId, selectedCompany } = useAdmin();
   const [isOnline, setIsOnline] = useState(true);
   const [isEditingBusiness, setIsEditingBusiness] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -141,6 +142,9 @@ const Settings = () => {
       // Prescriptions (Wave C1): POS enforcement tri-state —
       // "auto" stores nothing (pharmacies enforce, others don't).
       requirePrescriptionAtPos: "auto" as "auto" | "on" | "off",
+      // Barcode scanning at the POS (wedge + camera). Defaults ON;
+      // the stored setting is `barcodeScanningEnabled`.
+      barcodeScanning: true,
       lowStockAlert: 20,
       expiryAlert: 30
     },
@@ -464,9 +468,61 @@ const Settings = () => {
     setIsEditingPOS(true);
   };
 
+  // The settings endpoint requires the CSRF double-submit header on
+  // writes — mirror apiService.getCSRFToken (the raw fetches in this
+  // page bypass apiService, so they must attach it themselves,
+  // otherwise every save is rejected with 403 CSRF_TOKEN_REQUIRED).
+  const csrfHeader = (): Record<string, string> => {
+    try {
+      for (const cookie of document.cookie.split(';')) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrf-token' || name === 'XSRF-TOKEN') {
+          return { 'X-CSRF-Token': decodeURIComponent(value) };
+        }
+      }
+    } catch { /* ignore */ }
+    return {};
+  };
+
   const handlePOSSave = async () => {
     try {
-      // POS settings caching disabled
+      // Persist through the same full-payload PUT the page-level
+      // Save Changes uses (the settings endpoint validates the
+      // complete object — a POS-only body is rejected).
+      const posHeaders: any = {
+        'Content-Type': 'application/json',
+        ...csrfHeader(),
+      };
+      if (selectedCompanyId) posHeaders['X-Business-ID'] = selectedCompanyId;
+      const posResponse = await fetch(`${config.api.baseUrl}/settings`, {
+        method: 'PUT',
+        headers: posHeaders,
+        credentials: 'include',
+        body: JSON.stringify({
+          defaultTax: settings.pos.defaultTax,
+          loyaltyPointValue: settings.pos.loyaltyPointValue,
+          requirePrescriptionAtPos: settings.pos.requirePrescriptionAtPos === "on"
+            ? true
+            : settings.pos.requirePrescriptionAtPos === "off"
+              ? false
+              : null,
+          barcodeScanningEnabled: settings.pos.barcodeScanning,
+          lowStockAlert: settings.pos.lowStockAlert,
+          expiryAlert: settings.pos.expiryAlert,
+          autoSync: settings.pos.autoSync,
+          offlineMode: settings.pos.offlineMode,
+          receiptPrinter: settings.pos.receiptPrinter,
+          businessName: settings.business.name,
+          businessAddress: settings.business.address,
+          businessPhone: settings.business.phone,
+          businessEmail: settings.business.email,
+          businessLicense: settings.business.license,
+          businessTaxNumber: settings.business.taxNumber
+        }),
+      });
+      if (!posResponse.ok) {
+        throw new Error(`Settings save failed (${posResponse.status})`);
+      }
 
       // Also save to a global variable for easy access in POS
       (window as any).globalPOSSettings = settings.pos;
@@ -536,6 +592,7 @@ const Settings = () => {
                 : (settingsData.data.requirePrescriptionAtPos === 'false' || settingsData.data.requirePrescriptionAtPos === false)
                   ? "off"
                   : "auto",
+              barcodeScanning: !(settingsData.data.barcodeScanningEnabled === 'false' || settingsData.data.barcodeScanningEnabled === false),
               autoSync: settingsData.data.autoSync === 'true',
               offlineMode: settingsData.data.offlineMode === 'true',
               receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
@@ -594,6 +651,7 @@ const Settings = () => {
     try {
       const saveHeaders: any = {
         'Content-Type': 'application/json',
+        ...csrfHeader(),
       };
       if (selectedCompanyId) saveHeaders['X-Business-ID'] = selectedCompanyId;
 
@@ -611,6 +669,7 @@ const Settings = () => {
             : settings.pos.requirePrescriptionAtPos === "off"
               ? false
               : null,
+          barcodeScanningEnabled: settings.pos.barcodeScanning,
           lowStockAlert: settings.pos.lowStockAlert,
           expiryAlert: settings.pos.expiryAlert,
           autoSync: settings.pos.autoSync,
@@ -761,6 +820,8 @@ const Settings = () => {
         barcodePrinter: "Zebra ZD220",
         defaultTax: 17,
         loyaltyPointValue: 1,
+        requirePrescriptionAtPos: "auto" as "auto" | "on" | "off",
+        barcodeScanning: true,
         lowStockAlert: 20,
         expiryAlert: 30
       },
@@ -1340,6 +1401,23 @@ toast({
                 disabled={!isEditingPOS}
               />
             </div>
+            {isBarcodeApplicableBusinessType((selectedCompany as any)?.businessType) && (
+              <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                <div>
+                  <h4 className="text-sm font-bold text-[#0a1128]">Barcode Scanning</h4>
+                  <p className="text-[13px] text-[#8c95b0]">
+                    USB/Bluetooth scanner and camera scanning at the POS — scanned products are added to the sale automatically
+                  </p>
+                </div>
+                <Switch
+                  id="barcode-scanning"
+                  className={ZV3_POS_SWITCH}
+                  checked={settings.pos.barcodeScanning}
+                  onCheckedChange={(checked) => handleSettingChange("pos", "barcodeScanning", checked)}
+                  disabled={!isEditingPOS}
+                />
+              </div>
+            )}
             <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px] last:border-b-0">
               <Label htmlFor="receipt-printer" className="mb-2 block text-sm font-bold text-[#0a1128]">
                 Receipt Printer

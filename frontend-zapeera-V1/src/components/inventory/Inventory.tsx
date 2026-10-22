@@ -40,9 +40,14 @@ import {
   Image,
   FolderOpen,
   Printer,
-  Layers
+  Layers,
+  ScanBarcode
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import { CameraScannerDialog } from "../barcode/CameraScannerDialog";
+import { useWedgeScanner } from "@/hooks/useWedgeScanner";
+import { validateBarcodeFormat } from "@/lib/barcode-utils";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useToast } from "@/hooks/use-toast";
@@ -191,6 +196,10 @@ const Inventory = () => {
   const [labelProduct, setLabelProduct] = useState<Product | null>(null); // Product whose barcode label is being printed
   const [variantsProduct, setVariantsProduct] = useState<Product | null>(null); // Product whose variants are being managed (Wave C6)
   const [isBarcodeGeneratorOpen, setIsBarcodeGeneratorOpen] = useState(false);
+  // Barcode scanning into the product form: the field-level error
+  // (format / duplicate) and the camera scanner dialog.
+  const [barcodeError, setBarcodeError] = useState("");
+  const [isFormCameraOpen, setIsFormCameraOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   // Set when the API refuses a delete with 409 PRODUCT_HAS_HISTORY: the
   // delete dialog stays open, shows the server message and offers
@@ -940,6 +949,64 @@ const Inventory = () => {
     }
   };
 
+  // Barcode scanning into the product form: while the add/edit form
+  // is open, a wedge scan fills the barcode field (no POS wedge is
+  // mounted on this page), and the camera dialog does the same.
+  useWedgeScanner({
+    enabled:
+      (isAddDialogOpen || isEditDialogOpen) && !isBarcodeGeneratorOpen && !isFormCameraOpen,
+    suspendWhenDialogOpen: false,
+    onScan: (code) => {
+      setNewMedicine((prev) => ({ ...prev, barcode: code }));
+      setBarcodeError("");
+    },
+  });
+
+  // POS hand-off: /products?addBarcode=<code> (from an unknown scan
+  // at the register) opens the Add form with the barcode prefilled.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const prefill = searchParams.get("addBarcode");
+    if (prefill) {
+      setNewMedicine((prev) => ({ ...prev, barcode: prefill }));
+      setBarcodeError("");
+      setIsAddDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("addBarcode");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Barcode field validation shared by the add + edit flows: format
+  // first, then a live uniqueness check, so a duplicate surfaces as
+  // a FIELD error here instead of a failed save (the server still
+  // enforces uniqueness on save as the backstop).
+  const validateBarcodeField = async (excludeProductId?: string): Promise<boolean> => {
+    const code = (newMedicine.barcode || "").trim();
+    if (!code) {
+      setBarcodeError("");
+      return true;
+    }
+    const format = validateBarcodeFormat(code, "CODE128");
+    if (!format.valid) {
+      setBarcodeError(format.message || "Invalid barcode format.");
+      return false;
+    }
+    try {
+      const dup: any = await apiService.lookupBarcode(code);
+      const found = dup?.success ? dup?.data?.product : null;
+      if (found && found.id !== excludeProductId) {
+        setBarcodeError(`This barcode is already used by "${found.name}".`);
+        return false;
+      }
+    } catch {
+      // Lookup unavailable — the server check on save still applies.
+    }
+    setBarcodeError("");
+    return true;
+  };
+
   const handleAddMedicine = async () => {
     // Prevent multiple submissions
     if (isAdding) {
@@ -997,6 +1064,13 @@ const Inventory = () => {
           description: "Unable to determine branch. Please select a branch or contact administrator.",
           variant: "destructive",
         });
+        setIsAdding(false);
+        return;
+      }
+
+      // Barcode: format + duplicate check as a field error before
+      // the optimistic add (the dialog stays open on a duplicate).
+      if (!(await validateBarcodeField())) {
         setIsAdding(false);
         return;
       }
@@ -1198,7 +1272,8 @@ const Inventory = () => {
   const handleEditProduct = async (product: Product) => {
     // CRITICAL: Reset loading state when opening edit dialog
     setLoading(false);
-    
+    setBarcodeError("");
+
     try {
       // Fetch fresh product data from API to ensure we have the latest information
       const response = await apiService.getProduct(product.id);
@@ -1281,6 +1356,12 @@ const Inventory = () => {
         description: "Please select a branch before updating a product!",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Barcode: format + duplicate check as a field error (excluding
+    // this product itself) before saving.
+    if (!(await validateBarcodeField(editingProduct.id))) {
       return;
     }
 
@@ -2650,8 +2731,18 @@ const Inventory = () => {
                         id="barcode"
                         placeholder="e.g., 1234567890123"
                         value={newMedicine.barcode}
-                        onChange={(e) => setNewMedicine({...newMedicine, barcode: e.target.value})}
+                        onChange={(e) => { setNewMedicine({...newMedicine, barcode: e.target.value}); setBarcodeError(""); }}
                       />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFormCameraOpen(true)}
+                        title="Scan with the camera — a USB/Bluetooth scanner also fills this field while the form is open"
+                        >
+                        <ScanBarcode className="w-4 h-4 mr-1" />
+                        Scan
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -2661,6 +2752,13 @@ const Inventory = () => {
                         Generate
                       </Button>
                     </div>
+                    {barcodeError ? (
+                      <p className="text-sm text-destructive">{barcodeError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Type it, scan it with a USB/Bluetooth scanner while this form is open, use the camera, or generate one.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -2922,8 +3020,18 @@ const Inventory = () => {
                         id="edit-barcode"
                         placeholder="e.g., 1234567890123"
                         value={newMedicine.barcode}
-                        onChange={(e) => setNewMedicine({...newMedicine, barcode: e.target.value})}
+                        onChange={(e) => { setNewMedicine({...newMedicine, barcode: e.target.value}); setBarcodeError(""); }}
                       />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFormCameraOpen(true)}
+                        title="Scan with the camera — a USB/Bluetooth scanner also fills this field while the form is open"
+                        >
+                        <ScanBarcode className="w-4 h-4 mr-1" />
+                        Scan
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -2933,6 +3041,13 @@ const Inventory = () => {
                         Generate
                       </Button>
                     </div>
+                    {barcodeError ? (
+                      <p className="text-sm text-destructive">{barcodeError}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Type it, scan it with a USB/Bluetooth scanner while this form is open, use the camera, or generate one.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -3404,7 +3519,7 @@ const Inventory = () => {
                         </p>
                         <Button
                           type="button"
-                          onClick={() => setIsAddDialogOpen(true)}
+                          onClick={() => { setBarcodeError(""); setIsAddDialogOpen(true); }}
                           className="rounded-[10px] px-6 py-2.5 text-sm font-semibold shadow-soft"
                         >
                           <Plus className="mr-2 h-4 w-4" />
@@ -3694,6 +3809,16 @@ const Inventory = () => {
         }}
         currentBarcode={newMedicine.barcode}
         productName={newMedicine.name}
+      />
+
+      {/* Camera barcode capture for the product form's barcode field */}
+      <CameraScannerDialog
+        open={isFormCameraOpen}
+        onOpenChange={setIsFormCameraOpen}
+        onScan={(code) => {
+          setNewMedicine((prev) => ({ ...prev, barcode: code }));
+          setBarcodeError("");
+        }}
       />
 
       {/* Import Preview Dialog */}
