@@ -56,6 +56,9 @@ model ZapeeraUser {
   notifications     Notification[]
   hasUsedTrial      Boolean              @default(false)
   trialUsedAt       DateTime?
+  signupRefCode     String? // affiliate ?ref= code captured at signup; converted to a referral at first business creation
+  affiliateProfile  Affiliate?
+  referredReferral  AffiliateReferral?   @relation("referralReferredUser")
 
   @@map("zapeera_users")
 }
@@ -164,6 +167,8 @@ model Business {
   folios                    Folio[]
   productVariants           ProductVariant[]
   stockTakes                StockTake[]
+  affiliateReferral         AffiliateReferral?
+  affiliateCommissions      AffiliateCommission[]
 
   partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
 
@@ -1763,6 +1768,90 @@ model PaymentProof {
   @@index([businessId, status])
   @@index([screenshotHash])
   @@map("payment_proofs")
+}
+
+
+// =====================================
+// AFFILIATE PROGRAM
+// =====================================
+// An affiliate is a normal registered user (ZapeeraUser) with an
+// Affiliate profile. Signup attribution (?ref=CODE) is captured on the
+// user (signupRefCode) and converted into an AffiliateReferral when the
+// user's FIRST business is created (see company.controller createCompany
+// + affiliate.util attributeFirstBusinessIfReferred). Commissions accrue
+// only on real money-in moments (payment-proof approval, non-trial
+// backoffice plan assignment) and are deduplicated by the UNIQUE
+// sourceRef — a re-approval or double-submit can never double-accrue.
+model Affiliate {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  code            String   @unique // public referral code, e.g. "ZAP-8K2QX4MN" without prefix stored as 8 chars
+  status          String   @default("PENDING") // PENDING | ACTIVE | SUSPENDED
+  commissionRate  Float? // per-affiliate override (percent); null = global default
+  payoutDetails   Json? // { method: BANK_TRANSFER|JAZZCASH|EASYPAISA, accountTitle, accountNumber, bankName? }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user        ZapeeraUser          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals   AffiliateReferral[]
+  commissions AffiliateCommission[]
+  payouts     AffiliatePayout[]
+
+  @@index([status])
+  @@map("affiliates")
+}
+
+model AffiliateReferral {
+  id             String   @id @default(cuid())
+  affiliateId    String
+  businessId     String   @unique // a business is attributed to at most one affiliate, once
+  referredUserId String? // the user who signed up with the code (business creator)
+  createdAt      DateTime @default(now())
+
+  affiliate    Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  referredUser ZapeeraUser? @relation("referralReferredUser", fields: [referredUserId], references: [id], onDelete: SetNull)
+
+  @@index([affiliateId])
+  @@map("affiliate_referrals")
+}
+
+model AffiliateCommission {
+  id           String    @id @default(cuid())
+  affiliateId  String
+  businessId   String
+  sourceRef    String    @unique // e.g. "payment_proof:<proofId>" | "subscription_assign:<subId>:<periodEndDate>"
+  basisAmount  Float // the amount actually paid (proof amount / plan price)
+  rateApplied  Float // percent applied (affiliate override ?? global default)
+  amount       Float // basisAmount * rateApplied / 100, rounded to 2dp
+  status       String    @default("PENDING") // PENDING | APPROVED | PAID | VOID
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  paidAt       DateTime?
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  business  Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId, status])
+  @@index([businessId])
+  @@map("affiliate_commissions")
+}
+
+model AffiliatePayout {
+  id          String    @id @default(cuid())
+  affiliateId String
+  amount      Float
+  status      String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  note        String?
+  processedBy String? // BackOfficeUser id
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateId, status])
+  @@map("affiliate_payouts")
 }
 
 // =====================================

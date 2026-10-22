@@ -93,6 +93,11 @@ const ENTRIES: RegistryEntry[] = [
   // support is how a locked-out tenant asks for help. Tenancy is enforced in
   // the controller (creator or ACTIVE member of the ticket's business).
   { prefix: '/api/support', policy: { kind: 'auth' } },
+  // Affiliate program self-service: account-level like support — an
+  // affiliate is a plain registered user and may own no business, so
+  // there is deliberately no module gate; admin surfaces live under
+  // /api/backoffice (classified 'backoffice' below).
+  { prefix: '/api/affiliates', policy: { kind: 'auth' } },
   // Public read of backoffice-managed content pages (PUBLISHED only).
   { prefix: '/api/content', policy: { kind: 'public' } },
   { prefix: '/api/ocr', policy: { kind: 'auth' } },

@@ -83,6 +83,7 @@ const DesktopLoginFlow = React.lazy(() => import("./components/desktop/DesktopLo
 const InvitationsPage = React.lazy(() => import("./components/user-dashboard/InvitationsPage"));
 const ProfileSecurityPage = React.lazy(() => import("./components/user-dashboard/ProfileSecurityPage"));
 const BillingPage = React.lazy(() => import("./components/user-dashboard/BillingPage"));
+const AffiliatePage = React.lazy(() => import("./pages/Affiliate"));
 const NotificationsListPage = React.lazy(() => import("./components/user-dashboard/NotificationsListPage"));
 const NotificationPreferencesPage = React.lazy(() => import("./components/user-dashboard/NotificationPreferencesPage"));
 const SupportPage = React.lazy(() => import("./components/user-dashboard/SupportPage"));
@@ -778,6 +779,25 @@ const AppRoutes = () => {
                 </ZapeeraLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        {/* Affiliate program — account-level like billing, but WITHOUT the
+            business guards: a pure affiliate may own no business at all,
+            and the join flow must stay reachable. */}
+        <Route path="/zapeera/affiliate" element={
+          <AuthStatus>
+            <ZapeeraLayout>
+              <AffiliatePage />
+            </ZapeeraLayout>
+          </AuthStatus>
+        } />
+
+        <Route path="/affiliate" element={
+          <AuthStatus>
+            <ZapeeraLayout>
+              <AffiliatePage />
+            </ZapeeraLayout>
           </AuthStatus>
         } />
 

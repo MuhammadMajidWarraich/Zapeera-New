@@ -16,6 +16,9 @@ import { FeatureFlagsPage } from './pages/platform/feature-flags/FeatureFlagsPag
 import { FinancePage } from './pages/finance/FinancePage';
 import { PaymentProofsPage } from './pages/finance/PaymentProofsPage';
 import { CommissionsPage } from './pages/finance/CommissionsPage';
+import { AffiliatesPage } from './pages/finance/AffiliatesPage';
+import { AffiliateCommissionsPage } from './pages/finance/AffiliateCommissionsPage';
+import { AffiliatePayoutsPage } from './pages/finance/AffiliatePayoutsPage';
 import { SupportPage } from './pages/support/SupportPage';
 import { SupportTicketsPage } from './pages/support/SupportTicketsPage';
 import { AnnouncementsPage } from './pages/support/AnnouncementsPage';
@@ -118,6 +121,21 @@ export function BackofficeRouter() {
         <Route path="commissions" element={
           <ProtectedBackofficeRoute>
             <BackofficeLayout><CommissionsPage /></BackofficeLayout>
+          </ProtectedBackofficeRoute>
+        } />
+        <Route path="affiliates" element={
+          <ProtectedBackofficeRoute>
+            <BackofficeLayout><AffiliatesPage /></BackofficeLayout>
+          </ProtectedBackofficeRoute>
+        } />
+        <Route path="affiliate-commissions" element={
+          <ProtectedBackofficeRoute>
+            <BackofficeLayout><AffiliateCommissionsPage /></BackofficeLayout>
+          </ProtectedBackofficeRoute>
+        } />
+        <Route path="affiliate-payouts" element={
+          <ProtectedBackofficeRoute>
+            <BackofficeLayout><AffiliatePayoutsPage /></BackofficeLayout>
           </ProtectedBackofficeRoute>
         } />
         <Route path="support" element={

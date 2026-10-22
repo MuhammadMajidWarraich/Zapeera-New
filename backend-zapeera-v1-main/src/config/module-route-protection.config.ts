@@ -150,6 +150,10 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/support',
   '/api/content',
 
+  // Affiliate program self-service (account-level; an affiliate may own
+  // no business, so no module gate — auth lives in the router)
+  '/api/affiliates',
+
   // System
   '/api/sync',
   '/api/sse',

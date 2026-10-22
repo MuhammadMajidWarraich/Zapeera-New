@@ -664,6 +664,73 @@ export interface BillingProfileRecord {
   updatedAt: string;
 }
 
+export interface AffiliatePayoutDetails {
+  method: 'BANK_TRANSFER' | 'JAZZCASH' | 'EASYPAISA';
+  accountTitle: string;
+  accountNumber: string;
+  bankName?: string | null;
+}
+
+export interface AffiliateDashboardData {
+  hasProfile: boolean;
+  config: { defaultRate: number; minPayout: number };
+  affiliate?: {
+    id: string;
+    code: string;
+    status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+    commissionRate: number | null;
+    effectiveRate: number;
+    payoutDetails: AffiliatePayoutDetails | null;
+    createdAt: string;
+  };
+  stats?: {
+    referralsCount: number;
+    activeReferredBusinesses: number;
+    totalEarned: number;
+    pendingApproval: number;
+    approvedUnpaid: number;
+    paidCommissions: number;
+    payoutsPaid: number;
+    payoutsRequested: number;
+    availableBalance: number;
+    canRequestPayout: boolean;
+  };
+  referralLink?: string;
+}
+
+export interface AffiliateReferralItem {
+  id: string;
+  businessId: string;
+  businessName: string | null;
+  businessType: string | null;
+  signedUpAt: string;
+  subscriptionStatus: string | null;
+  billingStatus: string | null;
+  planName: string | null;
+}
+
+export interface AffiliateCommissionItem {
+  id: string;
+  businessId: string;
+  businessName: string | null;
+  basisAmount: number;
+  rateApplied: number;
+  amount: number;
+  status: string;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+export interface AffiliatePayoutItem {
+  id: string;
+  affiliateId: string;
+  amount: number;
+  status: string;
+  note: string | null;
+  createdAt: string;
+  processedAt: string | null;
+}
+
 export interface SupportTicketItem {
   id: string;
   businessId?: string | null;
@@ -1104,6 +1171,7 @@ export class ApiService {
     password: string;
     name: string;
     role?: string;
+    refCode?: string;
     branchId: string;
     partnerSlug?: string;
     branchData?: {
@@ -3634,6 +3702,61 @@ export class ApiService {
     });
   }
 
+  // ─── Affiliate program ───────────────────────────────────────────────────
+  // Backed by /api/affiliates (account-level; no business context needed).
+
+  async joinAffiliate() {
+    return this.request<{ id: string; code: string; status: string }>('/affiliates/join', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async getMyAffiliate() {
+    return this.request<AffiliateDashboardData>('/affiliates/me');
+  }
+
+  async getMyAffiliateReferrals() {
+    return this.request<AffiliateReferralItem[]>('/affiliates/me/referrals');
+  }
+
+  async getMyAffiliateCommissions(params?: { page?: number; limit?: number; status?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<{
+      commissions: AffiliateCommissionItem[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>(`/affiliates/me/commissions${query ? `?${query}` : ''}`);
+  }
+
+  async getMyAffiliatePayouts() {
+    return this.request<AffiliatePayoutItem[]>('/affiliates/me/payouts');
+  }
+
+  async requestAffiliatePayout() {
+    return this.request<AffiliatePayoutItem>('/affiliates/me/payout-request', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async updateAffiliatePayoutDetails(details: {
+    method: 'BANK_TRANSFER' | 'JAZZCASH' | 'EASYPAISA';
+    accountTitle: string;
+    accountNumber: string;
+    bankName?: string;
+  }) {
+    return this.request<{ payoutDetails: AffiliatePayoutDetails }>('/affiliates/me/payout-details', {
+      method: 'PUT',
+      body: JSON.stringify(details),
+    });
+  }
+
   private buildAdvancedReportQuery(params?: any) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -4157,7 +4280,17 @@ export class ApiService {
     email?: string;
     businessType?: 'PHARMACY' | 'STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
     createdByUserId?: string;
+    refCode?: string;
   }) {
+    // Affiliate attribution: if the visitor arrived via a ?ref=CODE link
+    // (persisted in localStorage by the auth screens), attach the code
+    // so the backend can attribute this first business to the affiliate.
+    if (!companyData.refCode) {
+      try {
+        const storedRef = localStorage.getItem('zapeera_ref_code');
+        if (storedRef) companyData = { ...companyData, refCode: storedRef };
+      } catch { /* localStorage unavailable — attribution is best-effort here; backoffice can attribute manually */ }
+    }
     return this.request<{
       id: string;
       name: string;

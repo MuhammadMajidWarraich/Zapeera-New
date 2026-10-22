@@ -113,6 +113,18 @@ import {
   updatePartner,
   reassignBusinessPartner,
 } from '../controllers/backoffice-partners.controller';
+import {
+  listAffiliates,
+  updateAffiliate,
+  attributeBusiness,
+  listAffiliateCommissions,
+  approveAffiliateCommission,
+  voidAffiliateCommission,
+  listAffiliatePayouts,
+  processAffiliatePayout,
+  getAffiliateConfigAdmin,
+  updateAffiliateConfigAdmin,
+} from '../controllers/backoffice-affiliates.controller';
 
 const router = Router();
 
@@ -267,6 +279,23 @@ router.patch('/businesses/:id/partner', adminAuthenticate, adminRoleGuard('SUPER
  */
 router.get('/commissions', adminAuthenticate, getBackofficeCommissions);
 router.get('/commissions/stats', adminAuthenticate, getBackofficeCommissionStats);
+
+/**
+ * Affiliate Program Routes
+ * Partners who refer paying businesses. Distinct from the staff
+ * commissions above: /affiliates (partners), /affiliate-commissions,
+ * /affiliate-payouts, plus the global program config.
+ */
+router.get('/affiliates/config', adminAuthenticate, getAffiliateConfigAdmin);
+router.put('/affiliates/config', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateAffiliateConfigAdmin);
+router.get('/affiliates', adminAuthenticate, listAffiliates);
+router.patch('/affiliates/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateAffiliate);
+router.post('/affiliates/attribute', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), attributeBusiness);
+router.get('/affiliate-commissions', adminAuthenticate, listAffiliateCommissions);
+router.post('/affiliate-commissions/:id/approve', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), approveAffiliateCommission);
+router.post('/affiliate-commissions/:id/void', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), voidAffiliateCommission);
+router.get('/affiliate-payouts', adminAuthenticate, listAffiliatePayouts);
+router.post('/affiliate-payouts/:id/process', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), processAffiliatePayout);
 
 /**
  * Support Tickets Routes

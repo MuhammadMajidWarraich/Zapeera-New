@@ -64,7 +64,11 @@ const createCompanySchema = Joi.object({
   // White-label attribution (Feature 3): slug of the partner whose
   // join link brought this signup. Resolved to business.partnerId at
   // creation when it names an ACTIVE partner; ignored otherwise.
-  partnerSlug: Joi.string().trim().max(80).allow('', null).optional()
+  partnerSlug: Joi.string().trim().max(80).allow('', null).optional(),
+  // Affiliate program: referral code carried from the ?ref= signup link
+  // (frontend persists it in localStorage). Converted into an
+  // AffiliateReferral below when this is the creator's FIRST business.
+  refCode: Joi.string().trim().max(20).allow('', null).optional()
 });
 
 const updateCompanySchema = Joi.object({
@@ -684,7 +688,7 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     const userId = req.user.id;
-    const { name, description, address, phone, email, businessType, createdByUserId } = normalizedBody as any;
+    const { name, description, address, phone, email, businessType, createdByUserId, refCode } = normalizedBody as any;
     const createdById = userId;
 
     // White-label attribution (Feature 3): set ONCE here, at business
@@ -800,6 +804,24 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
         }
       }
     });
+
+    // Affiliate attribution: if this is the creator's first business
+    // and a referral code is known (payload refCode, else the code
+    // captured on the user at signup), record the referral. Never let
+    // an affiliate hiccup break business creation.
+    try {
+      const { attributeFirstBusinessIfReferred } = await import('../utils/affiliate.util');
+      const attribution = await attributeFirstBusinessIfReferred(prisma, {
+        businessId: company.id,
+        creatorUserId: createdById,
+        refCode: refCode ?? null
+      });
+      if (attribution.attributed) {
+        console.log(`[Affiliate] Business ${company.id} attributed via referral code`);
+      }
+    } catch (affiliateErr: any) {
+      console.warn('[Affiliate] Attribution failed (non-fatal):', affiliateErr?.message || affiliateErr);
+    }
 
     const isPostgreSQLMode = process.env.USE_POSTGRESQL === 'true';
 

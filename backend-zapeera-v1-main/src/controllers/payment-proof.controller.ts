@@ -558,6 +558,25 @@ export const approvePaymentProof = async (req: AdminAuthRequest, res: Response):
       periodEnd: periodEnd.toISOString()
     });
 
+    // Affiliate commission: a payment-proof approval is a real
+    // money-in moment. Accrue against the proof amount, deduplicated
+    // structurally by sourceRef (the proof can only be approved once —
+    // the 409 guard above — and the UNIQUE index is the second lock).
+    // Never let an affiliate failure break a payment approval.
+    try {
+      const { accrueAffiliateCommission } = await import('../utils/affiliate.util');
+      const accrual = await accrueAffiliateCommission(prisma, {
+        businessId: proof.businessId,
+        sourceRef: `payment_proof:${proofId}`,
+        basisAmount: proof.amount
+      });
+      if (accrual.created) {
+        console.log(`[Affiliate] Commission ${accrual.commissionId} accrued: PKR ${accrual.amount} @ ${accrual.rateApplied}% for business ${proof.businessId} (proof ${proofId})`);
+      }
+    } catch (affiliateError) {
+      console.error('[Affiliate] Commission accrual failed (non-fatal):', affiliateError);
+    }
+
     console.log(`[PaymentProof] ✅ APPROVED id=${proofId} biz=${proof.businessId} plan=${proof.planId} until=${periodEnd.toISOString()}`);
 
     // Send email notification to business owner

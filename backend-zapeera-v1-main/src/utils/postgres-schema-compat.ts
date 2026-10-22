@@ -96,4 +96,13 @@ export async function ensurePostgresSchemaCompatibility(prisma: PrismaClient): P
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "businesses" ADD COLUMN IF NOT EXISTS "partnerId" TEXT'
   );
+
+  // Affiliate program: the signup ?ref= code is captured on the user
+  // and converted into a referral when their first business is
+  // created. (The new tables — affiliates, affiliate_referrals,
+  // affiliate_commissions, affiliate_payouts — arrive via schema heal
+  // like the C4/C5 tables did.)
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "zapeera_users" ADD COLUMN IF NOT EXISTS "signupRefCode" TEXT'
+  );
 }

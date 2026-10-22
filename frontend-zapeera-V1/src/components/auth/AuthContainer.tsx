@@ -27,13 +27,26 @@ const AuthContainer = () => {
   // Update view when route changes
   useEffect(() => {
     const pathname = location.pathname || '';
-    
+
     if (pathname === '/signup') {
       setCurrentView('signup');
     } else if (pathname === '/login' || pathname === '' || pathname === '/') {
       setCurrentView('login');
     }
   }, [location.pathname]);
+
+  // Affiliate program: capture ?ref=CODE from referral links and persist
+  // it so attribution survives the visit (email verification, a later
+  // login, ...). The code is sent with the register payload and again
+  // when the user creates their first business.
+  useEffect(() => {
+    try {
+      const ref = new URLSearchParams(location.search).get('ref');
+      if (ref && ref.trim()) {
+        localStorage.setItem('zapeera_ref_code', ref.trim().toUpperCase().replace(/^ZAP-/, ''));
+      }
+    } catch { /* ignore */ }
+  }, [location.search]);
 
   const handleNavigateToSignup = () => {
     setCurrentView('signup');

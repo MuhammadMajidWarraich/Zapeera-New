@@ -241,6 +241,65 @@ export interface BackofficeCommission {
   branch?: { id: string; name: string };
 }
 
+// ─── Affiliate program (partner referrals — NOT staff commissions) ────
+export interface BackofficeAffiliate {
+  id: string;
+  userId: string;
+  code: string;
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  commissionRate: number | null;
+  effectiveRate: number;
+  payoutDetails: {
+    method: string;
+    accountTitle: string;
+    accountNumber: string;
+    bankName?: string | null;
+  } | null;
+  createdAt: string;
+  user: { id: string; name: string; email: string; username: string | null } | null;
+  referralsCount: number;
+  totalEarned: number;
+}
+
+export interface BackofficeAffiliateCommission {
+  id: string;
+  affiliateId: string;
+  affiliateCode: string | null;
+  affiliateUser: { id: string; name: string; email: string } | null;
+  businessId: string;
+  businessName: string | null;
+  basisAmount: number;
+  rateApplied: number;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'PAID' | 'VOID';
+  createdAt: string;
+  paidAt: string | null;
+}
+
+export interface BackofficeAffiliatePayout {
+  id: string;
+  affiliateId: string;
+  affiliateCode: string | null;
+  affiliateUser: { id: string; name: string; email: string } | null;
+  payoutDetails: {
+    method: string;
+    accountTitle: string;
+    accountNumber: string;
+    bankName?: string | null;
+  } | null;
+  amount: number;
+  status: 'REQUESTED' | 'PAID' | 'REJECTED';
+  note: string | null;
+  processedBy: string | null;
+  createdAt: string;
+  processedAt: string | null;
+}
+
+export interface AffiliateProgramConfig {
+  defaultRate: number;
+  minPayout: number;
+}
+
 export interface BackofficeCommissionStats {
   totalCommissions: number;
   pendingCommissions: number;
