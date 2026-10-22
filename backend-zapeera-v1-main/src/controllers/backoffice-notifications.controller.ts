@@ -20,6 +20,9 @@ import { getPrisma } from '../utils/db.util';
  *                         i.e. trialEndsAt − 3 days, so "seen" semantics
  *                         stay correct)
  *  - support_ticket       SupportTicket rows still OPEN
+ *  - partner_application  PartnerApplication rows still PENDING review
+ *                         (white-label partner applications, added when
+ *                         the partner-applications feature landed)
  *
  * Response: { success, data: { items, counts, total } }
  *  - items: newest first, capped at MAX_ITEMS
@@ -33,7 +36,7 @@ const TRIAL_EXPIRY_WINDOW_DAYS = 3;
 
 interface NotificationItem {
   id: string;
-  kind: 'payment_proof' | 'affiliate_payout' | 'affiliate_application' | 'new_business' | 'trial_expiring' | 'support_ticket';
+  kind: 'payment_proof' | 'affiliate_payout' | 'affiliate_application' | 'new_business' | 'trial_expiring' | 'support_ticket' | 'partner_application';
   title: string;
   detail: string;
   createdAt: Date;
@@ -59,6 +62,14 @@ interface AffiliateApplicationRow {
   createdAt: Date;
   user: { name: string; email: string };
 }
+interface PartnerApplicationRow {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  source: string;
+  createdAt: Date;
+}
 
 export const getBackofficeNotifications = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -78,12 +89,14 @@ export const getBackofficeNotifications = async (_req: Request, res: Response): 
       newBusinesses,
       expiringTrials,
       openTickets,
+      partnerApplications,
       paymentProofCount,
       affiliatePayoutCount,
       affiliateApplicationCount,
       newBusinessCount,
       expiringTrialCount,
       openTicketCount,
+      partnerApplicationCount,
     ] = await Promise.all([
       prisma.paymentProof.findMany({
         where: { status: 'PENDING' },
@@ -140,6 +153,15 @@ export const getBackofficeNotifications = async (_req: Request, res: Response): 
         take: MAX_ITEMS,
         select: { id: true, subject: true, priority: true, createdAt: true },
       }),
+      // Same stale-client scoping as the affiliate delegates above: the
+      // sandbox-generated client predates the PartnerApplication model;
+      // the production client (generated at deploy time) has the delegate.
+      (prisma as any).partnerApplication.findMany({
+        where: { status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+        take: MAX_ITEMS,
+        select: { id: true, companyName: true, contactName: true, email: true, source: true, createdAt: true },
+      }) as Promise<PartnerApplicationRow[]>,
       prisma.paymentProof.count({ where: { status: 'PENDING' } }),
       (prisma as any).affiliatePayout.count({ where: { status: 'REQUESTED' } }) as Promise<number>,
       (prisma as any).affiliate.count({ where: { status: 'PENDING' } }) as Promise<number>,
@@ -151,6 +173,7 @@ export const getBackofficeNotifications = async (_req: Request, res: Response): 
         },
       }),
       prisma.supportTicket.count({ where: { status: 'OPEN' } }),
+      (prisma as any).partnerApplication.count({ where: { status: 'PENDING' } }) as Promise<number>,
     ]);
 
     const items: NotificationItem[] = [];
@@ -232,6 +255,17 @@ export const getBackofficeNotifications = async (_req: Request, res: Response): 
       });
     }
 
+    for (const application of partnerApplications) {
+      items.push({
+        id: `partner_application:${application.id}`,
+        kind: 'partner_application',
+        title: 'Partner application pending',
+        detail: `${application.companyName} — ${application.contactName} (${application.email}) — via ${application.source}`,
+        createdAt: application.createdAt,
+        link: '/backoffice/partners',
+      });
+    }
+
     items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     const counts = {
@@ -241,6 +275,7 @@ export const getBackofficeNotifications = async (_req: Request, res: Response): 
       new_business: newBusinessCount,
       trial_expiring: expiringTrialCount,
       support_ticket: openTicketCount,
+      partner_application: partnerApplicationCount,
     };
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
 

@@ -489,7 +489,8 @@ export type BackofficeNotificationKind =
   | 'affiliate_application'
   | 'new_business'
   | 'trial_expiring'
-  | 'support_ticket';
+  | 'support_ticket'
+  | 'partner_application';
 
 export interface BackofficeNotificationItem {
   id: string;

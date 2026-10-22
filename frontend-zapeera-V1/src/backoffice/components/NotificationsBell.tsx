@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   Building2,
+  Handshake,
   CheckCheck,
   CheckCircle2,
   LifeBuoy,
@@ -28,6 +29,7 @@ const KIND_ICON: Record<BackofficeNotificationKind, typeof Receipt> = {
   new_business: Building2,
   trial_expiring: Timer,
   support_ticket: LifeBuoy,
+  partner_application: Handshake,
 };
 
 const KIND_ICON_CLASSES: Record<BackofficeNotificationKind, string> = {
@@ -37,6 +39,7 @@ const KIND_ICON_CLASSES: Record<BackofficeNotificationKind, string> = {
   new_business: 'bg-blue-50 text-blue-600',
   trial_expiring: 'bg-orange-50 text-orange-600',
   support_ticket: 'bg-rose-50 text-rose-600',
+  partner_application: 'bg-cyan-50 text-cyan-600',
 };
 
 function lastSeenKey(adminId: string) {
