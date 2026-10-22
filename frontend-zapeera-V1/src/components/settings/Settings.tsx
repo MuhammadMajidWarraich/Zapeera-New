@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type ComponentType } from "react";
+import React, { useState, useEffect, useRef, type ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,8 @@ import {
   X,
   Battery,
   Receipt,
+  Download,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -73,6 +75,17 @@ const Settings = () => {
   const [isSavingFbr, setIsSavingFbr] = useState(false);
   const [isTestingFbr, setIsTestingFbr] = useState(false);
   const canManageFbr = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
+  // Backup & Restore: owner-only (the server enforces it too) — a
+  // backup carries the business's entire dataset.
+  const isBackupOwner = ["OWNER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
+  const [isExportingBusiness, setIsExportingBusiness] = useState(false);
+  const [isExportingAccount, setIsExportingAccount] = useState(false);
+  const [restorePayload, setRestorePayload] = useState<any>(null);
+  const [restoreFileName, setRestoreFileName] = useState("");
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<any>(null);
+  const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [importedSettings, setImportedSettings] = useState<any>(null);
@@ -253,6 +266,69 @@ const Settings = () => {
       setFbrTestResult({ ok: false, message: e.message || "Connection test failed." });
     } finally {
       setIsTestingFbr(false);
+    }
+  };
+
+  const handleExportBusinessBackup = async () => {
+    setIsExportingBusiness(true);
+    try {
+      await apiService.downloadBusinessBackup();
+      toast({ title: "Backup downloaded", description: "Keep this file somewhere safe — it contains your complete business data." });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsExportingBusiness(false);
+    }
+  };
+
+  const handleExportAccountBackup = async () => {
+    setIsExportingAccount(true);
+    try {
+      await apiService.downloadAccountBackup();
+      toast({ title: "Account backup downloaded", description: "One file with every business you own." });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsExportingAccount(false);
+    }
+  };
+
+  const handleRestoreFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || parsed.format !== "zapeera-backup") {
+        toast({ title: "Not a Zapeera backup", description: "That file was not exported from Zapeera.", variant: "destructive" });
+        return;
+      }
+      setRestorePayload(parsed);
+      setRestoreFileName(file.name);
+      setRestoreResult(null);
+      setShowRestoreConfirm(true);
+    } catch {
+      toast({ title: "Could not read that file", description: "The file is not valid JSON.", variant: "destructive" });
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restorePayload) return;
+    setIsRestoring(true);
+    try {
+      const res = await apiService.restoreBackup(restorePayload);
+      if (res.success && res.data) {
+        setRestoreResult(res.data);
+        setShowRestoreConfirm(false);
+        setRestorePayload(null);
+        toast({ title: "Restore complete", description: res.message || "Your business was restored as a new business." });
+      } else {
+        toast({ title: "Restore failed", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Restore failed", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -1359,7 +1435,118 @@ toast({
             </p>
           </div>
         </section>
+        {/* Backup & Restore (owner only) */}
+        <section
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          style={{ animationDelay: "250ms" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
+              <Archive className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+              Backup &amp; Restore
+            </div>
+            <div className="text-xs font-medium text-[#8c95b0]">Owner only</div>
+          </div>
+          <div className="flex flex-col px-[30px] py-[30px]">
+            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+              Download a complete backup of your business — products, stock, customers, sales, khata,
+              prescriptions, clinic and hotel data — as a single file. Passwords and secret keys
+              (like the FBR token) are never included in a backup. Restoring a backup creates a
+              <strong> new business</strong> under your account; your existing businesses are never
+              overwritten. The restored business starts on the free trial plan, and staff accounts
+              are not recreated — you re-invite your team afterwards.
+            </p>
+            {!isBackupOwner && (
+              <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                Only the business owner can export or restore backups.
+              </p>
+            )}
+            {isBackupOwner && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleExportBusinessBackup}
+                    disabled={isExportingBusiness}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  >
+                    <Download className="h-4 w-4" />
+                    {isExportingBusiness ? "Preparing…" : "Export this business"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleExportAccountBackup}
+                    disabled={isExportingAccount}
+                    variant="outline"
+                    className="gap-2 rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                  >
+                    <Download className="h-4 w-4" />
+                    {isExportingAccount ? "Preparing…" : "Export my whole account"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => restoreFileInputRef.current?.click()}
+                    variant="outline"
+                    className="gap-2 rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Restore from file…
+                  </Button>
+                  <input
+                    ref={restoreFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={handleRestoreFileSelected}
+                  />
+                </div>
+                {restoreResult?.restored?.length > 0 && (
+                  <div className="mt-[18px] rounded-[10px] bg-green-50 px-4 py-3 text-[13px] leading-relaxed text-green-800">
+                    {restoreResult.restored.map((r: any) => (
+                      <div key={r.businessId} className="mb-2 last:mb-0">
+                        <p className="font-bold">Restored as “{r.name}”</p>
+                        <p>
+                          {Object.entries(r.counts || {})
+                            .filter(([, n]: any) => Number(n) > 0)
+                            .map(([k, n]: any) => `${k}: ${n}`)
+                            .join(" · ") || "No data rows"}
+                        </p>
+                        {r.skippedStaff?.length > 0 && (
+                          <p className="mt-1">
+                            Staff not recreated (re-invite them): {r.skippedStaff.map((s: any) => s.email || s.name).filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                        {r.warnings?.length > 0 && (
+                          <ul className="mt-1 list-disc pl-5">
+                            {r.warnings.map((w: string, i: number) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
       </div>
+
+    {/* Restore Backup Confirmation Modal */}
+    <ConfirmationModal
+      isOpen={showRestoreConfirm}
+      onClose={() => { setShowRestoreConfirm(false); setRestorePayload(null); }}
+      onConfirm={handleConfirmRestore}
+      title="Restore this backup?"
+      description={`"${restoreFileName}" will be restored as a NEW business named "<original> (Restored)" under your account. Your existing businesses are not changed. The restored business starts on the free TRIAL plan (subscriptions are not copied), staff accounts are not recreated (you will re-invite your team), and secret keys such as the FBR token must be re-entered.`}
+      confirmText="Restore as new business"
+      cancelText="Cancel"
+      variant="warning"
+      isLoading={isRestoring}
+      loadingText="Restoring…"
+      icon={<Archive className="w-4 h-4" />}
+    />
 
     {/* Import Settings Confirmation Modal */}
     <ConfirmationModal
