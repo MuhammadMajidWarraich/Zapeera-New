@@ -192,6 +192,11 @@ const Inventory = () => {
   const [variantsProduct, setVariantsProduct] = useState<Product | null>(null); // Product whose variants are being managed (Wave C6)
   const [isBarcodeGeneratorOpen, setIsBarcodeGeneratorOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  // Set when the API refuses a delete with 409 PRODUCT_HAS_HISTORY: the
+  // delete dialog stays open, shows the server message and offers
+  // "Deactivate Instead" (products with stock/sales history are never
+  // hard-deleted).
+  const [deleteBlockedMessage, setDeleteBlockedMessage] = useState<string | null>(null);
   const [importedProducts, setImportedProducts] = useState<any[]>([]);
   const [processingImage, setProcessingImage] = useState(false);
   const [pagination, setPagination] = useState({
@@ -1415,6 +1420,7 @@ const Inventory = () => {
     
     // CRITICAL FIX: Reset loading state when opening dialog
     setLoading(false);
+    setDeleteBlockedMessage(null);
     setDeletingProduct(product);
     setIsDeleteDialogOpen(true);
   };
@@ -1431,6 +1437,26 @@ const Inventory = () => {
     // Delete via API first (blocking)
     try {
       const response = await apiService.deleteProduct(productToDelete.id);
+
+      // 409 PRODUCT_HAS_HISTORY: the product is referenced by stock/sales
+      // records, so the server refused the hard delete. This check MUST run
+      // before the loose isSuccess heuristic below — the refusal message
+      // doesn't contain "fail", so the heuristic would misread it as a
+      // successful delete and drop the product from the list.
+      if ((response as any)?.code === 'PRODUCT_HAS_HISTORY') {
+        setLoading(false);
+        setDeleteBlockedMessage(
+          response.message || "This product has stock/sales history and can't be deleted. Deactivate it instead."
+        );
+        toast({
+          title: "Can't Delete Product",
+          description: response.message || "This product has stock/sales history and can't be deleted. Deactivate it instead.",
+          variant: "destructive",
+        });
+        // Keep the dialog open so the user can choose "Deactivate Instead"
+        return;
+      }
+
       // CRITICAL FIX: Check response.success explicitly (can be true, 'true', or undefined)
       const isSuccess = response && (
         response.success === true || 
@@ -1545,6 +1571,50 @@ const Inventory = () => {
   const handleCancelDelete = () => {
     setIsDeleteDialogOpen(false);
     setDeletingProduct(null);
+    setDeleteBlockedMessage(null);
+  };
+
+  // Offered in the delete dialog when the server refuses a hard delete
+  // (409 PRODUCT_HAS_HISTORY): deactivate the product instead — it keeps
+  // its stock/sales history and simply stops being sellable/active.
+  const handleDeactivateInstead = async () => {
+    if (!deletingProduct) return;
+
+    const productToDeactivate = deletingProduct;
+    setLoading(true);
+    try {
+      const response = await apiService.updateProduct(productToDeactivate.id, { isActive: false });
+      if (response.success) {
+        setProducts(prev => prev.map(p =>
+          p.id === productToDeactivate.id ? { ...p, isActive: false } : p
+        ));
+        setIsDeleteDialogOpen(false);
+        setDeletingProduct(null);
+        setDeleteBlockedMessage(null);
+        toast({
+          title: "Product Deactivated",
+          description: `${productToDeactivate.name} has been deactivated. Its stock and sales history are preserved.`,
+          variant: "default",
+        });
+        window.dispatchEvent(new CustomEvent('productUpdated', {
+          detail: { productId: productToDeactivate.id }
+        }));
+      } else {
+        toast({
+          title: "Deactivate Failed",
+          description: response.message || "Failed to deactivate product",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Deactivate Error",
+        description: error?.message || "Failed to deactivate product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Bulk delete functions
@@ -2992,6 +3062,13 @@ const Inventory = () => {
                         </p>
                       </div>
                     )}
+                    {deleteBlockedMessage && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                        <p className="text-sm text-amber-800">
+                          {deleteBlockedMessage}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3004,24 +3081,40 @@ const Inventory = () => {
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleConfirmDelete}
-                  disabled={loading}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Confirm Delete
-                    </>
-                  )}
-                </Button>
+                {deleteBlockedMessage ? (
+                  <Button
+                    onClick={handleDeactivateInstead}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deactivating...
+                      </>
+                    ) : (
+                      "Deactivate Instead"
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    onClick={handleConfirmDelete}
+                    disabled={loading}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Confirm Delete
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </DialogContent>
           </Dialog>

@@ -120,6 +120,54 @@ const productScopeWhere = (req: AuthRequest, id: string): any => ({
   companyId: resolveProductCompanyId(req),
 });
 
+// ─── Delete history guard ────────────────────────────────────────────────────
+// Every REQUIRED relation pointing at Product blocks a hard delete in the
+// database (Batch, SaleItem, PurchaseItem, RefundItem, StockMovement,
+// StockTransferItem, StockTakeLine, PrescriptionItem). The old delete
+// handlers force-deleted sale/refund/stock-movement rows first and then
+// died with an unhandled Prisma P2003 500 as soon as a product had batches
+// (or purchases, transfers, stock-take lines, prescription items). A
+// product with history must be DEACTIVATED, never hard-deleted, so its
+// stock/sales records stay intact. Relations that do NOT block by schema
+// design: ProductVariant (onDelete: Cascade — part of the product's own
+// definition, removed with it), Promotion.productId and
+// Doctor.serviceProductId (both SetNull).
+const PRODUCT_HISTORY_MODELS: Array<{ key: string; delegate: string }> = [
+  { key: 'batches', delegate: 'batch' },
+  { key: 'saleItems', delegate: 'saleItem' },
+  { key: 'purchaseItems', delegate: 'purchaseItem' },
+  { key: 'refundItems', delegate: 'refundItem' },
+  { key: 'stockMovements', delegate: 'stockMovement' },
+  { key: 'stockTransferItems', delegate: 'stockTransferItem' },
+  { key: 'stockTakeLines', delegate: 'stockTakeLine' },
+  { key: 'prescriptionItems', delegate: 'prescriptionItem' },
+];
+
+// Returns Map<productId, { batches: n, saleItems: n, ... }> with only
+// non-zero reference counts, for every product in `ids` that has history.
+const findProductHistory = async (
+  prisma: any,
+  ids: string[]
+): Promise<Map<string, Record<string, number>>> => {
+  const blocked = new Map<string, Record<string, number>>();
+  if (ids.length === 0) return blocked;
+  await Promise.all(
+    PRODUCT_HISTORY_MODELS.map(async ({ key, delegate }) => {
+      const rows = await prisma[delegate].groupBy({
+        by: ['productId'],
+        where: { productId: { in: ids } },
+        _count: { _all: true },
+      });
+      for (const row of rows as Array<{ productId: string; _count: { _all: number } }>) {
+        const entry = blocked.get(row.productId) || {};
+        entry[key] = row._count._all;
+        blocked.set(row.productId, entry);
+      }
+    })
+  );
+  return blocked;
+};
+
 export const getProducts = async (req: AuthRequest, res: Response) => {
   try {
     // 🔄 Pull latest products from live database (background, non-blocking)
@@ -895,31 +943,26 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // History guard: a product referenced by stock/sales records can
+    // never be hard-deleted — refuse with a clear 409 and point the user
+    // at deactivation instead of crashing on the FK constraint (P2003).
+    const history = await findProductHistory(prisma, [id]);
+    const references = history.get(id);
+    if (references) {
+      return res.status(409).json({
+        success: false,
+        message: "This product has stock/sales history and can't be deleted. Deactivate it instead.",
+        code: 'PRODUCT_HAS_HISTORY',
+        data: { references }
+      });
+    }
+
     console.log(`Deleting product: ${product.name} (ID: ${id})`);
 
-    // Always perform hard delete - permanently remove from database
-    await prisma.$transaction(async (tx) => {
-      // Delete all related records first
-      console.log('Deleting related stock movements...');
-      await tx.stockMovement.deleteMany({
-        where: { productId: id }
-      });
-
-      console.log('Deleting related sale items...');
-      await tx.saleItem.deleteMany({
-        where: { productId: id }
-      });
-
-      console.log('Deleting related refund items...');
-      await tx.refundItem.deleteMany({
-        where: { productId: id }
-      });
-
-      console.log('Deleting product...');
-      // Delete the product itself
-      await tx.product.delete({
-        where: { id }
-      });
+    // No history references — hard delete is safe. Variants cascade with
+    // the product (schema onDelete: Cascade).
+    await prisma.product.delete({
+      where: { id }
     });
 
     console.log(`Product ${product.name} permanently deleted from database`);
@@ -1479,31 +1522,28 @@ export const bulkDeleteProducts = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Delete all related records and products in a transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete stock movements for all products
-      console.log('Deleting related stock movements...');
-      await tx.stockMovement.deleteMany({
-        where: { productId: { in: productIds } }
+    // History guard (same rule as the single delete): if ANY selected
+    // product is referenced by stock/sales records, refuse the whole
+    // bulk delete with a 409 — nothing is deleted — instead of crashing
+    // on the FK constraint (P2003) halfway through.
+    const history = await findProductHistory(prisma, productIds);
+    if (history.size > 0) {
+      const blockedProducts = existingProducts
+        .filter(p => history.has(p.id))
+        .map(p => ({ id: p.id, name: p.name, references: history.get(p.id) }));
+      return res.status(409).json({
+        success: false,
+        message: `${blockedProducts.length} of the selected products have stock/sales history and can't be deleted (${blockedProducts.map(p => p.name).join(', ')}). Deactivate them instead. Nothing was deleted.`,
+        code: 'PRODUCT_HAS_HISTORY',
+        data: { blockedProducts }
       });
+    }
 
-      // Delete sale items for all products
-      console.log('Deleting related sale items...');
-      await tx.saleItem.deleteMany({
-        where: { productId: { in: productIds } }
-      });
-
-      // Delete refund items for all products
-      console.log('Deleting related refund items...');
-      await tx.refundItem.deleteMany({
-        where: { productId: { in: productIds } }
-      });
-
-      // Delete the products themselves
-      console.log('Deleting products...');
-      await tx.product.deleteMany({
-        where: { id: { in: productIds } }
-      });
+    // No history references — hard delete is safe. Variants cascade with
+    // their products (schema onDelete: Cascade).
+    console.log('Deleting products...');
+    await prisma.product.deleteMany({
+      where: { id: { in: productIds } }
     });
 
     console.log(`Successfully bulk deleted ${productIds.length} products`);
