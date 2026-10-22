@@ -108,25 +108,25 @@ export function PaginationPills({
   const isV3 = variant === "v3";
 
   const baseBtn = isV3
-    ? "h-9 w-9 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-transparent text-sm font-semibold text-[#8c95b0] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+    ? "h-9 w-9 rounded-[10px] border border-border bg-transparent text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     : "h-10 w-10 rounded-full border text-sm font-semibold transition-all duration-200";
   const inactive = isV3
     ? ""
-    : "border-blue-100 bg-white text-[#0C2C8A] hover:bg-blue-50 hover:border-blue-200";
+    : "border-border bg-card text-foreground hover:bg-muted";
   const active = isV3
-    ? "border-transparent bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_3px_12px_rgba(26,82,197,0.2)] hover:text-white hover:opacity-95"
-    : "border-[#0C2C8A] bg-[#0C2C8A] text-white shadow-md hover:bg-[#0a2470] hover:border-[#0a2470]";
+    ? "border-transparent bg-primary text-primary-foreground shadow-soft hover:text-primary-foreground hover:bg-primary/90"
+    : "border-primary bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:border-primary";
   const disabledCls = isV3
-    ? "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-[#8c95b0]"
-    : "cursor-not-allowed opacity-40 hover:bg-white";
+    ? "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground"
+    : "cursor-not-allowed opacity-40 hover:bg-card";
 
   return (
     <nav
       aria-label="Pagination"
       className={cn(
         isV3
-          ? "flex w-full items-center justify-center gap-1.5 border-t border-[rgba(15,23,60,0.06)] px-8 py-5"
-          : "mx-auto mt-6 flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 shadow-xl",
+          ? "flex w-full items-center justify-center gap-1.5 border-t border-border px-8 py-5"
+          : "mx-auto mt-6 flex w-fit items-center gap-2 rounded-full bg-card px-4 py-2 shadow-xl",
         className
       )}
     >
@@ -151,7 +151,7 @@ export function PaginationPills({
               key={`e-${idx}`}
               className={cn(
                 "flex items-center justify-center",
-                isV3 ? "h-9 w-9 text-[#8c95b0]/70" : "h-10 w-10 text-[#0C2C8A]/60"
+                isV3 ? "h-9 w-9 text-muted-foreground/70" : "h-10 w-10 text-muted-foreground/60"
               )}
               aria-hidden
             >

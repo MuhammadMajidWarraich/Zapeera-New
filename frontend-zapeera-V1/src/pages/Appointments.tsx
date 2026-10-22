@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -429,25 +430,25 @@ const AppointmentsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0a1128]">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <CalendarDays className="h-6 w-6" /> Appointments — OPD Queue
-          </h1>
-          <p className="text-sm text-gray-500">
-            Tokens are assigned per doctor per day when a visit is booked. Completing a visit bills it.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadQueue} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-          <Button onClick={openBooking}>
-            <Plus className="mr-2 h-4 w-4" /> Book Appointment
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="Tokens are assigned per doctor per day when a visit is booked. Completing a visit bills it."
+        actions={
+          <>
+            <Button variant="outline" onClick={loadQueue} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </Button>
+            <Button onClick={openBooking}>
+              <Plus className="mr-2 h-4 w-4" /> Book Appointment
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <div>

@@ -2292,7 +2292,7 @@ const Inventory = () => {
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
       {/* Header */}
-      <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+      <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
         <div>
           <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">
             Inventory Management
@@ -2314,7 +2314,7 @@ const Inventory = () => {
               type="button"
               variant="outline"
               onClick={handleExportInventory}
-              className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-3 text-sm font-semibold text-[#4a5578] shadow-none hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+              className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-border bg-card px-5 py-3 text-sm font-semibold text-muted-foreground shadow-none hover:bg-card hover:text-foreground hover:shadow-soft"
             >
               <Upload className="h-[17px] w-[17px]" strokeWidth={2} />
               Export
@@ -2323,7 +2323,7 @@ const Inventory = () => {
               type="button"
               variant="outline"
               onClick={() => setIsCatalogImportOpen(true)}
-              className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-3 text-sm font-semibold text-[#4a5578] shadow-none hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+              className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-border bg-card px-5 py-3 text-sm font-semibold text-muted-foreground shadow-none hover:bg-card hover:text-foreground hover:shadow-soft"
             >
               <Pill className="h-[17px] w-[17px]" strokeWidth={2} />
               Medicine Catalog
@@ -2338,7 +2338,7 @@ const Inventory = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-3 text-sm font-semibold text-[#4a5578] shadow-none hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                  className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-border bg-card px-5 py-3 text-sm font-semibold text-muted-foreground shadow-none hover:bg-card hover:text-foreground hover:shadow-soft"
                 >
                   <Download className="h-[17px] w-[17px]" strokeWidth={2} />
                   Import
@@ -2410,7 +2410,7 @@ const Inventory = () => {
             <DialogTrigger asChild>
               <Button
                 type="button"
-                className="inline-flex h-auto items-center gap-2 rounded-[10px] bg-[#0c2c8a] px-5 py-3 text-sm font-semibold text-white shadow-none transition-all hover:bg-[#0a1f5c] hover:shadow-[0_2px_8px_rgba(12,44,138,0.3)]"
+                className="inline-flex h-auto items-center gap-2 rounded-[10px] bg-secondary px-5 py-3 text-sm font-semibold text-secondary-foreground shadow-none transition-all hover:bg-secondary/80 hover:shadow-soft"
               >
                 <Image className="h-[17px] w-[17px]" strokeWidth={2} />
                 Scan Document
@@ -2478,7 +2478,7 @@ const Inventory = () => {
             <DialogTrigger asChild>
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+                className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-medium"
               >
                 <Plus className="h-[18px] w-[18px] stroke-[2.5]" strokeLinecap="round" />
                 Add Product
@@ -3405,7 +3405,7 @@ const Inventory = () => {
                         <Button
                           type="button"
                           onClick={() => setIsAddDialogOpen(true)}
-                          className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                          className="rounded-[10px] px-6 py-2.5 text-sm font-semibold shadow-soft"
                         >
                           <Plus className="mr-2 h-4 w-4" />
                           Add Product
@@ -3449,7 +3449,7 @@ const Inventory = () => {
                           <td className="px-4 py-4 align-middle">
                             <span
                               className={cn(
-                                "inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold",
+                                "inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold",
                                 product.category?.type === 'MEDICAL' ? 'bg-blue-50 text-blue-700' :
                                 product.category?.type === 'NON_MEDICAL' ? 'bg-purple-50 text-purple-700' :
                                 'bg-gray-50 text-gray-700'
@@ -3461,7 +3461,7 @@ const Inventory = () => {
                           <td className="px-4 py-4 align-middle">
                             <span
                               className={cn(
-                                "inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold",
+                                "inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold",
                                 inventoryCategoryBadgeClass(catName),
                               )}
                             >
@@ -3474,7 +3474,7 @@ const Inventory = () => {
                               const supplierName =
                                 batchWithSupplier?.supplier?.name || batchWithSupplier?.supplierName;
                               return supplierName ? (
-                                <span className="text-[13px] font-medium text-[#0a1128]">{supplierName}</span>
+                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#0a1128]" title={supplierName}>{supplierName}</span>
                               ) : (
                                 <span className="text-[#8c95b0]">—</span>
                               );
@@ -3485,7 +3485,7 @@ const Inventory = () => {
                               const batchWithManufacturer = product.batches?.find((b) => b.supplier?.manufacturer);
                               const manufacturerName = batchWithManufacturer?.supplier?.manufacturer?.name;
                               return manufacturerName ? (
-                                <span className="text-[13px] font-medium text-[#0a1128]">{manufacturerName}</span>
+                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#0a1128]" title={manufacturerName}>{manufacturerName}</span>
                               ) : (
                                 <span className="text-[#8c95b0]">—</span>
                               );
@@ -3498,11 +3498,11 @@ const Inventory = () => {
                             {(() => {
                               const latestBatch = product.batches?.length > 0 ? product.batches[product.batches.length - 1] : null;
                               const costPrice = latestBatch?.purchasePrice || 0;
-                              return <span className="text-[13px] font-medium text-[#4a5578]">PKR {costPrice}</span>;
+                              return <span className="whitespace-nowrap text-[13px] font-medium text-[#4a5578]">PKR {costPrice}</span>;
                             })()}
                           </td>
                           <td className="px-4 py-4 align-middle">
-                            <span className="text-[13px] font-bold text-[#1a52c5]">PKR {product.price || 0}</span>
+                            <span className="whitespace-nowrap text-[13px] font-bold text-primary">PKR {product.price || 0}</span>
                           </td>
                           <td className="px-4 py-4 align-middle">
                             {(() => {
@@ -3515,7 +3515,7 @@ const Inventory = () => {
                               return (
                                 <span
                                   className={cn(
-                                    "text-[13px] font-bold",
+                                    "whitespace-nowrap text-[13px] font-bold",
                                     zero ? "text-red-600" : "text-green-600",
                                   )}
                                 >
@@ -3530,17 +3530,17 @@ const Inventory = () => {
                               const minStock = product.minStock || 10;
                               if (remaining === 0) {
                                 return (
-                                  <span className="inline-block rounded-md bg-[rgba(220,38,38,0.06)] px-2.5 py-1 text-[13px] font-bold text-red-600">
+                                  <span className="inline-block whitespace-nowrap rounded-md bg-[rgba(220,38,38,0.06)] px-2.5 py-1 text-[13px] font-bold text-red-600">
                                     {remaining} units
                                   </span>
                                 );
                               }
                               if (remaining <= minStock) {
                                 return (
-                                  <span className="text-[13px] font-bold text-amber-600">{remaining} units</span>
+                                  <span className="whitespace-nowrap text-[13px] font-bold text-amber-600">{remaining} units</span>
                                 );
                               }
-                              return <span className="text-[13px] font-bold text-green-600">{remaining} units</span>;
+                              return <span className="whitespace-nowrap text-[13px] font-bold text-green-600">{remaining} units</span>;
                             })()}
                           </td>
                           <td className="px-4 py-4 pr-8 text-right align-middle">

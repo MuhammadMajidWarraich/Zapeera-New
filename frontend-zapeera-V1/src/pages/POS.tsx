@@ -22,11 +22,11 @@ const POS = () => {
     <div className="fixed inset-0 z-50 bg-black/50">
       <div className="w-full h-screen bg-white flex flex-col">
         {/* POS Header */}
-        <div className="flex justify-between items-center p-4 border-b bg-gradient-to-r from-[#1a52c5] to-[#28c2ce] shrink-0">
-          <h1 className="text-xl font-bold text-white">Point of Sale</h1>
+        <div className="flex justify-between items-center p-4 border-b bg-primary shrink-0">
+          <h1 className="text-xl font-bold text-primary-foreground">Point of Sale</h1>
           <button
             onClick={handleClose}
-            className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+            className="text-primary-foreground hover:bg-white/20 p-2 rounded-lg transition-colors"
             aria-label="Close POS"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

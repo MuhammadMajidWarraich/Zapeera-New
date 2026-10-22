@@ -252,7 +252,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
         {!isCollapsed && (
           <div
             className={cn(
-              'ml-3 mt-0.5 space-y-0.5 overflow-hidden border-l border-white/[0.06] pl-3 transition-all duration-300',
+              'ml-2 mt-0.5 min-w-0 space-y-0.5 overflow-hidden border-l border-white/[0.06] pl-2.5 transition-all duration-300',
               isOpen ? 'max-h-[480px] opacity-100' : 'max-h-0 opacity-0',
             )}
           >
@@ -263,7 +263,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
                   key={page.key}
                   to={isPageLocked ? '#' : page.href}
                   className={cn(
-                    'relative flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium transition-all',
+                    'relative flex min-w-0 items-center gap-3 rounded-[10px] px-2.5 py-2 text-sm font-medium transition-all',
                     location.pathname === page.href
                       ? 'bg-white/[0.08] text-white'
                       : 'text-white/65 hover:bg-white/[0.04] hover:text-white/90',
@@ -277,9 +277,9 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
                   }}
                 >
                   <page.icon className="h-4 w-4 shrink-0 opacity-90" />
-                  <span className="flex items-center gap-2">
-                    {page.label}
-                    {isPageLocked && <Lock className="h-3 w-3 text-orange-400" />}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">{page.label}</span>
+                    {isPageLocked && <Lock className="h-3 w-3 shrink-0 text-orange-400" />}
                   </span>
                 </Link>
               );

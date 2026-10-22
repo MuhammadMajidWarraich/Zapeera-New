@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -229,25 +231,25 @@ const PatientsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0a1128]">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <Users className="h-6 w-6" /> Patients
-          </h1>
-          <p className="text-sm text-gray-500">
-            The clinic's patient register — separate from sales customers. Records are never deleted, only deactivated.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadRecords} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> New Patient
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="The clinic's patient register — separate from sales customers. Records are never deleted, only deactivated."
+        actions={
+          <>
+            <Button variant="outline" onClick={loadRecords} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> New Patient
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[240px] flex-1">
@@ -293,8 +295,12 @@ const PatientsPage: React.FC = () => {
               </tr>
             ) : records.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
-                  No patients found. Register the first patient with “New Patient”.
+                <td colSpan={7} className="px-4 py-4">
+                  <EmptyState
+                    icon={Users}
+                    title="No patients found"
+                    description="Register the first patient with “New Patient”."
+                  />
                 </td>
               </tr>
             ) : (

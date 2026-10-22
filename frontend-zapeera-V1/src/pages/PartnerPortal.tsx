@@ -257,24 +257,26 @@ const PartnerPortal = () => {
           { label: 'Join link', url: joinUrl },
           { label: 'Signup link', url: signupUrl },
         ].map((row) => (
-          <div key={row.label} className="mt-3 flex items-center gap-2">
-            <span className="w-24 shrink-0 text-xs font-medium text-muted-foreground">{row.label}</span>
-            <code className="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 text-xs">{row.url}</code>
-            <button
-              type="button"
-              onClick={() => copy(row.url, row.label)}
-              className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium hover:bg-muted"
-            >
-              <Copy className="h-3.5 w-3.5" /> Copy
-            </button>
-            <a
-              href={row.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium hover:bg-muted"
-            >
-              <ExternalLink className="h-3.5 w-3.5" /> Open
-            </a>
+          <div key={row.label} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <span className="shrink-0 text-xs font-medium text-muted-foreground sm:w-24">{row.label}</span>
+            <code className="min-w-0 flex-1 break-all rounded-lg bg-muted px-3 py-2 text-xs leading-relaxed">{row.url}</code>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => copy(row.url, row.label)}
+                className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium hover:bg-muted"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </button>
+              <a
+                href={row.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium hover:bg-muted"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Open
+              </a>
+            </div>
           </div>
         ))}
       </div>
@@ -290,7 +292,7 @@ const PartnerPortal = () => {
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-3">Business</th>

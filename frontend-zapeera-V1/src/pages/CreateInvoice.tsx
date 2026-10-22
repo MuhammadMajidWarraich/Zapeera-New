@@ -3352,7 +3352,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <Button
               type="button"
               onClick={() => setIsNewSaleDialogOpen(true)}
-              className="h-10 gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+              className="h-10 gap-2 rounded-[10px] px-4 text-sm font-semibold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
             >
               <Plus className="h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
               New Invoice
@@ -3735,7 +3735,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             type="button"
                             onClick={handleApplyCoupon}
                             disabled={couponBusy || !couponCodeInput.trim()}
-                            className="h-9 shrink-0 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 text-sm font-semibold text-white hover:opacity-90"
+                            className="h-9 shrink-0 rounded-[10px] px-4 text-sm font-semibold"
                           >
                             {couponBusy ? "Checking…" : "Apply"}
                           </Button>
@@ -4054,8 +4054,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           className={cn(
                             "flex h-11 flex-col items-center justify-center gap-0.5 rounded-[10px] border text-xs font-bold transition-all",
                             paymentMethod === key
-                              ? "border-transparent bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_4px_14px_rgba(26,82,197,0.28)]"
-                              : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-[#1a52c5]/30",
+                              ? "border-transparent bg-primary text-primary-foreground shadow-soft"
+                              : "border-border bg-card text-muted-foreground hover:border-primary/30",
                           )}
                         >
                           <Icon className="h-4 w-4" strokeWidth={2} />
@@ -4105,7 +4105,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         <span className="block text-xs font-bold text-[#0a1128]">Split payment</span>
                         <span className="block text-[11px] text-[#8c95b0]">Split this bill across two or more methods</span>
                       </span>
-                      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-[#1a52c5]" : "bg-gray-300")}>
+                      <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-primary" : "bg-gray-300")}>
                         <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", splitEnabled ? "left-[18px]" : "left-0.5")} />
                       </span>
                     </button>
@@ -4115,7 +4115,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   <Button
                     onClick={createInvoice}
                     disabled={invoiceItems.length === 0 || isLoading || (splitEnabled && (splitRemaining < 0 || (paymentStatus === 'COMPLETED' && splitRemaining !== 0)))}
-                    className="mt-3.5 h-[52px] w-full rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-base font-bold text-white shadow-[0_6px_24px_rgba(26,82,197,0.32)] transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_32px_rgba(26,82,197,0.38)] disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                    className="mt-3.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
                   >
                     {isLoading ? (
                       "Creating..."

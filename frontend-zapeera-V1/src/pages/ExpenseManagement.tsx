@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -424,31 +425,31 @@ const ExpenseManagement = () => {
   };
 
   return (
-    <div className="space-y-6 p-6 lg:p-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-[#1a52c5]" />
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950">Business Expense Tracker</h1>
-          </div>
-          <p className="max-w-3xl text-sm text-slate-600">
-            {activeCompanyName} expense categories and expense entries stay scoped to this business.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={exportCsv} disabled={filteredExpenses.length === 0}>
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button
-            onClick={() => document.getElementById("record-expense-form")?.scrollIntoView({ behavior: "smooth" })}
-            disabled={categories.length === 0}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Record Expense
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-primary" />
+            Business Expense Tracker
+          </span>
+        }
+        description={`${activeCompanyName} expense categories and expense entries stay scoped to this business.`}
+        actions={
+          <>
+            <Button variant="outline" onClick={exportCsv} disabled={filteredExpenses.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              onClick={() => document.getElementById("record-expense-form")?.scrollIntoView({ behavior: "smooth" })}
+              disabled={categories.length === 0}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Record Expense
+            </Button>
+          </>
+        }
+      />
 
       {loadError && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">

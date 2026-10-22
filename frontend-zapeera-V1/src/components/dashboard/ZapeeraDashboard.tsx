@@ -190,7 +190,7 @@ const ZapeeraDashboard = () => {
                   href={whatsappUrl(`Hello! My account is disabled and I need it to be activated. My username: ${currentUser?.username || "N/A"}. Please help me activate my account.`)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex h-12 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-md hover:opacity-95"
+                  className="inline-flex h-12 items-center justify-center rounded-[10px] bg-primary font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
                 >
                   <MessageCircle className="mr-2 h-5 w-5" />
                   WhatsApp
@@ -255,7 +255,7 @@ const ZapeeraDashboard = () => {
                     type="button"
                     onClick={handleCreateBusiness}
                     disabled={!canCreateBusiness}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 text-[15px] font-bold text-white shadow-[0_6px_20px_rgba(26,82,197,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(26,82,197,0.38)] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-primary px-7 text-[15px] font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
                     Create New Business
@@ -303,7 +303,7 @@ const ZapeeraDashboard = () => {
                     type="button"
                     onClick={handleCreateBusiness}
                     disabled={!canCreateBusiness}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 py-3 text-sm font-semibold text-white shadow-[0_3px_14px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(26,82,197,0.35)] disabled:pointer-events-none disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium disabled:pointer-events-none disabled:opacity-50"
                   >
                     <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
                     Create New Business
@@ -444,7 +444,7 @@ const ZapeeraDashboard = () => {
               <Button type="button" variant="outline" onClick={handleFormCancel} className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7] hover:text-[#0a1128]">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95">
+              <Button type="submit" disabled={isSubmitting} className="h-11 rounded-[10px] border-0 px-7 font-semibold shadow-soft">
                 {isSubmitting ? "Creating…" : "Create Business"}
               </Button>
             </DialogFooter>

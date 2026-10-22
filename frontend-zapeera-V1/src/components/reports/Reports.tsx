@@ -1013,18 +1013,18 @@ const Reports = () => {
 
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">Reports & Analytics</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[26px]">Reports & Analytics</h1>
             <div className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
               <Activity className="w-3 h-3 mr-1 animate-pulse" />
               Live Data
             </div>
           </div>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {user?.role === 'OWNER' || user?.role === 'MANAGER'
               ? 'Comprehensive insights across all your branches'
               : 'Real-time insights into your business performance'

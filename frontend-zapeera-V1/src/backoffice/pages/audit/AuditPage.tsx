@@ -92,8 +92,8 @@ export function AuditPage() {
                       <td className="px-4 py-3 text-sm"><div className="flex items-center gap-2"><div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold text-gray-500">{(log.admin?.email || '?').charAt(0).toUpperCase()}</div><span className="text-gray-700">{log.admin?.email || 'Unknown'}</span></div></td>
                       <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">{log.action}</span></td>
                       <td className="px-4 py-3 text-sm text-gray-600">{log.entityType}</td>
-                      <td className="px-4 py-3 text-sm text-gray-400 font-mono text-xs max-w-[120px] truncate">{log.entityId || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-400">{new Date(log.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-400 font-mono text-xs max-w-[120px] truncate" title={log.entityId || undefined}>{log.entityId || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -125,7 +125,7 @@ export function AuditPage() {
                     <td className="px-4 py-3 text-sm text-gray-700">{log.admin?.email || 'Unknown'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">{log.ip || 'Unknown'}</td>
                     <td className="px-4 py-3 text-sm text-gray-400 max-w-[200px] truncate">{log.userAgent || 'Unknown'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

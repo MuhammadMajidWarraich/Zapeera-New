@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -271,25 +273,25 @@ const DoctorsPage: React.FC = () => {
   const reportRowByDoctor = new Map((report?.doctors || []).map((row) => [row.doctorId, row]));
 
   return (
-    <div className="space-y-8 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0a1128]">
+    <div className="space-y-8 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <HeartPulse className="h-6 w-6" /> Doctors
-          </h1>
-          <p className="text-sm text-gray-500">
-            Consultation fees and each doctor's share of them. Fee/share changes apply to future visits only.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadRecords} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> New Doctor
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="Consultation fees and each doctor's share of them. Fee/share changes apply to future visits only."
+        actions={
+          <>
+            <Button variant="outline" onClick={loadRecords} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> New Doctor
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[240px] flex-1">
@@ -336,8 +338,12 @@ const DoctorsPage: React.FC = () => {
               </tr>
             ) : records.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
-                  No doctors found. Add the first doctor with “New Doctor”.
+                <td colSpan={8} className="px-4 py-4">
+                  <EmptyState
+                    icon={HeartPulse}
+                    title="No doctors found"
+                    description="Add the first doctor with “New Doctor”."
+                  />
                 </td>
               </tr>
             ) : (

@@ -342,7 +342,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <button
                   type="button"
                   onClick={() => navigate(withBusinessSlug(businessSlug || null, "/point-of-sale"))}
-                  className="inline-flex items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_3px_12px_rgba(26,82,197,0.2)] transition-all hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(26,82,197,0.3)]"
+                  className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium"
                 >
                   <Plus className="h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
                   New Sale
@@ -359,9 +359,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="hidden items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12 md:inline-flex"
+                        className="hidden items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:inline-flex"
                       >
-                        <Building2 className="sel-icon h-4 w-4 shrink-0 text-[#4a5578] opacity-60" />
+                        <Building2 className="sel-icon h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
                         <span className="max-w-[160px] truncate">
                         {(() => {
                           // CRITICAL FIX: Get branch name from allBranches or cache IMMEDIATELY
@@ -507,7 +507,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="hidden max-w-[220px] items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-4 py-2 text-[13px] font-semibold text-[#4a5578] shadow-sm transition-colors hover:border-black/12 md:inline-flex"
+                        className="hidden max-w-[220px] items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground md:inline-flex"
                       >
                         <Building className="sel-icon h-4 w-4 shrink-0 opacity-60" />
                         <span className="truncate">
@@ -589,7 +589,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="grid h-[38px] w-[38px] shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-[#1a52c5]"
+                      className="grid h-[38px] w-[38px] shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {user?.profileImage ? (
                         <img src={user.profileImage} alt="" className="h-full w-full object-cover" />

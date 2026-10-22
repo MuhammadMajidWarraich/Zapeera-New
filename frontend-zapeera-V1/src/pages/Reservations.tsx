@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -236,25 +238,25 @@ const ReservationsPage: React.FC = () => {
   const pickedRoom = availability?.find((r) => r.id === form.roomId);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+    <div className="space-y-6 px-4 pb-14 pt-6 sm:px-6 lg:px-11 lg:pt-9">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <CalendarCheck className="h-6 w-6" /> Reservations
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            A walk-in is just a reservation for today — create it, then check the guest in.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={load}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> New reservation
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="A walk-in is just a reservation for today — create it, then check the guest in."
+        actions={
+          <>
+            <Button variant="outline" onClick={load}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Refresh
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> New reservation
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -293,14 +295,23 @@ const ReservationsPage: React.FC = () => {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : records.length === 0 ? (
-        <div className="rounded-lg border p-10 text-center text-muted-foreground">
-          No reservations match. Create the first one.
+        <div className="rounded-lg border">
+          <EmptyState
+            icon={CalendarCheck}
+            title="No reservations match"
+            description="Try a different date or status filter — or create a new reservation."
+            action={
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> New reservation
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className="rounded-lg border divide-y">
           {records.map((record) => (
             <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{record.guestName}</span>
                   <Badge className={STATUS_STYLES[record.status]}>{record.status}</Badge>
@@ -314,7 +325,7 @@ const ReservationsPage: React.FC = () => {
                 </div>
                 {record.notes && <div className="text-sm">{record.notes}</div>}
               </div>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {(record.cnicDocumentUrl || (record.guestPhotoUrls && record.guestPhotoUrls.length > 0)) && (
                   <Button
                     size="sm"
