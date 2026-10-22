@@ -20,6 +20,12 @@ import {
   CloudUpload,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  readUserScopedBusinesses,
+  writeUserScopedBusinesses,
+  RECENT_BUSINESSES_KEY,
+  FAVORITE_BUSINESSES_KEY,
+} from "@/lib/user-scoped-storage";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime, type DesktopBusinessState } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
@@ -153,15 +159,11 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
     [allCompanies, excludeBusinessId]
   );
 
-  // Load favorites on mount
+  // Load favorites on mount — user-scoped (see lib/user-scoped-storage):
+  // only the signed-in account's own favorites are read.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("zapeera_favorite_businesses");
-      if (raw) setFavorites(JSON.parse(raw).map((b: any) => b.id));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    setFavorites(readUserScopedBusinesses(FAVORITE_BUSINESSES_KEY, user?.id).map((b) => b.id));
+  }, [user?.id]);
 
   // Load entitlements for visible businesses (capped to avoid bursts)
   useEffect(() => {
@@ -190,17 +192,12 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
   const toggleFavorite = (b: BusinessCardData) => {
     const next = favorites.includes(b.id) ? favorites.filter((id) => id !== b.id) : [...favorites, b.id];
     setFavorites(next);
-    try {
-      const raw = localStorage.getItem("zapeera_favorite_businesses");
-      const list = raw ? JSON.parse(raw) : [];
-      const filtered = list.filter((x: any) => x.id !== b.id);
-      if (next.includes(b.id)) {
-        filtered.push({ id: b.id, name: b.name, slug: b.slug || null });
-      }
-      localStorage.setItem("zapeera_favorite_businesses", JSON.stringify(filtered));
-    } catch {
-      /* ignore */
+    const list = readUserScopedBusinesses(FAVORITE_BUSINESSES_KEY, user?.id);
+    const filtered = list.filter((x) => x.id !== b.id);
+    if (next.includes(b.id)) {
+      filtered.push({ id: b.id, name: b.name, slug: b.slug || null });
     }
+    writeUserScopedBusinesses(FAVORITE_BUSINESSES_KEY, user?.id, filtered);
   };
 
   const openWorkspace = (b: BusinessCardData) => {
@@ -210,15 +207,12 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
     } else {
       navigate("/zapeera/my-businesses");
     }
-    try {
-      const raw = localStorage.getItem("zapeera_recent_businesses");
-      const list = raw ? JSON.parse(raw) : [];
-      const filtered = list.filter((x: any) => x.id !== b.id);
-      filtered.unshift({ id: b.id, name: b.name, slug: b.slug || null });
-      localStorage.setItem("zapeera_recent_businesses", JSON.stringify(filtered.slice(0, 5)));
-    } catch {
-      /* ignore */
-    }
+    // Record the visit in the OWNER-TAGGED recents list — readable only
+    // by this same account later (see lib/user-scoped-storage).
+    const list = readUserScopedBusinesses(RECENT_BUSINESSES_KEY, user?.id);
+    const filtered = list.filter((x) => x.id !== b.id);
+    filtered.unshift({ id: b.id, name: b.name, slug: b.slug || null });
+    writeUserScopedBusinesses(RECENT_BUSINESSES_KEY, user?.id, filtered.slice(0, 5));
   };
 
   const handleSyncNow = async (b: BusinessCardData) => {

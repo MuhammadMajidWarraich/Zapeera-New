@@ -43,6 +43,11 @@ import { useSync } from "@/contexts/SyncProvider";
 import { whatsappUrl, callUrl, emailUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 import { apiService } from "@/services/api";
 import { config } from "@/lib/config";
+import {
+  readUserScopedBusinesses,
+  RECENT_BUSINESSES_KEY,
+  FAVORITE_BUSINESSES_KEY,
+} from "@/lib/user-scoped-storage";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -421,16 +426,13 @@ export function ActivityTimeline({ compact }: { compact?: boolean }) {
 /* Recently accessed businesses (from localStorage)                    */
 /* ------------------------------------------------------------------ */
 export function RecentlyAccessed({ onOpen }: { onOpen: (slug?: string | null, id: string) => void }) {
+  const { user } = useAuth();
   const [recent, setRecent] = useState<Array<{ id: string; name: string; slug?: string | null }>>([]);
 
+  // User-scoped read — see lib/user-scoped-storage (cross-account leak fix).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("zapeera_recent_businesses");
-      if (raw) setRecent(JSON.parse(raw).slice(0, 4));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    setRecent(readUserScopedBusinesses(RECENT_BUSINESSES_KEY, user?.id).slice(0, 4));
+  }, [user?.id]);
 
   if (recent.length === 0) return null;
 
@@ -461,16 +463,13 @@ export function RecentlyAccessed({ onOpen }: { onOpen: (slug?: string | null, id
 /* ------------------------------------------------------------------ */
 export function FavoriteBusinesses({ onOpen }: { onOpen: (slug?: string | null, id: string) => void }) {
   const { allCompanies } = useAdmin();
+  const { user } = useAuth();
   const [pinned, setPinned] = useState<Array<{ id: string; name: string; slug?: string | null }>>([]);
 
+  // User-scoped read — see lib/user-scoped-storage (cross-account leak fix).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("zapeera_favorite_businesses");
-      if (raw) setPinned(JSON.parse(raw).slice(0, 3));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    setPinned(readUserScopedBusinesses(FAVORITE_BUSINESSES_KEY, user?.id).slice(0, 3));
+  }, [user?.id]);
 
   if (pinned.length === 0) return null;
 

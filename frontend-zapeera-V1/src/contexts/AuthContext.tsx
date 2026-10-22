@@ -8,6 +8,7 @@ import {
   readStoredUser,
   writeStoredUser,
 } from '../lib/session-storage';
+import { purgeUserScopedBusinesses } from '../lib/user-scoped-storage';
 
 interface Membership {
   id: string;
@@ -283,6 +284,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback((userData: User) => {
     const normalizedUserData = normalizeStoredUser(userData as unknown as Record<string, unknown>);
 
+    // Cross-account hygiene: if a DIFFERENT account was previously
+    // signed in on this browser, destroy its user-scoped convenience
+    // data (recently accessed / favorite businesses) before this
+    // account's home can render. The stored lists are owner-tagged
+    // and unreadable by other accounts (lib/user-scoped-storage);
+    // this purge is the belt-and-braces wipe on identity change.
+    try {
+      const previousRaw = readStoredUser();
+      const previousId = previousRaw ? (JSON.parse(previousRaw)?.id as string | undefined) : undefined;
+      if (previousId && String(previousId) !== String(normalizedUserData.id)) {
+        purgeUserScopedBusinesses();
+      }
+    } catch {
+      // ignore — reads are owner-gated regardless
+    }
+
     setUser(normalizedUserData);
     setIsAuthenticated(true);
 
@@ -358,6 +375,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsAuthenticated(false);
     clearStoredSession();
     localStorage.removeItem('auth_initialized');
+    // NOTE: the user-scoped convenience lists (recent/favorite
+    // businesses) are intentionally NOT removed here — they are stored
+    // owner-tagged, so no other account can read them, and login()
+    // purges them when a different account signs in. Keeping them is
+    // what lets the same user's recents survive their own
+    // logout/login cycle. See lib/user-scoped-storage.
 
     // Clear admin welcome flag so they can see welcome screen again on next login
     if (currentUser?.role === 'OWNER') {
