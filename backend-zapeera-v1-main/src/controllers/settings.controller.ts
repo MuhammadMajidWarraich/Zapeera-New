@@ -16,6 +16,12 @@ const updateSettingsSchema = Joi.object({
   // defaults to ON for PHARMACY businesses, OFF otherwise). Existing
   // clients never send it and keep working.
   requirePrescriptionAtPos: Joi.boolean().allow(null).optional(),
+  // Barcode scanning (POS): explicit on/off for wedge + camera scan
+  // capture at the register. Optional + nullable like the C1 key:
+  // null REMOVES the stored row; consumers default to ON for the
+  // product-selling business types (PHARMACY / DEPARTMENTAL_STORE /
+  // RETAIL_STORE) and OFF elsewhere.
+  barcodeScanningEnabled: Joi.boolean().allow(null).optional(),
   lowStockAlert: Joi.number().min(0).required(),
   expiryAlert: Joi.number().min(0).required(),
   autoSync: Joi.boolean().required(),
@@ -97,6 +103,10 @@ export const getSettings = async (req: AuthRequest, res: Response): Promise<void
       // null is the "Automatic" state (see updateSettingsSchema);
       // consumers resolve the effective default from business type.
       requirePrescriptionAtPos: settingsObj.requirePrescriptionAtPos ?? null,
+      // Same contract as requirePrescriptionAtPos: raw stored value
+      // ('true' | 'false') or null when unset; consumers resolve the
+      // effective default from the business type.
+      barcodeScanningEnabled: settingsObj.barcodeScanningEnabled ?? null,
       lowStockAlert: settingsObj.lowStockAlert || '20',
       expiryAlert: settingsObj.expiryAlert || '30',
       autoSync: settingsObj.autoSync || 'true',
@@ -246,6 +256,7 @@ function getSettingDescription(key: string): string {
     defaultTax: 'Default tax rate percentage for sales',
     loyaltyPointValue: 'PKR value of one loyalty point when redeemed at the POS',
     requirePrescriptionAtPos: 'Whether the POS blocks sales of prescription-only items without an attached prescription',
+    barcodeScanningEnabled: 'Whether barcode scanning (USB/Bluetooth wedge + camera) is active at the POS',
     lowStockAlert: 'Minimum stock level to trigger low stock alert',
     expiryAlert: 'Days before expiry to trigger alert',
     autoSync: 'Automatically sync data when online',

@@ -88,6 +88,7 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.83.0",
+    "@zxing/library": "^0.23.0",
     "app-builder-bin": "^4.2.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",

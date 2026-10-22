@@ -12,7 +12,7 @@ export interface BarcodeLookupResult {
   product?: any;
   batch?: any;
   stock?: number;
-  matchType?: 'primary' | 'additional' | 'sku' | 'name';
+  matchType?: 'primary' | 'additional' | 'batch' | 'sku' | 'name';
 }
 
 export interface GenerateBarcodeOptions {
@@ -55,6 +55,26 @@ export class BarcodeService {
       return { found: false };
     }
 
+    // Shared include for every product-shaped result: the POS needs
+    // the active variant matrix and the FEFO-ordered in-stock batches
+    // to sell a scanned product without a second fetch.
+    const productInclude = {
+      category: true,
+      supplier: true,
+      variants: {
+        where: { isActive: true },
+      },
+      batches: {
+        where: {
+          isActive: true,
+          quantity: { gt: 0 },
+          ...(branchId ? { branchId } : {}),
+        },
+        orderBy: { expireDate: 'asc' as const },
+        take: 10,
+      },
+    };
+
     // 1. Primary barcode lookup (highest priority)
     const primaryMatch = await prisma.product.findFirst({
       where: {
@@ -65,15 +85,7 @@ export class BarcodeService {
         isActive: true,
         ...(branchId ? { branchId } : {}),
       },
-      include: {
-        category: true,
-        supplier: true,
-        batches: {
-          where: { isActive: true, quantity: { gt: 0 } },
-          orderBy: { expireDate: 'asc' },
-          take: 10,
-        },
-      },
+      include: productInclude,
     });
 
     if (primaryMatch) {
@@ -100,15 +112,7 @@ export class BarcodeService {
         additionalBarcodes: { not: null },
         ...(branchId ? { branchId } : {}),
       },
-      include: {
-        category: true,
-        supplier: true,
-        batches: {
-          where: { isActive: true, quantity: { gt: 0 } },
-          orderBy: { expireDate: 'asc' },
-          take: 10,
-        },
-      },
+      include: productInclude,
     });
 
     for (const product of allProducts) {
@@ -135,7 +139,44 @@ export class BarcodeService {
       }
     }
 
-    // 3. SKU lookup
+    // 3. Batch barcode lookup — a code printed on one specific stock
+    // batch resolves to that batch's product, pinned to that batch
+    // (the POS sells exactly the scanned stock, not the FEFO batch).
+    const batchMatch = await prisma.batch.findFirst({
+      where: {
+        barcode: trimmed,
+        companyId,
+        isActive: true,
+        ...(branchId ? { branchId } : {}),
+        product: {
+          isActive: true,
+          companyId,
+        },
+      },
+      orderBy: { expireDate: 'asc' },
+      include: {
+        product: {
+          include: productInclude,
+        },
+      },
+    });
+
+    if (batchMatch?.product) {
+      const { product: batchProduct, ...pinnedBatch } = batchMatch as any;
+      const totalStock = batchProduct.batches.reduce(
+        (sum: number, b: any) => sum + b.quantity,
+        0
+      );
+      return {
+        found: true,
+        product: batchProduct,
+        batch: pinnedBatch,
+        stock: totalStock,
+        matchType: 'batch',
+      };
+    }
+
+    // 4. SKU lookup
     const skuMatch = await prisma.product.findFirst({
       where: {
         sku: trimmed,
@@ -143,15 +184,7 @@ export class BarcodeService {
         isActive: true,
         ...(branchId ? { branchId } : {}),
       },
-      include: {
-        category: true,
-        supplier: true,
-        batches: {
-          where: { isActive: true, quantity: { gt: 0 } },
-          orderBy: { expireDate: 'asc' },
-          take: 10,
-        },
-      },
+      include: productInclude,
     });
 
     if (skuMatch) {
@@ -168,7 +201,7 @@ export class BarcodeService {
       };
     }
 
-    // 4. Name search (last resort)
+    // 5. Name search (last resort)
     const nameMatch = await prisma.product.findFirst({
       where: {
         name: { contains: trimmed },
@@ -176,15 +209,7 @@ export class BarcodeService {
         isActive: true,
         ...(branchId ? { branchId } : {}),
       },
-      include: {
-        category: true,
-        supplier: true,
-        batches: {
-          where: { isActive: true, quantity: { gt: 0 } },
-          orderBy: { expireDate: 'asc' },
-          take: 10,
-        },
-      },
+      include: productInclude,
     });
 
     if (nameMatch) {

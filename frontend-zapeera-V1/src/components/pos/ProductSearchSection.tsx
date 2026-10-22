@@ -1,12 +1,11 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, ScanBarcode, Loader2, Building2, X } from 'lucide-react';
+import { Search, ScanBarcode, Building2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import PosProductCard from './PosProductCard';
-import { apiService } from '@/services/api';
-import { toast } from '@/hooks/use-toast';
+import { BurstTracker } from '@/lib/barcode-scan';
 import type { ProductVariantLite } from '@/utils/variants';
 
 interface Product {
@@ -54,10 +53,16 @@ interface ProductSearchSectionProps {
   getBatchesForProduct?: (productId: string) => Batch[];
   getEffectiveVariantId?: (product: Product) => string | null;
   onSelectVariant?: (productId: string, variantId: string | null) => void;
-  /** Callback when a barcode is scanned and not found */
-  onUnknownBarcode?: (barcode: string) => void;
-  /** Callback when a barcode is found - adds product directly */
-  onBarcodeFound?: (product: any, batch?: any) => void;
+  /**
+   * A burst of machine-speed keystrokes ending in Enter (a wedge
+   * scan typed into this input) is reported here; the parent owns
+   * resolution + cart add. The parent's global wedge listener
+   * normally consumes scans in the capture phase first — this path
+   * covers the surfaces where that listener is suspended.
+   */
+  onScanSubmit?: (barcode: string) => void;
+  /** Barcode scanning switch for this business (default true). */
+  scanningEnabled?: boolean;
   /** Use on full-width split layouts so the list grows with the column */
   layout?: 'default' | 'split';
   className?: string;
@@ -109,8 +114,8 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   getBatchesForProduct,
   getEffectiveVariantId,
   onSelectVariant,
-  onUnknownBarcode,
-  onBarcodeFound,
+  onScanSubmit,
+  scanningEnabled = true,
   layout = 'default',
   className,
   categories,
@@ -119,9 +124,10 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
 }) => {
   const isSplit = layout === 'split';
   const inputRef = useRef<HTMLInputElement>(null);
-  const bufferRef = useRef('');
-  const lastKeyTimeRef = useRef(0);
-  const [isLookingUp, setIsLookingUp] = useState(false);
+  const burstTrackerRef = useRef<BurstTracker | null>(null);
+  if (!burstTrackerRef.current) {
+    burstTrackerRef.current = new BurstTracker();
+  }
 
   // Auto-focus the search input
   useEffect(() => {
@@ -130,49 +136,31 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
     }
   }, []);
 
-  // Handle barcode scanner input (Enter key triggers lookup)
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const now = Date.now();
-    const timeSinceLastKey = now - lastKeyTimeRef.current;
-    lastKeyTimeRef.current = now;
+  // Barcode input discipline: only a machine-speed burst ending in
+  // Enter counts as a scan (BurstTracker). The previous handler ran a
+  // lookup for ANY long word typed here and claimed "added to cart"
+  // through callbacks the POS never wired — both are gone; the
+  // parent resolves scans and reports the truth.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const tracker = burstTrackerRef.current!;
+    const now = e.timeStamp || performance.now();
 
-    // If typing slowly, clear scanner buffer (user input, not scanner)
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      if (timeSinceLastKey > 200) {
-        bufferRef.current = '';
-      }
-      bufferRef.current += e.key;
-    }
-
-    // Enter key = submit barcode scan
     if (e.key === 'Enter') {
-      e.preventDefault();
-      const barcode = bufferRef.current.trim();
-      bufferRef.current = '';
-
-      if (!barcode) return;
-
-      // Check if it looks like a barcode (mostly digits, or matches known formats)
-      const isBarcodeLike = /^\d{8,14}$/.test(barcode) || /^[A-Z]{2,4}\d{4,}$/.test(barcode);
-
-      if (isBarcodeLike || barcode.length > 6) {
-        // Likely a barcode scan - do a lookup
-        setIsLookingUp(true);
-        try {
-          const response = await apiService.lookupBarcode(barcode);
-          if (response.success && response.data?.product) {
-            onBarcodeFound?.(response.data.product, response.data.batch);
-            onSearchChange('');
-            toast({ title: 'Product found', description: `${response.data.product.name} added to cart` });
-          } else {
-            onUnknownBarcode?.(barcode);
-          }
-        } catch {
-          onUnknownBarcode?.(barcode);
-        } finally {
-          setIsLookingUp(false);
-        }
+      const code = tracker.pushEnter(now);
+      if (code && scanningEnabled && onScanSubmit) {
+        e.preventDefault();
+        onScanSubmit(code);
       }
+      return;
+    }
+    if (e.key === 'Escape') {
+      tracker.invalidate();
+      return;
+    }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      tracker.pushChar(e.key, now);
+    } else if (!['Shift', 'CapsLock', 'Alt', 'Control', 'Meta'].includes(e.key)) {
+      tracker.invalidate();
     }
   };
 
@@ -215,14 +203,10 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
         )}
 
         <div className="relative mb-4 shrink-0">
-          {isLookingUp ? (
-            <Loader2 className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 animate-spin text-[#1a52c5]" />
-          ) : (
-            <ScanBarcode
-              className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]"
-              strokeWidth={2}
-            />
-          )}
+          <ScanBarcode
+            className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]"
+            strokeWidth={2}
+          />
           <Input
             ref={inputRef}
             id={isSplit ? 'pos-search-input' : undefined}
@@ -230,7 +214,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={requiresBranchSelection || isLookingUp}
+            disabled={requiresBranchSelection}
             autoFocus
             className={cn(
               'border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
