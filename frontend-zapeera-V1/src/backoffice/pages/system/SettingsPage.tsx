@@ -71,7 +71,7 @@ export function SettingsPage() {
         ) : (
           <>
             {error && <p className="text-sm text-amber-600 mb-4">{error}</p>}
-            <div className="grid grid-cols-2 gap-4 max-w-3xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
               {rows.map(row => (
                 <div key={row.label} className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">{row.label}</p><p className="text-sm font-medium text-gray-900">{row.value}</p></div>
               ))}
@@ -82,7 +82,7 @@ export function SettingsPage() {
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4"><Database className="w-5 h-5 text-gray-400" /> This Admin Panel</h3>
-        <div className="grid grid-cols-2 gap-4 max-w-3xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
           <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">Backoffice API</p><p className="text-sm font-medium text-gray-900 break-all">{config.backoffice.baseUrl}</p></div>
           <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-500 mb-1">Build Mode</p><p className="text-sm font-medium text-gray-900">{import.meta.env.MODE}</p></div>
         </div>

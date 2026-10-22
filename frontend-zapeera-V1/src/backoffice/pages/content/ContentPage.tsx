@@ -102,12 +102,12 @@ export function ContentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold text-gray-900">Content Management</h1><p className="text-sm text-gray-500 mt-1">Manage platform pages (legal, help, landing copy) served at /api/content/:slug</p></div>
         <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"><Plus className="w-4 h-4" /> New Page</button>
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
         {[
           { id: 'all', label: 'All Pages' },
           { id: 'PUBLISHED', label: 'Published' },

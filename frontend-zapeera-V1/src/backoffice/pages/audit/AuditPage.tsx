@@ -60,8 +60,8 @@ export function AuditPage() {
 
       {activeTab === 'actions' && (
         <>
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1 max-w-none sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search logs..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-blue-500/50" />
             </div>
@@ -77,7 +77,8 @@ export function AuditPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><ScrollText className="w-12 h-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-600">No audit logs found</h3></div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
                 <thead><tr className="border-b border-gray-100 bg-gray-50/50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Admin</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Action</th>
@@ -97,6 +98,7 @@ export function AuditPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -109,7 +111,8 @@ export function AuditPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-600">No login logs found</h3></div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead><tr className="border-b border-gray-100 bg-gray-50/50">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Admin</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">IP Address</th>
@@ -127,6 +130,7 @@ export function AuditPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}

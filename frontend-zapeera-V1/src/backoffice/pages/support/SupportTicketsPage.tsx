@@ -173,8 +173,8 @@ export function SupportTicketsPage() {
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1><p className="text-sm text-gray-500 mt-1">Manage customer support requests</p></div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-none sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-blue-500/50" />
         </div>

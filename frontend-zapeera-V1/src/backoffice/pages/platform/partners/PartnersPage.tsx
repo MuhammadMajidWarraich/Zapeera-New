@@ -117,7 +117,7 @@ export function PartnersPage() {
             only changes here.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={openReassign}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium hover:bg-gray-50"
@@ -140,7 +140,8 @@ export function PartnersPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-4 py-3">Partner</th>
@@ -223,6 +224,7 @@ export function PartnersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Create partner modal */}
@@ -248,7 +250,7 @@ export function PartnersPage() {
                 <span className="text-xs font-medium text-gray-500">Slug (optional — derived from the name)</span>
                 <input className={inputCls} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="acme-pos" />
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="block">
                   <span className="text-xs font-medium text-gray-500">Support email</span>
                   <input className={inputCls} value={form.supportEmail} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} placeholder="support@acme.com" />

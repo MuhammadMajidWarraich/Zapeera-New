@@ -173,8 +173,8 @@ export function RolesPage() {
 
           return (
             <div key={role} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between p-5">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-5">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className={`w-10 h-10 bg-gradient-to-br ${meta.color} rounded-xl flex items-center justify-center`}>
                     <Shield className="w-5 h-5 text-white" />
                   </div>

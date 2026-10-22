@@ -89,7 +89,7 @@ export function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-400 mb-1">Role</p><p className="text-sm font-medium text-gray-900">{admin?.role || 'Unknown'}</p></div>
               <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-400 mb-1">Status</p><p className="text-sm font-medium text-emerald-600">{admin?.isActive ? 'Active' : 'Inactive'}</p></div>
               <div className="bg-gray-50 rounded-xl p-4"><p className="text-xs text-gray-400 mb-1">Account Created</p><p className="text-sm font-medium text-gray-900">{admin?.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'N/A'}</p></div>
