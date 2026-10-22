@@ -425,7 +425,14 @@ export const getMyCompanies = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Get a single company by slug (for /b/:slug routing)
-export const getCompanyBySlug = async (req: Request, res: Response): Promise<void> => {
+// Tenancy guard (A-01): creator or ACTIVE member only — see
+// resolveCompanyAccess. A slug is name-derived and guessable, so this
+// handler must apply the same guard as getCompany: without it, ANY
+// authenticated user could read ANY tenant's business profile and
+// branch contact details by slug (cross-tenant disclosure found in
+// the 2026-10-22 leakage audit). Guard failure answers 404, identical
+// to a non-existent slug, so existence is not leaked either.
+export const getCompanyBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await Promise.all([
       pullLatestFromLive('company').catch(err => console.log('[Sync] Pull company:', err.message)),
@@ -445,6 +452,12 @@ export const getCompanyBySlug = async (req: Request, res: Response): Promise<voi
     });
 
     if (!company) {
+      res.status(404).json({ success: false, message: 'Company not found' });
+      return;
+    }
+
+    const access = await resolveCompanyAccess(prisma, company, req.user?.id);
+    if (!access) {
       res.status(404).json({ success: false, message: 'Company not found' });
       return;
     }

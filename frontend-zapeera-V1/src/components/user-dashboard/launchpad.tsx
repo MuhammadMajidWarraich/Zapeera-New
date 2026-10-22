@@ -47,6 +47,7 @@ import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
 import { DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
+import { readUserScopedBusinesses, RECENT_BUSINESSES_KEY } from "@/lib/user-scoped-storage";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/components/user-dashboard/business-cards";
 
@@ -204,16 +205,15 @@ export function CompletionStrip() {
 export function RecentActivity({ onOpen }: { onOpen: (slug?: string | null, id: string) => void }) {
   const runtime = useRuntime();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [recent, setRecent] = useState<Array<{ id: string; name: string; slug?: string | null }>>([]);
 
+  // User-scoped read: only THIS account's recents can render here.
+  // Another account's (or a legacy untagged) list is purged by the
+  // helper and reads as empty — see lib/user-scoped-storage.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("zapeera_recent_businesses");
-      if (raw) setRecent(JSON.parse(raw).slice(0, 4));
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    setRecent(readUserScopedBusinesses(RECENT_BUSINESSES_KEY, user?.id).slice(0, 4));
+  }, [user?.id]);
 
   const events = useMemo(() => {
     const list: Array<{ id: string; icon: React.ElementType; tint: string; title: string; time: string }> = [];
