@@ -20,7 +20,7 @@
  */
 export const MODULE_PAGES: Record<string, string[]> = {
   inventory: ['overview', 'products', 'categories', 'manufacturers', 'shelves', 'batches', 'suppliers'],
-  sales: ['overview', 'pos', 'invoices', 'refunds'],
+  sales: ['overview', 'pos', 'invoices', 'refunds', 'customers', 'promotions', 'tax-classes'],
   pos: ['overview', 'pos'],
   customers: ['overview', 'customers'],
   purchases: ['overview', 'suppliers', 'order-purchase'],
