@@ -90,6 +90,11 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/modules', policy: { kind: 'auth-core' } },
   { prefix: '/api/module-access', policy: { kind: 'auth' } },
   { prefix: '/api/dashboard', policy: { kind: 'auth-core' } },
+  // Voice Assistant AI layer: authenticated workspace infrastructure —
+  // the proxy enforces the business's plan quota server-side and only
+  // ever returns a proposed action; execution stays in the frontend
+  // executor behind the user's confirm card.
+  { prefix: '/api/voice', policy: { kind: 'auth-core' } },
   { prefix: '/api/barcodes', policy: { kind: 'auth-core' } },
 
   // ── Cross-module helpers / notifications / sync (authenticated) ──────────

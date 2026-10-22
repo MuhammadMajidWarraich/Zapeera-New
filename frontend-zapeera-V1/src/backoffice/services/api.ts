@@ -16,6 +16,8 @@ import {
   BackofficeAffiliateCommission,
   BackofficeAffiliatePayout,
   AffiliateProgramConfig,
+  VoiceAiConfig,
+  VoiceAiUsageReport,
   AuditLog,
   SupportTicket,
   SupportTicketMessage,
@@ -287,6 +289,14 @@ export const backofficeApi = {
     request('/affiliates/config'),
   updateAffiliateConfig: (data: Partial<AffiliateProgramConfig>) =>
     request('/affiliates/config', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Voice AI (plan quotas + usage)
+  getVoiceAiConfig: (): Promise<{ success: boolean; data: VoiceAiConfig }> =>
+    request('/voice-ai/config'),
+  updateVoiceAiConfig: (data: { planQuotas?: Record<string, number>; dailyTokenCap?: number }) =>
+    request('/voice-ai/config', { method: 'PUT', body: JSON.stringify(data) }),
+  getVoiceAiUsage: (): Promise<{ success: boolean; data: VoiceAiUsageReport }> =>
+    request('/voice-ai/usage'),
 
   // Audit Logs
   getAuditLogs: (params?: string): Promise<{ success: boolean; data: AuditLog[] }> =>

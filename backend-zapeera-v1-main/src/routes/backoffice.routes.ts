@@ -133,6 +133,11 @@ import {
   getAffiliateConfigAdmin,
   updateAffiliateConfigAdmin,
 } from '../controllers/backoffice-affiliates.controller';
+import {
+  getVoiceAiConfigAdmin,
+  updateVoiceAiConfigAdmin,
+  listVoiceAiUsageAdmin,
+} from '../controllers/backoffice-voice-ai.controller';
 
 const router = Router();
 
@@ -310,6 +315,16 @@ router.get('/commissions/stats', adminAuthenticate, getBackofficeCommissionStats
  */
 router.get('/affiliates/config', adminAuthenticate, getAffiliateConfigAdmin);
 router.put('/affiliates/config', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateAffiliateConfigAdmin);
+
+/**
+ * Voice Assistant AI Routes
+ * Per-plan monthly token quotas + platform daily cap (Settings-backed,
+ * lazily defaulted) and the per-business usage list for the current
+ * Asia/Karachi month. Usage itself is written by the tenant proxy.
+ */
+router.get('/voice-ai/config', adminAuthenticate, getVoiceAiConfigAdmin);
+router.put('/voice-ai/config', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateVoiceAiConfigAdmin);
+router.get('/voice-ai/usage', adminAuthenticate, listVoiceAiUsageAdmin);
 router.get('/affiliates', adminAuthenticate, listAffiliates);
 router.patch('/affiliates/:id', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateAffiliate);
 router.post('/affiliates/attribute', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), attributeBusiness);

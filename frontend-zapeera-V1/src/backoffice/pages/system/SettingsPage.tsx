@@ -3,6 +3,7 @@ import { Settings, Server, Database, RefreshCw, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { backofficeApi } from '../../services/api';
 import { config } from '@/lib/config';
+import { VoiceAiSection } from './VoiceAiSection';
 
 type Health = Awaited<ReturnType<typeof backofficeApi.getSystemHealth>>;
 
@@ -79,6 +80,8 @@ export function SettingsPage() {
           </>
         )}
       </div>
+
+      <VoiceAiSection />
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4"><Database className="w-5 h-5 text-gray-400" /> This Admin Panel</h3>
