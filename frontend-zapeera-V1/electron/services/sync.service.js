@@ -58,7 +58,40 @@ const ENTITY_TYPE_TO_TABLE = {
   commission: 'commissions',
   settings: 'settings',
   cardDetails: 'card_details',
-  subscription: 'subscriptions'
+  subscription: 'subscriptions',
+  // Maturity-program tables (Waves A2–C6). Parents are served by the cloud
+  // cursor pull (/sync/changes); child rows are mapped too so any change
+  // that arrives for them lands in the right local table.
+  stockTransfer: 'stock_transfers',
+  stockTransferItem: 'stock_transfer_items',
+  salePayment: 'sale_payments',
+  // Khata + loyalty ledgers (B2/B3): PULL-ONLY — server-derived, the
+  // desktop never pushes these back (cloud push rejects them).
+  customerLedgerEntry: 'customer_ledger_entries',
+  loyaltyTransaction: 'loyalty_transactions',
+  promotion: 'promotions',
+  salePromotion: 'sale_promotions',
+  taxClass: 'tax_classes',
+  saleTaxLine: 'sale_tax_lines',
+  prescription: 'prescriptions',
+  prescriptionItem: 'prescription_items',
+  patient: 'patients',
+  doctor: 'doctors',
+  appointment: 'appointments',
+  doctorSettlement: 'doctor_settlements',
+  roomType: 'room_types',
+  room: 'rooms',
+  reservation: 'reservations',
+  folio: 'folios',
+  folioCharge: 'folio_charges',
+  folioPayment: 'folio_payments',
+  productVariant: 'product_variants',
+  stockTake: 'stock_takes',
+  stockTakeLine: 'stock_take_lines'
+  // EXCLUDED by design (B7): fbrConfig / fbrInvoiceQueue — the config holds
+  // a write-only PRAL API token that must never leave the server, and the
+  // queue is server-side worker state. sales.fbrInvoiceNumber/fbrStatus
+  // ride with the sales table.
 };
 
 function resolveLocalTable(entityType) {
@@ -93,7 +126,32 @@ const SYNC_TABLES = [
   { name: 'settings', priority: 25 },
   { name: 'card_details', priority: 26 },
   { name: 'subscriptions', priority: 27 },
-  { name: 'device_activation', priority: 28 }
+  { name: 'device_activation', priority: 28 },
+  // Maturity-program tables (Waves A2–C6), parents before children
+  { name: 'product_variants', priority: 29 },
+  { name: 'stock_transfers', priority: 30 },
+  { name: 'stock_transfer_items', priority: 31 },
+  { name: 'stock_takes', priority: 32 },
+  { name: 'stock_take_lines', priority: 33 },
+  { name: 'promotions', priority: 34 },
+  { name: 'tax_classes', priority: 35 },
+  { name: 'sale_payments', priority: 36 },
+  { name: 'sale_promotions', priority: 37 },
+  { name: 'sale_tax_lines', priority: 38 },
+  { name: 'customer_ledger_entries', priority: 39 },
+  { name: 'loyalty_transactions', priority: 40 },
+  { name: 'prescriptions', priority: 41 },
+  { name: 'prescription_items', priority: 42 },
+  { name: 'patients', priority: 43 },
+  { name: 'doctors', priority: 44 },
+  { name: 'appointments', priority: 45 },
+  { name: 'doctor_settlements', priority: 46 },
+  { name: 'room_types', priority: 47 },
+  { name: 'rooms', priority: 48 },
+  { name: 'reservations', priority: 49 },
+  { name: 'folios', priority: 50 },
+  { name: 'folio_charges', priority: 51 },
+  { name: 'folio_payments', priority: 52 }
 ].sort((a, b) => a.priority - b.priority);
 
 let cloudApi = null;
@@ -384,11 +442,17 @@ function applyChanges(changes) {
         run(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
       } else {
         const columns = Object.keys(data);
-        const values = columns.map(c => data[c]);
+        // Json-typed fields (e.g. product_variants.attributes) arrive as
+        // objects — sql.js can only bind scalars, so store them as JSON
+        // text, mirroring the backend replication's cleanRecordForSQLite.
+        const values = columns.map(c => {
+          const v = data[c];
+          return v !== null && typeof v === 'object' && !(v instanceof Date) ? JSON.stringify(v) : v;
+        });
         const existing = query(`SELECT id FROM ${table} WHERE id = ?`, [entityId]);
         if (existing && existing.length > 0) {
           const setClause = columns.filter(c => c !== 'id').map(c => `${c} = ?`).join(', ');
-          const updateValues = columns.filter(c => c !== 'id').map(c => data[c]);
+          const updateValues = columns.filter(c => c !== 'id').map(c => values[columns.indexOf(c)]);
           if (setClause) {
             run(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...updateValues, entityId]);
           }

@@ -228,9 +228,25 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
 
     const results: any[] = [];
 
+    // Entity types the desktop may never push:
+    // - customerLedgerEntry / loyaltyTransaction (B2/B3): server-derived
+    //   ledgers (PULL-ONLY) — accepting a client copy would double-post the
+    //   khata/loyalty entry the server already wrote inside its transaction.
+    // - fbrConfig / fbrInvoiceQueue (B7): excluded from sync by design — the
+    //   config holds a write-only PRAL API token; the queue is server-side
+    //   worker state.
+    const PUSH_BLOCKED_ENTITY_TYPES = new Set([
+      'customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue'
+    ]);
+
     for (const op of operations) {
       try {
         const { entityType, entityId, operation, payload, idempotencyKey } = op;
+
+        if (PUSH_BLOCKED_ENTITY_TYPES.has(entityType)) {
+          results.push({ id: op.id, status: 'REJECTED', message: `Entity type ${entityType} is not pushable (server-managed)` });
+          continue;
+        }
 
         if (operation === 'DELETE') {
           const model = (prisma as any)[entityType];
@@ -299,17 +315,47 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
     const sinceDate = cursor ? new Date(cursor) : new Date(Date.now() - 86400000);
     const changes: any[] = [];
 
-    const tables = ['product', 'customer', 'sale', 'purchase', 'batch', 'category', 'supplier', 'manufacturer', 'shelf', 'stockMovement'];
+    // Tables served by the cursor pull. Only companyId-scoped PARENT tables
+    // can be served here (the query filters by companyId + a timestamp).
+    // Child tables without companyId (saleItem, purchaseItem — and the
+    // maturity-program children stockTransferItem, prescriptionItem,
+    // salePromotion, saleTaxLine, folioCharge, folioPayment, stockTakeLine,
+    // salePayment) are NOT cursor-pulled, by the same precedent: they move
+    // with their parents via operations push and the full-table replication
+    // in sync.service.ts.
+    //
+    // Maturity-program additions (Waves A2–C6):
+    // - Two-way parents: stockTransfer, promotion, taxClass, prescription,
+    //   patient, doctor, appointment, doctorSettlement, roomType, room,
+    //   reservation, folio, productVariant, stockTake.
+    // - customerLedgerEntry + loyaltyTransaction (B2/B3) are PULL-ONLY:
+    //   server-derived ledgers the desktop must never push back (the cloud
+    //   push endpoint is never fed these by the desktop, and the replication
+    //   push lists in sync.service.ts omit them). They are append-only with
+    //   no updatedAt column, so their cursor field is createdAt.
+    // - fbr_configs / fbr_invoice_queue (B7) are EXCLUDED by design: the
+    //   config holds a write-only PRAL API token that must never leave the
+    //   server, and the queue is server-side worker state.
+    const CREATED_AT_CURSOR_TABLES = new Set(['customerLedgerEntry', 'loyaltyTransaction']);
+    const tables = [
+      'product', 'customer', 'sale', 'purchase', 'batch', 'category', 'supplier', 'manufacturer', 'shelf', 'stockMovement',
+      'stockTransfer', 'promotion', 'taxClass', 'prescription',
+      'patient', 'doctor', 'appointment', 'doctorSettlement',
+      'roomType', 'room', 'reservation', 'folio',
+      'productVariant', 'stockTake',
+      'customerLedgerEntry', 'loyaltyTransaction'
+    ];
     for (const table of tables) {
       try {
         const model = (prisma as any)[table];
         if (!model?.findMany) continue;
+        const tsField = CREATED_AT_CURSOR_TABLES.has(table) ? 'createdAt' : 'updatedAt';
         const records = await model.findMany({
           where: {
             companyId: businessId,
-            updatedAt: { gte: sinceDate }
+            [tsField]: { gte: sinceDate }
           },
-          orderBy: { updatedAt: 'asc' },
+          orderBy: { [tsField]: 'asc' },
           take: 100
         });
         for (const record of records) {
@@ -318,7 +364,7 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
             entityId: record.id,
             operation: 'UPSERT',
             data: record,
-            timestamp: record.updatedAt
+            timestamp: record[tsField]
           });
         }
       } catch { }

@@ -55,7 +55,51 @@ const TABLE_MAPPINGS: Record<string, string> = {
   'membership': 'memberships',
   'membershipBranch': 'membership_branches',
   'businessModule': 'business_modules',
-  'billingProfile': 'billing_profiles'
+  'billingProfile': 'billing_profiles',
+  // ── Maturity-program tables (Waves A2–C6) ──────────────────────────────
+  // Stock transfers (A2) — two-way
+  'stockTransfer': 'stock_transfers',
+  'stockTransferItem': 'stock_transfer_items',
+  // Split tender (B1) — rides with sales, two-way
+  'salePayment': 'sale_payments',
+  // Khata + loyalty ledgers (B2/B3) — SERVER-DERIVED, PULL-ONLY: entries are
+  // posted by the server inside the sale/payment transactions, so a desktop
+  // copy must never be pushed back (it would double-post). They are mapped
+  // here so pull paths resolve; they are deliberately absent from every
+  // push list in sync.service.ts.
+  'customerLedgerEntry': 'customer_ledger_entries',
+  'loyaltyTransaction': 'loyalty_transactions',
+  // Promotions + tax classes (B4/B5) — config pulls down, sale-linked rows
+  // ride with sales
+  'promotion': 'promotions',
+  'salePromotion': 'sale_promotions',
+  'taxClass': 'tax_classes',
+  'saleTaxLine': 'sale_tax_lines',
+  // Prescriptions (C1) — two-way
+  'prescription': 'prescriptions',
+  'prescriptionItem': 'prescription_items',
+  // Clinic pack (C4) — two-way
+  'patient': 'patients',
+  'doctor': 'doctors',
+  'appointment': 'appointments',
+  'doctorSettlement': 'doctor_settlements',
+  // Hotel pack (C5) — two-way
+  'roomType': 'room_types',
+  'room': 'rooms',
+  'reservation': 'reservations',
+  'folio': 'folios',
+  'folioCharge': 'folio_charges',
+  'folioPayment': 'folio_payments',
+  // Retail pack (C6) — two-way
+  'productVariant': 'product_variants',
+  'stockTake': 'stock_takes',
+  'stockTakeLine': 'stock_take_lines'
+  // ── EXCLUDED FROM SYNC BY DESIGN (B7): fbr_configs + fbr_invoice_queue ──
+  // fbr_configs holds the business's PRAL API token (write-only secret) which
+  // must never leave the server, and fbr_invoice_queue is server-side fiscal
+  // processing state (retry worker). Neither is mapped here or listed in any
+  // sync list in sync.service.ts. The read-only mirrors ON the sale itself
+  // (sales.fbrInvoiceNumber / sales.fbrStatus) ride with the sales table.
 };
 
 /**

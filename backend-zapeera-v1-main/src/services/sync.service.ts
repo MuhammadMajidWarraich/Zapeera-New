@@ -232,7 +232,7 @@ class SyncService {
       console.log('[Sync] 📊 Step 2/2: Syncing all tables from PostgreSQL...');
       const tableResult = await this.syncAllTablesFromPostgreSQL();
       result.recordsSynced += tableResult.synced;
-      result.tablesRebuilt = 27; // All tables
+      result.tablesRebuilt = tableResult.tablesProcessed || 0; // All pull-listed tables
       result.errors.push(...tableResult.errors);
       console.log(`[Sync] ✅ Tables synced: ${tableResult.synced} records`);
 
@@ -608,8 +608,8 @@ class SyncService {
    * Comprehensive sync of ALL 27 tables from PostgreSQL to SQLite
    * This ensures SQLite has complete data from PostgreSQL
    */
-  async syncAllTablesFromPostgreSQL(): Promise<{ synced: number; failed: number; errors: string[] }> {
-    const result = { synced: 0, failed: 0, errors: [] as string[] };
+  async syncAllTablesFromPostgreSQL(): Promise<{ synced: number; failed: number; errors: string[]; tablesProcessed: number }> {
+    const result = { synced: 0, failed: 0, errors: [] as string[], tablesProcessed: 0 };
 
     // Check if using PostgreSQL directly (website mode)
     const isPostgreSQLMode = process.env.USE_POSTGRESQL === 'true';
@@ -641,7 +641,7 @@ class SyncService {
         return result;
       }
 
-      console.log('[Sync] 🔄 Starting FULL sync of ALL 27 tables from PostgreSQL to SQLite...');
+      console.log('[Sync] 🔄 Starting FULL sync of ALL tables from PostgreSQL to SQLite...');
 
       // Tables in order of dependencies (parents before children)
       // CRITICAL FIX: Exclude 'users' table - users should only sync TO PostgreSQL, not FROM
@@ -663,14 +663,30 @@ class SyncService {
         { pg: 'staff', sqlite: 'staff' },
         // Products (depend on category, supplier, manufacturer, shelf)
         { pg: 'products', sqlite: 'product' },
+        // Product variants (C6 — depend on product; batches may reference them)
+        { pg: 'product_variants', sqlite: 'productVariant' },
         // Batches (depend on product, supplier, manufacturer)
         { pg: 'batches', sqlite: 'batch' },
         { pg: 'stock_movements', sqlite: 'stockMovement' },
+        // Stock transfers (A2 — depend on branches, products, batches)
+        { pg: 'stock_transfers', sqlite: 'stockTransfer' },
+        { pg: 'stock_transfer_items', sqlite: 'stockTransferItem' },
+        // Stock-take (C6 — depends on branch, products, batches)
+        { pg: 'stock_takes', sqlite: 'stockTake' },
+        { pg: 'stock_take_lines', sqlite: 'stockTakeLine' },
+        // Promotions + tax classes (B4/B5 — company config)
+        { pg: 'promotions', sqlite: 'promotion' },
+        { pg: 'tax_classes', sqlite: 'taxClass' },
         // Customers
         { pg: 'customers', sqlite: 'customer' },
         // Sales
         { pg: 'sales', sqlite: 'sale' },
         { pg: 'sale_items', sqlite: 'saleItem' },
+        // Split-tender allocations (B1 — ride with sales)
+        { pg: 'sale_payments', sqlite: 'salePayment' },
+        // Sale-linked promotion/tax snapshots (B4/B5 — ride with sales)
+        { pg: 'sale_promotions', sqlite: 'salePromotion' },
+        { pg: 'sale_tax_lines', sqlite: 'saleTaxLine' },
         { pg: 'receipts', sqlite: 'receipt' },
         // Purchases
         { pg: 'purchases', sqlite: 'purchase' },
@@ -678,6 +694,29 @@ class SyncService {
         // Refunds
         { pg: 'refunds', sqlite: 'refund' },
         { pg: 'refund_items', sqlite: 'refundItem' },
+        // Khata + loyalty ledgers (B2/B3) — PULL-ONLY by design: these rows
+        // are posted server-side inside sale/payment transactions; the
+        // desktop receives them but never pushes them back (see push lists).
+        { pg: 'customer_ledger_entries', sqlite: 'customerLedgerEntry' },
+        { pg: 'loyalty_transactions', sqlite: 'loyaltyTransaction' },
+        // Prescriptions (C1 — items depend on the register row + products)
+        { pg: 'prescriptions', sqlite: 'prescription' },
+        { pg: 'prescription_items', sqlite: 'prescriptionItem' },
+        // Clinic pack (C4 — appointments depend on patients + doctors)
+        { pg: 'patients', sqlite: 'patient' },
+        { pg: 'doctors', sqlite: 'doctor' },
+        { pg: 'appointments', sqlite: 'appointment' },
+        { pg: 'doctor_settlements', sqlite: 'doctorSettlement' },
+        // Hotel pack (C5 — rooms depend on room types; folios on reservations)
+        { pg: 'room_types', sqlite: 'roomType' },
+        { pg: 'rooms', sqlite: 'room' },
+        { pg: 'reservations', sqlite: 'reservation' },
+        { pg: 'folios', sqlite: 'folio' },
+        { pg: 'folio_charges', sqlite: 'folioCharge' },
+        { pg: 'folio_payments', sqlite: 'folioPayment' },
+        // NOTE (B7): fbr_configs / fbr_invoice_queue are intentionally NOT
+        // synced — the config holds a write-only PRAL API token that must
+        // never leave the server, and the queue is server-side worker state.
         // Employee management
         { pg: 'attendance', sqlite: 'attendance' },
         { pg: 'shifts', sqlite: 'shift' },
@@ -827,6 +866,7 @@ class SyncService {
       }
 
       await pgClient.end();
+      result.tablesProcessed = tablesToSync.length;
       console.log(`[Sync] 🎉 Full sync complete: ${result.synced} synced, ${result.failed} failed`);
 
     } catch (error: any) {
@@ -1376,7 +1416,33 @@ class SyncService {
       'scheduledShiftUser': 'scheduled_shift_users',
       'commission': 'commissions',
       'card_details': 'card_details',
-      'subscriptions': 'subscriptions'
+      'subscriptions': 'subscriptions',
+      // Maturity-program tables (Waves A2–C6) — see sync-helper.ts for the
+      // direction rules (khata/loyalty pull-only; FBR tables excluded).
+      'stockTransfer': 'stock_transfers',
+      'stockTransferItem': 'stock_transfer_items',
+      'salePayment': 'sale_payments',
+      'customerLedgerEntry': 'customer_ledger_entries',
+      'loyaltyTransaction': 'loyalty_transactions',
+      'promotion': 'promotions',
+      'salePromotion': 'sale_promotions',
+      'taxClass': 'tax_classes',
+      'saleTaxLine': 'sale_tax_lines',
+      'prescription': 'prescriptions',
+      'prescriptionItem': 'prescription_items',
+      'patient': 'patients',
+      'doctor': 'doctors',
+      'appointment': 'appointments',
+      'doctorSettlement': 'doctor_settlements',
+      'roomType': 'room_types',
+      'room': 'rooms',
+      'reservation': 'reservations',
+      'folio': 'folios',
+      'folioCharge': 'folio_charges',
+      'folioPayment': 'folio_payments',
+      'productVariant': 'product_variants',
+      'stockTake': 'stock_takes',
+      'stockTakeLine': 'stock_take_lines'
     };
 
     return tableMap[modelName] || modelName;
@@ -1413,7 +1479,32 @@ class SyncService {
       'scheduled_shift_users': 'scheduledShiftUser',
       'commissions': 'commission',
       'card_details': 'card_details',
-      'subscriptions': 'subscriptions'
+      'subscriptions': 'subscriptions',
+      // Maturity-program tables (Waves A2–C6)
+      'stock_transfers': 'stockTransfer',
+      'stock_transfer_items': 'stockTransferItem',
+      'sale_payments': 'salePayment',
+      'customer_ledger_entries': 'customerLedgerEntry',
+      'loyalty_transactions': 'loyaltyTransaction',
+      'promotions': 'promotion',
+      'sale_promotions': 'salePromotion',
+      'tax_classes': 'taxClass',
+      'sale_tax_lines': 'saleTaxLine',
+      'prescriptions': 'prescription',
+      'prescription_items': 'prescriptionItem',
+      'patients': 'patient',
+      'doctors': 'doctor',
+      'appointments': 'appointment',
+      'doctor_settlements': 'doctorSettlement',
+      'room_types': 'roomType',
+      'rooms': 'room',
+      'reservations': 'reservation',
+      'folios': 'folio',
+      'folio_charges': 'folioCharge',
+      'folio_payments': 'folioPayment',
+      'product_variants': 'productVariant',
+      'stock_takes': 'stockTake',
+      'stock_take_lines': 'stockTakeLine'
     };
 
     return modelMap[tableName] || tableName;
@@ -1452,14 +1543,33 @@ class SyncService {
       'staff',
       // Products (depend on category, supplier, manufacturer, shelf)
       'product',
+      // Variants (C6 — depend on product; batches may reference them)
+      'productVariant',
       // Batches (depend on product)
       'batch',
       'stockMovement',
+      // Stock transfers + stock-take (A2/C6 — depend on branches/products/batches)
+      'stockTransfer',
+      'stockTransferItem',
+      'stockTake',
+      'stockTakeLine',
+      // Prescriptions (C1 — before sales: sales reference prescriptions)
+      'prescription',
+      'prescriptionItem',
       // Customers (depend on branch)
       'customer',
+      // Clinic masters (C4) + promotion/tax config (B4/B5)
+      'patient',
+      'doctor',
+      'promotion',
+      'taxClass',
       // Sales (depend on customer, user, branch, product)
       'sale',
       'saleItem',
+      // Split tender + sale-linked promotion/tax snapshots (B1/B4/B5 — ride with sales)
+      'salePayment',
+      'salePromotion',
+      'saleTaxLine',
       'receipt',
       // Purchases (depend on supplier, branch, product)
       'purchase',
@@ -1467,6 +1577,22 @@ class SyncService {
       // Refunds (depend on sale)
       'refund',
       'refundItem',
+      // Clinic activity (C4 — appointments reference patient/doctor/sale/prescription)
+      'appointment',
+      'doctorSettlement',
+      // Hotel pack (C5 — folios reference reservations and checkout sales)
+      'roomType',
+      'room',
+      'reservation',
+      'folio',
+      'folioCharge',
+      'folioPayment',
+      // DELIBERATELY ABSENT from push (see pull list + sync-helper.ts):
+      // - customerLedgerEntry + loyaltyTransaction (B2/B3): PULL-ONLY —
+      //   server-derived ledgers; pushing desktop copies would double-post.
+      // - fbrConfig + fbrInvoiceQueue (B7): EXCLUDED from sync entirely —
+      //   the config holds a write-only PRAL token; the queue is server-side
+      //   worker state. sales.fbrInvoiceNumber/fbrStatus ride with 'sale'.
       // Employee management
       'attendance',
       'shift',
@@ -2095,16 +2221,46 @@ class SyncService {
       { prisma: 'branch', pg: 'branches' },
       { prisma: 'staff', pg: 'staff' },
       { prisma: 'product', pg: 'products' },
+      { prisma: 'productVariant', pg: 'product_variants' },
       { prisma: 'batch', pg: 'batches' },
       { prisma: 'stockMovement', pg: 'stock_movements' },
+      // Stock transfers + stock-take (A2/C6)
+      { prisma: 'stockTransfer', pg: 'stock_transfers' },
+      { prisma: 'stockTransferItem', pg: 'stock_transfer_items' },
+      { prisma: 'stockTake', pg: 'stock_takes' },
+      { prisma: 'stockTakeLine', pg: 'stock_take_lines' },
+      // Prescriptions (C1 — before sales: sales reference prescriptions)
+      { prisma: 'prescription', pg: 'prescriptions' },
+      { prisma: 'prescriptionItem', pg: 'prescription_items' },
       { prisma: 'customer', pg: 'customers' },
+      // Clinic masters (C4) + promotion/tax config (B4/B5)
+      { prisma: 'patient', pg: 'patients' },
+      { prisma: 'doctor', pg: 'doctors' },
+      { prisma: 'promotion', pg: 'promotions' },
+      { prisma: 'taxClass', pg: 'tax_classes' },
       { prisma: 'sale', pg: 'sales' },
       { prisma: 'saleItem', pg: 'sale_items' },
+      // Split tender + sale-linked promotion/tax snapshots (B1/B4/B5)
+      { prisma: 'salePayment', pg: 'sale_payments' },
+      { prisma: 'salePromotion', pg: 'sale_promotions' },
+      { prisma: 'saleTaxLine', pg: 'sale_tax_lines' },
       { prisma: 'receipt', pg: 'receipts' },
       { prisma: 'purchase', pg: 'purchases' },
       { prisma: 'purchaseItem', pg: 'purchase_items' },
       { prisma: 'refund', pg: 'refunds' },
       { prisma: 'refundItem', pg: 'refund_items' },
+      // Clinic activity (C4) + hotel pack (C5)
+      { prisma: 'appointment', pg: 'appointments' },
+      { prisma: 'doctorSettlement', pg: 'doctor_settlements' },
+      { prisma: 'roomType', pg: 'room_types' },
+      { prisma: 'room', pg: 'rooms' },
+      { prisma: 'reservation', pg: 'reservations' },
+      { prisma: 'folio', pg: 'folios' },
+      { prisma: 'folioCharge', pg: 'folio_charges' },
+      { prisma: 'folioPayment', pg: 'folio_payments' },
+      // DELIBERATELY ABSENT from push: customerLedgerEntry +
+      // loyaltyTransaction (pull-only, server-derived) and the FBR tables
+      // (excluded from sync by design) — see syncAllTables above.
       { prisma: 'attendance', pg: 'attendance' },
       { prisma: 'shift', pg: 'shifts' },
       { prisma: 'scheduledShift', pg: 'scheduled_shifts' },
@@ -2114,7 +2270,7 @@ class SyncService {
       { prisma: 'subscription', pg: 'subscriptions' }
     ];
 
-    console.log('[Sync] 🔄 Syncing SQLite → PostgreSQL (27 tables)...');
+    console.log(`[Sync] 🔄 Syncing SQLite → PostgreSQL (${tables.length} tables)...`);
 
     try {
       for (const table of tables) {
@@ -2185,7 +2341,11 @@ class SyncService {
                 // Skip undefined
                 if (value === undefined) return false;
                 // Skip null for non-required fields (except FK fields which can be null)
-                if (value === null && !['branchId', 'companyId', 'supplierId', 'manufacturerId', 'categoryId', 'shelfId', 'customerId', 'userId', 'saleId', 'productId', 'batchId'].includes(k)) {
+                // FK allowlist includes the maturity-program foreign keys
+                // (variant/prescription/folio/salesperson on sales + batches,
+                // and the clinic/hotel/transfer/stock-take relations) so a
+                // cleared FK syncs as NULL instead of being silently dropped.
+                if (value === null && !['branchId', 'companyId', 'supplierId', 'manufacturerId', 'categoryId', 'shelfId', 'customerId', 'userId', 'saleId', 'productId', 'batchId', 'variantId', 'prescriptionId', 'folioId', 'salespersonId', 'transferId', 'promotionId', 'taxClassId', 'patientId', 'doctorId', 'roomId', 'roomTypeId', 'reservationId', 'stockTakeId', 'refundId'].includes(k)) {
                   return false;
                 }
                 return true;

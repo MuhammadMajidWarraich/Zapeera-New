@@ -149,6 +149,7 @@ async function initDatabase() {
       id TEXT PRIMARY KEY, name TEXT NOT NULL, genericName TEXT, sku TEXT, barcode TEXT, description TEXT,
       categoryId TEXT, branchId TEXT, companyId TEXT, unitPrice REAL DEFAULT 0, costPrice REAL DEFAULT 0, sellingPrice REAL DEFAULT 0,
       quantity INTEGER DEFAULT 0, minStock INTEGER DEFAULT 10, maxStock INTEGER DEFAULT 1000, unitsPerPack INTEGER DEFAULT 1,
+      unitsPerStrip INTEGER, reorderQuantity INTEGER, pctCode TEXT,
       reorderLevel INTEGER DEFAULT 20, requiresPrescription INTEGER DEFAULT 0, unitType TEXT DEFAULT 'PIECE',
       manufacturerId TEXT, supplierId TEXT, shelfId TEXT, expiryDate TEXT, manufacturingDate TEXT, batchNumber TEXT,
       isActive INTEGER DEFAULT 1, createdBy TEXT,
@@ -179,7 +180,7 @@ async function initDatabase() {
       supplierId TEXT, supplierName TEXT, barcode TEXT, totalBoxes INTEGER DEFAULT 0, unitsPerBox INTEGER DEFAULT 0,
       quantity INTEGER DEFAULT 0, purchasePrice REAL DEFAULT 0, sellingPrice REAL DEFAULT 0, stockPurchasePrice REAL DEFAULT 0,
       paidAmount REAL DEFAULT 0, supplierOutstanding REAL DEFAULT 0, supplierInvoiceNo TEXT, purchasingMethod TEXT,
-      expireDate TEXT, productionDate TEXT, shelfId TEXT, shelfName TEXT, isActive INTEGER DEFAULT 1, isReported INTEGER DEFAULT 0, reportReason TEXT,
+      expireDate TEXT, productionDate TEXT, shelfId TEXT, shelfName TEXT, variantId TEXT, isActive INTEGER DEFAULT 1, isReported INTEGER DEFAULT 0, reportReason TEXT,
       createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS sales (
@@ -187,12 +188,13 @@ async function initDatabase() {
       totalAmount REAL DEFAULT 0, discount REAL DEFAULT 0, tax REAL DEFAULT 0, grandTotal REAL DEFAULT 0,
       paidAmount REAL DEFAULT 0, returnedAmount REAL DEFAULT 0,
       paymentMethod TEXT DEFAULT 'CASH', paymentStatus TEXT DEFAULT 'PAID', status TEXT DEFAULT 'COMPLETED',
-      notes TEXT, employeeId TEXT, createdBy TEXT,
+      notes TEXT, employeeId TEXT, prescriptionId TEXT, folioId TEXT, salespersonId TEXT, fbrInvoiceNumber TEXT, fbrStatus TEXT, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS sale_items (
       id TEXT PRIMARY KEY, saleId TEXT NOT NULL, productId TEXT NOT NULL, batchId TEXT,
       quantity INTEGER DEFAULT 1, unitPrice REAL DEFAULT 0, discount REAL DEFAULT 0, total REAL DEFAULT 0,
+      unitLevel TEXT, unitFactor INTEGER, variantId TEXT, variantName TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS purchases (
@@ -298,6 +300,84 @@ async function initDatabase() {
       idempotencyKey TEXT UNIQUE, status TEXT DEFAULT 'PENDING',
       attemptCount INTEGER DEFAULT 0, lastError TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    // ── Maturity-program tables (Waves A2–C6) ──────────────────────────
+    // Column sets mirror the Prisma models exactly (camelCase names) so
+    // rows pulled from the cloud apply cleanly. CREATE TABLE IF NOT EXISTS
+    // makes this an in-place upgrade for existing installs.
+    // FBR tables (fbr_configs/fbr_invoice_queue) are deliberately absent:
+    // excluded from sync by design (write-only PRAL token + server queue).
+    `CREATE TABLE IF NOT EXISTS stock_transfers (
+      id TEXT PRIMARY KEY, transferNumber TEXT, companyId TEXT, fromBranchId TEXT, toBranchId TEXT, status TEXT, notes TEXT, createdBy TEXT, completedBy TEXT, completedAt TEXT, cancelledBy TEXT, cancelledAt TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS stock_transfer_items (
+      id TEXT PRIMARY KEY, transferId TEXT, productId TEXT, sourceBatchId TEXT, destBatchId TEXT, quantity INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS stock_takes (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, status TEXT, startedBy TEXT, completedBy TEXT, note TEXT, completedAt TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS stock_take_lines (
+      id TEXT PRIMARY KEY, stockTakeId TEXT, productId TEXT, batchId TEXT, systemQty INTEGER, countedQty INTEGER, variance INTEGER, adjustmentMovementId TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS sale_payments (
+      id TEXT PRIMARY KEY, saleId TEXT, method TEXT, amount REAL, reference TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS promotions (
+      id TEXT PRIMARY KEY, companyId TEXT, name TEXT, type TEXT, value REAL, buyQty INTEGER, getQty INTEGER, scope TEXT, categoryId TEXT, productId TEXT, code TEXT, minBill REAL, startsAt TEXT, endsAt TEXT, usageLimit INTEGER, usedCount INTEGER, isActive INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS sale_promotions (
+      id TEXT PRIMARY KEY, saleId TEXT, promotionId TEXT, discountAmount REAL, code TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS tax_classes (
+      id TEXT PRIMARY KEY, companyId TEXT, name TEXT, rate REAL, isDefault INTEGER, isActive INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS sale_tax_lines (
+      id TEXT PRIMARY KEY, saleId TEXT, taxClassId TEXT, className TEXT, rate REAL, taxableAmount REAL, taxAmount REAL, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS customer_ledger_entries (
+      id TEXT PRIMARY KEY, companyId TEXT, customerId TEXT, type TEXT, amount REAL, method TEXT, reference TEXT, note TEXT, saleId TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id TEXT PRIMARY KEY, companyId TEXT, customerId TEXT, type TEXT, points INTEGER, saleId TEXT, refundId TEXT, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS prescriptions (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, patientName TEXT, patientPhone TEXT, doctorName TEXT, doctorReg TEXT, notes TEXT, imageUrl TEXT, issuedDate TEXT, isActive INTEGER, voidReason TEXT, voidedAt TEXT, voidedBy TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS prescription_items (
+      id TEXT PRIMARY KEY, prescriptionId TEXT, productId TEXT, productName TEXT, quantity REAL, dosage TEXT, durationDays INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS patients (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, name TEXT, phone TEXT, age INTEGER, gender TEXT, cnic TEXT, address TEXT, notes TEXT, isActive INTEGER, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS doctors (
+      id TEXT PRIMARY KEY, companyId TEXT, name TEXT, specialization TEXT, phone TEXT, consultationFee REAL, sharePercent REAL, serviceProductId TEXT, isActive INTEGER, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS appointments (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, patientId TEXT, doctorId TEXT, appointmentDate TEXT, tokenNumber INTEGER, status TEXT, reason TEXT, notes TEXT, saleId TEXT, prescriptionId TEXT, feeCharged REAL, doctorShareAmount REAL, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS doctor_settlements (
+      id TEXT PRIMARY KEY, companyId TEXT, doctorId TEXT, periodFrom TEXT, periodTo TEXT, amount REAL, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS room_types (
+      id TEXT PRIMARY KEY, companyId TEXT, name TEXT, ratePerNight REAL, capacity INTEGER, description TEXT, isActive INTEGER, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS rooms (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, roomTypeId TEXT, number TEXT, floor TEXT, status TEXT, isActive INTEGER, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS reservations (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, guestName TEXT, guestPhone TEXT, guestCnic TEXT, roomId TEXT, checkInDate TEXT, checkOutDate TEXT, adults INTEGER, children INTEGER, source TEXT, status TEXT, folioId TEXT, notes TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS folios (
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, reservationId TEXT, roomId TEXT, guestName TEXT, guestPhone TEXT, rateSnapshot REAL, status TEXT, openedAt TEXT, closedAt TEXT, saleId TEXT, writeOffAmount REAL, writeOffNote TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS folio_charges (
+      id TEXT PRIMARY KEY, folioId TEXT, description TEXT, amount REAL, kind TEXT, saleId TEXT, chargeDate TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS folio_payments (
+      id TEXT PRIMARY KEY, folioId TEXT, amount REAL, method TEXT, paidAt TEXT, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS product_variants (
+      id TEXT PRIMARY KEY, companyId TEXT, productId TEXT, name TEXT, sku TEXT, barcode TEXT, attributes TEXT, priceDelta REAL, isActive INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -424,7 +504,27 @@ async function initDatabase() {
     // Customers
     'ALTER TABLE customers ADD COLUMN isVIP INTEGER DEFAULT 0',
     'ALTER TABLE customers ADD COLUMN totalPurchases REAL DEFAULT 0',
-    'ALTER TABLE customers ADD COLUMN lastVisit TEXT'
+    'ALTER TABLE customers ADD COLUMN lastVisit TEXT',
+    // Maturity-program columns on existing tables (Waves B7/C1/C2/C3/C5/C6).
+    // products.reorderLevel already exists in the local schema (legacy
+    // column, same name as the cloud's C3 field) so it needs no migration.
+    'ALTER TABLE products ADD COLUMN unitsPerStrip INTEGER',
+    'ALTER TABLE products ADD COLUMN reorderQuantity INTEGER',
+    'ALTER TABLE products ADD COLUMN pctCode TEXT',
+    // Batches
+    'ALTER TABLE batches ADD COLUMN variantId TEXT',
+    // Sales — prescription link (C1), folio link (C5), salesperson (C6),
+    // FBR mirrors (B7; written by the server, pulled down with the sale)
+    'ALTER TABLE sales ADD COLUMN prescriptionId TEXT',
+    'ALTER TABLE sales ADD COLUMN folioId TEXT',
+    'ALTER TABLE sales ADD COLUMN salespersonId TEXT',
+    'ALTER TABLE sales ADD COLUMN fbrInvoiceNumber TEXT',
+    'ALTER TABLE sales ADD COLUMN fbrStatus TEXT',
+    // Sale items — unit engine (C2) + variant snapshot (C6)
+    'ALTER TABLE sale_items ADD COLUMN unitLevel TEXT',
+    'ALTER TABLE sale_items ADD COLUMN unitFactor INTEGER',
+    'ALTER TABLE sale_items ADD COLUMN variantId TEXT',
+    'ALTER TABLE sale_items ADD COLUMN variantName TEXT'
   ];
 
   columnMigrations.forEach(sql => {
