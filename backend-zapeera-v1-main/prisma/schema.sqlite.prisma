@@ -150,6 +150,7 @@ model Business {
   paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
   fbrConfig                 FbrConfig?
   fbrInvoiceQueue           FbrInvoiceQueue[]
+  prescriptions             Prescription[]
 
   @@index([createdBy], name: "idx_business_createdBy")
   @@index([businessType], name: "idx_business_type")
@@ -185,6 +186,7 @@ model Branch {
   purchases          Purchase[]
   stockTransfersOut  StockTransfer[]    @relation("stockTransfersOut")
   stockTransfersIn   StockTransfer[]    @relation("stockTransfersIn")
+  prescriptions      Prescription[]
   categories         Category[]
   expenses           Expense[]
   expenseCategories  ExpenseCategory[]
@@ -382,6 +384,7 @@ model Product {
   batches        Batch[]
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
+  prescriptionItems PrescriptionItem[]
   promotions     Promotion[]
   taxClass       TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
 
@@ -689,6 +692,10 @@ model Sale {
   // overwrite these sale-level fields.
   fbrInvoiceNumber      String?
   fbrStatus             String?
+  // Prescriptions (Wave C1): the register record this sale
+  // dispensed against, when one was attached at the POS. Null for
+  // ordinary sales and for pre-C1 history.
+  prescriptionId        String?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -714,6 +721,7 @@ model Sale {
   branch   Branch      @relation(fields: [branchId], references: [id])
   company  Business    @relation(fields: [companyId], references: [id])
   customer Customer?   @relation(fields: [customerId], references: [id])
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
   user     ZapeeraUser @relation(fields: [userId], references: [id])
 
   @@index([companyId], name: "idx_sale_company")
@@ -722,6 +730,7 @@ model Sale {
   @@index([userId], name: "idx_sale_user")
   @@index([saleDate], name: "idx_sale_date")
   @@index([status], name: "idx_sale_status")
+  @@index([prescriptionId], name: "idx_sale_prescription")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
   @@index([createdAt], name: "idx_sale_createdAt")
   @@map("sales")
@@ -880,6 +889,74 @@ model SaleTaxLine {
   @@index([saleId], name: "idx_sale_tax_line_sale")
   @@index([taxClassId], name: "idx_sale_tax_line_class")
   @@map("sale_tax_lines")
+}
+
+// Prescriptions register (Wave C1 — Pharmacy pack): the record of a
+// paper prescription a pharmacy received, and the medicines written on
+// it. This module existed in the module hierarchy + route protection
+// since early on but had no model/API/UI — only the
+// Product.requiresPrescription flag. The register is a LEGAL record:
+// rows are never hard-deleted by the API. A prescription is VOIDED
+// (isActive = false + voidReason/voidedAt/voidedBy) so the audit
+// trail — and the sales that dispensed against it — stays readable.
+// A voided prescription can no longer be attached to a new sale.
+// `imageUrl` holds the scanned/photo copy of the paper prescription:
+// a data URI stored inline (the way profile pictures are kept in
+// this codebase) or an uploads path; optional either way.
+model Prescription {
+  id           String    @id @default(cuid())
+  companyId    String
+  branchId     String?
+  patientName  String
+  patientPhone String?
+  doctorName   String?
+  doctorReg    String?
+  notes        String?
+  imageUrl     String?
+  issuedDate   DateTime
+  isActive     Boolean   @default(true)
+  voidReason   String?
+  voidedAt     DateTime?
+  voidedBy     String?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company Business         @relation(fields: [companyId], references: [id])
+  branch  Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  items   PrescriptionItem[]
+  sales   Sale[]
+
+  @@index([companyId], name: "idx_prescription_company")
+  @@index([branchId], name: "idx_prescription_branch")
+  @@index([patientPhone], name: "idx_prescription_patient_phone")
+  @@index([createdAt], name: "idx_prescription_createdAt")
+  @@map("prescriptions")
+}
+
+// One medicine line of a prescription. productName is a SNAPSHOT from
+// creation time: the register must read correctly even after the
+// product is renamed or retired. quantity is Float (a paper
+// prescription may prescribe fractional pack quantities) and dosage
+// is free text in the local convention, e.g. "1+0+1" (morning +
+// noon + night).
+model PrescriptionItem {
+  id             String   @id @default(cuid())
+  prescriptionId String
+  productId      String
+  productName    String
+  quantity       Float
+  dosage         String?
+  durationDays   Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+
+  @@index([prescriptionId], name: "idx_prescription_item_prescription")
+  @@index([productId], name: "idx_prescription_item_product")
+  @@map("prescription_items")
 }
 
 // FBR POS fiscal integration (Wave B7): one config row per business.

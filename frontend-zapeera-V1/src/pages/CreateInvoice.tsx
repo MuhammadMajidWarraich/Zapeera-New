@@ -36,12 +36,13 @@ import {
   Info,
   MessageCircle,
   Landmark,
-  Wallet
+  Wallet,
+  Stethoscope
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
-import type { TaxBreakdownLine } from "@/services/api";
+import type { TaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
@@ -106,6 +107,10 @@ interface CartItem {
   instructions?: string;
   discountPercentage?: number;
   discountAmount?: number;
+  // Prescriptions (Wave C1): copied from the product at add-to-cart
+  // time so the rail can show the Prescription section even when the
+  // product has since dropped out of the search results list.
+  requiresPrescription?: boolean;
 }
 
 interface Receipt {
@@ -142,6 +147,9 @@ interface Receipt {
   // absent on this just-created receipt and present on reprints.
   fbrInvoiceNumber?: string | null;
   fbrStatus?: string | null;
+  // Prescriptions (Wave C1): the register record this sale dispensed
+  // against — receipts print "Rx: <patient> (Dr. <doctor>)".
+  prescription?: SalePrescriptionSummary | null;
   total: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -193,6 +201,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
       lines.push(`Tax — ${line.className} (${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
     }
   }
+  if (receipt.prescription) {
+    lines.push(`Rx: ${receipt.prescription.patientName}${receipt.prescription.doctorName ? ` (Dr. ${receipt.prescription.doctorName})` : ''}`);
+  }
   if (receipt.fbrInvoiceNumber) {
     lines.push(`FBR Invoice #: ${receipt.fbrInvoiceNumber}`);
   }
@@ -234,6 +245,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [posCustomer, setPosCustomer] = useState<{ id: string; name: string; phone: string; loyaltyPoints: number } | null>(null);
   const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("");
   const [loyaltyPointValue, setLoyaltyPointValue] = useState(1);
+  // Prescriptions (Wave C1): the register record attached to this
+  // sale, the picker search, the inline-create form (for when the
+  // patient has no record yet), and the blocked-sale dialog state.
+  const [selectedPrescription, setSelectedPrescription] = useState<PrescriptionRecord | null>(null);
+  const [rxSearch, setRxSearch] = useState("");
+  const [rxResults, setRxResults] = useState<PrescriptionRecord[]>([]);
+  const [rxSearching, setRxSearching] = useState(false);
+  const [showRxCreate, setShowRxCreate] = useState(false);
+  const [rxForm, setRxForm] = useState({ patientName: "", doctorName: "" });
+  const [rxDosages, setRxDosages] = useState<Record<string, { dosage: string; durationDays: string }>>({});
+  const [rxCreating, setRxCreating] = useState(false);
+  const [rxBlock, setRxBlock] = useState<{ message: string; products: Array<{ id: string; name: string }> } | null>(null);
   // Promotions (Wave B4): the coupon code the cashier typed and, once
   // validated against the live cart, the server-estimated promotion
   // discount. Only the CODE is ever sent with the sale — the server
@@ -722,6 +745,86 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const loyaltyDiscountValue = Math.round(loyaltyPointsToUse * loyaltyPointValue * 100) / 100;
   const mainTotalAfterLoyalty = Math.round((mainTotalAfterPromo - loyaltyDiscountValue) * 100) / 100;
 
+  // Prescriptions (Wave C1): the distinct prescription-only products
+  // in the cart, and which of them the attached record does NOT cover
+  // (the server enforces the same product-level coverage rule).
+  const rxCartProducts = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const item of invoiceItems) {
+      if (item.requiresPrescription && item.productId && !seen.has(item.productId)) {
+        seen.set(item.productId, item.name);
+      }
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  }, [invoiceItems]);
+  const rxMissingFromSelected = selectedPrescription
+    ? rxCartProducts.filter(p => !(selectedPrescription.items || []).some(i => i.productId === p.id))
+    : rxCartProducts;
+
+  // Prescription picker: search the register by patient name / phone.
+  useEffect(() => {
+    if (rxCartProducts.length === 0 || selectedPrescription) return;
+    const term = rxSearch.trim();
+    const handle = setTimeout(async () => {
+      setRxSearching(true);
+      try {
+        const response = await apiService.getPrescriptions({
+          page: 1,
+          limit: 8,
+          isActive: true,
+          search: term || undefined,
+        });
+        setRxResults(response.success && response.data ? response.data : []);
+      } catch {
+        setRxResults([]);
+      } finally {
+        setRxSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [rxSearch, rxCartProducts.length, selectedPrescription]);
+
+  // Inline-create: record a new prescription for the cart's Rx items
+  // without leaving the sale, then attach it.
+  const handleCreatePrescriptionInline = async () => {
+    if (!rxForm.patientName.trim()) {
+      toast({ title: "Patient name required", description: "Enter the patient's name from the paper prescription.", variant: "destructive" });
+      return;
+    }
+    setRxCreating(true);
+    try {
+      const response = await apiService.createPrescription({
+        patientName: rxForm.patientName.trim(),
+        patientPhone: invoiceCustomer.phone?.trim() || null,
+        doctorName: rxForm.doctorName.trim() || null,
+        issuedDate: new Date().toISOString(),
+        items: rxCartProducts.map(p => {
+          const durationRaw = rxDosages[p.id]?.durationDays?.trim();
+          const duration = durationRaw ? parseInt(durationRaw, 10) : NaN;
+          return {
+            productId: p.id,
+            quantity: invoiceItems
+              .filter(item => item.productId === p.id)
+              .reduce((sum, item) => sum + item.quantity, 0) || 1,
+            dosage: rxDosages[p.id]?.dosage?.trim() || null,
+            durationDays: Number.isFinite(duration) && duration > 0 ? duration : null,
+          };
+        }),
+      });
+      if (response.success && response.data) {
+        setSelectedPrescription(response.data);
+        setShowRxCreate(false);
+        toast({ title: "Prescription recorded", description: `For ${response.data.patientName} — attached to this sale.` });
+      } else {
+        toast({ title: "Could not record prescription", description: response.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Could not record prescription", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setRxCreating(false);
+    }
+  };
+
   // A cart or manual-discount change invalidates the coupon estimate.
   useEffect(() => {
     setAppliedCoupon(null);
@@ -1152,7 +1255,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         expiry: expiryDate,
         instructions: isBoxSale ? "Take as directed" : `Take ${quantity} ${unitType} as directed`,
         discountPercentage: 0,
-        discountAmount: 0
+        discountAmount: 0,
+        requiresPrescription: product.requiresPrescription || false
       };
       setInvoiceItems([...invoiceItems, newItem]);
     }
@@ -1557,6 +1661,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // with the sale — the server re-evaluates every promotion
         // (this coupon, Buy X Get Y, automatic offers) itself.
         couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+        // Prescriptions (Wave C1): the register record attached in
+        // the rail. The server validates it (exists in this business,
+        // not voided, covers the cart's Rx items) and enforces the
+        // requirePrescriptionAtPos rule when none is attached.
+        prescriptionId: selectedPrescription?.id || undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -1572,6 +1681,17 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       };
       const saleResponse = await apiService.createSale(saleData);
       if (!saleResponse.success) {
+        // Prescriptions (Wave C1): a blocked Rx sale gets a dedicated
+        // dialog that points at the Prescription section of the rail,
+        // not a bare toast the cashier can miss.
+        const saleErrorCode = (saleResponse as any).code as string | undefined;
+        if (saleErrorCode && saleErrorCode.startsWith('PRESCRIPTION_')) {
+          setRxBlock({
+            message: saleResponse.message || "A prescription is required for this sale.",
+            products: ((saleResponse as any).data?.products as Array<{ id: string; name: string }>) || [],
+          });
+          return;
+        }
         const errorMessage = (saleResponse as any).errors ?
           (saleResponse as any).errors.join(', ') :
           saleResponse.message || "Failed to create invoice. Please try again.";
@@ -1582,6 +1702,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           variant: "destructive",
         });
         return;
+      }
+
+      // Prescriptions (Wave C1): enforcement was OFF and no record
+      // was attached — the sale went through, but the cashier should
+      // know Rx items left without a prescription on file.
+      if ((saleResponse.data as any)?.prescriptionWarning) {
+        toast({
+          title: "Sold without a prescription on file",
+          description: "This sale contained prescription-only items and no prescription was attached. Attach one next time so the register stays complete.",
+          variant: "destructive",
+          duration: 6000,
+        });
       }
 
       // Refresh product stock after sale
@@ -1633,6 +1765,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // filled in by the worker and shows on reprints).
         fbrInvoiceNumber: saleResponse.data.fbrInvoiceNumber ?? null,
         fbrStatus: saleResponse.data.fbrStatus ?? null,
+        // Prescriptions (Wave C1): linked register record for the
+        // receipt's "Rx: <patient> (Dr. <doctor>)" line.
+        prescription: saleResponse.data.prescription ?? null,
         total: (saleResponse.data.promotionDiscount || 0) > 0 && saleResponse.data.totalAmount != null
           ? saleResponse.data.totalAmount
           : totalAmount,
@@ -1656,6 +1791,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setInvoiceCustomer({ name: "", phone: "" });
       setPosCustomer(null);
       setLoyaltyPointsInput("");
+      // Reset the attached prescription for the next sale
+      setSelectedPrescription(null);
+      setRxSearch("");
+      setRxResults([]);
+      setShowRxCreate(false);
+      setRxForm({ patientName: "", doctorName: "" });
+      setRxDosages({});
       setCouponCodeInput("");
       setAppliedCoupon(null);
       setCouponError("");
@@ -2120,6 +2262,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           </div>
           ` : ''}
 
+          ${currentReceipt.prescription ? `
+          <div class="customer-info">
+            <strong>Rx:</strong> ${escapeHtml(currentReceipt.prescription.patientName)}${currentReceipt.prescription.doctorName ? ` (Dr. ${escapeHtml(currentReceipt.prescription.doctorName)})` : ''}
+          </div>
+          ` : ''}
+
           <div class="items">
             <h3>Items Purchased:</h3>
             ${currentReceipt.items.map(item => {
@@ -2501,6 +2649,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <strong>Phone:</strong> ${escapeHtml(receipt.customer.phone)}<br>
           ${receipt.customer.email ? `<strong>Email:</strong> ${escapeHtml(receipt.customer.email)}<br>` : ''}
           ${receipt.customer.address ? `<strong>Address:</strong> ${escapeHtml(receipt.customer.address)}` : ''}
+        </div>
+        ` : ''}
+
+        ${receipt.prescription ? `
+        <div class="customer-info">
+          <strong>Rx:</strong> ${escapeHtml(receipt.prescription.patientName)}${receipt.prescription.doctorName ? ` (Dr. ${escapeHtml(receipt.prescription.doctorName)})` : ''}
         </div>
         ` : ''}
 
@@ -3309,6 +3463,143 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
+                    {/* Prescriptions (Wave C1): appears only when the
+                        cart holds prescription-only items. Attach an
+                        existing register record or record a new one
+                        inline; the server enforces the POS rule. */}
+                    {rxCartProducts.length > 0 && (
+                      <div id="pos-prescription-section" className="mt-3 rounded-[12px] border border-amber-200 bg-amber-50 p-3">
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="w-4 h-4 text-amber-700" />
+                          <p className="text-sm font-bold text-amber-900">Prescription required</p>
+                        </div>
+                        <p className="mt-1 text-xs text-amber-800">
+                          {rxCartProducts.map(p => p.name).join(", ")}
+                        </p>
+
+                        {selectedPrescription ? (
+                          <div className="mt-2 rounded-[10px] bg-white border border-amber-200 p-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-bold text-[#0f173c]">{selectedPrescription.patientName}</p>
+                                <p className="text-xs text-[#5b6478]">
+                                  {selectedPrescription.doctorName ? `Dr. ${selectedPrescription.doctorName}` : "No doctor recorded"}
+                                  {" · "}
+                                  {new Date(selectedPrescription.issuedDate).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPrescription(null)}
+                                className="text-xs font-bold text-[#1a52c5] hover:underline"
+                              >
+                                Change
+                              </button>
+                            </div>
+                            {rxMissingFromSelected.length > 0 ? (
+                              <p className="mt-1.5 text-xs font-semibold text-red-600">
+                                This prescription does not list: {rxMissingFromSelected.map(p => p.name).join(", ")} — the sale will be blocked.
+                              </p>
+                            ) : (
+                              <p className="mt-1.5 text-xs font-semibold text-emerald-600">Covers all Rx items in this cart.</p>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <Input
+                              value={rxSearch}
+                              onChange={(e) => setRxSearch(e.target.value)}
+                              placeholder="Search prescriptions by patient or phone…"
+                              className="mt-2 h-9 rounded-[10px] bg-white text-sm"
+                            />
+                            {rxSearching && <p className="mt-1 text-xs text-amber-800">Searching…</p>}
+                            {rxResults.length > 0 && (
+                              <div className="mt-1.5 max-h-40 overflow-y-auto rounded-[10px] border border-amber-200 bg-white divide-y divide-amber-100">
+                                {rxResults.map(rx => (
+                                  <button
+                                    key={rx.id}
+                                    type="button"
+                                    onClick={() => setSelectedPrescription(rx)}
+                                    className="w-full text-left px-2.5 py-2 hover:bg-amber-50"
+                                  >
+                                    <span className="block text-sm font-semibold text-[#0f173c]">{rx.patientName}</span>
+                                    <span className="block text-xs text-[#5b6478]">
+                                      {rx.patientPhone || "No phone"} · {rx.doctorName ? `Dr. ${rx.doctorName}` : "No doctor"} · {new Date(rx.issuedDate).toLocaleDateString()}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {!showRxCreate ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRxForm({ patientName: invoiceCustomer.name || "", doctorName: "" });
+                                  setShowRxCreate(true);
+                                }}
+                                className="mt-2 text-xs font-bold text-[#1a52c5] hover:underline"
+                              >
+                                + New prescription for this patient
+                              </button>
+                            ) : (
+                              <div className="mt-2 rounded-[10px] bg-white border border-amber-200 p-2.5 space-y-2">
+                                <Input
+                                  value={rxForm.patientName}
+                                  onChange={(e) => setRxForm(prev => ({ ...prev, patientName: e.target.value }))}
+                                  placeholder="Patient name (required)"
+                                  className="h-9 rounded-[10px] text-sm"
+                                />
+                                <Input
+                                  value={rxForm.doctorName}
+                                  onChange={(e) => setRxForm(prev => ({ ...prev, doctorName: e.target.value }))}
+                                  placeholder="Doctor (optional)"
+                                  className="h-9 rounded-[10px] text-sm"
+                                />
+                                {rxCartProducts.map(p => (
+                                  <div key={p.id} className="flex items-center gap-2">
+                                    <span className="flex-1 text-xs font-semibold text-[#0f173c] truncate">{p.name}</span>
+                                    <Input
+                                      value={rxDosages[p.id]?.dosage || ""}
+                                      onChange={(e) => setRxDosages(prev => ({ ...prev, [p.id]: { dosage: e.target.value, durationDays: prev[p.id]?.durationDays || "" } }))}
+                                      placeholder="Dosage 1+0+1"
+                                      className="h-8 w-24 rounded-[8px] text-xs"
+                                    />
+                                    <Input
+                                      value={rxDosages[p.id]?.durationDays || ""}
+                                      onChange={(e) => setRxDosages(prev => ({ ...prev, [p.id]: { dosage: prev[p.id]?.dosage || "", durationDays: e.target.value.replace(/[^0-9]/g, "") } }))}
+                                      placeholder="Days"
+                                      inputMode="numeric"
+                                      className="h-8 w-16 rounded-[8px] text-xs"
+                                    />
+                                  </div>
+                                ))}
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={rxCreating}
+                                    onClick={handleCreatePrescriptionInline}
+                                    className="rounded-[10px] bg-gradient-to-r from-[#173e9e] to-[#1a52c5] text-white hover:from-[#1a52c5] hover:to-[#2361dd]"
+                                  >
+                                    {rxCreating ? "Saving…" : "Save & attach"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setShowRxCreate(false)}
+                                    className="rounded-[10px]"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {splitEnabled && (
                       <div className="mt-3 space-y-2">
                         {splitPayments.map((row, index) => (
@@ -3503,6 +3794,55 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       </main>
 
       {/* Receipt Dialog */}
+      {/* Prescriptions (Wave C1): blocked-sale dialog. The server
+          refused the sale because Rx items need a prescription on
+          file (or the attached record does not cover them) — point
+          the cashier straight at the rail's Prescription section. */}
+      <Dialog open={!!rxBlock} onOpenChange={(open) => { if (!open) setRxBlock(null); }}>
+        <DialogContent className="sm:max-w-[440px] rounded-[16px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <Stethoscope className="w-5 h-5" />
+              Prescription required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-[#3d4356]">{rxBlock?.message}</p>
+            {rxBlock && rxBlock.products.length > 0 && (
+              <div className="rounded-[10px] bg-amber-50 border border-amber-200 p-3">
+                <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Prescription-only items</p>
+                <ul className="mt-1 list-disc list-inside text-sm text-amber-900">
+                  {rxBlock.products.map(p => <li key={p.id}>{p.name}</li>)}
+                </ul>
+              </div>
+            )}
+            <p className="text-sm text-[#5b6478]">
+              Attach a prescription in the <strong>Prescription</strong> section of the checkout panel — search the register by patient or phone, or record a new one — then create the invoice again.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-[10px]"
+                onClick={() => setRxBlock(null)}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                className="rounded-[10px] bg-gradient-to-r from-[#173e9e] to-[#1a52c5] text-white hover:from-[#1a52c5] hover:to-[#2361dd]"
+                onClick={() => {
+                  setRxBlock(null);
+                  document.getElementById("pos-prescription-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+              >
+                Go to Prescription section
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0 bg-gradient-to-br from-slate-50 to-blue-50">
           <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-6 py-5">
@@ -3845,6 +4185,23 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </div>
                 </div>
               </div>
+
+              {/* Prescriptions (Wave C1): the register record this
+                  sale dispensed against. */}
+              {currentReceipt.prescription && (
+                <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <Stethoscope className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Prescription</p>
+                    <p className="font-bold text-gray-900">
+                      Rx: {currentReceipt.prescription.patientName}
+                      {currentReceipt.prescription.doctorName ? ` (Dr. ${currentReceipt.prescription.doctorName})` : ""}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* FBR POS (Wave B7): fiscal number + QR once FBR has
                   confirmed; a status note while it is still queued. */}

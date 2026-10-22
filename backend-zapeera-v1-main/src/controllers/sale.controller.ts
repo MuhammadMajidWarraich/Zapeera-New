@@ -12,6 +12,7 @@ import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForS
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
+import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
 
@@ -62,6 +63,11 @@ const createSaleSchema = Joi.object({
   // the promotions engine; there is deliberately no client-sent
   // promotion discount field anywhere in this schema.
   couponCode: Joi.string().trim().max(64).allow('', null).optional(),
+  // Prescriptions (Wave C1): the register record this sale dispenses
+  // against. Optional in the schema — whether it is REQUIRED is a
+  // business rule enforced in createSale (cart contents × the
+  // requirePrescriptionAtPos setting), not a shape rule.
+  prescriptionId: Joi.string().allow(null, '').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -234,7 +240,19 @@ export const getSales = async (req: AuthRequest, res: Response) => {
               }
             },
             payments: true,
-            taxLines: true
+            taxLines: true,
+            // Prescriptions (Wave C1): the invoice list/detail shows
+            // the linked register summary when present.
+            prescription: {
+              select: {
+                id: true,
+                patientName: true,
+                patientPhone: true,
+                doctorName: true,
+                doctorReg: true,
+                issuedDate: true
+              }
+            }
           },
           orderBy: { createdAt: 'desc' }
         }),
@@ -443,6 +461,18 @@ export const getSale = async (req: AuthRequest, res: Response) => {
                 type: true
               }
             }
+          }
+        },
+        // Prescriptions (Wave C1): register summary for the invoice
+        // detail; null when the sale dispensed against none.
+        prescription: {
+          select: {
+            id: true,
+            patientName: true,
+            patientPhone: true,
+            doctorName: true,
+            doctorReg: true,
+            issuedDate: true
           }
         }
       }
@@ -657,7 +687,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const promoProductIds = [...new Set(saleData.items.map(item => item.productId))];
     const promoProducts = await prisma.product.findMany({
       where: { id: { in: promoProductIds } },
-      select: { id: true, categoryId: true, taxClassId: true }
+      select: { id: true, name: true, categoryId: true, taxClassId: true, requiresPrescription: true }
     });
     const categoryByProductId = new Map<string, string | null>(
       promoProducts.map((p: any) => [p.id, p.categoryId || null])
@@ -905,6 +935,94 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       ? (new Set(allocations.map(p => p.method)).size > 1 ? 'MIXED' : allocations[0].method)
       : saleData.paymentMethod;
 
+    // Prescriptions (Wave C1): if the cart holds any product flagged
+    // requiresPrescription, the sale must carry a prescription from
+    // the register — or, when enforcement is OFF for this business,
+    // it proceeds and the response flags prescriptionWarning.
+    // Enforcement is the `requirePrescriptionAtPos` setting: an
+    // explicit stored value wins; with no row stored it defaults to
+    // ON for PHARMACY businesses, OFF for everyone else.
+    //
+    // Coverage rule (deliberately product-level, NOT quantity-level):
+    // every distinct Rx product in the cart must appear among the
+    // attached prescription's items. Quantities are not enforced —
+    // partial fills against a paper prescription are normal pharmacy
+    // practice; the register keeps the prescribed quantities.
+    //
+    // The errors thrown here carry a machine-readable `code` (and the
+    // offending products in `details`) — the outer catch passes both
+    // through for HttpErrors so the POS can open its prescription
+    // dialog instead of showing a bare toast.
+    let prescriptionWarning = false;
+    {
+      const rxNameByProductId = new Map<string, string>();
+      for (const product of promoProducts as any[]) {
+        if (product.requiresPrescription) rxNameByProductId.set(product.id, product.name);
+      }
+      const rxCartProducts = [...new Set(saleData.items.map(item => item.productId))]
+        .filter(id => rxNameByProductId.has(id))
+        .map(id => ({ id, name: rxNameByProductId.get(id) as string }));
+      const attachedId = saleData.prescriptionId ? String(saleData.prescriptionId) : null;
+
+      if (rxCartProducts.length > 0 || attachedId) {
+        // Resolve the sale's company + type the same way the promo /
+        // tax stages above do.
+        let rxCompanyId: string | null = null;
+        let rxBusinessType: string | null = null;
+        if (req.user?.selectedCompanyId) {
+          rxCompanyId = req.user.selectedCompanyId;
+          const company = await prisma.business.findUnique({
+            where: { id: rxCompanyId },
+            select: { businessType: true }
+          });
+          rxBusinessType = company?.businessType ?? null;
+        } else if (saleData.branchId) {
+          const branchRow = await prisma.branch.findUnique({
+            where: { id: saleData.branchId },
+            select: { companyId: true, company: { select: { businessType: true } } }
+          });
+          rxCompanyId = branchRow?.companyId || null;
+          rxBusinessType = branchRow?.company?.businessType ?? null;
+        }
+
+        if (attachedId) {
+          const attached = rxCompanyId
+            ? await prisma.prescription.findFirst({
+                where: { id: attachedId, companyId: rxCompanyId },
+                include: { items: { select: { productId: true } } }
+              })
+            : null;
+          if (!attached) {
+            const e: any = new HttpError(400, 'The attached prescription was not found in this business');
+            e.code = 'PRESCRIPTION_NOT_FOUND';
+            throw e;
+          }
+          if (!attached.isActive) {
+            const e: any = new HttpError(400, 'The attached prescription has been voided and can no longer be used for a sale');
+            e.code = 'PRESCRIPTION_VOIDED';
+            throw e;
+          }
+          const covered = new Set((attached.items || []).map((i: any) => i.productId));
+          const missing = rxCartProducts.filter(p => !covered.has(p.id));
+          if (missing.length > 0) {
+            const e: any = new HttpError(400, `The attached prescription does not cover: ${missing.map(p => p.name).join(', ')}`);
+            e.code = 'PRESCRIPTION_MISMATCH';
+            e.details = { products: missing };
+            throw e;
+          }
+        } else if (rxCartProducts.length > 0) {
+          const enforced = await isPrescriptionEnforced(prisma, currentAdminId, rxBusinessType);
+          if (enforced) {
+            const e: any = new HttpError(400, `Prescription required: this sale contains prescription-only items (${rxCartProducts.map(p => p.name).join(', ')}). Attach a prescription to continue.`);
+            e.code = 'PRESCRIPTION_REQUIRED';
+            e.details = { products: rxCartProducts };
+            throw e;
+          }
+          prescriptionWarning = true;
+        }
+      }
+    }
+
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
@@ -1012,6 +1130,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Promotions (Wave B4): the engine's total (BXGY + the
           // order-level winner); per-promotion rows are written below.
           promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
+          // Prescriptions (Wave C1): validated above (exists in this
+          // business, active, covers the cart's Rx items).
+          prescriptionId: saleData.prescriptionId || null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1042,6 +1163,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               loyaltyDiscount: loyaltyDiscount > 0 ? loyaltyDiscount : null,
               loyaltyPointsEarned: saleData.customerId ? pointsEarned : null,
               promotionDiscount: promotionDiscount > 0 ? promotionDiscount : null,
+              prescriptionId: saleData.prescriptionId || null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -1563,6 +1685,18 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               }
             }
           }
+        },
+        // Prescriptions (Wave C1): the register summary the receipt
+        // prints ("Rx: <patient> (Dr. <doctor>)"); null when none.
+        prescription: {
+          select: {
+            id: true,
+            patientName: true,
+            patientPhone: true,
+            doctorName: true,
+            doctorReg: true,
+            issuedDate: true
+          }
         }
       }
     });
@@ -1642,7 +1776,13 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         // FBR POS (Wave B7): fiscal status at response time (the
         // number itself is filled in asynchronously by the worker).
         fbrStatus,
-        fbrInvoiceNumber
+        fbrInvoiceNumber,
+        // Prescriptions (Wave C1): true when the sale contained
+        // prescription-only items but the business has enforcement
+        // OFF and no prescription was attached — the POS warns the
+        // cashier after the sale. The attached record itself rides
+        // along in the spread above as `prescription`.
+        prescriptionWarning
       }
     });
   } catch (error) {
@@ -1650,9 +1790,18 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // Typed domain errors (insufficient stock, expired batch) carry their
     // own HTTP status (A-12); everything else stays a 500.
     const statusCode = (error as any)?.statusCode;
+    // Domain errors may additionally carry a machine-readable code +
+    // structured details (Wave C1 prescriptions: PRESCRIPTION_REQUIRED
+    // and friends, with the offending products) — pass them through so
+    // clients can react specifically instead of parsing the message.
+    // Scoped to HttpError so raw ORM/driver errors never leak theirs.
+    const domainCode = error instanceof HttpError ? (error as any).code : undefined;
+    const domainDetails = error instanceof HttpError ? (error as any).details : undefined;
     return res.status(typeof statusCode === 'number' ? statusCode : 500).json({
       success: false,
-      message: error instanceof Error ? error.message : 'Internal server error'
+      message: error instanceof Error ? error.message : 'Internal server error',
+      ...(domainCode ? { code: domainCode } : {}),
+      ...(domainDetails ? { data: domainDetails } : {})
     });
   }
 };

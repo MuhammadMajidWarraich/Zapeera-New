@@ -24,6 +24,7 @@ export interface CreateSaleData {
   payments?: SalePaymentData[]; // Split-tender allocations (Wave B1)
   loyaltyPointsToRedeem?: number; // Loyalty redemption (Wave B3): points to spend on this sale
   couponCode?: string | null; // Promotions (Wave B4): the ONLY promotion input a client may send — the engine resolves the discount server-side
+  prescriptionId?: string | null; // Prescriptions (Wave C1): register record this sale dispenses against; required at the POS for requiresPrescription items when enforcement is on
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer

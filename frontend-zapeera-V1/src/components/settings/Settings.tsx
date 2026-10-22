@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Settings as SettingsIcon,
   User,
@@ -109,6 +110,9 @@ const Settings = () => {
       barcodePrinter: "Zebra ZD220",
       defaultTax: 17,
       loyaltyPointValue: 1,
+      // Prescriptions (Wave C1): POS enforcement tri-state —
+      // "auto" stores nothing (pharmacies enforce, others don't).
+      requirePrescriptionAtPos: "auto" as "auto" | "on" | "off",
       lowStockAlert: 20,
       expiryAlert: 30
     },
@@ -323,6 +327,11 @@ const Settings = () => {
               ...prev.pos,
               defaultTax: parseFloat(settingsData.data.defaultTax) || 17,
               loyaltyPointValue: parseFloat(settingsData.data.loyaltyPointValue) || 1,
+              requirePrescriptionAtPos: (settingsData.data.requirePrescriptionAtPos === 'true' || settingsData.data.requirePrescriptionAtPos === true)
+                ? "on"
+                : (settingsData.data.requirePrescriptionAtPos === 'false' || settingsData.data.requirePrescriptionAtPos === false)
+                  ? "off"
+                  : "auto",
               autoSync: settingsData.data.autoSync === 'true',
               offlineMode: settingsData.data.offlineMode === 'true',
               receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
@@ -391,6 +400,13 @@ const Settings = () => {
         body: JSON.stringify({
           defaultTax: settings.pos.defaultTax,
           loyaltyPointValue: settings.pos.loyaltyPointValue,
+          // Prescriptions (Wave C1): true = always require, false =
+          // never require, null = clear the override (Automatic).
+          requirePrescriptionAtPos: settings.pos.requirePrescriptionAtPos === "on"
+            ? true
+            : settings.pos.requirePrescriptionAtPos === "off"
+              ? false
+              : null,
           lowStockAlert: settings.pos.lowStockAlert,
           expiryAlert: settings.pos.expiryAlert,
           autoSync: settings.pos.autoSync,
@@ -1168,6 +1184,30 @@ toast({
               />
               <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
                 What one loyalty point is worth when a customer redeems points at the POS. Customers earn 1 point per PKR 100 spent.
+              </p>
+            </div>
+            <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">
+              <Label htmlFor="require-prescription-pos" className="mb-2 block text-sm font-bold text-[#0a1128]">
+                Prescription Required at POS
+              </Label>
+              <Select
+                value={settings.pos.requirePrescriptionAtPos}
+                onValueChange={(value) => handleSettingChange("pos", "requirePrescriptionAtPos", value)}
+                disabled={!isEditingPOS}
+              >
+                <SelectTrigger id="require-prescription-pos" className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automatic (recommended)</SelectItem>
+                  <SelectItem value="on">Always require a prescription</SelectItem>
+                  <SelectItem value="off">Never require</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                When a cart contains prescription-only medicines, must a prescription from the register be attached before the sale can complete?
+                Automatic: required for pharmacy businesses, off for other business types. When it is off, Rx items can be sold without a
+                record — the cashier sees a warning instead.
               </p>
             </div>
           </div>

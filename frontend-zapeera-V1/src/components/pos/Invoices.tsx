@@ -74,6 +74,16 @@ interface Invoice {
   // the fiscal queue (null when FBR was disabled at sale time).
   fbrInvoiceNumber?: string | null;
   fbrStatus?: string | null;
+  // Prescriptions (Wave C1): the register record this sale dispensed
+  // against (server includes the summary on sale reads).
+  prescription?: {
+    id: string;
+    patientName: string;
+    patientPhone?: string | null;
+    doctorName?: string | null;
+    doctorReg?: string | null;
+    issuedDate?: string;
+  } | null;
   totalAmount: number;
   paidAmount?: number; // Amount paid by customer
   returnedAmount?: number; // Amount returned/refunded
@@ -1479,6 +1489,33 @@ const Invoices = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Prescription (Wave C1): the register record this
+                    sale dispensed against, when one is linked. */}
+                {selectedInvoice.prescription && (
+                  <div className="border-b pb-4">
+                    <h3 className="font-semibold mb-2">Prescription</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p><strong>Patient:</strong> {selectedInvoice.prescription.patientName}</p>
+                        {selectedInvoice.prescription.patientPhone && (
+                          <p><strong>Phone:</strong> {selectedInvoice.prescription.patientPhone}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p>
+                          <strong>Doctor:</strong>{' '}
+                          {selectedInvoice.prescription.doctorName
+                            ? `Dr. ${selectedInvoice.prescription.doctorName}${selectedInvoice.prescription.doctorReg ? ` (${selectedInvoice.prescription.doctorReg})` : ''}`
+                            : 'Not recorded'}
+                        </p>
+                        {selectedInvoice.prescription.issuedDate && (
+                          <p><strong>Issued:</strong> {formatDate(selectedInvoice.prescription.issuedDate)}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Items */}
                 <div className="space-y-3">

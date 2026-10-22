@@ -162,6 +162,11 @@ const ENTRIES: RegistryEntry[] = [
   // ── Expenses module ───────────────────────────────────────────────────────
   { prefix: '/api/expenses', policy: { kind: 'module', resourceKey: 'expenses.expenses' } },
 
+  // ── Prescriptions module (Wave C1 — Pharmacy pack) ───────────────────
+  // Its own module key (prescriptions.prescriptions), declared in the
+  // hierarchy + MODULE_PAGES from early on; the API arrives in C1.
+  { prefix: '/api/prescriptions', policy: { kind: 'module', resourceKey: 'prescriptions.prescriptions' } },
+
   // ── Backoffice (platform admin; router-guarded, public login/setup) ──────
   { prefix: '/api/backoffice/auth/login', policy: { kind: 'public' } },
   { prefix: '/api/backoffice/auth/setup', policy: { kind: 'public' } },

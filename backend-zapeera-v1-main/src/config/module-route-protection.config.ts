@@ -78,6 +78,11 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
 
   // Expenses
   '/api/expenses': { module: 'expenses', page: 'expenses' },
+
+  // Prescriptions (Wave C1 — Pharmacy pack): the module and its page
+  // were declared in the hierarchy/MODULE_PAGES long before the API
+  // existed; this entry finally gives the routes their classification.
+  '/api/prescriptions': { module: 'prescriptions', page: 'prescriptions' },
 };
 
 /**

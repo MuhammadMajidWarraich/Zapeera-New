@@ -39,6 +39,7 @@ import {
   CalendarDays,
   User,
   Bell,
+  Stethoscope,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -307,6 +308,28 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         href: '/employee-portal#notifications',
         icon: Bell,
         module: 'employee_portal',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+    ],
+  },
+
+  // ─── Prescriptions (Pharmacy) ───────────────────────────────────────
+  // The module key + guard mappings existed long before the page did
+  // (Wave C1 finally builds it). Placement mirrors the backend
+  // hierarchy: main section, after Employee Portal.
+  {
+    module: 'prescriptions',
+    label: 'Prescriptions',
+    icon: Stethoscope,
+    section: 'main',
+    roles: ['OWNER', 'MANAGER', 'CASHIER'],
+    pages: [
+      {
+        key: 'prescriptions',
+        label: 'Prescriptions',
+        href: '/prescriptions',
+        icon: Stethoscope,
+        module: 'prescriptions',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
     ],

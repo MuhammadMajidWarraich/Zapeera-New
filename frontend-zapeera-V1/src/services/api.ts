@@ -21,6 +21,10 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
+  // Machine-readable error code from the API body (e.g.
+  // PRESCRIPTION_REQUIRED) — passed through on failures so callers
+  // can react specifically instead of parsing the message.
+  code?: string;
 }
 
 export interface SupportTicketMessageItem {
@@ -142,6 +146,78 @@ export interface TaxClassPayload {
   rate: number;
   isDefault?: boolean;
   isActive?: boolean;
+}
+
+// Prescriptions (Wave C1 — Pharmacy pack): the register of paper
+// prescriptions a pharmacy received. A record is never deleted —
+// voiding flips isActive off and stamps voidReason/voidedAt; voided
+// records cannot be edited or attached to a new sale.
+export interface PrescriptionItemRecord {
+  id: string;
+  prescriptionId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  dosage?: string | null;
+  durationDays?: number | null;
+}
+
+export interface PrescriptionRecord {
+  id: string;
+  companyId: string;
+  branchId?: string | null;
+  patientName: string;
+  patientPhone?: string | null;
+  doctorName?: string | null;
+  doctorReg?: string | null;
+  notes?: string | null;
+  imageUrl?: string | null;
+  issuedDate: string;
+  isActive: boolean;
+  voidReason?: string | null;
+  voidedAt?: string | null;
+  voidedBy?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: PrescriptionItemRecord[];
+  sales?: Array<{
+    id: string;
+    invoiceNumber?: string | null;
+    totalAmount: number;
+    createdAt: string;
+  }>;
+  _count?: { sales: number };
+}
+
+export interface PrescriptionItemPayload {
+  productId: string;
+  quantity: number;
+  dosage?: string | null;
+  durationDays?: number | null;
+}
+
+export interface PrescriptionPayload {
+  branchId?: string | null;
+  patientName: string;
+  patientPhone?: string | null;
+  doctorName?: string | null;
+  doctorReg?: string | null;
+  notes?: string | null;
+  imageUrl?: string | null;
+  issuedDate: string;
+  items: PrescriptionItemPayload[];
+}
+
+// The register summary a sale carries when it dispensed against a
+// prescription (receipts print "Rx: <patient> (Dr. <doctor>)").
+export interface SalePrescriptionSummary {
+  id: string;
+  patientName: string;
+  patientPhone?: string | null;
+  doctorName?: string | null;
+  doctorReg?: string | null;
+  issuedDate?: string;
 }
 
 // One tax-class group of a sale, as stored on its SaleTaxLine rows
@@ -441,6 +517,7 @@ export class ApiService {
           return {
             success: false,
             message: message,
+            code: (data && typeof data === 'object' && 'code' in data ? data.code : undefined) as any,
             data: (data && typeof data === 'object' && 'data' in data ? data.data : undefined) as any,
           };
         }
@@ -1564,6 +1641,55 @@ export class ApiService {
     });
   }
 
+  // Prescriptions (Wave C1 — Pharmacy pack)
+  async getPrescriptions(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    productId?: string;
+    from?: string;
+    to?: string;
+    isActive?: boolean;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<PrescriptionRecord[]>(`/prescriptions${query ? `?${query}` : ''}`);
+  }
+
+  async getPrescription(prescriptionId: string) {
+    return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}`);
+  }
+
+  async createPrescription(data: PrescriptionPayload) {
+    return this.request<PrescriptionRecord>('/prescriptions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePrescription(prescriptionId: string, data: Partial<PrescriptionPayload>) {
+    return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // DELETE voids the record (legal register — never a hard delete);
+  // the server requires a reason and an OWNER/MANAGER role.
+  async voidPrescription(prescriptionId: string, reason: string) {
+    return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
   // FBR POS (Wave B7)
   async getFbrConfig() {
     return this.request<FbrConfigRecord>('/fbr/config');
@@ -1655,6 +1781,11 @@ export class ApiService {
     // — the server computes the discount. Automatic promotions need
     // no input at all.
     couponCode?: string;
+    // Prescriptions (Wave C1): the register record this sale
+    // dispenses against. Required by the server when the cart holds
+    // prescription-only items and the business enforces it
+    // (requirePrescriptionAtPos); the server validates coverage.
+    prescriptionId?: string;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -1710,6 +1841,12 @@ export class ApiService {
       }>;
       // Tax classes (Wave B5): per-class breakdown behind taxAmount.
       taxBreakdown?: TaxBreakdownLine[];
+      // Prescriptions (Wave C1): the attached register summary, and
+      // the warning flag set when Rx items were sold without one
+      // while the business has enforcement off.
+      prescription?: SalePrescriptionSummary | null;
+      prescriptionId?: string | null;
+      prescriptionWarning?: boolean;
       totalAmount: number;
       paymentMethod: string;
       payments?: Array<{
