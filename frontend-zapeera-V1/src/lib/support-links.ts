@@ -4,11 +4,11 @@ export const SUPPORT_PHONE_DISPLAY = "+92 307 5445509";
 
 /** Direct download link for the Windows desktop installer (GitHub release asset). */
 export const DESKTOP_DOWNLOAD_URL =
-  "https://github.com/MuhammadMajidWarraich/Zapeera-New/releases/download/v1.0.2/Zapeera-Setup-1.0.2.exe";
+  "https://github.com/MuhammadMajidWarraich/Zapeera-New/releases/download/v1.0.3/Zapeera-Setup-1.0.3.exe";
 
-/** Direct download link for the Android app APK (GitHub release asset, v0.1.0). */
+/** Direct download link for the Android app APK (GitHub release asset, v0.2.0). */
 export const ANDROID_DOWNLOAD_URL =
-  "https://github.com/MuhammadMajidWarraich/Zapeera-New/releases/download/android-v0.1.0/Zapeera-Android-0.1.0-debug.apk";
+  "https://github.com/MuhammadMajidWarraich/Zapeera-New/releases/download/android-v0.2.0/Zapeera-Android-0.2.0-debug.apk";
 
 function digits(phone: string): string {
   return String(phone || "").replace(/[^0-9]/g, "");

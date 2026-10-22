@@ -70,8 +70,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp frontend-zapeera-V1/android/app/build/outputs/apk/debug/app-debug.apk Zapeera-Android-0.1.0-debug.apk
-          gh release create android-v0.1.0 Zapeera-Android-0.1.0-debug.apk \
-            --title "Zapeera Android v0.1.0 (debug)" \
-            --notes "First Android build of the Zapeera app (Capacitor, appId com.seikho.zapeera), talking to the cloud API at api.zapeera.seikho.online. Debug build for testing — sideload the APK to install." \
+          cp frontend-zapeera-V1/android/app/build/outputs/apk/debug/app-debug.apk Zapeera-Android-0.2.0-debug.apk
+          gh release create android-v0.2.0 Zapeera-Android-0.2.0-debug.apk \
+            --title "Zapeera Android v0.2.0 (debug)" \
+            --notes "Android build of the Zapeera app (Capacitor, appId com.seikho.zapeera), talking to the cloud API at api.zapeera.seikho.online. Carries the October 2026 maturity wave: prescriptions, clinic and hotel modules, promotions/tax/FBR POS, backup & restore, affiliate and white-label support. Debug build for testing — sideload the APK to install." \
             --prerelease
