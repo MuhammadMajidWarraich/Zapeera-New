@@ -9,7 +9,7 @@
  */
 import React, { useMemo, useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Globe, Zap, Lock, Circle, type LucideIcon } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Globe, Zap, Lock, Circle, Settings, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranding } from '@/contexts/BrandingContext';
@@ -383,6 +383,16 @@ export const RoleBasedSidebar: React.FC = () => {
 
   const businessSlug = String(businessSlugFromUrl || (displayCompany as { slug?: string | null })?.slug || '').trim();
 
+  // Business Settings (/business/:slug/settings) is a standalone route, not a
+  // module page — nothing in the dynamic hierarchy links to it. The footer
+  // utility entry below is its only navigation. Visibility mirrors the
+  // route's RoleProtectedRoute gate in App.tsx (ADMIN / OWNER / MANAGER).
+  const settingsHref = withBusinessSlug(businessSlug || null, '/settings');
+  const isSettingsActive = location.pathname === settingsHref;
+  const canAccessBusinessSettings = ['ADMIN', 'OWNER', 'MANAGER'].includes(
+    String(effectiveRole || '').toUpperCase(),
+  );
+
   // ── Dynamic Module Hierarchy from Backend ─────────────────────────────────
   // Convert dynamic hierarchy from backend to ModuleGroup format
   const visibleGroups = useMemo(() => {
@@ -700,6 +710,23 @@ export const RoleBasedSidebar: React.FC = () => {
 
       {/* Footer */}
       <div className="relative z-[2] mt-auto space-y-0.5 px-3.5 pb-6 pt-2">
+        {canAccessBusinessSettings && (
+          <Link
+            to={settingsHref}
+            className={cn(
+              'relative flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
+              isSettingsActive
+                ? 'bg-gradient-to-br from-[#1a52c5]/20 to-[#28c2ce]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+                : 'text-white/50 hover:bg-white/[0.04] hover:text-white/85',
+              effectiveCollapsed && 'justify-center px-2',
+            )}
+            title={effectiveCollapsed ? 'Settings' : undefined}
+          >
+            <ActiveIndicator active={isSettingsActive} />
+            <Settings className="h-5 w-5 shrink-0 stroke-[1.8]" />
+            {!effectiveCollapsed && <span>Settings</span>}
+          </Link>
+        )}
         <Link
           to="/zapeera"
           className={cn(
