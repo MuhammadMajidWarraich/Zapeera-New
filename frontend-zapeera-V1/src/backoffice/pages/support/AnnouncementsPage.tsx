@@ -79,7 +79,7 @@ export function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold text-gray-900">Announcements</h1><p className="text-sm text-gray-500 mt-1">Create and manage platform announcements</p></div>
         <div className="flex items-center gap-2">
           <button onClick={load} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
@@ -93,7 +93,8 @@ export function AnnouncementsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center"><Megaphone className="w-12 h-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-600 mb-1">No announcements yet</h3><p className="text-sm text-gray-400">Create your first announcement to notify platform users</p></div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px]">
             <thead><tr className="border-b border-gray-100 bg-gray-50/50">
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Title</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Type</th>
@@ -118,17 +119,18 @@ export function AnnouncementsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4"><h2 className="text-lg font-bold">{editing ? 'Edit' : 'New'} Announcement</h2><button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button></div>
             <div className="space-y-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Title</label><input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Content</label><textarea value={form.content} onChange={e => setForm(p => ({ ...p, content: e.target.value }))} rows={4} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Type</label><select value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value as Announcement['type'] }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"><option value="INFO">Info</option><option value="WARNING">Warning</option><option value="MAINTENANCE">Maintenance</option><option value="UPDATE">Update</option></select></div>
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Status</label><select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value as Announcement['status'] }))} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">{STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
               </div>

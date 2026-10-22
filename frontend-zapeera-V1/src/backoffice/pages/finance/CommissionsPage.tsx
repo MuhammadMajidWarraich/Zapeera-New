@@ -92,7 +92,7 @@ export function CommissionsPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Records', value: String(stats.totalCommissions), icon: Award, color: 'bg-gray-50 text-gray-600' },
             { label: 'Total Amount', value: formatRs(stats.totalAmount), icon: DollarSign, color: 'bg-blue-50 text-blue-600' },
@@ -174,7 +174,7 @@ export function CommissionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-3 font-medium">Staff</th>

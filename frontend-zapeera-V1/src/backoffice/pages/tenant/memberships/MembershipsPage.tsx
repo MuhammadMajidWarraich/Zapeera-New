@@ -40,7 +40,8 @@ export function MembershipsPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px]">
           <thead><tr className="border-b border-gray-100 bg-gray-50/50"><th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Business</th><th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Members</th><th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th></tr></thead>
           <tbody className="divide-y divide-gray-50">
             {filtered.map(m => (
@@ -52,6 +53,7 @@ export function MembershipsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

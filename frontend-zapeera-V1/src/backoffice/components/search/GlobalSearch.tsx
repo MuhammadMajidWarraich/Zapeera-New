@@ -97,7 +97,7 @@ export function GlobalSearch() {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setOpen(false)} />
-      <div className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-lg z-50">
+      <div className="fixed top-[15%] left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-lg z-50">
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
             <Search className="w-5 h-5 text-gray-400" />

@@ -188,22 +188,22 @@ export function AffiliatesPage() {
           <h2 className="text-sm font-semibold text-gray-900">Manual attribution</h2>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 flex-1 min-w-[9rem] sm:flex-none">
             Affiliate code
             <input
               value={attrCode}
               onChange={(e) => setAttrCode(e.target.value)}
               placeholder="e.g. AB3F9K2Q"
-              className="mt-1 block w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+              className="mt-1 block w-full sm:w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
             />
           </label>
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-gray-500 flex-1 min-w-[11rem] sm:flex-none">
             Business ID
             <input
               value={attrBusinessId}
               onChange={(e) => setAttrBusinessId(e.target.value)}
               placeholder="Business ID"
-              className="mt-1 block w-64 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+              className="mt-1 block w-full sm:w-64 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
             />
           </label>
           <button
@@ -219,13 +219,13 @@ export function AffiliatesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search name, email, code…"
-            className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white w-64"
+            className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white w-full sm:w-64"
           />
         </div>
         <select
@@ -252,7 +252,7 @@ export function AffiliatesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-3 font-medium">Affiliate</th>

@@ -52,7 +52,7 @@ export function SupportPage() {
         <p className="text-sm text-gray-500 mt-1">Manage customer support and communications</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(k => (
           <div key={k.label} className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center gap-3"><div className={`p-2 rounded-lg ${k.color}`}><k.icon className="w-4 h-4" /></div><div><p className="text-2xl font-bold text-gray-900">{loading ? '–' : k.value}</p><p className="text-xs text-gray-500">{k.label}</p></div></div>

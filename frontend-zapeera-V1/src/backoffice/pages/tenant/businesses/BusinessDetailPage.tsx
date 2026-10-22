@@ -47,7 +47,7 @@ export function BusinessDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
         <button onClick={() => navigate('/backoffice/businesses')} className="p-2 hover:bg-gray-100 rounded-lg transition"><ArrowLeft className="w-5 h-5 text-gray-500" /></button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
@@ -60,7 +60,7 @@ export function BusinessDetailPage() {
         )}
       </div>
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="w-4 h-4" /> {tab.label}

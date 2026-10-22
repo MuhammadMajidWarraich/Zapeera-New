@@ -169,7 +169,7 @@ export function BusinessTypesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Business Types</h1>
           <p className="text-sm text-gray-500 mt-1">Configure business types and the modules available to each</p>
@@ -191,8 +191,8 @@ export function BusinessTypesPage() {
 
           return (
             <div key={t.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between p-5">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-5">
+                <div className="flex items-center gap-4 min-w-0">
                   <div className="p-2 bg-blue-50 rounded-lg">
                     <FileStack className="w-5 h-5 text-blue-600" />
                   </div>
@@ -251,7 +251,7 @@ export function BusinessTypesPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">{editing ? 'Edit' : 'New'} Business Type</h2>
