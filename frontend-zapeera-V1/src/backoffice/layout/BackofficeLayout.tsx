@@ -84,7 +84,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 flex pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Mobile drawer backdrop (below lg only) */}
       {mobileOpen && (
         <div

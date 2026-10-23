@@ -248,7 +248,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   };
 
   const sidebar = (
-    <aside className="fixed left-0 top-0 z-[100] flex h-screen w-[272px] flex-col overflow-hidden bg-[#060d1f]">
+    <aside className="fixed left-0 top-0 z-[100] flex h-screen w-[272px] flex-col overflow-hidden bg-[#060d1f] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div
         className="pointer-events-none absolute bottom-[-100px] left-[-60px] h-[260px] w-[260px] rounded-full blur-[40px]"
         style={{ background: "radial-gradient(circle, rgba(26,82,197,0.12) 0%, transparent 70%)" }}
@@ -394,7 +394,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
   return (
     <div
-      className="zv3-app flex min-h-screen bg-[#f0f2f7] font-['Outfit',system-ui,sans-serif] text-[#0a1128] antialiased"
+      className="zv3-app flex min-h-screen bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-['Outfit',system-ui,sans-serif] text-[#0a1128] antialiased"
       style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
     >
       <div className="pointer-events-none fixed z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]" style={{ top: -100, right: -100 }} />
