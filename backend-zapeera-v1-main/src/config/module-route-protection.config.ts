@@ -60,6 +60,7 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   // Sales & POS
   '/api/sales': { module: 'sales', page: 'invoices' },
   '/api/pos': { module: 'sales', page: 'pos' },
+  '/api/parked-sales': { module: 'sales', page: 'pos' },
   '/api/refunds': { module: 'sales', page: 'refunds' },
   '/api/customers': { module: 'sales', page: 'customers' },
 

@@ -27,6 +27,25 @@ interface ApiResponse<T> {
   code?: string;
 }
 
+// POS Hold (parked sales): one held order as the held-orders list
+// shows it. `payload` (the full cart state) is only returned by the
+// single-record GET used by Resume.
+export interface ParkedSaleRecord {
+  id: string;
+  businessId: string;
+  branchId: string;
+  createdById: string;
+  createdByName?: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
+  label?: string | null;
+  itemCount: number;
+  grandTotal: number;
+  createdAt: string;
+  updatedAt: string;
+  payload?: Record<string, any>;
+}
+
 export interface PartnerApplicationItem {
   id: string;
   companyName: string;
@@ -3244,6 +3263,42 @@ export class ApiService {
     }>('/sales', {
       method: 'POST',
       body: JSON.stringify(saleData),
+    });
+  }
+
+  // POS Hold (parked sales): park the current cart server-side and
+  // resume it later from the held-orders list. `payload` is the full
+  // cart state, stored verbatim; list reads return display snapshots.
+  async createParkedSale(data: {
+    branchId: string;
+    customerId?: string | null;
+    label?: string | null;
+    itemCount?: number;
+    grandTotal?: number;
+    payload: Record<string, any>;
+  }) {
+    return this.request<ParkedSaleRecord>('/parked-sales', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getParkedSales(branchId?: string) {
+    const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+    return this.request<{ parkedSales: ParkedSaleRecord[] }>(`/parked-sales${query}`);
+  }
+
+  async getParkedSale(parkedSaleId: string) {
+    return this.request<ParkedSaleRecord>(`/parked-sales/${parkedSaleId}`);
+  }
+
+  async deleteParkedSale(parkedSaleId: string) {
+    // POST action route, not DELETE: the platform's authorization
+    // layer reserves the raw `delete` operation for OWNER, while
+    // parking is a create-level action — every role that can park
+    // must be able to discard/consume (see parked-sale.routes).
+    return this.request<{ id: string }>(`/parked-sales/${parkedSaleId}/discard`, {
+      method: 'POST',
     });
   }
 

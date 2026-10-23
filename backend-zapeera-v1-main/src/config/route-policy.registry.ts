@@ -151,6 +151,12 @@ const ENTRIES: RegistryEntry[] = [
   // ── Sales & POS module ────────────────────────────────────────────────────
   { prefix: '/api/sales', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
   { prefix: '/api/pos', policy: { kind: 'module', resourceKey: 'sales.pos' } },
+  // Parked (held) POS sales: carts parked from the POS screen and
+  // resumed there, so they share the sales.pos page key of the surface
+  // they belong to (same precedent as promotions/fbr sharing
+  // sales.invoices). The router additionally applies the sale
+  // permissions (read_sale / create_sale) per operation.
+  { prefix: '/api/parked-sales', policy: { kind: 'module', resourceKey: 'sales.pos' } },
   { prefix: '/api/refunds', policy: { kind: 'module', resourceKey: 'sales.refunds' } },
   // Promotions & coupons (Wave B4): invoice-money rules, so they share
   // the sales.invoices page key of the sale surface they modify (no new

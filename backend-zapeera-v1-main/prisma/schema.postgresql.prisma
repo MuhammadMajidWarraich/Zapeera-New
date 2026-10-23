@@ -1210,6 +1210,35 @@ model BackupSafetySnapshot {
   @@map("backup_safety_snapshots")
 }
 
+// ─── POS parked (held) sales ─────────────────────────────────────
+// A cashier can park the in-progress POS cart ("Hold") and resume it
+// later — from the held-orders list of the same branch. The full cart
+// state lives in `payload` (JSON) so resume restores the cart exactly:
+// lines (product/batch/quantity/prices/discounts, unit levels,
+// variants), the customer, patient + prescription attachment, coupon
+// and loyalty inputs. itemCount/grandTotal are display snapshots for
+// the held-orders list only — the resumed sale's totals are always
+// recomputed by the sale flow. Plain scalar references on purpose,
+// matching BackupSafetySnapshot: zero impact on the existing models.
+// A parked row is consumed (deleted by the frontend) only AFTER the
+// resumed sale's invoice has been created successfully.
+model ParkedSale {
+  id          String   @id @default(cuid())
+  businessId  String
+  branchId    String
+  createdById String // staff user (ZapeeraUser) who parked the cart
+  customerId  String? // attached POS customer, when any
+  label       String? // optional note shown in the held-orders list
+  payload     Json // full cart state (see parked-sale.controller)
+  itemCount   Int      @default(0) // total units across lines (display)
+  grandTotal  Float    @default(0) // cart grand-total snapshot (display)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId, branchId], name: "idx_parked_sale_business_branch")
+  @@map("parked_sales")
+}
+
 // FBR POS fiscal integration (Wave B7): the durable outbox for fiscal
 // postings. One row per fiscal document: the sale itself
 // (kind = SALE, InvoiceType 1) and one per fiscalized refund

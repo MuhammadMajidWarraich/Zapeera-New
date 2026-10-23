@@ -47,7 +47,9 @@ import {
   Clock,
   UserRound,
   FileText,
-  Loader2
+  Loader2,
+  PauseCircle,
+  Play
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -304,6 +306,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [clockNow, setClockNow] = useState(new Date());
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isTxnDialogOpen, setIsTxnDialogOpen] = useState(false);
+  // POS Hold (parked sales): the Held tab of the Transactions dialog,
+  // the parked rows for this branch, and the id of the parked record
+  // the current cart was resumed from (consumed — deleted — only
+  // after that resumed sale's invoice has been created).
+  const [txnTab, setTxnTab] = useState<"recent" | "held">("recent");
+  const [parkedSales, setParkedSales] = useState<any[]>([]);
+  const [isLoadingParked, setIsLoadingParked] = useState(false);
+  const [isParking, setIsParking] = useState(false);
+  const [resumedParkedId, setResumedParkedId] = useState<string | null>(null);
   const [todaySales, setTodaySales] = useState<any[]>([]);
   const [isLoadingTodaySales, setIsLoadingTodaySales] = useState(false);
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
@@ -865,6 +876,203 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setIsLoadingTodaySales(false);
     }
   }, [user, selectedBranchId, selectedCompanyId]);
+
+  // POS Hold: the branch this terminal is selling from — the same
+  // resolution the product loader and the sale submit use.
+  const resolvePosBranchId = useCallback((): string | undefined => {
+    if (user?.role === 'OWNER') return selectedBranchId || undefined;
+    return user?.membership?.branchIds?.[0] || user?.branchId || undefined;
+  }, [user, selectedBranchId]);
+
+  const fetchParkedSales = useCallback(async () => {
+    setIsLoadingParked(true);
+    try {
+      const response = await apiService.getParkedSales(resolvePosBranchId());
+      setParkedSales(response.success && Array.isArray(response.data?.parkedSales) ? response.data.parkedSales : []);
+    } catch {
+      setParkedSales([]);
+    } finally {
+      setIsLoadingParked(false);
+    }
+  }, [resolvePosBranchId]);
+
+  // Clear the rail back to a fresh cart. Mirrors the sale-success
+  // reset; used by Hold (after a successful park) and by Resume
+  // (before the held cart is loaded). Never touches a parked record —
+  // a held order is consumed only by a completed sale or an explicit
+  // Discard in the held-orders list.
+  const resetPosCart = useCallback(() => {
+    setInvoiceItems([]);
+    setInvoiceCustomer({ name: "", phone: "" });
+    setPosCustomer(null);
+    setLoyaltyPointsInput("");
+    setSelectedPrescription(null);
+    setSalespersonId('');
+    setRxSearch("");
+    setRxResults([]);
+    setShowRxCreate(false);
+    setRxForm({ patientName: "", doctorName: "" });
+    setRxDosages({});
+    setCouponCodeInput("");
+    setAppliedCoupon(null);
+    setCouponError("");
+    setDiscountPercentage(0);
+    setPaymentMethod('CASH');
+    setPaymentStatus('COMPLETED');
+    setPaidAmount(0);
+    setSplitEnabled(false);
+    setSplitPayments([]);
+    setSearchQuery("");
+  }, []);
+
+  // Park the current cart server-side (header Hold button). An empty
+  // cart is an honest toast — never a fake "held" success.
+  const handleParkSale = async () => {
+    if (invoiceItems.length === 0) {
+      toast({
+        title: "Cart is empty",
+        description: "There is nothing to hold. Held orders are under Transactions → Held.",
+      });
+      return;
+    }
+    const branchId = resolvePosBranchId();
+    if (!branchId) {
+      toast({
+        title: "No branch selected",
+        description: "Select a branch before holding this sale.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsParking(true);
+    try {
+      const cartProductIds = new Set(invoiceItems.map(i => i.productId || i.id));
+      const payload = {
+        version: 1,
+        items: invoiceItems,
+        customer: posCustomer,
+        walkInCustomer: invoiceCustomer,
+        discountPercentage,
+        salespersonId: salespersonId || "",
+        prescription: selectedPrescription,
+        rxDosages,
+        coupon: appliedCoupon,
+        couponCodeInput,
+        loyaltyPointsInput,
+        selectedBatches: Object.fromEntries(Object.entries(selectedBatches).filter(([pid]) => cartProductIds.has(pid))),
+        selectedVariants: Object.fromEntries(Object.entries(selectedVariants).filter(([pid]) => cartProductIds.has(pid))),
+      };
+      const itemCount = invoiceItems.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+      const response = await apiService.createParkedSale({
+        branchId,
+        customerId: posCustomer?.id ?? null,
+        label: invoiceCustomer.name || null,
+        itemCount,
+        grandTotal: mainTotalAfterLoyalty,
+        payload,
+      });
+      if (!response.success) {
+        toast({
+          title: "Could not hold the sale",
+          description: response.message || "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Parking a NEW cart while a resumed one was loaded abandons the
+      // resume — the original held order stays parked, untouched.
+      setResumedParkedId(null);
+      resetPosCart();
+      toast({
+        title: "Sale held",
+        description: `${itemCount} item${itemCount === 1 ? "" : "s"} • PKR ${mainTotalAfterLoyalty.toFixed(2)} — resume it anytime from Transactions → Held.`,
+        duration: 4000,
+      });
+      fetchParkedSales();
+    } catch (error: any) {
+      toast({
+        title: "Could not hold the sale",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsParking(false);
+    }
+  };
+
+  // Resume a held order: load its payload back into the rail through
+  // the same state the cart was built with, so batch selections,
+  // quantities, discounts, customer and prescription return exactly.
+  const handleResumeParked = async (parkedId: string) => {
+    if (invoiceItems.length > 0) {
+      toast({
+        title: "Current cart is not empty",
+        description: "Hold or clear the current cart before resuming a held order.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      const response = await apiService.getParkedSale(parkedId);
+      const payload: any = response.data?.payload;
+      if (!response.success || !payload || !Array.isArray(payload.items)) {
+        toast({
+          title: "Could not resume",
+          description: "This held order could not be loaded.",
+          variant: "destructive",
+        });
+        return;
+      }
+      resetPosCart();
+      setInvoiceItems(payload.items);
+      setInvoiceCustomer(payload.walkInCustomer ?? { name: "", phone: "" });
+      setPosCustomer(payload.customer ?? null);
+      setDiscountPercentage(payload.discountPercentage ?? 0);
+      setSalespersonId(payload.salespersonId ?? "");
+      setSelectedPrescription(payload.prescription ?? null);
+      setRxDosages(payload.rxDosages ?? {});
+      setAppliedCoupon(payload.coupon ?? null);
+      setCouponCodeInput(payload.couponCodeInput ?? "");
+      setLoyaltyPointsInput(payload.loyaltyPointsInput ?? "");
+      if (payload.selectedBatches) setSelectedBatches(prev => ({ ...prev, ...payload.selectedBatches }));
+      if (payload.selectedVariants) setSelectedVariants(prev => ({ ...prev, ...payload.selectedVariants }));
+      setResumedParkedId(parkedId);
+      setIsTxnDialogOpen(false);
+      toast({
+        title: "Held order restored",
+        description: "The cart is exactly as it was when held. Complete the sale to finish it.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Could not resume",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDiscardParked = async (parkedId: string) => {
+    try {
+      const response = await apiService.deleteParkedSale(parkedId);
+      if (!response.success) {
+        toast({
+          title: "Could not discard",
+          description: response.message || "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (resumedParkedId === parkedId) setResumedParkedId(null);
+      setParkedSales(prev => prev.filter(p => p.id !== parkedId));
+      toast({ title: "Held order discarded" });
+    } catch (error: any) {
+      toast({
+        title: "Could not discard",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // NOTE: Previously, two useEffects here cleared all user work (productBatches, selectedBatches,
   // filteredProducts, searchQuery) on branch/company change events. They have been removed because
@@ -2425,6 +2633,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         duration: 3000,
       });
 
+      // POS Hold: if this sale began as a resumed held order, consume
+      // the parked record now that its invoice exists. A failed sale
+      // returns above and never reaches here, so the held order stays
+      // parked in that case.
+      if (resumedParkedId) {
+        const consumedParkedId = resumedParkedId;
+        setResumedParkedId(null);
+        apiService.deleteParkedSale(consumedParkedId).catch(() => {
+          console.warn('[POS Hold] Failed to consume parked sale', consumedParkedId);
+        });
+      }
+
       // Reset form but keep the screen open
       setInvoiceItems([]);
       setInvoiceCustomer({ name: "", phone: "" });
@@ -3790,7 +4010,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <Button
               type="button"
               variant="ghost"
-              onClick={() => { fetchTodaySales(); setIsTxnDialogOpen(true); }}
+              onClick={handleParkSale}
+              disabled={isParking}
+              title="Park this cart and serve the next customer — resume it from Transactions → Held"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+            >
+              <PauseCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="hidden xl:inline">{isParking ? "Holding…" : "Hold"}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { fetchTodaySales(); fetchParkedSales(); setIsTxnDialogOpen(true); }}
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <History className="h-4 w-4 shrink-0" strokeWidth={2} />
@@ -4520,8 +4751,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   {/* POS redesign: the rail's primary action opens the
                       payment dialog (reference layout); completing the
                       sale happens there. Clear Cart mirrors the rail
-                      header's Clear all. Hold Order is omitted — the
-                      app has no hold/resume sale feature. */}
+                      header's Clear all. Hold lives in the header —
+                      it parks this cart server-side (resume from
+                      Transactions → Held). */}
                   <Button
                     onClick={() => setIsPaymentDialogOpen(true)}
                     disabled={invoiceItems.length === 0}
@@ -4539,6 +4771,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         setInvoiceItems([]);
                         setDiscountPercentage(0);
                         setPaidAmount(0);
+                        // Abandoning a resumed cart does NOT consume
+                        // the held order — it stays parked.
+                        setResumedParkedId(null);
                       }}
                       className="mt-2 h-10 w-full rounded-[10px] bg-rose-50 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100"
                     >
@@ -4817,14 +5052,88 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
             <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
               <History className="h-5 w-5 text-white/70" strokeWidth={2} />
-              Recent Transactions
+              {txnTab === "held" ? "Held Orders" : "Recent Transactions"}
             </p>
             <p className="mt-0.5 text-xs text-white/60">
-              Today • {selectedBranch?.name || "Current branch"}
+              {txnTab === "held" ? "Parked sales" : "Today"} • {selectedBranch?.name || "Current branch"}
             </p>
           </div>
+          <div className="flex shrink-0 gap-2 px-4 pt-3">
+            <button
+              type="button"
+              onClick={() => setTxnTab("recent")}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-colors",
+                txnTab === "recent" ? "bg-[#0a1128] text-white" : "bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]"
+              )}
+            >
+              Recent
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTxnTab("held"); fetchParkedSales(); }}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-colors",
+                txnTab === "held" ? "bg-[#0a1128] text-white" : "bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]"
+              )}
+            >
+              Held{parkedSales.length > 0 ? ` (${parkedSales.length})` : ""}
+            </button>
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {isLoadingTodaySales ? (
+            {txnTab === "held" ? (
+              isLoadingParked ? (
+                <div className="flex flex-col items-center justify-center py-10 text-[#8c95b0]">
+                  <Loader2 className="mb-2 h-6 w-6 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Loading held orders…</p>
+                </div>
+              ) : parkedSales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <PauseCircle className="mb-2 h-8 w-8 text-[#c3cbdd]" strokeWidth={1.5} />
+                  <p className="text-sm font-semibold text-[#0a1128]">No held orders</p>
+                  <p className="mt-0.5 text-[13px] text-[#8c95b0]">Park a sale with the Hold button and it will wait here.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {parkedSales.map((parked: any) => (
+                    <div key={parked.id} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-white px-3.5 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-[#0a1128]">
+                          {parked.customerName || parked.label || "Walk-in"}
+                        </p>
+                        <p className="truncate text-xs text-[#8c95b0]">
+                          {new Date(parked.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                          {" • "}
+                          {parked.createdByName || "Cashier"}
+                          {" • "}
+                          {parked.itemCount} item{parked.itemCount === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#0a1128]">
+                        PKR {Number(parked.grandTotal || 0).toFixed(2)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleResumeParked(parked.id)}
+                        className="flex shrink-0 items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                      >
+                        <Play className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        Resume
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDiscardParked(parked.id)}
+                        aria-label="Discard held order"
+                        title="Discard held order"
+                        className="shrink-0 rounded-full p-2 text-rose-600 transition-colors hover:bg-rose-50"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : isLoadingTodaySales ? (
               <div className="flex flex-col items-center justify-center py-10 text-[#8c95b0]">
                 <Loader2 className="mb-2 h-6 w-6 animate-spin text-primary" />
                 <p className="text-sm font-medium">Loading today's sales…</p>
@@ -4868,10 +5177,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             )}
           </div>
           <div className="flex shrink-0 items-center justify-between border-t border-[rgba(15,23,60,0.08)] px-5 py-3.5">
-            <span className="text-sm font-semibold text-[#4a5578]">Total Sales Today: {todaySales.length}</span>
-            <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
-              PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
-            </span>
+            {txnTab === "held" ? (
+              <>
+                <span className="text-sm font-semibold text-[#4a5578]">Held Orders: {parkedSales.length}</span>
+                <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
+                  PKR {parkedSales.reduce((sum: number, p: any) => sum + Number(p.grandTotal || 0), 0).toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-semibold text-[#4a5578]">Total Sales Today: {todaySales.length}</span>
+                <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
+                  PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
+                </span>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
