@@ -237,7 +237,7 @@ const ZERO_ROW: UsageRow = { calls: 0, tokensIn: 0, tokensOut: 0 };
 async function getMonthUsage(prisma: any, businessId: string, period: string): Promise<UsageRow> {
   try {
     const row = await prisma.businessAiUsage.findUnique({
-      where: { businessId_period: { businessId, period } }
+      where: { business_period: { businessId, period } }
     });
     if (!row) return { ...ZERO_ROW };
     return { calls: row.calls || 0, tokensIn: row.tokensIn || 0, tokensOut: row.tokensOut || 0 };
@@ -282,12 +282,12 @@ async function recordUsage(
     lastProvider: providerName
   };
   await prisma.businessAiUsage.upsert({
-    where: { businessId_period: { businessId, period } },
+    where: { business_period: { businessId, period } },
     create: { businessId, period, ...create },
     update
   });
   await prisma.businessAiDailyUsage.upsert({
-    where: { businessId_day: { businessId, day } },
+    where: { business_day: { businessId, day } },
     create: { businessId, day, ...create },
     update
   });
