@@ -19,5 +19,13 @@ router.get('/', checkPermission('read_sale'), getParkedSales);
 router.get('/:id', checkPermission('read_sale'), getParkedSale);
 router.post('/', checkPermission('create_sale'), createParkedSale);
 router.delete('/:id', checkPermission('create_sale'), deleteParkedSale);
+// Discard as a POST action (the platform's tenant convention — cf.
+// /:id/check-out, /:id/restock): the universal authorization layer
+// resolves raw DELETE to the `delete` operation, which in the role
+// matrix only OWNER holds, while parking itself is a create-level
+// action. Every role that can park must also be able to discard, so
+// the UI discards and consumes through this route; DELETE remains
+// available for OWNER/API use.
+router.post('/:id/discard', checkPermission('create_sale'), deleteParkedSale);
 
 export default router;

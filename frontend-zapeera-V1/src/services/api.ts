@@ -3293,8 +3293,12 @@ export class ApiService {
   }
 
   async deleteParkedSale(parkedSaleId: string) {
-    return this.request<{ id: string }>(`/parked-sales/${parkedSaleId}`, {
-      method: 'DELETE',
+    // POST action route, not DELETE: the platform's authorization
+    // layer reserves the raw `delete` operation for OWNER, while
+    // parking is a create-level action — every role that can park
+    // must be able to discard/consume (see parked-sale.routes).
+    return this.request<{ id: string }>(`/parked-sales/${parkedSaleId}/discard`, {
+      method: 'POST',
     });
   }
 
