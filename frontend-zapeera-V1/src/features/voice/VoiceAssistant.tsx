@@ -384,13 +384,14 @@ export default function VoiceAssistant() {
         onClick={() => setOpen(true)}
         aria-label="Open voice assistant"
         title="Voice Assistant"
-        className="fixed bottom-6 right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(26,82,197,0.45)]"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+        className="fixed right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(26,82,197,0.45)]"
       >
         <Mic className="h-6 w-6" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="flex w-[92vw] flex-col p-0 sm:w-[400px]">
+        <SheetContent side="right" className="flex w-[92vw] flex-col p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:w-[400px]">
           <SheetHeader className="shrink-0 bg-gradient-to-br from-[#0f2350] to-[#1a52c5] px-5 py-4 text-left">
             <div className="flex items-center justify-between gap-2">
               <SheetTitle className="flex items-center gap-2 text-white">
