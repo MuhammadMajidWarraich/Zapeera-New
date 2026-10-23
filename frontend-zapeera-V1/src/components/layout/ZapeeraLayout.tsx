@@ -394,7 +394,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
   return (
     <div
-      className="zv3-app flex min-h-screen bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-['Outfit',system-ui,sans-serif] text-[#0a1128] antialiased"
+      className="zv3-app safe-bars flex min-h-screen bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-['Outfit',system-ui,sans-serif] text-[#0a1128] antialiased"
       style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
     >
       <div className="pointer-events-none fixed z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]" style={{ top: -100, right: -100 }} />

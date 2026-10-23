@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_CROP',
     },
     StatusBar: {
-      style: 'DARK',
+      style: 'LIGHT',
       backgroundColor: '#060d1f',
     },
     LocalNotifications: {

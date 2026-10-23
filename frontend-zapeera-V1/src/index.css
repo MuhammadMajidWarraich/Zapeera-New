@@ -197,3 +197,18 @@
     transform: translateX(100%) translateY(0);
   }
 }
+/* Dark system-bar bands: paints the safe-area strips (under the Android
+   status bar and navigation bar) in the brand navy so the system icons
+   and nav buttons stay prominent. Zero-height where insets are 0 (web). */
+.safe-bars {
+  background-image:
+    linear-gradient(#060d1f, #060d1f),
+    linear-gradient(#060d1f, #060d1f);
+  background-position:
+    top left,
+    bottom left;
+  background-size:
+    100% env(safe-area-inset-top, 0px),
+    100% env(safe-area-inset-bottom, 0px);
+  background-repeat: no-repeat;
+}

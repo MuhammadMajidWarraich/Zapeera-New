@@ -66,7 +66,7 @@ const AuthContainer = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-y-auto pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div className="safe-bars relative min-h-screen overflow-y-auto pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Login Form */}
       <div
         className={`absolute inset-0 transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${

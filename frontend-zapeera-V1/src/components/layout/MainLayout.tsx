@@ -304,13 +304,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
     // Subscription page should be accessible even when expired, but the rest of the
     // business dashboard chrome should be hidden.
-    return <div className="min-h-screen w-full bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">{children}</div>;
+    return <div className="safe-bars min-h-screen w-full bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">{children}</div>;
   }
 
   return (
     <SidebarProvider>
       <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }}>
-        <div className="flex h-screen w-full overflow-hidden bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        <div className="safe-bars flex h-screen w-full overflow-hidden bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <RoleBasedSidebar />
 
           {/* Mobile drawer backdrop */}
