@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import BusinessAddons from "./BusinessAddons";
 import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useAuth } from "@/contexts/AuthContext";
@@ -327,6 +328,8 @@ const BillingPage = () => {
           </section>
         </div>
       </div>
+
+      <BusinessAddons businesses={allCompanies} />
     </main>
   );
 };

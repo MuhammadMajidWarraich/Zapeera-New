@@ -1285,6 +1285,56 @@ export const validateStaffCreationAllowance = async (
     };
   }
 
+  // Add-ons system: staff access and seat counts are decided by the
+  // single effective-limits service (plan matrix + subscription_addons),
+  // which supersedes the legacy plan-definition user caps for staff
+  // creation. Falls back to the legacy cap only if that lookup fails.
+  try {
+    const { getEffectiveLimits, countStaffSeats } = await import(
+      '../services/addon-limits.service'
+    );
+    const limits = await getEffectiveLimits(prisma, params.companyId);
+    if (!limits.staffAllowed) {
+      return {
+        allowed: false,
+        statusCode: 403,
+        message: `Staff accounts are not included in the ${limits.planName} plan. Add the HR Pack or upgrade to Growth to invite staff.`,
+        details: {
+          code: 'PLAN_STAFF_NOT_INCLUDED',
+          companyId: params.companyId,
+          planId: limits.planId,
+          planName: limits.planName,
+          addon: 'HR_PACK',
+          addonName: 'HR Pack',
+          addonPriceMonthly: 1500,
+        },
+      };
+    }
+    const seatsUsed = await countStaffSeats(prisma, params.companyId);
+    if (seatsUsed >= limits.maxStaffSeats) {
+      return {
+        allowed: false,
+        statusCode: 403,
+        message: `All ${limits.maxStaffSeats} staff seats are in use on the ${limits.planName} plan. Add Extra Staff Seats or upgrade your plan.`,
+        details: {
+          code: 'SEAT_LIMIT_REACHED',
+          legacyCode: 'STAFF_LIMIT_REACHED',
+          companyId: params.companyId,
+          maxStaffSeats: limits.maxStaffSeats,
+          seatsUsed,
+          planId: limits.planId,
+          planName: limits.planName,
+          addon: 'EXTRA_SEAT',
+          addonName: 'Extra Staff Seat',
+          addonPriceMonthly: 500,
+        },
+      };
+    }
+    return { allowed: true };
+  } catch {
+    // fall through to the legacy cap below
+  }
+
   const maxUsers = entitlement.effectiveLimits.maxConcurrentUsers;
   if (maxUsers !== null && entitlement.usage.totalUsers >= maxUsers) {
     return {
@@ -1324,6 +1374,39 @@ export const validateBranchCreationAllowance = async (
         companyId: params.companyId,
       },
     };
+  }
+
+  // Add-ons system: the branch cap is plan branches + EXTRA_BRANCH
+  // add-ons, from the single effective-limits service. The legacy cap
+  // below remains only as a fallback if that lookup fails. The denial
+  // keeps code BRANCH_LIMIT_REACHED because branch.controller treats it
+  // as authoritative.
+  try {
+    const { getEffectiveLimits } = await import(
+      '../services/addon-limits.service'
+    );
+    const limits = await getEffectiveLimits(prisma, params.companyId);
+    if (entitlement.usage.activeBranches >= limits.maxBranches) {
+      return {
+        allowed: false,
+        statusCode: 403,
+        message: `Branch limit reached (${limits.maxBranches}) for this business on plan ${limits.planName}. Add an Extra Branch or upgrade your plan.`,
+        details: {
+          code: 'BRANCH_LIMIT_REACHED',
+          companyId: params.companyId,
+          maxBranches: limits.maxBranches,
+          activeBranches: entitlement.usage.activeBranches,
+          planId: limits.planId,
+          planName: limits.planName,
+          addon: 'EXTRA_BRANCH',
+          addonName: 'Extra Branch',
+          addonPriceMonthly: 1500,
+        },
+      };
+    }
+    return { allowed: true };
+  } catch {
+    // fall through to the legacy cap below
   }
 
   const maxBranches = entitlement.effectiveLimits.maxBranches;

@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import {
+  getAddonCatalogue,
+  getBusinessAddons,
+  purchaseAddon,
+  cancelAddon
+} from '../controllers/addon.controller';
+import {
   getSubscription,
   updateSubscription,
   getPaymentMethods,
@@ -43,6 +49,12 @@ router.post('/payment-methods', addPaymentMethod);
 router.put('/payment-methods/:methodId', updatePaymentMethod);
 router.put('/payment-methods/:methodId/default', setDefaultPaymentMethod);
 router.delete('/payment-methods/:methodId', deletePaymentMethod);
+
+// Subscription add-ons (HR Pack, extra seats/branches, packs, boosters)
+router.get('/addons/catalogue', getAddonCatalogue);
+router.get('/addons', getBusinessAddons);
+router.post('/addons', purchaseAddon);
+router.post('/addons/cancel', cancelAddon);
 
 // Fake-payment activation (local testing / manual upgrade)
 router.post('/activate', activateSubscription);

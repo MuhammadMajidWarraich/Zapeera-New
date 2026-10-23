@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { normalizeMonths } from '../services/addon-limits.service';
 import { getPrisma } from '../utils/db.util';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
@@ -1499,6 +1500,9 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
   try {
     const prisma = await getPrisma();
     const { businessId, planId } = req.body;
+    // Billing duration (2026-10-24): whole months prepaid at the same
+    // monthly rate — period end extends by months × the plan cycle.
+    const months = normalizeMonths((req.body as any)?.months) ?? 1;
 
     if (!allowDirectSubscriptionMutation()) {
       res.status(403).json({
@@ -1526,7 +1530,7 @@ export const activateSubscription = async (req: AuthRequest, res: Response): Pro
     }
 
     const now = new Date();
-    const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+    const endDate = new Date(now.getTime() + plan.durationDays * months * 24 * 60 * 60 * 1000);
 
     const existing = await prisma.businessSubscription.findFirst({
       where: { businessId },

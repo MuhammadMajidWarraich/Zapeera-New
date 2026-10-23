@@ -10,6 +10,7 @@ import {
 } from '../controllers/staff.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
+import { requireStaffAllowed, enforceStaffCreation } from '../middleware/subscription.middleware';
 
 const router = express.Router();
 
@@ -19,13 +20,14 @@ router.use(resolveBusiness({ required: false }));
 router.use(resolveMembership());
 router.use(resolveBranch({ required: false }));
 router.use(checkModule('business_management'));
+router.use(requireStaffAllowed());
 
 // Staff CRUD operations (permission guarded)
 router.get('/', checkPermission('read_staff'), getStaff);
 router.get('/stats', checkPermission('read_staff'), getStaffStats);
 router.post('/search-user', checkPermission('create_staff'), searchUser);
 router.get('/:id', checkPermission('read_staff'), getStaffMember);
-router.post('/', checkPermission('create_staff'), createStaff);
+router.post('/', checkPermission('create_staff'), enforceStaffCreation(), createStaff);
 router.put('/:id', checkPermission('update_staff'), updateStaff);
 router.delete('/:id', checkPermission('delete_staff'), deleteStaff);
 

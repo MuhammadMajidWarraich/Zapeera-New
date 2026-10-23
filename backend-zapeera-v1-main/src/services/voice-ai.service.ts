@@ -50,6 +50,14 @@ import {
   quotaForPlan,
   TOKENS_PER_COMMAND_ESTIMATE
 } from '../utils/voice-ai-config.util';
+import { getEffectiveAddonQuantity, VOICE_BOOSTER_TOKENS } from './addon-limits.service';
+
+/** Plan quota + VOICE_BOOSTER add-ons (each booster: +300k tokens/mo). */
+async function tokenLimitWithBoosters(prisma: any, config: VoiceAiConfig, planId: string | null, businessId: string): Promise<number> {
+  const base = quotaForPlan(config, planId);
+  const boosters = await getEffectiveAddonQuantity(prisma, businessId, 'VOICE_BOOSTER');
+  return base + boosters * VOICE_BOOSTER_TOKENS;
+}
 
 export type AiParseStatus =
   | 'ok'
@@ -341,7 +349,7 @@ export async function parseWithAi(
   const prisma = deps.prisma;
   const config = deps.config || (await getVoiceAiConfig(prisma));
   const planId = await resolvePlanId(prisma, input.businessId);
-  const tokenLimit = quotaForPlan(config, planId);
+  const tokenLimit = await tokenLimitWithBoosters(prisma, config, planId, input.businessId);
 
   const now = new Date();
   const period = pktPeriodKey(now);
@@ -447,7 +455,7 @@ export async function getAiUsageSummary(
 }> {
   const config = await getVoiceAiConfig(prisma);
   const planId = await resolvePlanId(prisma, businessId);
-  const tokenLimit = quotaForPlan(config, planId);
+  const tokenLimit = await tokenLimitWithBoosters(prisma, config, planId, businessId);
   const period = pktPeriodKey();
   const row = await getMonthUsage(prisma, businessId, period);
   const summary = makeSummary(row, tokenLimit, period);

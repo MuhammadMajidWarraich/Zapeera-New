@@ -1,6 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { validateBranchCreationAllowanceV2, validateMembershipInviteAllowanceV2 } from '../utils/subscription-v2-limits.util';
+import {
+  getEffectiveLimits,
+  countStaffSeats,
+  ADDON_CATALOGUE,
+  EffectiveLimits,
+} from '../services/addon-limits.service';
 import { AuthRequest } from './auth.middleware';
 
 export const checkSubscription = () => {
@@ -127,6 +133,221 @@ export const enforceMembershipInviteLimit = () => {
       if (!result.allowed) {
         return res.status(result.statusCode || 403).json({ success: false, message: result.message, ...result.details });
       }
+      return next();
+    } catch (error: any) {
+      return next(error);
+    }
+  };
+};
+
+// ─── Add-on / plan-capability gates (2026-10-24) ─────────────────────
+// All of these resolve the business's EffectiveLimits through the ONE
+// function in services/addon-limits.service and refuse with a stable
+// machine-readable code + the add-on that would unlock the capability,
+// so the frontend can offer the add-on instead of a dead end.
+
+const addonBusinessId = (req: AuthRequest): string | null => {
+  const id =
+    (req as any).business_id ||
+    req.body?.businessId ||
+    req.body?.companyId ||
+    (req.query?.businessId as string) ||
+    (req.query?.companyId as string) ||
+    req.params?.businessId ||
+    req.params?.id;
+  return id ? String(id) : null;
+};
+
+const denyCapability = (
+  res: Response,
+  statusCode: number,
+  code: string,
+  message: string,
+  limits: EffectiveLimits,
+  addon: keyof typeof ADDON_CATALOGUE
+) => {
+  return res.status(statusCode).json({
+    success: false,
+    code,
+    error: code,
+    message,
+    planId: limits.planId,
+    planName: limits.planName,
+    addon,
+    addonName: ADDON_CATALOGUE[addon].name,
+    addonPriceMonthly: ADDON_CATALOGUE[addon].priceMonthly,
+  });
+};
+
+/**
+ * HR surfaces (staff / attendance / shifts / commissions route groups):
+ * the whole surface requires staff access — Trial/Starter are
+ * owner-only plans, so even the owner is refused here until the HR
+ * Pack (or a Growth+ plan) provides staff access.
+ */
+export const requireStaffAllowed = () => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = addonBusinessId(req);
+      if (!businessId) return next();
+      const prisma = await getPrisma();
+      const limits = await getEffectiveLimits(prisma as any, businessId);
+      if (!limits.staffAllowed) {
+        return denyCapability(
+          res,
+          403,
+          'PLAN_STAFF_NOT_INCLUDED',
+          `Staff & HR are not included in the ${limits.planName} plan. Add the HR Pack or upgrade to Growth.`,
+          limits,
+          'HR_PACK'
+        );
+      }
+      (req as any).effectiveLimits = limits;
+      return next();
+    } catch (error: any) {
+      return next(error);
+    }
+  };
+};
+
+/**
+ * Staff creation (POST /staff): requires staff access AND a free staff
+ * seat when the creation would consume a new one (a brand-new ACTIVE
+ * membership). Re-profiling an existing member consumes nothing.
+ */
+export const enforceStaffCreation = () => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = addonBusinessId(req);
+      if (!businessId) return next();
+      const prisma = await getPrisma();
+      const limits = await getEffectiveLimits(prisma as any, businessId);
+      if (!limits.staffAllowed) {
+        return denyCapability(
+          res,
+          403,
+          'PLAN_STAFF_NOT_INCLUDED',
+          `Staff accounts are not included in the ${limits.planName} plan. Add the HR Pack or upgrade to Growth to add staff.`,
+          limits,
+          'HR_PACK'
+        );
+      }
+      const roleStr = String(req.body?.role || 'STAFF').toUpperCase();
+      if (roleStr !== 'OWNER' && roleStr !== 'ADMIN') {
+        let targetUserId: string | null = req.body?.userId ? String(req.body.userId) : null;
+        if (!targetUserId && req.body?.email) {
+          const u = await (prisma as any).zapeeraUser.findFirst({
+            where: { email: String(req.body.email) },
+            select: { id: true },
+          });
+          targetUserId = u?.id ? String(u.id) : null;
+        }
+        let consumesSeat = true;
+        if (targetUserId) {
+          const existing = await (prisma as any).membership.findFirst({
+            where: { userId: targetUserId, businessId, status: 'ACTIVE' },
+            select: { id: true },
+          });
+          if (existing) consumesSeat = false;
+        }
+        if (consumesSeat) {
+          const used = await countStaffSeats(prisma as any, businessId);
+          if (used >= limits.maxStaffSeats) {
+            return res.status(403).json({
+              success: false,
+              code: 'SEAT_LIMIT_REACHED',
+              error: 'SEAT_LIMIT_REACHED',
+              message: `Staff seat limit reached (${limits.maxStaffSeats}) on the ${limits.planName} plan. Add an Extra Staff Seat or upgrade your plan.`,
+              planId: limits.planId,
+              planName: limits.planName,
+              maxStaffSeats: limits.maxStaffSeats,
+              usedStaffSeats: used,
+              addon: 'EXTRA_SEAT',
+              addonName: ADDON_CATALOGUE.EXTRA_SEAT.name,
+              addonPriceMonthly: ADDON_CATALOGUE.EXTRA_SEAT.priceMonthly,
+            });
+          }
+        }
+      }
+      (req as any).effectiveLimits = limits;
+      return next();
+    } catch (error: any) {
+      return next(error);
+    }
+  };
+};
+
+/** Finance toolkit surfaces (expenses, accounting-lite reports). */
+export const requireFinanceAllowed = () => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = addonBusinessId(req);
+      if (!businessId) return next();
+      const prisma = await getPrisma();
+      const limits = await getEffectiveLimits(prisma as any, businessId);
+      if (!limits.financeAllowed) {
+        return denyCapability(
+          res,
+          403,
+          'PLAN_FINANCE_NOT_INCLUDED',
+          `The finance toolkit is not included in the ${limits.planName} plan. Add the Finance Pack or upgrade to Growth.`,
+          limits,
+          'FINANCE_PACK'
+        );
+      }
+      (req as any).effectiveLimits = limits;
+      return next();
+    } catch (error: any) {
+      return next(error);
+    }
+  };
+};
+
+/** Advanced reports (deep/analytics set incl. real-profit). */
+export const requireAdvancedReports = () => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = addonBusinessId(req);
+      if (!businessId) return next();
+      const prisma = await getPrisma();
+      const limits = await getEffectiveLimits(prisma as any, businessId);
+      if (!limits.advancedReportsAllowed) {
+        return denyCapability(
+          res,
+          403,
+          'PLAN_REPORTS_NOT_INCLUDED',
+          `Advanced reports are not included in the ${limits.planName} plan. Add the Advanced Reports Pack or upgrade to Growth.`,
+          limits,
+          'REPORTS_PACK'
+        );
+      }
+      (req as any).effectiveLimits = limits;
+      return next();
+    } catch (error: any) {
+      return next(error);
+    }
+  };
+};
+
+/** Multi-branch consolidated reporting (Scale-inherent; Growth via Reports Pack). */
+export const requireMultiBranchReports = () => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = addonBusinessId(req);
+      if (!businessId) return next();
+      const prisma = await getPrisma();
+      const limits = await getEffectiveLimits(prisma as any, businessId);
+      if (!limits.multiBranchReportsAllowed) {
+        return denyCapability(
+          res,
+          403,
+          'PLAN_REPORTS_NOT_INCLUDED',
+          `Multi-branch reporting is not included in the ${limits.planName} plan. Add the Advanced Reports Pack or upgrade to Scale.`,
+          limits,
+          'REPORTS_PACK'
+        );
+      }
+      (req as any).effectiveLimits = limits;
       return next();
     } catch (error: any) {
       return next(error);

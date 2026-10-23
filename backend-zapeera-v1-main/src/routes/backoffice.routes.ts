@@ -23,6 +23,11 @@ import {
   getBillingSummary
 } from '../controllers/backoffice-subscriptions.controller';
 import {
+  listBusinessAddonsAdmin,
+  assignAddonToBusiness,
+  removeAddonFromBusiness
+} from '../controllers/backoffice-addon.controller';
+import {
   getAllBusinesses,
   getBusinessById,
   updateBusiness,
@@ -180,6 +185,9 @@ router.get('/subscriptions/billing-summary', adminAuthenticate, getBillingSummar
 router.get('/subscriptions', adminAuthenticate, getAllSubscriptions);
 router.get('/subscriptions/business/:businessId', adminAuthenticate, getSubscriptionByBusinessId);
 router.post('/subscriptions/assign', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), assignPlanToBusiness);
+router.get('/subscriptions/:businessId/addons', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), listBusinessAddonsAdmin);
+router.post('/subscriptions/:businessId/addons', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), assignAddonToBusiness);
+router.delete('/subscriptions/:businessId/addons/:type', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), removeAddonFromBusiness);
 router.patch('/subscriptions/:subscriptionId/status', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), updateSubscriptionStatus);
 router.post('/subscriptions/:subscriptionId/cancel', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN', 'FINANCE'), cancelSubscription);
 router.post('/subscriptions/:subscriptionId/extend-trial', adminAuthenticate, adminRoleGuard('SUPER_ADMIN', 'ADMIN'), extendTrial);

@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api";
+import { addonOfferToast } from "@/lib/addon-offer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
@@ -1009,9 +1010,10 @@ const UserManagement = () => {
         setFormErrors({ name: "", email: "", username: "", password: "", phone: "" });
         await loadUsers();
       } else {
+        const offer = addonOfferToast(res);
         toast({
-          title: "Error",
-          description: (res as { message?: string })?.message || "Could not grant access",
+          title: offer ? offer.title : "Error",
+          description: offer ? offer.description : (res as { message?: string })?.message || "Could not grant access",
           variant: "destructive",
         });
       }
@@ -1231,8 +1233,9 @@ const UserManagement = () => {
           // If API call failed, remove the optimistic user
           setUsers(prev => prev.filter(u => u.id !== tempId));
           
-          const errorMessage = response?.message || (response as any)?.error || 'Failed to create staff';
-          
+          const offer = addonOfferToast(response);
+          const errorMessage = offer ? offer.description : response?.message || (response as any)?.error || 'Failed to create staff';
+
           // Check if it's a manager assignment error
           if (errorMessage.toLowerCase().includes('only one manager') || errorMessage.toLowerCase().includes('already has a manager')) {
             const branchName = branches.find(b => b.id === userFormData.branchId)?.name || 'this branch';
@@ -1245,7 +1248,7 @@ const UserManagement = () => {
             });
           } else {
             toast({
-              title: "Error",
+              title: offer ? offer.title : "Error",
               description: errorMessage,
               variant: "destructive",
               duration: 5000,
@@ -1684,9 +1687,10 @@ const UserManagement = () => {
             });
             await loadUsers();
           } else {
+            const offer = addonOfferToast(response);
             toast({
-              title: "Error",
-              description: (response as any).message || "Failed to restore access",
+              title: offer ? offer.title : "Error",
+              description: offer ? offer.description : (response as any).message || "Failed to restore access",
               variant: "destructive",
             });
           }

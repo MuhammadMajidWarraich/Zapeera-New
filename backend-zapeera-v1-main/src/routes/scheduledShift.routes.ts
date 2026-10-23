@@ -8,6 +8,7 @@ import {
 } from '../controllers/scheduledShift.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { resolveBusiness, resolveMembership, resolveBranch } from '../middleware/multitenancy.middleware';
+import { requireStaffAllowed } from '../middleware/subscription.middleware';
 
 const router = express.Router();
 
@@ -16,6 +17,7 @@ router.use(authenticate);
 router.use(resolveBusiness({ required: false }));
 router.use(resolveMembership());
 router.use(resolveBranch({ required: false }));
+router.use(requireStaffAllowed());
 
 // Scheduled shift operations
 router.post('/', createScheduledShift);

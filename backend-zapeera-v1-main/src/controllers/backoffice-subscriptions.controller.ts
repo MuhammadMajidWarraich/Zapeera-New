@@ -166,6 +166,11 @@ export const getSubscriptionByBusinessId = async (req: Request, res: Response) =
 export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response) => {
   try {
     const { businessId, planId, isTrial, trialDays } = req.body;
+    // Billing duration (2026-10-24): monthly prices only, no discount —
+    // a paid assignment may prepay whole months; the period end extends
+    // by that many plan cycles. Trials keep their fixed trial length.
+    const { normalizeMonths } = await import('../services/addon-limits.service');
+    const months = isTrial ? 1 : (normalizeMonths((req.body as any)?.months) ?? 1);
 
     if (!businessId || !planId) {
       return res.status(400).json({
@@ -203,7 +208,7 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
     // Calculate end date
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + plan.durationDays);
+    endDate.setDate(endDate.getDate() + plan.durationDays * months);
 
     // Check if subscription exists
     const existingSubscription = await prisma.businessSubscription.findUnique({
