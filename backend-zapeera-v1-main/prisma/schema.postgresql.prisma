@@ -151,6 +151,7 @@ model Business {
   businessModules           BusinessModule[]         @relation("businessModules")
   businessModuleOverridesV2 BusinessModuleOverride[] @relation("businessModuleOverridesV2")
   businessSubscription      BusinessSubscription?    @relation("businessSubscription")
+  subscriptionAddons        SubscriptionAddon[]      @relation("businessAddons")
   // MULTI-TENANT: Invitations
   invitations               BusinessInvitation[]     @relation("businessInvitations")
   billingProfiles           BillingProfile[]         @relation("businessBillingProfiles")
@@ -1776,6 +1777,38 @@ model BusinessSubscription {
   billingProfile BillingProfile? @relation("subscriptionBillingProfile", fields: [billingProfileId], references: [id])
 
   @@map("business_subscriptions")
+}
+
+// =====================================
+// SUBSCRIPTION ADD-ONS (per business)
+// =====================================
+// One row per (business, add-on type) — purchased extras on top of the
+// business's plan (catalogue: src/services/addon-limits.service.ts
+// ADDON_CATALOGUE). Rows are never deleted on cancel: status flips
+// ACTIVE -> CANCEL_PENDING (capability stays live until periodEnd) ->
+// CANCELLED (at/after periodEnd). Re-purchasing reactivates the same
+// row. Effective limits are always COMPUTED from plan + these rows by
+// the add-on limits service; nothing is denormalized onto the
+// subscription itself.
+model SubscriptionAddon {
+  id          String    @id @default(cuid())
+  businessId  String
+  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK
+  quantity    Int       @default(1) // stackable types only (EXTRA_SEAT / EXTRA_BRANCH / VOICE_BOOSTER); packs are always 1
+  status      String    @default("ACTIVE") // PENDING (awaiting backoffice activation) | ACTIVE | CANCEL_PENDING (live until periodEnd) | CANCELLED
+  startedAt   DateTime  @default(now())
+  periodEnd   DateTime? // end of the paid cycle this add-on is active through (mirrors the subscription's currentPeriodEnd at purchase)
+  cancelledAt DateTime?
+  uuid        String?   @unique
+  syncStatus  String    @default("PENDING")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  business Business @relation("businessAddons", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, type], name: "unique_business_addon_type")
+  @@index([businessId, status])
+  @@map("subscription_addons")
 }
 
 model BillingProfile {

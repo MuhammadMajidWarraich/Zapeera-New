@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiService } from '@/services/api';
+import { addonOfferToast } from '@/lib/addon-offer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/contexts/useAdmin';
 import { toast } from '@/hooks/use-toast';
@@ -323,21 +324,23 @@ const BranchManagement = () => {
 
         setError("");
       } else {
-        const errorMessage = response.message || 'Failed to create branch';
+        const offer = addonOfferToast(response);
+        const errorMessage = offer ? offer.description : response.message || 'Failed to create branch';
         setError(errorMessage);
         setCreateDialogError(errorMessage);
         toast({
-          title: 'Unable to create branch',
+          title: offer ? offer.title : 'Unable to create branch',
           description: errorMessage,
           variant: 'destructive',
         });
       }
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to create branch';
+      const offer = addonOfferToast(error);
+      const errorMessage = offer ? offer.description : error?.response?.data?.message || error?.response?.message || error?.message || 'Failed to create branch';
       setError(errorMessage);
       setCreateDialogError(errorMessage);
       toast({
-        title: 'Unable to create branch',
+        title: offer ? offer.title : 'Unable to create branch',
         description: errorMessage,
         variant: 'destructive',
       });

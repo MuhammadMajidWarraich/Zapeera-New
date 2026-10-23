@@ -6921,6 +6921,70 @@ export class ApiService {
     });
   }
 
+  // ── Subscription Add-ons ──────────────────────────────────────────
+  async getAddonCatalogue() {
+    return this.request<Array<{
+      type: string;
+      name: string;
+      description: string;
+      priceMonthly: number;
+      stackable: boolean;
+      unitLabel?: string;
+    }>>('/subscription/addons/catalogue');
+  }
+
+  async getBusinessAddons(businessId: string) {
+    return this.request<{
+      businessId: string;
+      planId: string;
+      planName: string;
+      isTrial: boolean;
+      monthlyAddonSpend: number;
+      addons: Array<{
+        id: string;
+        type: string;
+        name: string;
+        quantity: number;
+        status: string;
+        priceMonthly: number | null;
+        startedAt: string | null;
+        periodEnd: string | null;
+        cancelledAt: string | null;
+      }>;
+      limits: {
+        maxBranches: number;
+        maxStaffSeats: number;
+        staffAllowed: boolean;
+        financeAllowed: boolean;
+        advancedReportsAllowed: boolean;
+        multiBranchReportsAllowed: boolean;
+        whatsappPack: boolean;
+        voiceTokenQuota: number;
+      };
+    }>(`/subscription/addons?businessId=${encodeURIComponent(businessId)}`);
+  }
+
+  async purchaseAddon(data: { businessId: string; type: string; quantity?: number; months?: number }) {
+    return this.request<{
+      addon: { type: string; quantity: number; status: string; periodEnd: string | null };
+      upfrontAmount: number;
+      chargedMonths: number;
+      limits: Record<string, unknown>;
+    }>('/subscription/addons', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAddon(data: { businessId: string; type: string }) {
+    return this.request<{
+      addon: { type: string; status: string; periodEnd: string | null };
+    }>('/subscription/addons/cancel', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getPaymentMethods() {
     return this.request<Array<{
       id: string;

@@ -12,6 +12,7 @@ import {
 } from '../controllers/expense.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';
+import { requireFinanceAllowed } from '../middleware/subscription.middleware';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use(resolveBusiness({ required: false }));
 router.use(resolveMembership());
 router.use(resolveBranch({ required: false }));
 router.use(checkModule('expenses'));
+router.use(requireFinanceAllowed());
 
 // Expense categories (registered before /:id so "categories" is not
 // captured as an expense id)

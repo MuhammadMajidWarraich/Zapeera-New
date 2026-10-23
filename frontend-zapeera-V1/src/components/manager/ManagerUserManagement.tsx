@@ -34,6 +34,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import { addonOfferToast } from "@/lib/addon-offer";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { getMissingRequiredFields } from "@/lib/required-fields";
@@ -292,14 +293,16 @@ const ManagerUserManagement = () => {
         );
         loadUsers();
       } else {
-        setError((response as any)?.message || "Failed to restore access");
+        const offer = addonOfferToast(response);
+        setError(offer ? offer.description : (response as any)?.message || "Failed to restore access");
       }
     } catch (err: any) {
       console.error("Error updating business access:", err);
-      setError(err?.response?.data?.message || err?.message || "Failed to update business access");
+      const offer = addonOfferToast(err);
+      setError(offer ? offer.description : err?.response?.data?.message || err?.message || "Failed to update business access");
       toast({
-        title: "Error",
-        description: err?.response?.data?.message || err?.message || "Failed to update access",
+        title: offer ? offer.title : "Error",
+        description: offer ? offer.description : err?.response?.data?.message || err?.message || "Failed to update access",
         variant: "destructive",
       });
     }

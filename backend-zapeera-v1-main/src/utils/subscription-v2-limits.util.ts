@@ -1,46 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import { isMissingTableError } from './membership-bridge.util';
-import { PLANS, PLAN_LIMITS as CENTRALIZED_PLAN_LIMITS } from '../config/constants';
+import {
+  getEffectiveLimits,
+  countStaffSeats,
+  ADDON_CATALOGUE,
+} from '../services/addon-limits.service';
 
-type PlanLimits = {
-  maxBranches: number | null;
-  maxMembers: number | null;
-};
-
-// Using centralized constants - keeping this local mapping for the v2 subscription system
-const PLAN_LIMITS: Record<string, PlanLimits> = {
-  [PLANS.STARTER]: { maxBranches: 1, maxMembers: 1 },
-  [PLANS.GROWTH]: { maxBranches: 3, maxMembers: 3 },
-  [PLANS.SCALE]: { maxBranches: 10, maxMembers: null },
-};
-
-const resolvePlanLimits = (planId?: string | null): PlanLimits | null => {
-  if (!planId) return null;
-  return PLAN_LIMITS[String(planId).trim()] || null;
-};
-
-const getEffectiveBusinessPlanId = async (
-  prisma: PrismaClient,
-  params: { businessId: string; ownerUserId: string }
-): Promise<string | null> => {
-  try {
-    const businessSub = await prisma.$queryRaw<any[]>`
-      SELECT "planId"
-      FROM business_subscriptions
-      WHERE "businessId" = ${params.businessId}
-      LIMIT 1
-    `;
-
-    const businessPlanId = businessSub[0]?.planId ? String(businessSub[0].planId) : null;
-    return businessPlanId;
-  } catch (error: any) {
-    if (isMissingTableError(error)) {
-      console.error('[getEffectiveBusinessPlanId] ❌ CRITICAL: Required tables missing');
-      return null;
-    }
-    throw error;
-  }
-};
+// NOTE (add-on system, 2026-10-24): branch and staff-seat limits are
+// no longer resolved from a local plan map — they come from
+// services/addon-limits.service (plan inclusions + purchased add-ons).
+// The old local PLAN_LIMITS map (which capped Growth at 3 total
+// members, contradicting the published 20 staff seats) is retired.
 
 export const validateBusinessCreationAllowanceV2 = async (
   prisma: PrismaClient,
@@ -55,23 +25,27 @@ export const validateBranchCreationAllowanceV2 = async (
   prisma: PrismaClient,
   params: { businessId: string; ownerUserId: string }
 ): Promise<{ allowed: true } | { allowed: false; statusCode: number; message: string; details: Record<string, unknown> }> => {
-  const planId = await getEffectiveBusinessPlanId(prisma, params);
-  const limits = resolvePlanLimits(planId);
-  if (!limits || limits.maxBranches === null) return { allowed: true };
+  // Effective limit = plan branches + EXTRA_BRANCH add-ons, computed by
+  // the add-on limits service (the single source — see
+  // services/addon-limits.service PLAN_INCLUSIONS).
+  const limits = await getEffectiveLimits(prisma as any, params.businessId);
+  const maxBranches = limits.maxBranches;
 
   const activeBranches = await prisma.branch.count({
     where: { companyId: params.businessId, isActive: true },
   });
-  if (activeBranches >= limits.maxBranches) {
+  if (activeBranches >= maxBranches) {
     return {
       allowed: false,
       statusCode: 403,
-      message: `Branch limit reached (${limits.maxBranches}) for effective plan ${planId}.`,
+      message: `Branch limit reached (${maxBranches}) on the ${limits.planName} plan. Add an Extra Branch add-on or upgrade your plan.`,
       details: {
         code: 'BRANCH_LIMIT_REACHED_V2',
-        maxBranches: limits.maxBranches,
+        maxBranches,
         activeBranches,
-        planId,
+        planId: limits.planId,
+        addon: 'EXTRA_BRANCH',
+        addonPriceMonthly: ADDON_CATALOGUE.EXTRA_BRANCH.priceMonthly,
       },
     };
   }
@@ -83,28 +57,42 @@ export const validateMembershipInviteAllowanceV2 = async (
   prisma: PrismaClient,
   params: { businessId: string; ownerUserId: string }
 ): Promise<{ allowed: true } | { allowed: false; statusCode: number; message: string; details: Record<string, unknown> }> => {
-  const planId = await getEffectiveBusinessPlanId(prisma, params);
-  const limits = resolvePlanLimits(planId);
-  if (!limits || limits.maxMembers === null) return { allowed: true };
-
+  // Staff-seat enforcement (add-on system): Trial/Starter are
+  // owner-only — inviting ANY staff member is refused with
+  // PLAN_STAFF_NOT_INCLUDED. Plans with staff access are capped by
+  // staff SEATS (owner excluded): plan seats + HR Pack seats + extra
+  // seats, all computed by the add-on limits service.
   try {
-    const rows = await prisma.$queryRaw<any[]>`
-      SELECT COUNT(1) as total
-      FROM memberships
-      WHERE "businessId" = ${params.businessId}
-        AND status = 'ACTIVE'
-    `;
-    const activeMembers = Number(rows[0]?.total || 0);
-    if (activeMembers >= limits.maxMembers) {
+    const limits = await getEffectiveLimits(prisma as any, params.businessId);
+
+    if (!limits.staffAllowed) {
       return {
         allowed: false,
         statusCode: 403,
-        message: `Membership limit reached (${limits.maxMembers}) for effective plan ${planId}.`,
+        message: `Staff accounts are not included in the ${limits.planName} plan. Add the HR Pack or upgrade to Growth to invite staff.`,
         details: {
-          code: 'MEMBERSHIP_LIMIT_REACHED_V2',
-          maxMembers: limits.maxMembers,
-          activeMembers,
-          planId,
+          code: 'PLAN_STAFF_NOT_INCLUDED',
+          planId: limits.planId,
+          addon: 'HR_PACK',
+          addonPriceMonthly: ADDON_CATALOGUE.HR_PACK.priceMonthly,
+        },
+      };
+    }
+
+    const usedSeats = await countStaffSeats(prisma as any, params.businessId);
+    if (usedSeats >= limits.maxStaffSeats) {
+      return {
+        allowed: false,
+        statusCode: 403,
+        message: `Staff seat limit reached (${limits.maxStaffSeats}) on the ${limits.planName} plan. Add an Extra Staff Seat or upgrade your plan.`,
+        details: {
+          code: 'SEAT_LIMIT_REACHED',
+          legacyCode: 'MEMBERSHIP_LIMIT_REACHED_V2',
+          maxStaffSeats: limits.maxStaffSeats,
+          usedStaffSeats: usedSeats,
+          planId: limits.planId,
+          addon: 'EXTRA_SEAT',
+          addonPriceMonthly: ADDON_CATALOGUE.EXTRA_SEAT.priceMonthly,
         },
       };
     }
@@ -112,7 +100,7 @@ export const validateMembershipInviteAllowanceV2 = async (
     if (isMissingTableError(error)) {
       // SECURITY FIX: Fail-secure - deny access when tables are missing
       console.error('[validateMembershipInviteAllowanceV2] ❌ CRITICAL: Required tables missing, denying invite');
-      return { 
+      return {
         allowed: false,
         statusCode: 503,
         message: 'Service temporarily unavailable. Please contact support.',

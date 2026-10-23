@@ -45,6 +45,7 @@ import {
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { requireBusinessDashboardAccess } from '../middleware/business-dashboard-access.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
+import { requireAdvancedReports, requireMultiBranchReports, requireFinanceAllowed } from '../middleware/subscription.middleware';
 
 const router = Router();
 
@@ -54,6 +55,13 @@ router.use(resolveBusiness({ required: false }));
 router.use(resolveMembership());
 router.use(resolveBranch({ required: false }));
 router.use(checkModule('reports'));
+// Add-on plan gates: /advanced/* needs advanced reports (Reports Pack or
+// Growth+), /advanced/branch additionally needs multi-branch reporting
+// (Reports Pack on Growth, inherent on Scale), /accounting/* is the
+// finance toolkit (Finance Pack or Growth+).
+router.use('/advanced/branch', requireMultiBranchReports());
+router.use('/advanced', requireAdvancedReports());
+router.use('/accounting', requireFinanceAllowed());
 
 // Reports (membership-permission guarded)
 router.get('/sales', checkPermission('reports.read'), getSalesReport);

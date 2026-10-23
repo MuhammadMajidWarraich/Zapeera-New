@@ -163,6 +163,21 @@ export const resolveBusiness = (options?: { required?: boolean }) => {
   };
 };
 
+/**
+ * Paths a plan-blocked staff member may still reach (see the add-on
+ * plan gate inside resolveMembership): support is how a locked-out
+ * tenant asks for help; subscription/add-on surfaces are how the
+ * situation gets fixed; the plain GET business list keeps the
+ * business switcher usable for accounts that own other businesses.
+ */
+export const isStaffPlanGateExempt = (req: { originalUrl?: string; url?: string; method?: string }): boolean => {
+  const raw = String(req.originalUrl || req.url || '');
+  const path = raw.split('?')[0];
+  if (/\/(support|notifications|subscription|addons|auth|affiliates)(\/|$)/.test(path)) return true;
+  if (String(req.method || 'GET').toUpperCase() === 'GET' && /\/(v1\/)?companies\/?$/.test(path)) return true;
+  return false;
+};
+
 export const resolveMembership = (options?: { strict?: boolean }) => {
   const strict = options?.strict ?? false;
 
@@ -200,6 +215,40 @@ export const resolveMembership = (options?: { strict?: boolean }) => {
             ? membership.branches.filter((b) => b.branchId != null).map((b) => String(b.branchId))
             : []
         };
+
+        // ADD-ON PLAN GATE (2026-10-24): Trial/Starter are owner-only
+        // plans. A non-owner member of a business whose plan provides
+        // no staff access (and no HR Pack) is refused here — this is
+        // what blocks EXISTING staff after a downgrade/plan change,
+        // while their membership and data stay untouched (re-adding
+        // the HR Pack or upgrading reopens access immediately).
+        // Exempt: account/support surfaces a locked-out member still
+        // needs (support, notifications, subscription & add-on
+        // management, auth, affiliates) and the plain business list.
+        if (roleName !== 'OWNER' && !isStaffPlanGateExempt(req)) {
+          try {
+            const { getEffectiveLimits } = await import('../services/addon-limits.service');
+            const limits = await getEffectiveLimits(prisma as any, String(req.business_id));
+            if (!limits.staffAllowed) {
+              return res.status(403).json({
+                success: false,
+                code: 'PLAN_STAFF_NOT_INCLUDED',
+                error: 'PLAN_STAFF_NOT_INCLUDED',
+                message:
+                  `Staff access is not included in this business's ${limits.planName} plan. ` +
+                  'Ask the business owner to add the HR Pack or upgrade the plan to restore staff access.',
+                planId: limits.planId,
+                planName: limits.planName,
+                addon: 'HR_PACK',
+              });
+            }
+          } catch (gateError) {
+            // The gate must never take the whole API down with it
+            // (e.g. a partially migrated DB): log and continue. The
+            // creation-side gates fail closed independently.
+            console.error('[resolveMembership] staff plan gate check failed:', gateError);
+          }
+        }
 
         // DO NOT overwrite req.user.role here.
         return next();
