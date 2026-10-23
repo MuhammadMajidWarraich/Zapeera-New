@@ -4,6 +4,7 @@
  */
 
 const { registerActivationRoutes } = require('./activation.routes');
+const { registerAddonRoutes } = require('./addons.routes');
 const { registerAdminRoutes } = require('./admin.routes');
 const { registerAttendanceRoutes } = require('./attendance.routes');
 const { registerAuthRoutes } = require('./auth.routes');
@@ -46,6 +47,7 @@ function registerAllRoutes(app, authMiddleware, deps) {
   console.log('[Routes] Registering routes from domain-specific files...');
 
   registerActivationRoutes(app, authMiddleware, deps);
+  registerAddonRoutes(app, authMiddleware, deps);
   registerAdminRoutes(app, authMiddleware, deps);
   registerAttendanceRoutes(app, authMiddleware, deps);
   registerAuthRoutes(app, authMiddleware, deps);

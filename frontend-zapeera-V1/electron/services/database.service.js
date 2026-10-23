@@ -272,6 +272,12 @@ async function initDatabase() {
       startDate TEXT, endDate TEXT, amount REAL DEFAULT 0,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS subscription_addons (
+      id TEXT PRIMARY KEY, businessId TEXT NOT NULL, type TEXT NOT NULL, quantity INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'ACTIVE', startedAt TEXT, periodEnd TEXT, cancelledAt TEXT,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(businessId, type)
+    )`,
     `CREATE TABLE IF NOT EXISTS device_activation (
       id TEXT PRIMARY KEY, deviceId TEXT UNIQUE NOT NULL, fingerprint TEXT,
       status TEXT DEFAULT 'ACTIVE', licenseKey TEXT, userId TEXT, companyId TEXT, branchId TEXT,

@@ -3,6 +3,8 @@
  * Extracted from routes/index.js
  */
 
+const { getEffectiveLimits, countBranches, ADDON_CATALOGUE } = require('../services/addon-limits');
+
 function registerBranchesRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
@@ -321,6 +323,28 @@ function registerBranchesRoutes(app, authMiddleware, deps) {
     
           if (!finalCompanyId) {
             return res.status(400).json({ success: false, message: 'Company ID is required. Please select a company first.' });
+          }
+
+          // ADD-ON GATE (desktop mirror of the web branch gate): branch
+          // creation is capped at the plan limit + purchased Extra Branches.
+          {
+            const limits = getEffectiveLimits(query, finalCompanyId);
+            const usedBranches = countBranches(query, finalCompanyId);
+            if (usedBranches >= limits.maxBranches) {
+              return res.status(403).json({
+                success: false,
+                code: 'BRANCH_LIMIT_REACHED',
+                error: 'BRANCH_LIMIT_REACHED',
+                message: `Branch limit reached (${limits.maxBranches}) on the ${limits.planName} plan. Add an Extra Branch or upgrade your plan.`,
+                planId: limits.planId,
+                planName: limits.planName,
+                maxBranches: limits.maxBranches,
+                usedBranches,
+                addon: 'EXTRA_BRANCH',
+                addonName: ADDON_CATALOGUE.EXTRA_BRANCH.name,
+                addonPriceMonthly: ADDON_CATALOGUE.EXTRA_BRANCH.priceMonthly,
+              });
+            }
           }
     
           // CRITICAL FIX: Ensure only one manager per branch

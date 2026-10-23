@@ -3,6 +3,8 @@
  * Extracted from routes/index.js
  */
 
+const { getEffectiveLimits, countStaffSeats, ADDON_CATALOGUE } = require('../services/addon-limits');
+
 function registerUsersRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
@@ -1633,6 +1635,46 @@ function registerUsersRoutes(app, authMiddleware, deps) {
           // This ensures staff is created with the correct branch context
           const finalBranchId = branchId || selectedBranchId || req.user?.branchId || null;
           const finalCompanyId = companyId || selectedCompanyId || req.user?.companyId || null;
+
+          // ADD-ON GATE (desktop mirror of the web subscription middleware):
+          // staff creation requires staff access (Growth/Scale, or Starter +
+          // HR Pack) and a free staff seat. Trial/Starter are owner-only.
+          // OWNER/ADMIN creations never consume a seat.
+          if (finalCompanyId) {
+            const newRole = String(role || 'CASHIER').toUpperCase();
+            if (newRole !== 'OWNER' && newRole !== 'ADMIN') {
+              const limits = getEffectiveLimits(query, finalCompanyId);
+              if (!limits.staffAllowed) {
+                return res.status(403).json({
+                  success: false,
+                  code: 'PLAN_STAFF_NOT_INCLUDED',
+                  error: 'PLAN_STAFF_NOT_INCLUDED',
+                  message: `Staff accounts are not included in the ${limits.planName} plan. Add the HR Pack or upgrade to Growth to add staff.`,
+                  planId: limits.planId,
+                  planName: limits.planName,
+                  addon: 'HR_PACK',
+                  addonName: ADDON_CATALOGUE.HR_PACK.name,
+                  addonPriceMonthly: ADDON_CATALOGUE.HR_PACK.priceMonthly,
+                });
+              }
+              const usedStaffSeats = countStaffSeats(query, finalCompanyId);
+              if (usedStaffSeats >= limits.maxStaffSeats) {
+                return res.status(403).json({
+                  success: false,
+                  code: 'SEAT_LIMIT_REACHED',
+                  error: 'SEAT_LIMIT_REACHED',
+                  message: `Staff seat limit reached (${limits.maxStaffSeats}) on the ${limits.planName} plan. Add an Extra Staff Seat or upgrade your plan.`,
+                  planId: limits.planId,
+                  planName: limits.planName,
+                  maxStaffSeats: limits.maxStaffSeats,
+                  usedStaffSeats,
+                  addon: 'EXTRA_SEAT',
+                  addonName: ADDON_CATALOGUE.EXTRA_SEAT.name,
+                  addonPriceMonthly: ADDON_CATALOGUE.EXTRA_SEAT.priceMonthly,
+                });
+              }
+            }
+          }
     
           // Check if user already exists by email or username - get full details
           // Note: For existence check, we can use SQLite directly as it's faster and both databases should be in sync
