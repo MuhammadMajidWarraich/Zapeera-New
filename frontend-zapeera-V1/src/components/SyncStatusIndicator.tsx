@@ -109,19 +109,22 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
   if (!runtime.isDesktop) return null;
 
   const isOnline = status.connectionState === 'online';
+  const isAuthRequired = status.connectionState === 'auth-required';
   const hasPending = status.pendingChanges > 0;
 
   return (
-    <span className={cn(
-      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-      isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
-      className,
-    )}>
+    <span
+      title={isAuthRequired ? 'Your cloud sign-in has expired. Sign out and sign in again to resume syncing.' : undefined}
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+        isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : isAuthRequired ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+        className,
+      )}>
       <span className={cn(
         'w-1.5 h-1.5 rounded-full',
-        isOnline ? 'bg-green-500' : 'bg-gray-400',
+        isOnline ? 'bg-green-500' : isAuthRequired ? 'bg-red-500' : 'bg-gray-400',
       )} />
-      {isOnline ? 'Online' : 'Offline'}
+      {isOnline ? 'Online' : isAuthRequired ? 'Sign in again' : 'Offline'}
       {hasPending && <span className="ml-0.5">· {status.pendingChanges}</span>}
     </span>
   );

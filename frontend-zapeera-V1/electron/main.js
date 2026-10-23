@@ -938,6 +938,11 @@ async function startBackend() {
   const env = {
     ...process.env,
     PORT: BACKEND_PORT.toString(),
+    // Security hardening (2026-10-23): the spawned backend is this machine's
+    // LOCAL API — bind it to loopback only, like the embedded fallback server
+    // already does, instead of 0.0.0.0 (whole shop LAN). Opt out explicitly
+    // with ZAPEERA_DESKTOP_LAN=1 if a deployment ever serves LAN terminals.
+    BIND_HOST: process.env.ZAPEERA_DESKTOP_LAN === '1' ? '0.0.0.0' : '127.0.0.1',
     NODE_ENV: 'production',
     DATABASE_URL: `file:${SQLITE_DB_PATH}`,
     ...(ELECTRON_CLOUD_API_URL ? { CLOUD_API_URL: ELECTRON_CLOUD_API_URL } : {}),
@@ -1170,7 +1175,10 @@ function createSplashWindow() {
     alwaysOnTop: true,
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      // Security hardening (2026-10-23): sandboxed renderer, no DevTools.
+      sandbox: true,
+      devTools: false
     }
   });
 
@@ -1247,6 +1255,12 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      // Security hardening (2026-10-23): sandbox the renderer (the preload
+      // only uses contextBridge/ipcRenderer, which sandbox supports) and
+      // disable DevTools in packaged builds so the shipped app cannot be
+      // inspected/re-scripted from the console. Dev keeps DevTools.
+      sandbox: true,
+      devTools: isDev,
       preload: getPreloadPath(),
       webSecurity: true,
       // CRITICAL FIX: Disable security warnings for CSP in packaged app
@@ -1333,13 +1347,31 @@ function createWindow() {
     }
   }, shouldShowImmediately ? 3000 : 5000); // Shorter timeout on Windows
 
-  // CRITICAL FIX: Handle window load errors on Windows
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  // Handle window load errors on Windows.
+  // 2026-10-24 fix: did-fail-load also fires for SUBFRAME loads and for
+  // in-app navigations gone wrong (e.g. a raw `window.location.href =
+  // "/zapeera"` from an error-recovery button resolving to
+  // file:///C:/zapeera). The old handler showed the native modal for
+  // EVERY failure except -3, turning a recoverable in-app hiccup into
+  // an app-breaking "Load Error" dialog (three in a row in the field,
+  // 2026-10-23). Now: the modal is reserved for a genuine failure to
+  // load the app entry itself (main frame + the frontend file we
+  // loaded); everything else is logged only — the app stays usable
+  // and a restart/navigation recovers.
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     log('ERROR', `Window failed to load: ${errorCode} - ${errorDescription}`);
-    log('ERROR', `URL: ${validatedURL}`);
+    log('ERROR', `URL: ${validatedURL} (mainFrame: ${!!isMainFrame})`);
 
-    // On Windows, show error dialog if critical error
-    if (shouldShowImmediately && errorCode !== -3) { // -3 is ERR_ABORTED (navigation cancelled)
+    if (errorCode === -3) return; // ERR_ABORTED (navigation cancelled)
+    let isAppEntryFailure = false;
+    try {
+      if (isMainFrame && validatedURL && validatedURL.startsWith('file:')) {
+        const failedPath = decodeURIComponent(new URL(validatedURL).pathname).replace(/^\/([A-Za-z]:)/, '$1');
+        isAppEntryFailure = path.normalize(failedPath) === path.normalize(frontendPath);
+      }
+    } catch (e) { /* unparseable URL: treat as non-entry failure */ }
+
+    if (shouldShowImmediately && isAppEntryFailure) {
       dialog.showErrorBox(
         'Zapeera - Load Error',
         `Failed to load application.\n\nError: ${errorDescription}\n\nCode: ${errorCode}\n\nPlease check the logs at: ${logFile}`
@@ -1407,12 +1439,35 @@ function setupIPC() {
     databasePath: SQLITE_DB_PATH
   }));
 
-  ipcMain.handle('get-storage-info', () => ({
-    appDataDir: APP_DATA_DIR,
-    dataDir: DATA_DIR,
-    logDir: LOG_DIR,
-    databasePath: SQLITE_DB_PATH
-  }));
+  ipcMain.handle('get-storage-info', () => {
+    // Real disk figures for the Settings → Device Status panel (it used
+    // to show a hardcoded "2.3 GB / 32 GB"). diskTotal/diskFree describe
+    // the volume that holds the app's data directory; databaseBytes is
+    // the local database file itself. Anything unavailable stays null
+    // and the UI hides the stat rather than inventing a number.
+    let diskTotalBytes = null;
+    let diskFreeBytes = null;
+    let databaseBytes = null;
+    try {
+      if (typeof fs.statfsSync === 'function') {
+        const st = fs.statfsSync(DATA_DIR);
+        diskTotalBytes = st.blocks * st.bsize;
+        diskFreeBytes = st.bfree * st.bsize;
+      }
+    } catch (e) { /* statfs unavailable on this platform/build */ }
+    try {
+      if (fs.existsSync(SQLITE_DB_PATH)) databaseBytes = fs.statSync(SQLITE_DB_PATH).size;
+    } catch (e) { /* ignore */ }
+    return {
+      appDataDir: APP_DATA_DIR,
+      dataDir: DATA_DIR,
+      logDir: LOG_DIR,
+      databasePath: SQLITE_DB_PATH,
+      diskTotalBytes,
+      diskFreeBytes,
+      databaseBytes
+    };
+  });
 
   ipcMain.handle('get-log-file-path', () => logFile);
 
@@ -1580,13 +1635,40 @@ function setupIPC() {
   });
 
   // Sync status (shape matches what the renderer SyncService consumes)
+  let lastSyncRecheckAt = 0;
   ipcMain.handle('get-sync-status', async () => {
     try {
       if (useEmbeddedApi) {
         const syncService = require('./services/sync.service');
+        // Recovery: if the engine is sitting in a non-ready state, kick
+        // a fresh cloud-reachability check (throttled to once per 5s)
+        // so the badge recovers on its own when connectivity returns
+        // or a fresh sign-in replaces an expired cloud token — instead
+        // of latching "Offline" until restart.
+        const stateBeforeCheck = syncService.getConnectionState ? syncService.getConnectionState() : 'OFFLINE';
+        if (!['SYNC_READY', 'SYNCED', 'SYNCING'].includes(stateBeforeCheck) && Date.now() - lastSyncRecheckAt > 5000) {
+          lastSyncRecheckAt = Date.now();
+          if (syncService.checkCloudConnectivity) {
+            syncService.checkCloudConnectivity().catch(() => {});
+          }
+        }
         const connState = syncService.getConnectionState ? syncService.getConnectionState() : 'OFFLINE';
-        const isOnline = ['SYNC_READY', 'SYNCED', 'SYNCING'].includes(connState);
-        const pending = syncService.getOfflineQueue ? (syncService.getOfflineQueue() || []).filter(q => !q.synced).length : 0;
+        const isOnline = ['SYNC_READY', 'SYNCED', 'SYNCING', 'CLOUD_REACHABLE', 'PENDING'].includes(connState);
+        // Pending count must come from the DURABLE sync_operations
+        // queue (the one pushChangesToCloud actually drains). The JSON
+        // offline queue is an append-only activity log whose entries
+        // are never marked synced, so counting it produced a number
+        // that only grew ("Offline · 3" that never drained).
+        let pending = 0;
+        let failed = 0;
+        try {
+          const queueService = require('./services/sync-queue.service');
+          const qs = queueService.getQueueStatus();
+          pending = (qs.pending || 0) + (qs.inFlight || 0);
+          failed = qs.failed || 0;
+        } catch (queueErr) {
+          pending = syncService.getOfflineQueue ? (syncService.getOfflineQueue() || []).filter(q => !q.synced).length : 0;
+        }
         return {
           connectionState: connState,
           syncState: connState === 'SYNCING' ? 'syncing' : connState === 'SYNCED' ? 'synced' : isOnline ? 'idle' : 'offline',
@@ -1594,10 +1676,10 @@ function setupIPC() {
           lastSyncAt: syncService.getLastSyncTime ? syncService.getLastSyncTime() : null,
           lastSyncTime: syncService.getLastSyncTime ? syncService.getLastSyncTime() : null,
           pendingChanges: pending,
-          failedChanges: 0,
+          failedChanges: failed,
           syncInProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
           inProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
-          queueLength: syncService.getOfflineQueue ? (syncService.getOfflineQueue() || []).length : 0
+          queueLength: pending + failed
         };
       }
       return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0 };
@@ -1659,7 +1741,7 @@ function setupIPC() {
     try {
       if (options && options.html) {
         // Create a hidden window for printing
-        const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true } });
+        const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, devTools: false } });
         printWindow.webContents.on('did-finish-load', () => {
           printWindow.webContents.print({ silent: false, printBackground: true }, (success) => {
             printWindow.close();

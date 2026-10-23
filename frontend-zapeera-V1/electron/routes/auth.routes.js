@@ -921,6 +921,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             syncCompleted = true; // No sync needed
           }
           
+          try { run('UPDATE users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?', [now(), now(), u.id]); saveDatabase(); } catch (e) { /* last-login stamp is best-effort */ }
           const token = generateToken({ id: u.id, email: u.email, name: u.name, role: u.role, companyId: u.companyId, branchId: u.branchId });
           logDebug('✅ Token generated successfully');
           logDebug('✅✅✅ Sending login response...');
@@ -1267,11 +1268,34 @@ function registerAuthRoutes(app, authMiddleware, deps) {
 
   // GET /api/auth/profile (line 1428)
   // QA fix 2026-10-20 (Agent B2, B-5): same phantom `phone` column as /me.
+  // 2026-10-24: return the REAL profile fields the Settings page shows —
+  // profileImage (column exists via migration), lastLogin from the
+  // lastLoginAt stamp written at login/provision, the user's branch name
+  // from the branches table, and this install's real device id. Before
+  // this the Settings card fell back to hardcoded demo values
+  // ("TABLET-001", "2024-01-15 10:30 AM", "Unknown Branch").
       app.get('/api/auth/profile', authMiddleware, (req, res) => {
         try {
-          const users = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
+          const users = query('SELECT id, username, email, name, role, companyId, branchId, profileImage, lastLoginAt FROM users WHERE id = ?', [req.user.id]);
           if (!users.length) return res.status(404).json({ success: false, message: 'User not found' });
-          res.json({ success: true, data: users[0] });
+          const u = users[0];
+          let branch = null;
+          if (u.branchId) {
+            const b = query('SELECT id, name FROM branches WHERE id = ?', [u.branchId])[0];
+            if (b) branch = { id: b.id, name: b.name };
+          }
+          let deviceId = null;
+          try { deviceId = getDeviceId ? getDeviceId() : null; } catch (e) { /* device id unavailable */ }
+          res.json({
+            success: true,
+            data: {
+              ...u,
+              profileImage: u.profileImage || null,
+              lastLogin: u.lastLoginAt || null,
+              branch,
+              deviceId
+            }
+          });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
@@ -1453,10 +1477,32 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           // QA fix 2026-10-20 (Agent B2, B-5): no `phone` column exists on the
           // desktop users table — writing/selecting it silently broke profile
           // updates. A client-sent phone is accepted but not persisted.
-          const { name } = req.body;
-          run('UPDATE users SET name = COALESCE(?, name), updatedAt = ? WHERE id = ?',
-            [name, now(), req.user.id]);
-          const user = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id])[0];
+          const { name, email, profileImage } = req.body || {};
+          if (profileImage !== undefined && profileImage !== null) {
+            // Only accept inline images (the Settings picker sends a
+            // base64 data URL) or http(s) URLs, with a sane size cap.
+            const isDataImage = typeof profileImage === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(profileImage);
+            const isUrl = typeof profileImage === 'string' && /^https?:\/\//.test(profileImage);
+            if (profileImage !== '' && !isDataImage && !isUrl) {
+              return res.status(400).json({ success: false, message: 'Profile image must be an image file or a URL' });
+            }
+            if (typeof profileImage === 'string' && profileImage.length > 7 * 1024 * 1024) {
+              return res.status(400).json({ success: false, message: 'Profile image is too large' });
+            }
+          }
+          if (email !== undefined && email !== null && String(email).trim() !== '') {
+            const clash = query('SELECT id FROM users WHERE email = ? AND id != ?', [String(email).trim().toLowerCase(), req.user.id])[0];
+            if (clash) return res.status(409).json({ success: false, message: 'That email is already used by another account' });
+          }
+          run('UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), profileImage = COALESCE(?, profileImage), updatedAt = ? WHERE id = ?',
+            [
+              name !== undefined && name !== null && String(name).trim() !== '' ? String(name).trim() : null,
+              email !== undefined && email !== null && String(email).trim() !== '' ? String(email).trim().toLowerCase() : null,
+              profileImage !== undefined ? profileImage : null,
+              now(), req.user.id
+            ]);
+          saveDatabase();
+          const user = query('SELECT id, username, email, name, role, companyId, branchId, profileImage, lastLoginAt FROM users WHERE id = ?', [req.user.id])[0];
     
           // 🔄 TWO-WAY SYNC: Queue for sync to PostgreSQL
           if (user) handleDataChange('users', 'update', user);
@@ -1508,6 +1554,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           }
 
           const u = userRecord[0];
+          try { run('UPDATE users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?', [now(), now(), u.id]); saveDatabase(); } catch (e) { /* best-effort */ }
           const token = generateToken({ id: u.id, email: u.email, name: u.name, role: u.role, companyId: u.companyId, branchId: u.branchId });
 
           res.cookie('zapeera_token', token, {
@@ -1642,6 +1689,8 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           } catch (svcError) {
             console.warn('[Provision] Device/session setup warning:', svcError.message);
           }
+
+          try { run('UPDATE users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?', [timestamp, timestamp, userId]); } catch (e) { /* best-effort */ }
 
           // Generate local JWT
           localToken = generateToken({ id: userId, email, name, role: cloudUser.role || 'USER', companyId: cloudUser.companyId, branchId: cloudUser.branchId });

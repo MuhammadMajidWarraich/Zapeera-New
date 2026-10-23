@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { navigateToAppPath } from "@/lib/navigate";
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -32,7 +33,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   handleGoToDashboard = (): void => {
-    window.location.href = "/zapeera";
+    // Clear the error first so the destination route can render, then
+    // navigate protocol-safely: a raw `window.location.href =
+    // "/zapeera"` under file:// (desktop) navigates to
+    // file:///C:/zapeera → ERR_FILE_NOT_FOUND → native Load Error
+    // dialog (incident 2026-10-24). navigateToAppPath uses the hash
+    // route on desktop and a normal href on the web.
+    this.setState({ hasError: false, error: null });
+    navigateToAppPath("/zapeera");
   };
 
   render() {

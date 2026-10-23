@@ -9,15 +9,13 @@ import {
   User,
   Wifi,
   WifiOff,
-  Printer,
-  Smartphone,
+  HardDrive,
   Monitor,
   Save,
   RefreshCw,
   Upload,
   Edit,
   X,
-  Battery,
   Receipt,
   Download,
   Archive,
@@ -30,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
+import { syncService, type SyncStatus } from "@/services/syncService";
 import { config } from "@/lib/config";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -60,13 +59,44 @@ function ZV3DeviceStat({
   );
 }
 
+const formatDateTime = (iso?: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
+
+const formatRelative = (iso?: string | null): string => {
+  if (!iso) return "Not synced yet";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (isNaN(diff)) return "Not synced yet";
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  return `${Math.floor(hours / 24)} day${Math.floor(hours / 24) === 1 ? "" : "s"} ago`;
+};
+
+const formatBytes = (bytes?: number | null): string | null => {
+  if (bytes === null || bytes === undefined || !(bytes > 0)) return null;
+  const gb = bytes / (1024 * 1024 * 1024);
+  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`;
+};
+
 const ZV3_POS_SWITCH =
   "h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]";
 
 const Settings = () => {
   const { user } = useAuth();
   const { selectedCompanyId, selectedCompany } = useAdmin();
-  const [isOnline, setIsOnline] = useState(true);
+  const isDesktopApp = typeof window !== "undefined" && typeof (window as any).electronAPI !== "undefined";
+  // Device Status connection/last-sync come from the SAME syncService
+  // the header badge uses — the panel previously derived "Online" from
+  // navigator.onLine while the header used cloud-sync state, so the app
+  // contradicted itself ("Online" here, "Offline · 3" in the header).
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => syncService.getCurrentStatus());
+  const [storageInfo, setStorageInfo] = useState<{ diskTotalBytes?: number | null; diskFreeBytes?: number | null; databaseBytes?: number | null } | null>(null);
   const [isEditingBusiness, setIsEditingBusiness] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -116,27 +146,27 @@ const Settings = () => {
     branchName: ''
   });
   const [originalBusinessSettings, setOriginalBusinessSettings] = useState({
-    name: "My Business",
-    address: "Block A, Gulberg III, Lahore",
-    phone: "+92 42 1234567",
-    email: "info@mybusiness.com",
-    license: "BUS-LHR-2024-001",
-    taxNumber: "1234567890123"
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    license: "",
+    taxNumber: ""
   });
   const [settings, setSettings] = useState({
     business: {
-      name: "My Business",
-      address: "Block A, Gulberg III, Lahore",
-      phone: "+92 42 1234567",
-      email: "info@mybusiness.com",
-      license: "BUS-LHR-2024-001",
-      taxNumber: "1234567890123"
+      name: "",
+      address: "",
+      phone: "",
+      email: "",
+      license: "",
+      taxNumber: ""
     },
     pos: {
       autoSync: true,
       offlineMode: true,
-      receiptPrinter: "EPSON TM-T20II",
-      barcodePrinter: "Zebra ZD220",
+      receiptPrinter: "",
+      barcodePrinter: "",
       defaultTax: 17,
       loyaltyPointValue: 1,
       // Prescriptions (Wave C1): POS enforcement tri-state —
@@ -152,8 +182,8 @@ const Settings = () => {
       name: userProfile.name || user?.name || "Loading...",
       email: userProfile.email || "Loading...",
       role: userProfile.role || user?.membership?.roleName || user?.role || "Loading...",
-      deviceId: "TABLET-001",
-      lastLogin: "2024-01-15 10:30 AM"
+      deviceId: "",
+      lastLogin: ""
     },
     security: {
       autoLogout: 30,
@@ -171,12 +201,32 @@ const Settings = () => {
     }
   });
 
+  // Device Status — every value is real or the stat is not rendered:
+  // · Connection / Last Sync: the shared syncService (same source as
+  //   the header badge — the app can no longer contradict itself).
+  // · Storage: the real disk volume holding the app's data (Electron
+  //   get-storage-info now reports statfs figures + the database file
+  //   size). Hidden when no truthful figure exists (e.g. web).
+  // · Battery / Printer: REMOVED (2026-10-24) — they were hardcoded
+  //   strings ("78%", "Connected"); the app has no battery or printer
+  //   enumeration on desktop, and Muhammad has no printer attached.
+  const storageLabel = (() => {
+    if (!storageInfo?.diskTotalBytes) return null;
+    const used = storageInfo.diskTotalBytes - (storageInfo.diskFreeBytes || 0);
+    const usedLabel = formatBytes(used);
+    const totalLabel = formatBytes(storageInfo.diskTotalBytes);
+    return usedLabel && totalLabel ? `${usedLabel} / ${totalLabel}` : null;
+  })();
   const deviceStatus = {
-    connectivity: isOnline ? "Online" : "Offline",
-    lastSync: "2 minutes ago",
-    storage: "2.3 GB / 32 GB",
-    battery: "78%",
-    printer: "Connected"
+    connectivity: syncStatus.connectionState === "online"
+      ? "Online"
+      : syncStatus.connectionState === "auth-required"
+        ? "Sign in again"
+        : syncStatus.connectionState === "checking"
+          ? "Checking…"
+          : "Offline",
+    lastSync: formatRelative(syncStatus.lastSyncAt),
+    storage: storageLabel
   };
 
   useEffect(() => {
@@ -185,15 +235,17 @@ const Settings = () => {
   }, []);
 
   useEffect(() => {
-    const syncOnline = () => setIsOnline(navigator.onLine);
-    syncOnline();
-    window.addEventListener("online", syncOnline);
-    window.addEventListener("offline", syncOnline);
-    return () => {
-      window.removeEventListener("online", syncOnline);
-      window.removeEventListener("offline", syncOnline);
-    };
+    const unsubscribe = syncService.subscribe(setSyncStatus);
+    syncService.getStatus();
+    return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isDesktopApp) return;
+    (window as any).electronAPI?.getStorageInfo?.()
+      .then((info: any) => { if (info) setStorageInfo(info); })
+      .catch(() => { /* storage stat simply stays hidden */ });
+  }, [isDesktopApp]);
 
   const loadUserProfile = async () => {
     try {
@@ -204,7 +256,7 @@ const Settings = () => {
           email: response.data.email,
           username: response.data.username,
           role: response.data.role,
-          branchName: response.data.branch?.name || 'Unknown Branch'
+          branchName: response.data.branch?.name || ''
         });
       }
     } catch (error) {
@@ -216,7 +268,7 @@ const Settings = () => {
           email: 'N/A',
           username: 'N/A',
           role: user.membership?.roleName || user.role,
-          branchName: 'Unknown Branch'
+          branchName: ''
         });
       }
     }
@@ -224,6 +276,7 @@ const Settings = () => {
 
   // FBR POS (Wave B7) ──────────────────────────────────────────────
   const loadFbr = async () => {
+    if (isDesktopApp) return; // FBR is cloud-only by design (see the section notice)
     try {
       const [cfg, status] = await Promise.all([apiService.getFbrConfig(), apiService.getFbrStatus()]);
       if (cfg.success && cfg.data) {
@@ -242,9 +295,10 @@ const Settings = () => {
     } catch { /* section simply stays at defaults */ }
   };
 
-  useEffect(() => { loadFbr(); }, [selectedCompanyId]);
+  useEffect(() => { loadFbr(); }, [selectedCompanyId, isDesktopApp]);
 
   const handleFbrSave = async () => {
+    if (isDesktopApp) return; // FBR config lives on the cloud only (see the section notice)
     setIsSavingFbr(true);
     try {
       const res = await apiService.updateFbrConfig({
@@ -273,6 +327,7 @@ const Settings = () => {
   };
 
   const handleFbrTest = async () => {
+    if (isDesktopApp) return;
     setIsTestingFbr(true);
     try {
       const res = await apiService.testFbrConnection();
@@ -595,16 +650,16 @@ const Settings = () => {
               barcodeScanning: !(settingsData.data.barcodeScanningEnabled === 'false' || settingsData.data.barcodeScanningEnabled === false),
               autoSync: settingsData.data.autoSync === 'true',
               offlineMode: settingsData.data.offlineMode === 'true',
-              receiptPrinter: settingsData.data.receiptPrinter || 'EPSON TM-T20II'
+              receiptPrinter: settingsData.data.receiptPrinter || ''
             },
             business: {
               ...prev.business,
-              name: settingsData.data.businessName || 'My Business',
-              address: settingsData.data.businessAddress || 'Block A, Gulberg III, Lahore',
-              phone: settingsData.data.businessPhone || '+92 42 1234567',
-              email: settingsData.data.businessEmail || 'info@mybusiness.com',
-              license: settingsData.data.businessLicense || 'BUS-LHR-2024-001',
-              taxNumber: settingsData.data.businessTaxNumber || '1234567890123'
+              name: settingsData.data.businessName || '',
+              address: settingsData.data.businessAddress || '',
+              phone: settingsData.data.businessPhone || '',
+              email: settingsData.data.businessEmail || '',
+              license: settingsData.data.businessLicense || '',
+              taxNumber: settingsData.data.businessTaxNumber || ''
             }
           }));
         }
@@ -629,7 +684,8 @@ const Settings = () => {
               name: userData.data.name || prev.user.name,
               email: userData.data.email || prev.user.email,
               role: userData.data.membership?.roleName || userData.data.role || prev.user.role,
-              lastLogin: userData.data.lastLogin || prev.user.lastLogin
+              deviceId: userData.data.deviceId || prev.user.deviceId,
+              lastLogin: formatDateTime(userData.data.lastLogin) || prev.user.lastLogin
             }
           }));
         }
@@ -640,10 +696,22 @@ const Settings = () => {
   };
 
   const handleSyncNow = async () => {
+    // A real sync attempt (desktop: push/pull via the sync service),
+    // then refresh what this page shows. Previously this button ONLY
+    // reloaded settings/profile while claiming "Synced".
+    let syncNote = "Settings and profile have been refreshed.";
+    try {
+      const result = await syncService.triggerSync();
+      const status = await syncService.getStatus();
+      setSyncStatus(status);
+      syncNote = result.success
+        ? "Sync completed. Settings and profile have been refreshed."
+        : "Sync could not complete — you may be offline or need to sign in again. Your data is safe and will sync later.";
+    } catch { /* keep the refresh note */ }
     await Promise.all([loadSettings(), loadUserProfile()]);
     toast({
-      title: "Synced",
-      description: "Settings and profile have been refreshed.",
+      title: "Sync",
+      description: syncNote,
     });
   };
 
@@ -806,18 +874,18 @@ const Settings = () => {
     // Reset to default settings
     setSettings({
       business: {
-        name: "My Business",
-        address: "Block A, Gulberg III, Lahore",
-        phone: "+92 42 1234567",
-        email: "info@mybusiness.com",
-        license: "PHR-LHR-2024-001",
-        taxNumber: "1234567890123"
+        name: "",
+        address: "",
+        phone: "",
+        email: "",
+        license: "",
+        taxNumber: ""
       },
       pos: {
         autoSync: true,
         offlineMode: true,
-        receiptPrinter: "EPSON TM-T20II",
-        barcodePrinter: "Zebra ZD220",
+        receiptPrinter: "",
+        barcodePrinter: "",
         defaultTax: 17,
         loyaltyPointValue: 1,
         requirePrescriptionAtPos: "auto" as "auto" | "on" | "off",
@@ -829,8 +897,8 @@ const Settings = () => {
         name: userProfile.name || user?.name || "Loading...",
         email: userProfile.email || "Loading...",
         role: userProfile.role || user?.membership?.roleName || user?.role || "Loading...",
-        deviceId: "TABLET-001",
-        lastLogin: "2024-01-15 10:30 AM"
+        deviceId: "",
+        lastLogin: ""
       },
       security: {
         autoLogout: 30,
@@ -1115,11 +1183,11 @@ toast({
               Device Status
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-0 p-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-0 p-2 sm:grid-cols-3">
             <ZV3DeviceStat
-              icon={isOnline ? Wifi : WifiOff}
+              icon={syncStatus.connectionState === "online" ? Wifi : WifiOff}
               iconClass={
-                isOnline
+                syncStatus.connectionState === "online"
                   ? "bg-green-600/10 text-green-600"
                   : "bg-amber-500/10 text-amber-600"
               }
@@ -1132,24 +1200,14 @@ toast({
               value={deviceStatus.lastSync}
               label="Last Sync"
             />
-            <ZV3DeviceStat
-              icon={Smartphone}
-              iconClass="bg-indigo-500/10 text-indigo-600"
-              value={deviceStatus.storage}
-              label="Storage"
-            />
-            <ZV3DeviceStat
-              icon={Battery}
-              iconClass="bg-amber-500/10 text-amber-600"
-              value={deviceStatus.battery}
-              label="Battery"
-            />
-            <ZV3DeviceStat
-              icon={Printer}
-              iconClass="bg-[rgba(40,194,206,0.12)] text-[#1aa8b3]"
-              value={deviceStatus.printer}
-              label="Printer"
-            />
+            {deviceStatus.storage && (
+              <ZV3DeviceStat
+                icon={HardDrive}
+                iconClass="bg-indigo-500/10 text-indigo-600"
+                value={deviceStatus.storage}
+                label="Storage (this device)"
+              />
+            )}
           </div>
         </section>
 
@@ -1204,7 +1262,9 @@ toast({
                     {settings.user.role}
                   </span>
                 </div>
-                <p className="text-[13px] text-[#8c95b0]">Device: {settings.user.deviceId}</p>
+                {settings.user.deviceId ? (
+                  <p className="text-[13px] text-[#8c95b0]">Device: {settings.user.deviceId}</p>
+                ) : null}
               </div>
             </div>
 
@@ -1256,10 +1316,12 @@ toast({
             )}
 
             <div className="flex flex-wrap gap-10 border-t border-[rgba(15,23,60,0.06)] pt-5">
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Last Login</div>
-                <div className="text-sm font-semibold text-[#0a1128]">{settings.user.lastLogin}</div>
-              </div>
+              {settings.user.lastLogin ? (
+                <div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Last Login</div>
+                  <div className="text-sm font-semibold text-[#0a1128]">{settings.user.lastLogin}</div>
+                </div>
+              ) : null}
               {userProfile.branchName ? (
                 <div>
                   <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Branch</div>
@@ -1518,6 +1580,15 @@ toast({
               sales continue and invoices sync later. Use TEST mode to see the full flow with simulated
               invoice numbers before you have real FBR credentials.
             </p>
+            {isDesktopApp && (
+              <p className="mb-[18px] rounded-[10px] bg-amber-500/[0.08] px-4 py-3 text-[13px] leading-relaxed text-amber-700">
+                <strong>FBR is managed on the Zapeera cloud.</strong> Your FBR API token
+                never leaves the server, so these settings can't be viewed or changed
+                in the desktop app — the controls below are disabled here. To change
+                FBR settings, sign in to Zapeera on the web. Sales you make here still
+                post to FBR through the cloud.
+              </p>
+            )}
             {!canManageFbr && (
               <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
                 Only the owner or a manager can change FBR settings.
@@ -1533,7 +1604,7 @@ toast({
                 className={ZV3_POS_SWITCH}
                 checked={fbrConfig.enabled}
                 onCheckedChange={(checked) => setFbrConfig({ ...fbrConfig, enabled: checked })}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
               />
             </div>
             <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
@@ -1542,7 +1613,7 @@ toast({
                 id="fbr-environment"
                 value={fbrConfig.environment}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, environment: e.target.value as "TEST" | "SANDBOX" | "PRODUCTION" })}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
                 className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               >
                 <option value="TEST">TEST — simulated numbers, nothing sent to FBR</option>
@@ -1559,7 +1630,7 @@ toast({
                 id="fbr-pos-id"
                 value={fbrConfig.posId}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, posId: e.target.value })}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
                 placeholder="The POS ID FBR issued for this till"
                 className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               />
@@ -1572,7 +1643,7 @@ toast({
                 autoComplete="new-password"
                 value={fbrTokenInput}
                 onChange={(e) => { setFbrTokenInput(e.target.value); setFbrClearToken(false); }}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
                 placeholder={fbrConfig.hasToken && !fbrClearToken ? "•••••••••• (saved — type to replace)" : "Bearer token issued with the POS ID"}
                 className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               />
@@ -1592,7 +1663,7 @@ toast({
                 id="fbr-seller-name"
                 value={fbrConfig.sellerName}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, sellerName: e.target.value })}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
                 placeholder="Trade name exactly as registered with FBR"
                 className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               />
@@ -1603,7 +1674,7 @@ toast({
                 id="fbr-seller-strn"
                 value={fbrConfig.sellerStrn}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, sellerStrn: e.target.value })}
-                disabled={!canManageFbr}
+                disabled={!canManageFbr || isDesktopApp}
                 placeholder="Sales Tax Registration Number"
                 className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
               />
@@ -1618,7 +1689,7 @@ toast({
                 <Button
                   type="button"
                   onClick={handleFbrSave}
-                  disabled={isSavingFbr}
+                  disabled={isSavingFbr || isDesktopApp}
                   className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
                 >
                   <Save className="h-4 w-4" />
@@ -1627,7 +1698,7 @@ toast({
                 <Button
                   type="button"
                   onClick={handleFbrTest}
-                  disabled={isTestingFbr}
+                  disabled={isTestingFbr || isDesktopApp}
                   variant="outline"
                   className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
                 >

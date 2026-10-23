@@ -1,5 +1,29 @@
 function registerSyncRoutes(app, authMiddleware, deps) {
-  const { cloudApi, syncService, now, getOfflineQueue, SYNC_CONFIG, CLOUD_API_URL } = deps;
+  const { cloudApi, now, getOfflineQueue, SYNC_CONFIG, CLOUD_API_URL } = deps;
+  // deps carries the sync ENGINE's functions spread flat (getConnectionState,
+  // syncAllToPostgreSQL, ...), not a `syncService` object — the previous code
+  // destructured deps.syncService (undefined), so /api/sync/status threw and
+  // its catch answered connectionState 'UNKNOWN' forever. Build the engine
+  // facade from what deps actually provides.
+  const syncService = (deps.syncService && typeof deps.syncService.getConnectionState === 'function')
+    ? deps.syncService
+    : {
+        getConnectionState: deps.getConnectionState || (() => 'OFFLINE'),
+        getLastSyncTime: deps.getLastSyncTime || (() => null),
+        syncAll: deps.syncAllToPostgreSQL || deps.syncBidirectional || (async () => ({ success: false })),
+        pullAll: deps.pullAllFromPostgreSQL || deps.pullChangesFromCloud || (async () => ({ success: false })),
+        clearOfflineQueue: () => {}
+      };
+  // Pending count from the durable sync_operations queue when available.
+  const durablePending = () => {
+    try {
+      if (deps.syncQueueService && typeof deps.syncQueueService.getQueueStatus === 'function') {
+        const qs = deps.syncQueueService.getQueueStatus();
+        return { pending: (qs.pending || 0) + (qs.inFlight || 0), failed: qs.failed || 0 };
+      }
+    } catch (e) { /* fall through to the activity-log count */ }
+    return { pending: (getOfflineQueue() || []).filter(q => !q.synced).length, failed: 0 };
+  };
 
   // GET /api/sync/status - Current sync state
   app.get('/api/sync/status', authMiddleware, async (req, res) => {
@@ -10,7 +34,8 @@ function registerSyncRoutes(app, authMiddleware, deps) {
         data: {
           connectionState: connState,
           lastSync: syncService.getLastSyncTime(),
-          pendingChanges: (getOfflineQueue() || []).filter(q => !q.synced).length,
+          pendingChanges: durablePending().pending,
+          failedChanges: durablePending().failed,
           queueSize: (getOfflineQueue() || []).length,
           status: connState,
           syncInProgress: connState === 'SYNCING',

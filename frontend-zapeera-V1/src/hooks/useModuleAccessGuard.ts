@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useBusinessModules } from './useBusinessModules';
 import { useAdmin } from '@/contexts/useAdmin';
+import { navigateToAppPath } from '@/lib/navigate';
 
 interface ModuleAccessGuardOptions {
   showToast?: boolean;
@@ -55,9 +56,9 @@ export const useModuleAccessGuard = () => {
             label: 'Upgrade',
             onClick: () => {
               const slug = String((selectedCompany as { slug?: string | null } | null)?.slug || '').trim();
-              window.location.href = slug
+              navigateToAppPath(slug
                 ? `/business/${encodeURIComponent(slug)}/subscription`
-                : '/zapeera/my-businesses';
+                : '/zapeera/my-businesses');
             },
           },
           duration: 6000,

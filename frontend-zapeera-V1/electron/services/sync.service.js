@@ -261,11 +261,17 @@ async function checkCloudConnectivity(force = false) {
         setConnectionState('SYNC_READY');
         return 'SYNC_READY';
       }
+      // The cloud answered but did not accept the request (e.g. the
+      // persisted provisioning token has expired — cloud JWTs live 7
+      // days). That is an auth problem, not "reachable": surface it so
+      // the UI can ask for a fresh sign-in instead of sitting on a
+      // misleading state forever.
+      setConnectionState('AUTH_REQUIRED');
+      return 'AUTH_REQUIRED';
     } catch {
       setConnectionState('AUTH_REQUIRED');
       return 'AUTH_REQUIRED';
     }
-    return 'CLOUD_REACHABLE';
   } catch (e) {
     setConnectionState('OFFLINE');
     return 'OFFLINE';
@@ -705,8 +711,20 @@ function handleDataChange(tableName, operation, data) {
   try {
     queueOfflineOperation(tableName, operation, data);
     durableEnqueue(tableName, operation, data);
-    setConnectionState('PENDING');
-    if (_connectionState === 'SYNC_READY') {
+    // Latch fix (2026-10-24): this used to setConnectionState('PENDING')
+    // unconditionally and THEN test `if (_connectionState ===
+    // 'SYNC_READY')` — always false after the set — so the immediate
+    // push never fired, the state stayed PENDING until a periodic
+    // interval rescued it, and the UI (which maps PENDING from an
+    // engine that was actually SYNC_READY moments earlier) showed
+    // "Offline" on a connected machine. Only downgrade to PENDING when
+    // we are not already in a ready state, and always run the
+    // recheck/push when we were ready.
+    const wasReady = ['SYNC_READY', 'SYNCED', 'SYNCING'].includes(_connectionState);
+    if (!wasReady && _connectionState !== 'AUTH_REQUIRED') {
+      setConnectionState('PENDING');
+    }
+    if (wasReady) {
       (async () => {
         try {
           const state = await checkCloudConnectivity();

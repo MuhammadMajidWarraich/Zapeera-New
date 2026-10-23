@@ -7,6 +7,7 @@
 
 import { toast } from 'sonner';
 import { clearModuleAccessCache } from '@/hooks/useModuleAccess';
+import { getAppPathname, navigateToAppPath } from '@/lib/navigate';
 
 interface ApiErrorResponse {
   success: false;
@@ -82,7 +83,7 @@ export function handleApiError(error: GenericError): boolean {
       action: {
         label: 'Upgrade',
         onClick: () => {
-          window.location.href = data?.upgradeUrl || getBusinessSubscriptionUrl(window.location.pathname);
+          navigateToAppPath(data?.upgradeUrl || getBusinessSubscriptionUrl(getAppPathname()));
         },
       },
     });
@@ -182,5 +183,5 @@ export function isModuleAccessError(error: GenericError): boolean {
  * Get upgrade URL from error
  */
 export function getUpgradeUrl(error: GenericError): string {
-  return error.response?.data?.upgradeUrl || getBusinessSubscriptionUrl(window.location.pathname);
+  return error.response?.data?.upgradeUrl || getBusinessSubscriptionUrl(getAppPathname());
 }

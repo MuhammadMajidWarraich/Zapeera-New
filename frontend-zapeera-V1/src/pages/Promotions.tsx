@@ -141,8 +141,20 @@ const Promotions = () => {
         search: searchQuery.trim() || undefined,
       });
       if (response.success && response.data) {
-        setPromotions(response.data);
-        const pagination = (response as any).pagination;
+        // Defensive shape handling (2026-10-24): the web contract is
+        // data = Promotion[] with pagination as a sibling, but an older
+        // desktop embedded stub returned data = { promotions: [] } —
+        // setPromotions(object) then crashed the render at
+        // promotions.map. Normalize ANY shape to an array so this page
+        // can never throw on a malformed list response again.
+        const raw: any = response.data as any;
+        const list: PromotionRecord[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.promotions)
+            ? raw.promotions
+            : [];
+        setPromotions(list);
+        const pagination = (response as any).pagination || raw?.pagination;
         if (pagination) setTotalPages(Math.max(1, pagination.pages || 1));
       }
     } catch (error) {

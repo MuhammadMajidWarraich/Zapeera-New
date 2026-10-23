@@ -31,7 +31,7 @@
     "env:prod": "node scripts/setup-env.js production",
     "clean": "rm -rf dist",
     "electron:dev": "cross-env NODE_ENV=development electron electron/main.js",
-    "electron:build": "npm run build && npm run electron:build-backend && electron-builder --config electron-builder.json",
+    "electron:build": "npm run desktop:build && npm run electron:build-backend && electron-builder --config electron-builder.json",
     "electron:build-backend": "cd ../backend-zapeera-v1-main && npm run setup:electron && npm run build",
     "electron:dist:win": "npm run build && npm run electron:build-backend && electron-builder --config electron-builder.json --win",
     "electron:dist:mac": "npm run build && npm run electron:build-backend && electron-builder --config electron-builder.json --mac",

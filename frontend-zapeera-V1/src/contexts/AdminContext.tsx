@@ -159,7 +159,15 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       const response = await apiService.getMyCompanies();
       if (response.success && response.data) {
         const owned = (response.data.owned || []).map((c: any) => ({ ...c, accessType: 'owned' as const }));
-        const shared = (response.data.shared || []).map((c: any) => ({ ...c, accessType: 'shared' as const }));
+        // Defensive dedupe (2026-10-24): a business the user owns must
+        // never also appear under Shared — the backends filter this,
+        // but older desktop builds' local API did not, and the switcher
+        // must stay correct against either. OWNER wins; each business
+        // appears exactly once.
+        const ownedIds = new Set(owned.map((c: any) => c.id));
+        const shared = (response.data.shared || [])
+          .filter((c: any) => !ownedIds.has(c.id) && String(c?.createdBy || '') !== String(user?.id || ''))
+          .map((c: any) => ({ ...c, accessType: 'shared' as const }));
         loadedCompanies = [...owned, ...shared] as any;
         setOwnedCompanies(owned as any);
         setSharedCompanies(shared as any);

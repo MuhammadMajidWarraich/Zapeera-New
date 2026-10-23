@@ -23,8 +23,6 @@ import {
   Settings,
   Download,
   LifeBuoy,
-  Crown,
-  ArrowRight,
   HandCoins,
   Store,
 } from "lucide-react";
@@ -74,6 +72,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
@@ -322,41 +321,16 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         </div>
       </nav>
 
-      {/* Promo card */}
-      <div className="relative z-[2] px-3.5">
-        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-[#1a52c5]/[0.14] to-[#28c2ce]/[0.07] px-4 py-4">
-          <div
-            className="pointer-events-none absolute -right-5 -top-5 h-20 w-20 blur-xl"
-            style={{ background: "radial-gradient(circle, rgba(40,194,206,0.18), transparent)" }}
-          />
-          <div className="relative flex items-start justify-between gap-2">
-            <div>
-              <h4 className="text-[13px] font-semibold leading-snug text-white">Grow Your Business</h4>
-              <p className="text-[13px] font-semibold leading-snug text-white">With {branding.productName}</p>
-            </div>
-            <Crown className="h-4 w-4 shrink-0 text-amber-400" />
-          </div>
-          <p className="relative mb-3 mt-1.5 text-[11px] leading-relaxed text-white/40">
-            Unlock more powerful features, higher limits, and premium support to scale with your business.
-          </p>
-          <button
-            type="button"
-            onClick={() => go("/zapeera/billing")}
-            className="relative inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-[0_2px_12px_rgba(26,82,197,0.35)] transition-all hover:-translate-y-px hover:shadow-[0_4px_20px_rgba(26,82,197,0.45)]"
-          >
-            Explore Plans
-            <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
-          </button>
-        </div>
-      </div>
-
       {/* User card */}
       <div className="relative z-[2] shrink-0 px-3.5 pb-5 pt-4">
-        <DropdownMenu>
+        <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06]"
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen}
+              aria-label="Account menu"
+              className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06] data-[state=open]:bg-white/[0.08]"
             >
               <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white">
                 {user?.profileImage ? (
@@ -369,10 +343,15 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 <p className="truncate text-[13px] font-bold text-white">{user?.name || "User"}</p>
                 <p className="truncate text-[11px] text-white/40">{user?.email || ""}</p>
               </div>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
+              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-white/40 transition-transform duration-200", userMenuOpen && "rotate-180")} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-[240px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
+          {/* z-index must beat the sidebar <aside> (fixed, z-[100]): the
+              shared DropdownMenuContent default is z-50 and this menu
+              opens upward OVER the sidebar, so at z-50 it rendered
+              underneath the sidebar — invisible and unclickable, which
+              is why the chip looked dead in the installed app. */}
+          <DropdownMenuContent side="top" align="start" className="z-[200] w-[240px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
             <DropdownMenuItem onClick={() => go("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
               <User className="h-[18px] w-[18px] opacity-60" />
               Edit Profile

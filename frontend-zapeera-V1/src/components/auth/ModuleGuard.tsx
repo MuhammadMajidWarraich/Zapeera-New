@@ -4,6 +4,7 @@ import { useBusinessModules } from '@/hooks/useBusinessModules';
 import { useModuleAccessGuard } from '@/hooks/useModuleAccessGuard';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { navigateToAppPath } from '@/lib/navigate';
 
 interface ModuleGuardProps {
   moduleName: string;
@@ -64,7 +65,7 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
             const upgradePath = slugMatch
               ? `/business/${encodeURIComponent(slugMatch[1])}/subscription`
               : '/zapeera/my-businesses';
-            window.location.href = upgradePath;
+            navigateToAppPath(upgradePath);
           },
         },
         duration: 6000,
@@ -160,7 +161,7 @@ export const SubModuleGuard: React.FC<SubModuleGuardProps> = ({ parentModule, su
                 const upgradePath = slugMatch
                   ? `/business/${encodeURIComponent(slugMatch[1])}/subscription`
                   : '/zapeera/my-businesses';
-                window.location.href = upgradePath;
+                navigateToAppPath(upgradePath);
               }}
               className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
             >

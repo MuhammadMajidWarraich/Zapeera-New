@@ -532,6 +532,14 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
 
           // Shared businesses: companies the user has an ACTIVE membership for
           // (synced from cloud during provisioning), even when not the creator.
+          // OWNER EXCLUSION (2026-10-24): owners legitimately hold membership
+          // rows for their OWN businesses (the cloud /api/sync/account returns
+          // them), so without this filter every owned business was ALSO
+          // listed under "Shared Businesses". The web backend's getMyCompanies
+          // already dedupes this way (skip createdBy === user and owned ids);
+          // mirror it here. The membership rows themselves are kept — other
+          // reads (provisioning, offline availability) depend on them.
+          const ownedIds = new Set(ownedCompanies.map(c => c.id));
           const sharedRows = query(
             `SELECT c.id, c.name, c.description, c.address, c.phone, c.email, c.slug, c.businessType, c.createdBy,
                     m.role AS memberRole, m.branchIds AS memberBranchIds
@@ -541,18 +549,23 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
             [userId]
           );
 
-          const shared = (sharedRows || []).map(c => ({
-            ...c,
-            slug: c.slug || null,
-            description: c.description || null,
-            address: c.address || null,
-            phone: c.phone || null,
-            email: c.email || null,
-            createdBy: c.createdBy || null,
-            accessType: 'shared',
-            memberRole: (c.memberRole || 'MANAGER').toUpperCase() === 'CASHIER' ? 'CASHIER' : 'MANAGER',
-            memberBranchId: (c.memberBranchIds || '').split(',')[0] || null,
-          }));
+          const shared = (sharedRows || [])
+            .filter(c => !ownedIds.has(c.id) && c.createdBy !== userId)
+            .map(c => ({
+              ...c,
+              slug: c.slug || null,
+              description: c.description || null,
+              address: c.address || null,
+              phone: c.phone || null,
+              email: c.email || null,
+              createdBy: c.createdBy || null,
+              accessType: 'shared',
+              // Preserve the membership's REAL role. The previous code
+              // coerced everything except CASHIER to 'MANAGER', which is
+              // how an OWNER membership displayed as MANAGER.
+              memberRole: (c.memberRole || 'MANAGER').toUpperCase(),
+              memberBranchId: (c.memberBranchIds || '').split(',')[0] || null,
+            }));
 
           res.json({ success: true, data: { owned, shared } });
         } catch (e) {

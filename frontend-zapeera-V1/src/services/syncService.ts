@@ -13,6 +13,40 @@ export interface SyncStatus {
 
 export type SyncStateListener = (status: SyncStatus) => void;
 
+/**
+ * Map the desktop sync engine's states (electron/services/sync.service.js:
+ * OFFLINE / PENDING / ERROR / AUTH_REQUIRED / CLOUD_REACHABLE /
+ * SYNC_READY / SYNCING / SYNCED) onto the renderer's CloudState. The IPC
+ * branch of getDesktopStatus previously stored the engine value RAW, so
+ * e.g. "SYNCED" never equalled 'online' and the header badge showed
+ * "Offline" on a connected machine; PENDING/ERROR/CLOUD_REACHABLE fell
+ * to the same wrong display. CLOUD_REACHABLE means the cloud answered
+ * /health — the machine IS online, sync just hasn't been authorized or
+ * hasn't run yet — so it maps to 'online' for connectivity purposes,
+ * with syncState carrying the not-yet-synced nuance.
+ */
+export function mapEngineConnectionState(engineState?: string | null): { connectionState: CloudState; syncState: SyncState } {
+  switch ((engineState || '').toUpperCase()) {
+    case 'SYNC_READY':
+    case 'SYNCED':
+      return { connectionState: 'online', syncState: 'synced' };
+    case 'SYNCING':
+      return { connectionState: 'online', syncState: 'syncing' };
+    case 'CLOUD_REACHABLE':
+      return { connectionState: 'online', syncState: 'idle' };
+    case 'PENDING':
+      return { connectionState: 'online', syncState: 'pending' };
+    case 'AUTH_REQUIRED':
+      return { connectionState: 'auth-required', syncState: 'offline' };
+    case 'ERROR':
+      return { connectionState: 'offline', syncState: 'failed' };
+    case 'OFFLINE':
+      return { connectionState: 'offline', syncState: 'offline' };
+    default:
+      return { connectionState: 'checking', syncState: 'offline' };
+  }
+}
+
 class SyncService {
   private status: SyncStatus = this.getDefaultStatus();
   private listeners: Set<SyncStateListener> = new Set();
@@ -113,9 +147,10 @@ class SyncService {
       if (electronApi?.getSyncStatus) {
         const result = await electronApi.getSyncStatus();
         if (result?.connectionState) {
+          const mapped = mapEngineConnectionState(result.connectionState);
           this.updateAndNotify({
-            connectionState: result.connectionState || 'checking',
-            syncState: result.syncState || 'idle',
+            connectionState: mapped.connectionState,
+            syncState: mapped.syncState === 'synced' && (result.pendingChanges || 0) > 0 ? 'pending' : mapped.syncState,
             lastSyncAt: result.lastSyncAt || null,
             pendingChanges: result.pendingChanges || 0,
             failedChanges: result.failedChanges || 0,
@@ -131,9 +166,9 @@ class SyncService {
       const res = await local.request<{ data?: { connectionState?: string; status?: string; pendingChanges?: number } }>('/sync/status', { method: 'GET' });
       if (res?.data) {
         const d = res.data;
-        const cloudState: CloudState = d.connectionState === 'SYNC_READY' || d.connectionState === 'SYNCED' ? 'online' : d.connectionState === 'AUTH_REQUIRED' ? 'auth-required' : 'offline';
-        const syncSt: SyncState = d.connectionState === 'SYNCING' ? 'syncing' : d.connectionState === 'SYNCED' ? 'synced' : d.status === 'syncing' ? 'syncing' : (d.pendingChanges || 0) > 0 ? 'pending' : 'idle';
-        this.updateAndNotify({ connectionState: cloudState, syncState: syncSt, pendingChanges: d.pendingChanges || 0 });
+        const mapped = mapEngineConnectionState(d.connectionState);
+        const syncSt: SyncState = d.status === 'syncing' ? 'syncing' : mapped.syncState === 'synced' && (d.pendingChanges || 0) > 0 ? 'pending' : mapped.syncState;
+        this.updateAndNotify({ connectionState: mapped.connectionState, syncState: syncSt, pendingChanges: d.pendingChanges || 0, lastSyncAt: (d as any).lastSync || null });
       }
     } catch {
       if (this.status.connectionState === 'checking') {
