@@ -173,6 +173,10 @@ model Business {
   affiliateCommissions      AffiliateCommission[]
   aiUsage                   BusinessAiUsage[]
   aiDailyUsage              BusinessAiDailyUsage[]
+  giftCards                 GiftCard[]
+  giftCardTransactions      GiftCardTransaction[]
+  customerWallets           CustomerWallet[]
+  walletTransactions        WalletTransaction[]
 
   partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
 
@@ -226,6 +230,7 @@ model Branch {
   shelves            Shelf[]
   company            Business           @relation(fields: [companyId], references: [id])
   membershipBranches MembershipBranch[] @relation("membershipBranches")
+  giftCards          GiftCard[]
 
   @@unique([name, companyId], name: "branch_name_per_company")
   @@index([companyId], name: "idx_branch_company")
@@ -727,6 +732,8 @@ model Customer {
   sales          Sale[]
   ledgerEntries  CustomerLedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
+  wallet              CustomerWallet?
+  walletTransactions  WalletTransaction[]
 
   @@index([companyId], name: "idx_customer_company")
   @@index([branchId], name: "idx_customer_branch")
@@ -808,6 +815,105 @@ model LoyaltyTransaction {
   @@map("loyalty_transactions")
 }
 
+// Gift cards / eWallet + kiosk (Wave C9 — gap item 9, retail only).
+// Two SEPARATE money ledgers that are never mixed:
+//   · GiftCard — a prepaid bearer card bought at the counter (value,
+//     optional recipient, optional expiry). Redemption is tender on a
+//     POS sale (payment method GIFT_CARD, code in the allocation's
+//     reference). The balance is money: it can never go negative —
+//     redemption runs as a guarded decrement inside the sale
+//     transaction (see giftcard-kiosk.util redeemGiftCardAtomic).
+//   · CustomerWallet — a per-customer stored-value wallet. Top-up at
+//     the counter (cash/card), spend at the POS (payment method
+//     EWALLET, needs the sale's customerId). Same atomicity rules.
+// Both ledgers are append-only transaction rows: the balance is a
+// cached total kept in step with the rows inside one transaction,
+// exactly like the loyalty ledger. `saleId` is a plain string (no
+// FK): a ledger row survives its sale being deleted, like a receipt.
+model GiftCard {
+  id             String   @id @default(cuid())
+  code           String   @unique // GC-XXXX-XXXX, printed on the card/receipt
+  companyId      String
+  branchId       String // branch that sold it; redeemable at ANY branch of the business
+  initialValue   Float
+  balance        Float    @default(0)
+  recipientName  String?
+  recipientPhone String?
+  purchasedBy    String? // customer id, when known (plain id, no FK)
+  paymentMethod  String? // CASH | CARD | ... how it was bought at the counter
+  status         String   @default("ACTIVE") // ACTIVE | EXHAUSTED | EXPIRED | VOIDED
+  expiresAt      DateTime?
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  company        Business @relation(fields: [companyId], references: [id])
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  transactions   GiftCardTransaction[]
+
+  @@index([companyId], name: "idx_giftcard_company")
+  @@index([branchId], name: "idx_giftcard_branch")
+  @@index([status], name: "idx_giftcard_status")
+  @@map("gift_cards")
+}
+
+model GiftCardTransaction {
+  id           String   @id @default(cuid())
+  giftCardId   String
+  companyId    String
+  type         String // PURCHASE | REDEEM | ADJUSTMENT | EXPIRE
+  amount       Float // signed: + on purchase/adjust-up, - on redeem/adjust-down
+  balanceAfter Float // card balance immediately after this row
+  saleId       String? // originating sale for REDEEM rows
+  note         String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  giftCard     GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+
+  @@index([giftCardId], name: "idx_giftcard_txn_card")
+  @@index([companyId], name: "idx_giftcard_txn_company")
+  @@index([saleId], name: "idx_giftcard_txn_sale")
+  @@map("gift_card_transactions")
+}
+
+model CustomerWallet {
+  id         String   @id @default(cuid())
+  customerId String   @unique
+  companyId  String
+  balance    Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  company    Business @relation(fields: [companyId], references: [id])
+  transactions WalletTransaction[]
+
+  @@index([companyId], name: "idx_wallet_company")
+  @@map("customer_wallets")
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  walletId     String
+  customerId   String
+  companyId    String
+  type         String // TOPUP | SPEND | REFUND | ADJUSTMENT
+  amount       Float // signed: + on top-up/refund, - on spend
+  balanceAfter Float // wallet balance immediately after this row
+  saleId       String? // originating sale for SPEND rows
+  method       String? // CASH | CARD | ... how a top-up was paid
+  note         String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  wallet       CustomerWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  customer     Customer @relation(fields: [customerId], references: [id])
+  company      Business @relation(fields: [companyId], references: [id])
+
+  @@index([walletId], name: "idx_wallet_txn_wallet")
+  @@index([customerId], name: "idx_wallet_txn_customer")
+  @@index([companyId], name: "idx_wallet_txn_company")
+  @@index([saleId], name: "idx_wallet_txn_sale")
+  @@map("wallet_transactions")
+}
+
 model Sale {
   id                 String    @id @default(cuid())
   invoiceNumber      String?   @unique
@@ -862,6 +968,18 @@ model Sale {
   // unattributed sales keep counting for their cashier exactly as
   // before. Validated at sale time to be a member of the business.
   salespersonId         String?
+  // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): the
+  // channel this sale came through. POS = counter sale
+  // (default, all history); ONLINE_STORE = item 5's public
+  // storefront order; KIOSK = an order placed on the branch's
+  // in-store self-ordering screen (pay at counter, PENDING
+  // until the staff accept/fulfil it). giftCardAmount /
+  // walletAmount are the PKR redeemed from each ledger on this
+  // sale (null when none) — the ledger rows themselves carry
+  // the per-card/per-wallet detail.
+  channel             String   @default("POS") // POS | ONLINE_STORE | KIOSK
+  giftCardAmount      Float?
+  walletAmount        Float?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -905,6 +1023,7 @@ model Sale {
   @@index([folioId], name: "idx_sale_folio")
   @@index([salespersonId], name: "idx_sale_salesperson")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
+  @@index([channel], name: "idx_sale_channel")
   @@index([createdAt], name: "idx_sale_createdAt")
   @@map("sales")
 }
@@ -1793,7 +1912,7 @@ model BusinessSubscription {
 model SubscriptionAddon {
   id          String    @id @default(cuid())
   businessId  String
-  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK
+  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK | GIFT_CARD_KIOSK_PACK
   quantity    Int       @default(1) // stackable types only (EXTRA_SEAT / EXTRA_BRANCH / VOICE_BOOSTER); packs are always 1
   status      String    @default("ACTIVE") // PENDING (awaiting backoffice activation) | ACTIVE | CANCEL_PENDING (live until periodEnd) | CANCELLED
   startedAt   DateTime  @default(now())
