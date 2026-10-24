@@ -35,6 +35,16 @@ interface Buckets {
   over90: number;
 }
 
+// Stock-age buckets have a longer tail than payables/receivables:
+// 0–30 / 31–60 / 61–90 / 91–180 / 180+ (no over90 bucket).
+interface StockBuckets {
+  days0to30: number;
+  days31to60: number;
+  days61to90: number;
+  days91to180: number;
+  over180: number;
+}
+
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-PK", {
     style: "currency",
@@ -67,6 +77,7 @@ const AgingReports: React.FC = () => {
   const [days, setDays] = useState("30");
   const [loading, setLoading] = useState(true);
   const [supplierData, setSupplierData] = useState<{
+    asOf: string;
     rows: Array<{
       supplier: { id: string; name: string; phone?: string } | null;
       buckets: Buckets;
@@ -80,6 +91,7 @@ const AgingReports: React.FC = () => {
     suppliersWithDues: number;
   } | null>(null);
   const [customerData, setCustomerData] = useState<{
+    asOf: string;
     rows: Array<{
       customerId: string;
       customerName: string;
@@ -97,13 +109,14 @@ const AgingReports: React.FC = () => {
     customersWithDues: number;
   } | null>(null);
   const [stockData, setStockData] = useState<{
+    asOf: string;
     rows: Array<{
       productId: string;
       productName: string;
       sku: string;
       totalQty: number;
       totalValue: number;
-      buckets: Buckets & { days91to180: number; over180: number };
+      buckets: StockBuckets;
       expiredQty: number;
       expiredValue: number;
       expiringQty: number;
@@ -119,10 +132,12 @@ const AgingReports: React.FC = () => {
       expiredValue: number;
       expiringValue: number;
       nonMovingProducts: number;
-      buckets: Buckets & { days91to180: number; over180: number };
+      buckets: StockBuckets;
     };
   } | null>(null);
   const [movementData, setMovementData] = useState<{
+    from: string;
+    to: string;
     rows: Array<{
       productId: string;
       productName: string;
@@ -139,6 +154,8 @@ const AgingReports: React.FC = () => {
     days: number;
   } | null>(null);
   const [profitData, setProfitData] = useState<{
+    from: string;
+    to: string;
     rows: Array<{
       productId: string;
       productName: string;

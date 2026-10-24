@@ -8164,7 +8164,7 @@ export class ApiService {
       suggestions: Array<{
         id: string;
         supplierId: string | null;
-        status: string;
+        status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
         reason: string | null;
         createdAt: string;
         purchaseId: string | null;
