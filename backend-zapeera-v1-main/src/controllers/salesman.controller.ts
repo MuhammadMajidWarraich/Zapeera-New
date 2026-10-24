@@ -57,7 +57,8 @@ const salesmanInclude = {
 // commission calculation uses — a sale counts for the staff member it
 // was ATTRIBUTED to (Sale.salespersonId) when set, and for its cashier
 // (Sale.userId) otherwise, so an attributed sale never double-counts.
-const attributedSalesWhere = (
+// Exported for the item-7 tests (the attribution rule is money logic).
+export const attributedSalesWhere = (
   staffUserId: string,
   companyId: string,
   range: { startDate: Date; endDate: Date },
