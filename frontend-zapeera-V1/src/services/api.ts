@@ -830,6 +830,29 @@ export interface IntegrationSyncResult {
   result: { recordsProcessed: number; recordsFailed: number; message?: string };
 }
 
+// Shipment tracking (feature/integration-postex) — mirrors the backend
+// TrackingResult / ShipmentResult shapes.
+export interface IntegrationTrackingEvent {
+  status: string;
+  location?: string;
+  timestamp?: string;
+  description?: string;
+}
+
+export interface IntegrationTrackingResult {
+  trackingNumber: string;
+  status: string;
+  events: IntegrationTrackingEvent[];
+}
+
+export interface IntegrationShipmentResult {
+  trackingNumber: string;
+  shipmentId?: string;
+  labelUrl?: string | null;
+  status: string;
+  codAmount: number;
+}
+
 export interface BillingProfileRecord {
   id: string;
   userId: string;
@@ -3118,12 +3141,35 @@ export class ApiService {
 
   async triggerIntegrationSync(
     provider: string,
-    data?: { entity?: IntegrationSyncEntity; direction?: 'in' | 'out' }
+    data?: { entity?: IntegrationSyncEntity; direction?: 'in' | 'out'; saleRef?: string }
   ) {
     return this.request<IntegrationSyncResult>(`/integrations/${provider}/sync`, {
       method: 'POST',
       body: JSON.stringify(data ?? {}),
     });
+  }
+
+  // Shipments (feature/integration-postex): on-demand tracking / cancel /
+  // return for logistics providers. Booking passes saleRef via
+  // triggerIntegrationSync with entity 'shipment'.
+  async getShipmentTracking(provider: string, trackingNumber: string) {
+    return this.request<IntegrationTrackingResult>(
+      `/integrations/${provider}/shipment/${encodeURIComponent(trackingNumber)}`
+    );
+  }
+
+  async cancelShipment(provider: string, trackingNumber: string) {
+    return this.request<{ recordsProcessed: number; recordsFailed: number; message?: string }>(
+      `/integrations/${provider}/shipment/${encodeURIComponent(trackingNumber)}/cancel`,
+      { method: 'POST' }
+    );
+  }
+
+  async returnShipment(provider: string, trackingNumber: string) {
+    return this.request<IntegrationShipmentResult>(
+      `/integrations/${provider}/shipment/${encodeURIComponent(trackingNumber)}/return`,
+      { method: 'POST' }
+    );
   }
 
   async getIntegrationLogs(provider: string, limit = 20, offset = 0) {

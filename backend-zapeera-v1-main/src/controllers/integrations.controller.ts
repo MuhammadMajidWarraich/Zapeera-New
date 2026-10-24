@@ -10,11 +10,14 @@ import { getPrisma } from '../utils/db.util';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { IntegrationError } from '../integrations/vendor-client';
 import {
+  cancelShipment,
   connectProvider,
   disconnectProvider,
   getConnectionStatus,
+  getShipmentTracking,
   listProvidersWithStatus,
   listSyncLogs,
+  returnShipment,
   triggerSync
 } from '../services/integration.service';
 
@@ -71,8 +74,16 @@ const syncSchema = Joi.object({
   entity: Joi.string()
     .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
     .optional(),
-  direction: Joi.string().valid('in', 'out').optional()
+  direction: Joi.string().valid('in', 'out').optional(),
+  // Sale id or invoice number — required only for entity 'shipment'
+  // (the service builds the shipment from that sale).
+  saleRef: Joi.string()
+    .trim()
+    .max(64)
+    .when('entity', { is: 'shipment', then: Joi.required(), otherwise: Joi.optional() })
 });
+
+const trackingNumberParam = Joi.string().trim().min(1).max(64).required();
 
 export const listIntegrationsHandler = async (req: AuthRequest, res: Response) => {
   try {
@@ -207,6 +218,74 @@ export const listIntegrationLogsHandler = async (req: AuthRequest, res: Response
         total
       }
     });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+// ─── Shipment routes (added by feature/integration-postex) ─────────────────
+// On-demand tracking / cancel / return for logistics providers. Same
+// OWNER/MANAGER gate as the rest of this router; lookups are read-only
+// (no sync-log row). The :trackingNumber param is validated, never logged.
+const validateTrackingNumber = (res: Response, raw: unknown): string | null => {
+  const { error, value } = trackingNumberParam.validate(raw);
+  if (error) {
+    res.status(400).json({
+      success: false,
+      code: 'VALIDATION_ERROR',
+      message: 'A tracking number is required.'
+    });
+    return null;
+  }
+  return value as string;
+};
+
+export const getShipmentTrackingHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const trackingNumber = validateTrackingNumber(res, req.params.trackingNumber);
+    if (!trackingNumber) return;
+    const prisma = await getPrisma();
+    const tracking = await getShipmentTracking(
+      prisma,
+      resolveIntegrationBusinessId(req),
+      req.params.provider,
+      trackingNumber
+    );
+    return res.json({ success: true, data: tracking });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const cancelShipmentHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const trackingNumber = validateTrackingNumber(res, req.params.trackingNumber);
+    if (!trackingNumber) return;
+    const prisma = await getPrisma();
+    const result = await cancelShipment(
+      prisma,
+      resolveIntegrationBusinessId(req),
+      req.params.provider,
+      trackingNumber
+    );
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const returnShipmentHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const trackingNumber = validateTrackingNumber(res, req.params.trackingNumber);
+    if (!trackingNumber) return;
+    const prisma = await getPrisma();
+    const result = await returnShipment(
+      prisma,
+      resolveIntegrationBusinessId(req),
+      req.params.provider,
+      trackingNumber
+    );
+    return res.json({ success: true, data: result });
   } catch (error) {
     return handleError(res, error);
   }

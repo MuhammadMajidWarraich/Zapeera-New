@@ -152,6 +152,74 @@ export interface IntegrationSyncResult {
   message?: string;
 }
 
+// ─── Generic shipments (added by feature/integration-postex, contract §10) ──
+// The v1 handler interface had no shipment method, but logistics providers
+// (PostEx first; Daraz pack/ready-to-ship and future couriers next) need
+// one. These types are deliberately vendor-neutral: the service builds a
+// CreateShipmentInput from a Zapeera sale (recipient from the customer,
+// COD from the unpaid balance, parcel from the sale lines) and the
+// provider handler maps it to the vendor's own payload. No vendor field
+// names leak into this file — see the provider module for those.
+
+/** Who the parcel goes to (from the sale's customer). */
+export interface ShipmentRecipient {
+  name: string;
+  phone: string;
+  address: string;
+  /** City, when known (Customer has no city field — usually part of address). */
+  city?: string;
+}
+
+/** What is being shipped (from the sale lines). */
+export interface ShipmentParcel {
+  /** Number of pieces/parcels. */
+  pieces?: number;
+  /** Total weight in kg, when known (Zapeera products carry no weight). */
+  weightKg?: number;
+  /** Short contents description for the label (product names). */
+  description?: string;
+}
+
+/** Vendor-neutral shipment-booking input, built by integration.service.ts. */
+export interface CreateShipmentInput {
+  /** Zapeera sale id (when booked from a sale). */
+  saleId?: string;
+  /** Merchant-facing order reference (sale invoice number). */
+  orderRef: string;
+  recipient: ShipmentRecipient;
+  /** 'COD' when an unpaid balance is collected on delivery, else 'PREPAID'. */
+  paymentMethod: 'COD' | 'PREPAID';
+  /** Cash to collect on delivery (0 for prepaid). */
+  codAmount: number;
+  parcel?: ShipmentParcel;
+  /** Sender/warehouse details (from the Business row), when available. */
+  sender?: { name?: string; phone?: string; address?: string };
+}
+
+/** What a booked shipment looks like, whatever the courier. */
+export interface ShipmentResult {
+  trackingNumber: string;
+  shipmentId?: string;
+  /** AWB label URL when the vendor returns one (null = fetch it via getTracking/label). */
+  labelUrl?: string | null;
+  /** Vendor status string, normalised to upper-snake where possible. */
+  status: string;
+  codAmount: number;
+}
+
+export interface TrackingEvent {
+  status: string;
+  location?: string;
+  timestamp?: string;
+  description?: string;
+}
+
+export interface TrackingResult {
+  trackingNumber: string;
+  status: string;
+  events: TrackingEvent[];
+}
+
 /**
  * THE sync-handler interface. Every provider module implements this and
  * registers exactly one instance via registerIntegrationHandler().
@@ -169,6 +237,12 @@ export interface IntegrationSyncResult {
  * - syncProducts / syncStock / importOrders: optional per provider — a
  *   provider implements only the directions its API supports. The
  *   framework returns 501 NOT_IMPLEMENTED for unimplemented methods.
+ * - createShipment / getTracking / cancelShipment / createReturnShipment:
+ *   optional logistics methods (added by feature/integration-postex,
+ *   contract §10). `createShipment` is dispatched by triggerSync with
+ *   entity 'shipment' (the service builds the CreateShipmentInput from a
+ *   sale — see integration.service.ts); the other three are dispatched by
+ *   the dedicated shipment routes in integrations.routes.ts.
  */
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
@@ -178,4 +252,8 @@ export interface IntegrationSyncHandler {
   syncProducts?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   syncStock?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   importOrders?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
+  createShipment?(ctx: IntegrationSyncContext, input: CreateShipmentInput): Promise<IntegrationSyncResult>;
+  getTracking?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<TrackingResult>;
+  cancelShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<IntegrationSyncResult>;
+  createReturnShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<ShipmentResult>;
 }

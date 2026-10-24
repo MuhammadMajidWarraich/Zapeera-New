@@ -21,6 +21,7 @@ import {
 } from '../integrations/registry';
 import { IntegrationError } from '../integrations/vendor-client';
 import type {
+  CreateShipmentInput,
   IntegrationConnectionStatus,
   IntegrationConnectionView,
   IntegrationProviderId,
@@ -28,7 +29,8 @@ import type {
   IntegrationSyncConfig,
   IntegrationSyncDirection,
   IntegrationSyncEntity,
-  IntegrationSyncResult
+  IntegrationSyncResult,
+  TrackingResult
 } from '../integrations/types';
 import { DEFAULT_SYNC_CONFIG } from '../integrations/types';
 
@@ -284,19 +286,192 @@ export async function getConnectionStatus(
 export interface TriggerSyncOptions {
   entity?: IntegrationSyncEntity;
   direction?: IntegrationSyncDirection;
+  /** Sale id or invoice number — required when entity is 'shipment'. */
+  saleRef?: string;
 }
 
 const ENTITY_TO_METHOD: Record<
   IntegrationSyncEntity,
-  'syncProducts' | 'syncStock' | 'importOrders' | null
+  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | null
 > = {
   product: 'syncProducts',
   stock: 'syncStock',
   order: 'importOrders',
   customer: null, // No handler method in the v1 interface — a builder adds it.
   payment: null,
-  shipment: null
+  // Generic shipment method (added by feature/integration-postex, contract
+  // §10): triggerSync builds a vendor-neutral CreateShipmentInput from a
+  // sale and dispatches to the provider's createShipment. Reused by Daraz
+  // pack/ready-to-ship and future couriers — same input shape.
+  shipment: 'createShipment'
 };
+
+/**
+ * Build the vendor-neutral shipment input for a sale (generic — no vendor
+ * field names here). Recipient from the sale's customer; COD from the
+ * unpaid balance (total − paid − returned), so a fully-paid sale books as
+ * PREPAID with COD 0 and a partly-paid one collects only the balance —
+ * the Odoo-evidenced PostEx rule ("COD auto-computed from the sale order;
+ * prepaid orders carry COD 0"). Parcel pieces/description from the lines.
+ * Refuses a sale that already has a PostEx tracking number (never book
+ * the same sale twice).
+ */
+export async function buildShipmentInput(
+  prisma: any,
+  businessId: string,
+  saleRef: string
+): Promise<CreateShipmentInput> {
+  const ref = String(saleRef ?? '').trim();
+  if (!ref) {
+    throw new IntegrationError('SYNC_FAILED', 'A sale id or invoice number is required to book a shipment.');
+  }
+  const include = {
+    customer: true,
+    items: { include: { product: true } }
+  };
+  let sale: any = null;
+  if (prisma?.sale?.findUnique) {
+    sale = await prisma.sale.findUnique({ where: { id: ref }, include });
+  }
+  if (!sale && prisma?.sale?.findFirst) {
+    sale = await prisma.sale.findFirst({ where: { companyId: businessId, invoiceNumber: ref }, include });
+  }
+  if (!sale) {
+    throw new IntegrationError('SYNC_FAILED', `No sale found for "${ref}" in this business.`);
+  }
+  if (sale.postexTrackingNumber) {
+    throw new IntegrationError(
+      'SYNC_FAILED',
+      `Sale ${sale.invoiceNumber ?? sale.id} already has a PostEx shipment (tracking ${sale.postexTrackingNumber}). Cancel it first if you need to re-book.`
+    );
+  }
+  const customer = sale.customer ?? {};
+  const name = String(customer.name ?? '').trim();
+  const phone = String(customer.phone ?? '').trim();
+  const address = String(customer.address ?? '').trim();
+  if (!name || !phone || !address) {
+    throw new IntegrationError(
+      'SYNC_FAILED',
+      'The customer for this sale needs a name, phone number and delivery address before a shipment can be booked.'
+    );
+  }
+  const total = Number(sale.totalAmount ?? 0);
+  const paid = Number(sale.paidAmount ?? 0);
+  const returned = Number(sale.returnedAmount ?? 0);
+  const balance = Math.max(0, Math.round((total - paid - returned) * 100) / 100);
+  const items: any[] = Array.isArray(sale.items) ? sale.items : [];
+  const pieces = items.reduce((sum, item) => sum + (Number(item.quantity ?? 0) || 0), 0) || undefined;
+  const description =
+    [...new Set(items.map((item) => String(item.product?.name ?? item.variantName ?? '').trim()).filter(Boolean))]
+      .slice(0, 5)
+      .join(', ') || undefined;
+  let sender: CreateShipmentInput['sender'];
+  if (prisma?.business?.findUnique) {
+    const business = await prisma.business.findUnique({ where: { id: businessId } });
+    if (business) {
+      sender = {
+        ...(business.name ? { name: String(business.name) } : {}),
+        ...(business.phone ? { phone: String(business.phone) } : {}),
+        ...(business.address ? { address: String(business.address) } : {})
+      };
+    }
+  }
+  return {
+    saleId: sale.id,
+    orderRef: String(sale.invoiceNumber ?? sale.id),
+    recipient: { name, phone, address },
+    paymentMethod: balance > 0 ? 'COD' : 'PREPAID',
+    codAmount: balance,
+    parcel: { ...(pieces !== undefined ? { pieces } : {}), ...(description ? { description } : {}) },
+    ...(sender ? { sender } : {})
+  };
+}
+
+/** Shared "connected + handler implements method" guard for on-demand shipment calls. */
+async function requireConnectedShipmentHandler(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  method: 'getTracking' | 'cancelShipment' | 'createReturnShipment'
+): Promise<{ handler: any; ctx: any }> {
+  const id = requireKnownProvider(provider);
+  const handler = requireHandler(id);
+  const row = await prisma.integrationConnection.findUnique({
+    where: { businessId_provider: { businessId, provider: id } }
+  });
+  if (!row || row.status !== 'connected' || !row.encryptedCredentials) {
+    throw new IntegrationError(
+      'NOT_CONNECTED',
+      `${getProviderEntry(id)?.displayName ?? id} is not connected. Connect it first.`
+    );
+  }
+  if (typeof (handler as any)[method] !== 'function') {
+    throw new IntegrationError(
+      'NOT_IMPLEMENTED',
+      `${getProviderEntry(id)?.displayName ?? id} does not implement "${method}" yet.`
+    );
+  }
+  return {
+    handler,
+    ctx: {
+      prisma,
+      businessId,
+      credentials: decryptIntegrationCredentials(row.encryptedCredentials),
+      config: parseStoredConfig(row.config),
+      logId: ''
+    }
+  };
+}
+
+/** On-demand tracking lookup (read-only — writes no sync-log row). */
+export async function getShipmentTracking(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<TrackingResult> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(prisma, businessId, provider, 'getTracking');
+  return handler.getTracking(ctx, clean);
+}
+
+/** On-demand shipment cancel (read-only w.r.t. sync logs). */
+export async function cancelShipment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<IntegrationSyncResult> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required to cancel a shipment.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(prisma, businessId, provider, 'cancelShipment');
+  return handler.cancelShipment(ctx, clean);
+}
+
+/** On-demand return-leg booking. Returns the new (return-leg) tracking number. */
+export async function returnShipment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<{ trackingNumber: string; shipmentId?: string; labelUrl?: string | null; status: string; codAmount: number }> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required to book a return.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(
+    prisma,
+    businessId,
+    provider,
+    'createReturnShipment'
+  );
+  return handler.createReturnShipment(ctx, clean);
+}
 
 /**
  * Manual sync trigger. Dispatches to the provider's handler method for
@@ -334,6 +509,14 @@ export async function triggerSync(
     opts.direction ?? (entity === 'order' ? 'in' : 'out');
   const credentials = decryptIntegrationCredentials(row.encryptedCredentials);
 
+  // Shipment bookings need their input before the log row is created: a
+  // missing/unknown sale or an already-booked sale fails with NO log row,
+  // exactly like an unimplemented entity.
+  let shipmentInput: CreateShipmentInput | undefined;
+  if (entity === 'shipment') {
+    shipmentInput = await buildShipmentInput(prisma, businessId, opts.saleRef ?? '');
+  }
+
   const startedAt = new Date();
   const log = await prisma.integrationSyncLog.create({
     data: {
@@ -350,13 +533,16 @@ export async function triggerSync(
   });
 
   try {
-    const result: IntegrationSyncResult = await (handler as any)[method]({
-      prisma,
-      businessId,
-      credentials,
-      config,
-      logId: log.id
-    });
+    const result: IntegrationSyncResult = await (handler as any)[method](
+      {
+        prisma,
+        businessId,
+        credentials,
+        config,
+        logId: log.id
+      },
+      shipmentInput
+    );
     const finishedAt = new Date();
     const status = result.recordsFailed > 0 ? 'partial' : 'success';
     const updatedLog = await prisma.integrationSyncLog.update({

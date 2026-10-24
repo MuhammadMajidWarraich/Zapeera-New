@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import {
   connectIntegrationHandler,
+  cancelShipmentHandler,
   disconnectIntegrationHandler,
   getIntegrationStatusHandler,
+  getShipmentTrackingHandler,
   listIntegrationLogsHandler,
   listIntegrationsHandler,
+  returnShipmentHandler,
   triggerIntegrationSyncHandler
 } from '../controllers/integrations.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -33,5 +36,10 @@ router.post('/:provider/disconnect', disconnectIntegrationHandler);
 router.get('/:provider/status', getIntegrationStatusHandler);
 router.post('/:provider/sync', triggerIntegrationSyncHandler);
 router.get('/:provider/logs', listIntegrationLogsHandler);
+// Shipment routes (feature/integration-postex): on-demand tracking /
+// cancel / return for logistics providers that implement them.
+router.get('/:provider/shipment/:trackingNumber', getShipmentTrackingHandler);
+router.post('/:provider/shipment/:trackingNumber/cancel', cancelShipmentHandler);
+router.post('/:provider/shipment/:trackingNumber/return', returnShipmentHandler);
 
 export default router;

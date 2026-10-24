@@ -163,6 +163,12 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/sse',
   '/api/health',
   '/api/payments/manual',
+
+  // PostEx webhook receiver (feature/integration-postex): PostEx calls it
+  // with no user session, so no module gate — the route only ever updates
+  // a carrier-status string on the sale whose tracking number matches.
+  // No signature verification exists yet (PostEx publishes none).
+  '/api/integrations/postex/webhook',
 ];
 
 /** Convert versioned API paths to the canonical authorization policy path. */

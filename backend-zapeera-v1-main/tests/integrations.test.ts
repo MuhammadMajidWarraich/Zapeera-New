@@ -89,6 +89,49 @@ class FakePrisma {
     count: async ({ where }: any) =>
       this.logs.filter((l) => l.businessId === where.businessId && l.provider === where.provider).length
   };
+
+  // Minimal sale/business stand-ins for the generic shipment dispatch
+  // (feature/integration-postex): buildShipmentInput reads one sale.
+  sales = new Map<string, any>([
+    [
+      'sale-1',
+      {
+        id: 'sale-1',
+        invoiceNumber: 'INV-1001',
+        companyId: BUSINESS_ID,
+        totalAmount: 5000,
+        paidAmount: 0,
+        returnedAmount: 0,
+        postexTrackingNumber: null,
+        customer: { name: 'Ayesha Khan', phone: '03001234567', address: '12 Main Street, Lahore' },
+        items: [{ quantity: 2, product: { name: 'Honey 500g' } }]
+      }
+    ]
+  ]);
+
+  sale = {
+    findUnique: async ({ where }: any) => this.sales.get(where.id) ?? null,
+    findFirst: async ({ where }: any) => {
+      for (const sale of this.sales.values()) {
+        const matches = Object.entries(where ?? {}).every(([k, v]) => (sale as any)[k] === v);
+        if (matches) return sale;
+      }
+      return null;
+    },
+    update: async ({ where, data }: any) => {
+      const sale = this.sales.get(where.id);
+      if (!sale) throw new Error('Record to update not found.');
+      Object.assign(sale, data);
+      return sale;
+    }
+  };
+
+  business = {
+    findUnique: async ({ where }: any) =>
+      where.id === BUSINESS_ID
+        ? { id: BUSINESS_ID, name: 'Test Business', phone: '03009876543', address: '1 Bazaar Road, Lahore' }
+        : null
+  };
 }
 
 const stubHandler: IntegrationSyncHandler = {
@@ -371,5 +414,51 @@ describe('integration connect / disconnect / status / sync flow', () => {
     expect(logs[0].errorMessage).toMatch(/HTTP 500/);
     const stored = prisma.connections.get(`${BUSINESS_ID}::shopify`);
     expect(stored.status).toBe('error');
+  });
+
+  // Generic shipment dispatch (feature/integration-postex, contract §10):
+  // entity 'shipment' builds a vendor-neutral input from a sale and calls
+  // the handler's createShipment — the shape every courier reuses.
+  it('dispatches entity shipment to createShipment with the sale-built input', async () => {
+    let receivedInput: any = null;
+    registerIntegrationHandler({
+      ...stubHandler,
+      createShipment: async (_ctx: any, input: any) => {
+        receivedInput = input;
+        return { recordsProcessed: 1, recordsFailed: 0, message: 'Booked — tracking TEST-1' };
+      }
+    });
+    await connectProvider(prisma as any, BUSINESS_ID, 'shopify', CREDS);
+    const { log, result } = await triggerSync(prisma as any, BUSINESS_ID, 'shopify', {
+      entity: 'shipment',
+      saleRef: 'INV-1001'
+    });
+    expect(log.status).toBe('success');
+    expect(log.entity).toBe('shipment');
+    expect(result.message).toMatch(/TEST-1/);
+    // Vendor-neutral input: recipient from the customer, COD = unpaid balance.
+    expect(receivedInput).toMatchObject({
+      saleId: 'sale-1',
+      orderRef: 'INV-1001',
+      recipient: { name: 'Ayesha Khan', phone: '03001234567', address: '12 Main Street, Lahore' },
+      paymentMethod: 'COD',
+      codAmount: 5000,
+      parcel: { pieces: 2 }
+    });
+  });
+
+  it('rejects a shipment sync with no saleRef or an unknown sale (no log row)', async () => {
+    registerIntegrationHandler({
+      ...stubHandler,
+      createShipment: async () => ({ recordsProcessed: 1, recordsFailed: 0 })
+    });
+    await connectProvider(prisma as any, BUSINESS_ID, 'shopify', CREDS);
+    await expect(
+      triggerSync(prisma as any, BUSINESS_ID, 'shopify', { entity: 'shipment' })
+    ).rejects.toMatchObject({ code: 'SYNC_FAILED' });
+    await expect(
+      triggerSync(prisma as any, BUSINESS_ID, 'shopify', { entity: 'shipment', saleRef: 'INV-9999' })
+    ).rejects.toMatchObject({ code: 'SYNC_FAILED' });
+    expect((await listSyncLogs(prisma as any, BUSINESS_ID, 'shopify')).total).toBe(0);
   });
 });

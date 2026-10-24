@@ -80,6 +80,7 @@ import promotionRoutes from './routes/promotion.routes';
 import taxClassRoutes from './routes/tax-class.routes';
 import fbrRoutes from './routes/fbr.routes';
 import integrationsRoutes from './routes/integrations.routes';
+import postexWebhookRoutes from './routes/postex-webhook.routes';
 // Integrations framework: importing the provider barrel registers every
 // landed provider handler (side effect). The barrel is empty until the
 // six provider builders add their lines.
@@ -605,6 +606,10 @@ app.use('/api/v1/parked-sales', parkedSaleRoutes);
 app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
+// PostEx webhook BEFORE the integrations router: the webhook is public
+// (PostEx calls it, no user session) and the integrations router's
+// authenticate gate would 401 it first if mounted earlier.
+app.use('/api/v1/integrations/postex/webhook', postexWebhookRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
 app.use('/api/v1/prescriptions', prescriptionRoutes);
 app.use('/api/v1/patients', patientRoutes);
@@ -669,6 +674,8 @@ app.use('/api/parked-sales', parkedSaleRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/fbr', fbrRoutes);
+// PostEx webhook BEFORE the integrations router (see the /api/v1 note above).
+app.use('/api/integrations/postex/webhook', postexWebhookRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/patients', patientRoutes);

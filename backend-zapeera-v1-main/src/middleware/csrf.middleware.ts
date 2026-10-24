@@ -90,6 +90,10 @@ const CSRF_EXEMPT_PATHS = [
   '/api/v1/barcodes/stats',
   '/api/barcodes/product/',
   '/api/v1/barcodes/product/',
+  // PostEx webhook receiver (feature/integration-postex): PostEx calls it
+  // server-to-server with no browser session and therefore no CSRF token.
+  '/api/integrations/postex/webhook',
+  '/api/v1/integrations/postex/webhook',
 ];
 
 /**
