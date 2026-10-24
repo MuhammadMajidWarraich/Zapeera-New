@@ -22,6 +22,18 @@
  *     paid-through never extends past the plan's own paid-through
  *     horizon (see computeAddonPeriodEnd).
  *
+ *   - GIFT_CARD_KIOSK_PACK (Wave C9 — gap item 9) is the second
+ *     exception to "every catalogue entry has a price" (the first is
+ *     ONLINE_STORE_PACK, item 5): its price is UNDECIDED — Odoo
+ *     bundles gift cards/eWallet/kiosk into POS with no separate
+ *     published price, and CloudPOS does not sell them, so there is
+ *     no competitor anchor to convert. The entry carries
+ *     priceMonthly 0 + pricingPending: true and
+ *     checkAddonPurchasable REFUSES to sell it (409
+ *     ADDON_PRICING_PENDING) until Muhammad sets the price. The gate
+ *     itself (giftCardKioskAllowed) works off the granted row, so
+ *     backoffice activation is all a future deploy needs.
+ *
  * The plan-inclusion matrix below is the single source for what each
  * plan includes on its own; it MIRRORS the public pricing page
  * (zapeera.seikho.online/pricing — per-plan cards + comparison matrix).
@@ -46,6 +58,7 @@ export const ADDON_TYPES = [
   'FINANCE_PACK',
   'VOICE_BOOSTER',
   'WHATSAPP_PACK',
+  'GIFT_CARD_KIOSK_PACK',
 ] as const;
 export type AddonType = (typeof ADDON_TYPES)[number];
 
@@ -57,6 +70,13 @@ export interface AddonCatalogueEntry {
   priceMonthly: number;
   stackable: boolean;
   unitLabel?: string;
+  /**
+   * True while the price is UNDECIDED (ONLINE_STORE_PACK, item 5, and
+   * GIFT_CARD_KIOSK_PACK, item 9): the entry is listed but cannot be
+   * purchased (see checkAddonPurchasable) until Muhammad sets the
+   * price. Never treat priceMonthly 0 on such an entry as "free".
+   */
+  pricingPending?: boolean;
 }
 
 export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
@@ -114,6 +134,19 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     description:
       'The WhatsApp layer beyond basic receipt sharing: khata/payment reminders, customer statements on WhatsApp and bulk bill sharing.',
     priceMonthly: 800,
+    stackable: false,
+  },
+  GIFT_CARD_KIOSK_PACK: {
+    type: 'GIFT_CARD_KIOSK_PACK',
+    name: 'Gift Cards, eWallet & Kiosk',
+    description:
+      'Retail counter pack: sell gift cards and redeem them at the POS, customer eWallet top-up and spend, and the in-store self-ordering kiosk screen that places orders into the POS.',
+    // PRICE UNDECIDED — see the file header. 0 here is a placeholder,
+    // NOT a free price: pricingPending blocks purchase (409) until
+    // Muhammad sets the monthly price. No competitor anchor exists:
+    // Odoo bundles these into POS, CloudPOS does not sell them.
+    priceMonthly: 0,
+    pricingPending: true,
     stackable: false,
   },
 };
@@ -218,6 +251,15 @@ export interface EffectiveLimits {
   advancedReportsAllowed: boolean;
   multiBranchReportsAllowed: boolean;
   whatsappPack: boolean;
+  /**
+   * Gift cards / eWallet + kiosk (Wave C9 — gap item 9): true while a
+   * GIFT_CARD_KIOSK_PACK row is effective for the business. Gates the
+   * gift-card and wallet endpoints and the kiosk screen. The pack is
+   * NOT included in any plan — it is add-on-only, and unpriced
+   * (pricingPending) until Muhammad sets the price, so it can only be
+   * granted by backoffice activation in the meantime.
+   */
+  giftCardKioskAllowed: boolean;
   /** Monthly voice-AI token quota: plan quota (voice-AI config) + boosters. */
   voiceTokenQuota: number;
   /** Sum of monthly add-on prices (catalogue price × quantity). */
@@ -277,6 +319,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const advancedReportsAllowed = inclusion.advancedReports || has('REPORTS_PACK');
   const multiBranchReportsAllowed = inclusion.multiBranchReports || has('REPORTS_PACK');
   const whatsappPack = has('WHATSAPP_PACK');
+  const giftCardKioskAllowed = has('GIFT_CARD_KIOSK_PACK');
 
   const voiceConfig = await getVoiceAiConfig(prisma);
   const voiceTokenQuota = quotaForPlan(voiceConfig, planId) + qty('VOICE_BOOSTER') * VOICE_BOOSTER_TOKENS;
@@ -299,6 +342,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
     advancedReportsAllowed,
     multiBranchReportsAllowed,
     whatsappPack,
+    giftCardKioskAllowed,
     voiceTokenQuota,
     monthlyAddonSpend,
     addons: active,
@@ -414,6 +458,25 @@ export function checkAddonPurchasable(
       return { ok: true };
     case 'WHATSAPP_PACK':
       return { ok: true };
+    case 'GIFT_CARD_KIOSK_PACK': {
+      // Price UNDECIDED (Wave C9 — gap item 9): the pack is listed
+      // but cannot be bought until Muhammad sets the monthly price.
+      // Backoffice activation can still grant it (that path does not
+      // go through this check); the gift-card/wallet/kiosk gates read
+      // the row, not the price. Remove this case (fall through to ok)
+      // when the catalogue price is set.
+      const entry = ADDON_CATALOGUE.GIFT_CARD_KIOSK_PACK;
+      if (entry.pricingPending) {
+        return {
+          ok: false,
+          statusCode: 409,
+          code: 'ADDON_PRICING_PENDING',
+          message:
+            'Gift Cards, eWallet & Kiosk is not priced yet — the price is being decided. Please check back soon, or contact support.',
+        };
+      }
+      return { ok: true };
+    }
     default:
       return { ok: false, statusCode: 400, code: 'ADDON_UNKNOWN_TYPE', message: 'Unknown add-on.' };
   }

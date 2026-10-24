@@ -42,12 +42,14 @@ export const listBusinessAddonsAdmin = async (req: AdminAuthRequest, res: Respon
           advancedReportsAllowed: limits.advancedReportsAllowed,
           multiBranchReportsAllowed: limits.multiBranchReportsAllowed,
           whatsappPack: limits.whatsappPack,
+          giftCardKioskAllowed: limits.giftCardKioskAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         addons: rows.map((r: any) => ({
           ...r,
           name: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.name || r.type,
           priceMonthly: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.priceMonthly ?? null,
+          pricingPending: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.pricingPending ?? false,
         })),
       },
     });
