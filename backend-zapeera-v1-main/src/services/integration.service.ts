@@ -39,13 +39,19 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     raw.direction === 'in' || raw.direction === 'out' || raw.direction === 'both'
       ? raw.direction
       : DEFAULT_SYNC_CONFIG.direction;
-  return {
+  const normalized: IntegrationSyncConfig = {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
     syncOrders: bool(raw.syncOrders),
     syncCustomers: bool(raw.syncCustomers),
     direction
   };
+  // Branch mapping (feature/integration-shopify): carried through only
+  // when set, so stored configs without a branch keep their exact shape.
+  if (typeof raw.branchId === 'string' && raw.branchId.trim() !== '') {
+    normalized.branchId = raw.branchId.trim();
+  }
+  return normalized;
 }
 
 function parseStoredConfig(stored: string | null | undefined): IntegrationSyncConfig {

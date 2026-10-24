@@ -27,6 +27,14 @@ export interface CreateSaleData {
   prescriptionId?: string | null; // Prescriptions (Wave C1): register record this sale dispenses against; required at the POS for requiresPrescription items when enforcement is on
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
+  // Sales-channel import tag (Shopify integration): the channel an
+  // imported sale came from ('shopify') + the vendor's order id.
+  // Written inside the sale transaction so the tag and the sale can
+  // never disagree; the (companyId, channel, externalOrderId) unique
+  // index makes a re-imported order collide instead of duplicating.
+  // Absent (null) on every POS/manual sale.
+  channel?: string | null;
+  externalOrderId?: string | null;
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer

@@ -80,6 +80,7 @@ import promotionRoutes from './routes/promotion.routes';
 import taxClassRoutes from './routes/tax-class.routes';
 import fbrRoutes from './routes/fbr.routes';
 import integrationsRoutes from './routes/integrations.routes';
+import shopifyIntegrationRoutes from './integrations/shopify/routes';
 // Integrations framework: importing the provider barrel registers every
 // landed provider handler (side effect). The barrel is empty until the
 // six provider builders add their lines.
@@ -558,7 +559,20 @@ app.use(['/api/products/bulk-import', '/api/v1/products/bulk-import'], express.j
 // above; the route is owner-gated and restores into a NEW business.
 app.use(['/api/backup/restore', '/api/v1/backup/restore', '/api/backup/restore-preview', '/api/v1/backup/restore-preview'], express.json({ limit: '25mb' }));
 // Default for every other JSON/form route.
-app.use(express.json({ limit: '1mb' }));
+app.use(
+  express.json({
+    limit: '1mb',
+    // Shopify webhooks are HMAC-signed over the RAW request bytes
+    // (X-Shopify-Hmac-Sha256) — the parsed object cannot reproduce
+    // them, so keep the raw buffer for the webhook receiver only
+    // (src/integrations/shopify/routes.ts reads req.rawBody).
+    verify: (req: any, _res: any, buf: Buffer) => {
+      if (typeof req.url === 'string' && req.url.includes('/integrations/shopify/webhooks')) {
+        req.rawBody = buf;
+      }
+    }
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Compression middleware
@@ -606,6 +620,7 @@ app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
+app.use('/api/v1/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/v1/prescriptions', prescriptionRoutes);
 app.use('/api/v1/patients', patientRoutes);
 app.use('/api/v1/doctors', doctorRoutes);
@@ -670,6 +685,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/fbr', fbrRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);

@@ -63,7 +63,9 @@ const connectSchema = Joi.object({
     syncStock: Joi.boolean(),
     syncOrders: Joi.boolean(),
     syncCustomers: Joi.boolean(),
-    direction: Joi.string().valid('in', 'out', 'both')
+    direction: Joi.string().valid('in', 'out', 'both'),
+    // One store maps to one branch (feature/integration-shopify).
+    branchId: Joi.string().allow(null, '').optional()
   }).optional()
 });
 

@@ -769,6 +769,8 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /** The ONE Zapeera branch a sales-channel store maps to (feature/integration-shopify). */
+  branchId?: string | null;
 }
 
 export interface IntegrationCredentialField {
@@ -8734,3 +8736,6 @@ export class ApiService {
 
 export const apiService = new ApiService(API_BASE_URL);
 export default apiService;
+
+/** Backend base URL (for full-page navigations like the Shopify OAuth install). */
+export const getApiBaseUrl = (): string => API_BASE_URL;

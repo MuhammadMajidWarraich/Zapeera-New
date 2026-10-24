@@ -73,6 +73,16 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /**
+   * The ONE Zapeera branch this connection maps to (feature/integration-shopify).
+   * A sales-channel store maps to exactly one branch: every product/stock
+   * read and every imported sale is scoped to it, so another branch's
+   * stock can never leak into the store. Optional — when absent the
+   * provider resolves the business's first active branch (documented
+   * per provider). Only present in the object when set, so existing
+   * exact-shape config expectations keep passing.
+   */
+  branchId?: string | null;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {

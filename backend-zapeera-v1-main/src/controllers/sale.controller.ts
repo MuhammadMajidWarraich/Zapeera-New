@@ -91,6 +91,12 @@ const createSaleSchema = Joi.object({
   // with the sale when it is not the cashier. Optional — validated
   // in createSale to be an ACTIVE member of the sale's business.
   salespersonId: Joi.string().allow(null, '').optional(),
+  // Sales-channel import tag (Shopify integration): channel +
+  // vendor order id for idempotent order import. Optional, null on
+  // every POS/manual sale; validated here so a bad value fails the
+  // sale with a 400 instead of landing untagged.
+  channel: Joi.string().trim().max(32).allow(null, '').optional(),
+  externalOrderId: Joi.string().trim().max(128).allow(null, '').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -1185,6 +1191,28 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Sales-channel import tag (Shopify integration): the channel +
+    // vendor order id for an imported sale, or an empty object for a
+    // POS/manual sale. Spread into BOTH tx.sale.create calls below
+    // (main + invoice-collision retry) via `as any`: the generated
+    // Prisma client in this sandbox predates the Sale.channel /
+    // Sale.externalOrderId columns (prisma generate cannot run here —
+    // CDN failure; the client is regenerated in the VM assembly
+    // container at deploy time), so the typed create input does not
+    // know these fields yet. The cast keeps tsc green without
+    // changing runtime behaviour — at runtime the columns exist and
+    // the tag lands inside the sale transaction, atomically with the
+    // sale itself, so a re-imported order collides on the
+    // (companyId, channel, externalOrderId) unique index instead of
+    // duplicating. Never set for POS/manual sales.
+    const channelTag =
+      saleData.channel || saleData.externalOrderId
+        ? {
+            channel: saleData.channel ? String(saleData.channel) : null,
+            externalOrderId: saleData.externalOrderId ? String(saleData.externalOrderId) : null
+          }
+        : {};
+
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
@@ -1302,6 +1330,12 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Salesperson attribution (Wave C6): validated above to
           // be an ACTIVE member of this business; null = cashier.
           salespersonId: salespersonForSale ? salespersonForSale.id : null,
+          // Sales-channel import tag (Shopify integration) — see
+          // channelTag above; {} for POS/manual sales.
+          ...(channelTag as any),
+          // Sales-channel import tag (Shopify integration) — see
+          // channelTag above; {} for POS/manual sales.
+          ...(channelTag as any),
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,

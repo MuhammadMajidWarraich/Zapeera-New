@@ -34,7 +34,7 @@ import {
   Truck,
   Unplug,
 } from "lucide-react";
-import { apiService, type IntegrationCategory, type IntegrationProviderInfo, type IntegrationSyncConfig, type IntegrationSyncLogRecord } from "@/services/api";
+import { apiService, getApiBaseUrl, type IntegrationCategory, type IntegrationProviderInfo, type IntegrationSyncConfig, type IntegrationSyncLogRecord } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -316,6 +316,8 @@ export function IntegrationsSection({
     direction: "both",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; isActive: boolean }> | null>(null);
+  const [branchesLoading, setBranchesLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [logsByProvider, setLogsByProvider] = useState<Record<string, IntegrationSyncLogRecord[]>>({});
   const [logsOpenId, setLogsOpenId] = useState<string | null>(null);
@@ -349,6 +351,23 @@ export function IntegrationsSection({
       }
     );
     setDialogProvider(provider);
+    // Sales channels map to ONE Zapeera branch (feature/integration-shopify):
+    // load the branch list for the picker below. The default (first active
+    // branch) applies when the merchant leaves it unset.
+    if (provider.category === "sales-channel" && branches === null && !branchesLoading) {
+      setBranchesLoading(true);
+      apiService
+        .getBranches()
+        .then((res) => {
+          if (res.success && res.data) {
+            setBranches(res.data.branches.filter((b) => b.isActive));
+          }
+        })
+        .catch(() => {
+          // Picker simply stays on the default; the server resolves it.
+        })
+        .finally(() => setBranchesLoading(false));
+    }
   };
 
   const handleConnectSave = async () => {
@@ -543,6 +562,58 @@ export function IntegrationsSection({
                     />
                   </div>
                 ))
+              )}
+              {dialogProvider.category === "sales-channel" && (
+                <div>
+                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Zapeera branch</Label>
+                  <Select
+                    value={configDraft.branchId ?? "default"}
+                    onValueChange={(v) =>
+                      setConfigDraft({ ...configDraft, branchId: v === "default" ? null : v })
+                    }
+                  >
+                    <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">
+                        Default — first active branch
+                      </SelectItem>
+                      {(branches ?? []).map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    One store maps to one branch — only this branch&apos;s products and stock sync to{" "}
+                    {dialogProvider.displayName}, and its orders land in this branch.
+                  </p>
+                </div>
+              )}
+              {dialogProvider.id === "shopify" && (
+                <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
+                  <p className="text-[13px] leading-relaxed text-[#4a5578]">
+                    Prefer OAuth? Install the Zapeera app on your store instead of pasting a token — the
+                    access token is issued by Shopify and stored encrypted.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!credValues.shopDomain?.trim()}
+                    onClick={() => {
+                      const shop = credValues.shopDomain.trim();
+                      window.location.href = `${getApiBaseUrl()}/integrations/shopify/oauth/install?shop=${encodeURIComponent(shop)}`;
+                    }}
+                    className="mt-2 gap-1.5 rounded-lg text-xs font-semibold"
+                  >
+                    <Plug className="h-3.5 w-3.5" /> Connect with Shopify (OAuth)
+                  </Button>
+                  {!credValues.shopDomain?.trim() && (
+                    <p className="mt-1.5 text-xs text-[#8c95b0]">Enter the shop domain above first.</p>
+                  )}
+                </div>
               )}
               <div>
                 <Label className="mb-2 block text-sm font-bold text-[#0a1128]">What syncs</Label>
