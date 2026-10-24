@@ -1561,6 +1561,7 @@ export class ApiService {
     name?: string;
     username?: string;
     email?: string;
+    profileImage?: string | null;
     phone?: string | null;
     address?: string | null;
     city?: string | null;
@@ -1569,7 +1570,7 @@ export class ApiService {
     bio?: string | null;
     twoFactorEnabled?: boolean;
   }) {
-    return this.request<{
+    const result = await this.request<{
       id: string;
       username: string;
       name: string;
@@ -1589,6 +1590,39 @@ export class ApiService {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
+
+    // Keep the stored session user in sync with the saved profile. The web
+    // AuthContext restores the user from the localStorage snapshot written
+    // at login and (unlike desktop) never refetches /auth/profile on boot —
+    // so without this merge, a saved change (most visibly the profile
+    // picture) never reaches the avatar/header after the page reloads; the
+    // UI kept rendering the login-time snapshot while the server had the
+    // new value. Same write pattern as login/register above. Only the
+    // profile fields the update endpoint authoritatively returns are
+    // merged; role/membership in the snapshot are left untouched.
+    if (result.success && result.data && result.data.id) {
+      try {
+        const storedRaw = readStoredUser();
+        if (storedRaw) {
+          const stored = JSON.parse(storedRaw);
+          if (stored && String(stored.id) === String(result.data.id)) {
+            const d = result.data as Record<string, unknown>;
+            const merged = { ...stored };
+            for (const key of [
+              'name', 'username', 'email', 'profileImage', 'phone', 'address',
+              'city', 'country', 'dateOfBirth', 'bio', 'twoFactorEnabled',
+            ]) {
+              if (d[key] !== undefined) merged[key] = d[key];
+            }
+            writeStoredUser(merged);
+          }
+        }
+      } catch {
+        // Storage sync is best-effort; the update itself already succeeded.
+      }
+    }
+
+    return result;
   }
 
   // Branches
