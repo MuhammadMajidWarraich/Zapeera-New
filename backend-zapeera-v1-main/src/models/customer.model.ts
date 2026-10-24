@@ -6,6 +6,7 @@ export interface CreateCustomerData {
     phone: string;
     email?: string;
     address?: string;
+    creditLimit?: number | null;
     branchId: string;
   }
   
@@ -16,4 +17,5 @@ export interface CreateCustomerData {
     address?: string;
     isVIP?: boolean;
     isActive?: boolean;
+    creditLimit?: number | null;
   }

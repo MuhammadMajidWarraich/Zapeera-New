@@ -14,6 +14,7 @@ import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, Tax
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
+import { checkCreditLimit, CREDIT_LIMIT_EXCEEDED, CREDIT_LIMIT_OVERRIDE_ROLES } from '../utils/credit-limit.util';
 import { variantBatchWhere } from '../utils/variant.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
@@ -91,6 +92,11 @@ const createSaleSchema = Joi.object({
   // with the sale when it is not the cashier. Optional — validated
   // in createSale to be an ACTIVE member of the sale's business.
   salespersonId: Joi.string().allow(null, '').optional(),
+  // Credit-limit override (gap item 7): an explicit owner/manager
+  // flag allowing this one credit sale to exceed the customer's
+  // credit limit. Without it an over-limit credit sale is blocked
+  // (402 CREDIT_LIMIT_EXCEEDED). Cashiers cannot override.
+  creditLimitOverride: Joi.boolean().optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -1870,6 +1876,35 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       // counter writes no row.
       const dueAmount = round2(totalAmount - paidAmount);
       if (saleData.customerId && dueAmount > 0) {
+        // Credit limit (gap item 7): the unpaid part of this sale
+        // would add `dueAmount` to the customer's khata. When the
+        // customer has a limit and balance + due would exceed it,
+        // block the sale (402) unless the request carries an explicit
+        // owner/manager override. No limit set = unlimited, exactly
+        // as before. Checked inside the transaction so the balance
+        // read and the SALE_DUE write below are atomic.
+        const creditCheck = await checkCreditLimit(tx, saleData.customerId, targetCompanyId, dueAmount);
+        if (creditCheck && !creditCheck.allowed) {
+          const overrideAllowed =
+            saleData.creditLimitOverride === true &&
+            (CREDIT_LIMIT_OVERRIDE_ROLES as readonly string[]).includes(getUserRole(req));
+          if (!overrideAllowed) {
+            const e: any = new HttpError(
+              402,
+              `Credit limit exceeded: this sale would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${creditCheck.creditLimit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Reduce the credit amount, collect a payment, or ask an owner/manager to approve an override.`
+            );
+            e.code = CREDIT_LIMIT_EXCEEDED;
+            e.details = {
+              customerId: saleData.customerId,
+              balance: creditCheck.balance,
+              creditLimit: creditCheck.creditLimit,
+              projectedBalance: creditCheck.projectedBalance,
+              overBy: creditCheck.overBy,
+              dueAmount
+            };
+            throw e;
+          }
+        }
         await tx.customerLedgerEntry.create({
           data: {
             companyId: targetCompanyId,

@@ -7,6 +7,7 @@ import { createSearchConditions } from '../utils/query-helper';
 import { CreateCustomerData, UpdateCustomerData } from '../models/customer.model';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
 import { getLoyaltyPointValue, recordLoyaltyTransaction } from '../utils/loyalty.util';
+import { checkCreditLimit, CREDIT_LIMIT_EXCEEDED } from '../utils/credit-limit.util';
 import { notifyCustomerChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import Joi from 'joi';
@@ -17,6 +18,9 @@ const createCustomerSchema = Joi.object({
   phone: Joi.string().required(),
   email: Joi.string().email().allow('').optional(),
   address: Joi.string().allow('').optional(),
+  // Credit limit (khata, gap item 7): max outstanding udhaar in PKR.
+  // Null/absent = no limit (unlimited, the historical behaviour).
+  creditLimit: Joi.number().min(0).allow(null).optional(),
   branchId: Joi.string().allow('').optional() // Optional - will be taken from user context if not provided
 });
 
@@ -26,6 +30,8 @@ const updateCustomerSchema = Joi.object({
   email: Joi.string().email().allow(''),
   address: Joi.string().allow(''),
   isVIP: Joi.boolean(),
+  // Credit limit (khata, gap item 7): null clears the limit.
+  creditLimit: Joi.number().min(0).allow(null),
   isActive: Joi.boolean()
 });
 
@@ -483,6 +489,8 @@ export const createCustomer = async (req: AuthRequest, res: Response) => {
         phone: customerData.phone,
         email: customerData.email || null,
         address: customerData.address || null,
+        // Credit limit (gap item 7): null = no limit.
+        creditLimit: customerData.creditLimit ?? null,
         branchId: branchId,
         companyId: finalCompanyId,
         createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'
@@ -820,7 +828,12 @@ const recordPaymentSchema = Joi.object({
 const recordAdjustmentSchema = Joi.object({
   // Signed and never zero: + adds to what the customer owes, − reduces it.
   amount: Joi.number().invalid(0).required(),
-  note: Joi.string().trim().min(1).max(500).required()
+  note: Joi.string().trim().min(1).max(500).required(),
+  // Credit-limit override (gap item 7): an explicit flag allowing a
+  // positive adjustment to push the customer over their credit limit.
+  // Adjustments are already owner/manager-only; without the flag an
+  // over-limit adjustment is blocked, never silently posted.
+  creditLimitOverride: Joi.boolean().optional()
 });
 
 const ledgerRound2 = (n: number) => Math.round(n * 100) / 100;
@@ -842,7 +855,7 @@ const findLedgerCustomer = async (req: AuthRequest, res: Response, customerId: s
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, companyId: businessId },
-    select: { id: true, name: true, phone: true }
+    select: { id: true, name: true, phone: true, creditLimit: true }
   });
 
   if (!customer) {
@@ -912,7 +925,12 @@ export const getCustomerLedger = async (req: AuthRequest, res: Response) => {
           balance: running,
           totalDue,
           totalPaid,
-          entryCount: total
+          entryCount: total,
+          // Credit limit (gap item 7): null = no limit; availableCredit
+          // is what more udhaar the customer may still take (null when
+          // unlimited). The POS reads this before ringing a credit sale.
+          creditLimit: customer.creditLimit ?? null,
+          availableCredit: customer.creditLimit == null ? null : ledgerRound2(Math.max(0, customer.creditLimit - running))
         },
         entries,
         pagination: {
@@ -1013,6 +1031,31 @@ export const recordCustomerAdjustment = async (req: AuthRequest, res: Response) 
     const resolved = await findLedgerCustomer(req, res, id);
     if (!resolved) return;
     const { prisma, businessId, customer } = resolved;
+
+    // Credit limit (gap item 7): a positive adjustment extends more
+    // credit, so it is checked like a POS credit sale — blocked when
+    // it would push the customer over their limit unless the request
+    // carries an explicit override flag. Negative adjustments (write-
+    // offs / corrections that reduce what is owed) never breach a
+    // limit and are always allowed.
+    if (Number(value.amount) > 0 && value.creditLimitOverride !== true) {
+      const creditCheck = await checkCreditLimit(prisma, customer.id, businessId, ledgerRound2(Number(value.amount)));
+      if (creditCheck && !creditCheck.allowed) {
+        return res.status(402).json({
+          success: false,
+          message: `Credit limit exceeded: this adjustment would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${creditCheck.creditLimit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Pass creditLimitOverride: true to post it explicitly.`,
+          code: CREDIT_LIMIT_EXCEEDED,
+          data: {
+            customerId: customer.id,
+            balance: creditCheck.balance,
+            creditLimit: creditCheck.creditLimit,
+            projectedBalance: creditCheck.projectedBalance,
+            overBy: creditCheck.overBy,
+            amount: ledgerRound2(Number(value.amount))
+          }
+        });
+      }
+    }
 
     const entry = await prisma.customerLedgerEntry.create({
       data: {

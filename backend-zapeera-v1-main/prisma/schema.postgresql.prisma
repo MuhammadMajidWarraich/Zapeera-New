@@ -99,6 +99,11 @@ model StaffProfile {
   performanceRating        Float?
   lastReviewDate           DateTime?
   isActive                 Boolean      @default(true)
+  // Salesman flag (gap item 7): staff designated as salesmen.
+  // Their sales are tracked via Sale.salespersonId + the
+  // commissions aggregation; the flag only controls who appears
+  // in the salesman picker / performance views.
+  isSalesman               Boolean      @default(false)
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
 
@@ -718,6 +723,11 @@ model Customer {
   totalPurchases Float     @default(0)
   loyaltyPoints  Int       @default(0)
   isVIP          Boolean   @default(false)
+  // Credit limit (khata, gap item 7): the maximum outstanding
+  // udhaar this customer may carry. Null = no limit (unlimited,
+  // the historical behaviour). Enforced at POS sale-create and
+  // on manual khata adjustments — src/utils/credit-limit.util.ts.
+  creditLimit    Float?
   lastVisit      DateTime?
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
