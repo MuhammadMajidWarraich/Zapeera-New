@@ -264,7 +264,7 @@ async function wipeDemoBusinesses(prisma, userId) {
     await safe('salePromotion', () => prisma.salePromotion.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('saleTaxLine', () => prisma.saleTaxLine.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('fbrInvoiceQueue', () => prisma.fbrInvoiceQueue.deleteMany({ where: { companyId: bid } }));
-    await safe('receipt', () => prisma.receipt.deleteMany({ where: { companyId: bid } }));
+    await safe('receipt', () => prisma.receipt.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('refundItem', () => prisma.refundItem.deleteMany({ where: { refundId: { in: refundIds } } }));
     await safe('refund', () => prisma.refund.deleteMany({ where: { id: { in: refundIds } } }));
     await safe('customerLedgerEntry-by-sale', () => prisma.customerLedgerEntry.deleteMany({ where: { saleId: { in: saleIds } } }));
