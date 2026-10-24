@@ -211,12 +211,18 @@ async function wipeDemoBusinesses(prisma, userId) {
     where: { userId },
     include: { business: { select: { id: true, createdBy: true } }, role: { select: { name: true } } },
   });
+  // Businesses the demo user created directly (createdBy) are included
+  // even when no membership links them — a previously interrupted wipe
+  // can leave exactly such an orphaned row, and its unique name would
+  // otherwise block the bootstrap below.
+  const created = await prisma.business.findMany({ where: { createdBy: userId }, select: { id: true } });
   const businessIds = [
-    ...new Set(
-      memberships
+    ...new Set([
+      ...memberships
         .filter((m) => m.role?.name === 'OWNER' || m.business?.createdBy === userId)
-        .map((m) => m.businessId)
-    ),
+        .map((m) => m.businessId),
+      ...created.map((b) => b.id),
+    ]),
   ];
   if (!businessIds.length) {
     console.log('[seed-demo] wipe: no demo businesses yet — nothing to do');
