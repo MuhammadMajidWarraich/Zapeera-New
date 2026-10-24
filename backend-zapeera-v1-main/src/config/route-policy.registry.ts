@@ -178,6 +178,14 @@ const ENTRIES: RegistryEntry[] = [
   // business_management.settings key with /api/settings on the same
   // precedent; the router additionally gates every route to
   // OWNER/MANAGER.
+  // PostEx webhook receiver (feature/integration-postex): PostEx calls it
+  // server-to-server with no user session, so it is public — longest
+  // prefix wins over /api/integrations, otherwise the universal gate
+  // would demand a tenant JWT and every delivery would 401. The
+  // receiver only ever updates a carrier-status string on the sale
+  // whose tracking number matches; no signature verification exists
+  // (PostEx publishes none).
+  { prefix: '/api/integrations/postex/webhook', policy: { kind: 'public' } },
   { prefix: '/api/integrations', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
