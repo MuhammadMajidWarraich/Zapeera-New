@@ -57,7 +57,7 @@ services:
       PORT: "4200"
       USE_POSTGRESQL: "true"
       # Composed from the POSTGRES_* values in .env (single source of truth).
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zapeera}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zapeera}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zapeera}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-zapeera}?connection_limit=10&pool_timeout=15
       OCR_SERVICE_URL: http://ocr:8000
     volumes:
       - zapeera_uploads:/app/uploads

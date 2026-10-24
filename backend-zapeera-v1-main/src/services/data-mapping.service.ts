@@ -1,8 +1,10 @@
-import { PrismaClient } from '@prisma/client';
-import { buildPrismaUrl } from '../config/prisma-url';
+import { getPrisma } from '../utils/db.util';
 import { ExtractedData } from './ocr.service';
 
-const prisma = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
+// No module-level PrismaClient here: this service previously constructed
+// its own client at import time — a whole extra connection pool (up to
+// PG_CONNECTION_LIMIT connections) held for the process's life. It now
+// uses the application's one shared client like every other service.
 
 export interface MappedData {
   product: {
@@ -56,6 +58,7 @@ export class DataMappingService {
     branchId: string,
     companyId: string
   ): Promise<MappedData> {
+    const prisma = await getPrisma();
     const result: MappedData = {
       product: { branchId, companyId },
       category: {},
@@ -182,6 +185,7 @@ export class DataMappingService {
     mappedData: MappedData,
     createdBy: string
   ): Promise<{ success: boolean; errors: string[]; data: any }> {
+    const prisma = await getPrisma();
     const errors: string[] = [];
     const savedData: any = {};
 
