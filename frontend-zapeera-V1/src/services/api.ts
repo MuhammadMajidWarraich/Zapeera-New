@@ -1150,6 +1150,14 @@ export class ApiService {
         };
       }
 
+      // Two-factor challenge: the password was accepted but a TOTP or
+      // recovery code is still required. Pass the challenge through
+      // untouched — the login UI collects the code and completes the
+      // sign-in via login2fa(). There is deliberately no user/token here.
+      if (response.success && (response.data as any)?.twoFactorRequired) {
+        return response;
+      }
+
       if (response.success && response.data) {
         const { user, token, sessionToken } = response.data as any;
 
@@ -1277,6 +1285,107 @@ export class ApiService {
         message: error?.message || 'Demo login request failed',
       };
     }
+  }
+
+  /**
+   * Complete a two-factor-challenged login. The challengeToken came from
+   * login() when the account has real 2FA enabled; exactly one of `code`
+   * (6-digit authenticator code) or `recoveryCode` (single-use) is sent.
+   * On success the response is the standard login payload and is stored
+   * exactly like a normal login.
+   */
+  async login2fa(payload: { challengeToken: string; code?: string; recoveryCode?: string }): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.request<any>('/auth/login/2fa', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (!response) {
+        return { success: false, message: 'No response received from server' };
+      }
+
+      if (response.success && response.data) {
+        const { user, token, sessionToken } = response.data as any;
+
+        if (token) {
+          try { localStorage.setItem('token', token); } catch { /* ignore */ }
+        }
+        if (sessionToken) {
+          try { localStorage.setItem('sessionToken', sessionToken); } catch { /* ignore */ }
+        }
+
+        if (!user || !user.id) {
+          return { success: false, message: 'Invalid user data received from server' };
+        }
+
+        try {
+          const userForStore = {
+            ...user,
+            role: normalizeAppRole(user.role),
+            membership: user.membership
+              ? {
+                  ...user.membership,
+                  roleName: user.membership.roleName ? normalizeAppRole(user.membership.roleName) : undefined,
+                }
+              : user.membership,
+            memberships: Array.isArray(user.memberships)
+              ? user.memberships.map((m: any) => ({
+                  ...m,
+                  roleName: m.roleName ? normalizeAppRole(m.roleName) : undefined,
+                }))
+              : user.memberships,
+          };
+          writeStoredUser(userForStore);
+        } catch (storageError: any) {
+          return {
+            success: false,
+            message: 'Failed to save authentication data: ' + storageError?.message
+          };
+        }
+      }
+
+      return response;
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Verification request failed'
+      };
+    }
+  }
+
+  // ── Two-factor authentication management (Profile & Security) ──────────
+
+  /** Step 1 of enrollment: password re-confirm → pending secret + otpauth URI. */
+  async setup2fa(password: string) {
+    return this.request<{ secret: string; otpauthUri: string }>('/auth/2fa/setup', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  /** Step 2 of enrollment: prove a TOTP code → enabled + recovery codes (shown once). */
+  async enable2fa(code: string) {
+    return this.request<{ recoveryCodes: string[] }>('/auth/2fa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  /** Disable 2FA with a current TOTP code, a recovery code, or (legacy flag-only accounts) the password. */
+  async disable2fa(payload: { code?: string; recoveryCode?: string; password?: string }) {
+    return this.request('/auth/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /** Issue a fresh recovery-code set (requires a valid TOTP); old codes stop working. */
+  async regenerate2faRecoveryCodes(code: string) {
+    return this.request<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes/regenerate', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
   }
 
   // Offline session login - validates existing session without password
@@ -1487,6 +1596,7 @@ export class ApiService {
       dateOfBirth?: string | null;
       bio?: string | null;
       twoFactorEnabled?: boolean;
+      twoFactorConfigured?: boolean;
       branchId: string;
       branch?: {
         id: string;
@@ -1622,7 +1732,8 @@ export class ApiService {
     country?: string | null;
     dateOfBirth?: string | null;
     bio?: string | null;
-    twoFactorEnabled?: boolean;
+    // twoFactorEnabled is intentionally NOT settable here — 2FA state only
+    // changes through the /auth/2fa/* endpoints below.
   }) {
     return this.request<{
       id: string;
@@ -1637,6 +1748,7 @@ export class ApiService {
       dateOfBirth?: string | null;
       bio?: string | null;
       twoFactorEnabled?: boolean;
+      twoFactorConfigured?: boolean;
       role: string;
       branchId: string;
       updatedAt: string;

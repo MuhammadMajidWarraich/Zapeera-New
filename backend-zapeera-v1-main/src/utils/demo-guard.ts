@@ -40,6 +40,10 @@ const BLOCK_RULES: DemoBlockRule[] = [
   { methods: ['POST'], pattern: /^\/auth\/change-password$/ },
   { methods: ['POST'], pattern: /^\/auth\/reset-password$/ },
   { methods: ['PUT', 'PATCH'], pattern: /^\/auth\/update-profile$/ },
+  // 2FA management (real-2FA wave): the demo account must never enroll —
+  // a shared public account with a TOTP secret would lock out every
+  // visitor (and the enrollment itself is an account mutation).
+  { methods: ['POST'], pattern: /^\/auth\/2fa\// },
   // Backoffice is never reachable for the demo account (any method).
   { pattern: /^\/backoffice(\/|$)/ },
   // Business lifecycle: cannot create, rename or delete businesses.
