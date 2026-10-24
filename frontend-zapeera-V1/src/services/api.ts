@@ -6940,17 +6940,6 @@ export class ApiService {
       priceMonthly: number;
       stackable: boolean;
       unitLabel?: string;
-    }>>('/subscription/addons/catalogue');
-  }
-
-  async getAddonCatalogue() {
-    return this.request<Array<{
-      type: string;
-      name: string;
-      description: string;
-      priceMonthly: number;
-      stackable: boolean;
-      unitLabel?: string;
       // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): true
       // while the price is undecided — the pack is listed but cannot
       // be purchased. (ONLINE_STORE_PACK, item 5, same treatment.)
