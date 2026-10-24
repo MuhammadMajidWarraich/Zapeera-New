@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Search, UserPlus, Check, ArrowRight, Loader2, Mail, Phone } from 'lucide-react';
 import { apiService } from '@/services/api';
@@ -43,6 +44,9 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     cnicNumber: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
+    // Salesman flag (gap item 7): designate this staff member as a
+    // salesman — they appear in the POS picker + performance views.
+    isSalesman: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,6 +71,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       cnicNumber: '',
       emergencyContactName: '',
       emergencyContactPhone: '',
+      isSalesman: false,
     });
     setIsSubmitting(false);
   }, []);
@@ -162,6 +167,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       if (hrData.cnicNumber) payload.cnicNumber = hrData.cnicNumber;
       if (hrData.emergencyContactName) payload.emergencyContactName = hrData.emergencyContactName;
       if (hrData.emergencyContactPhone) payload.emergencyContactPhone = hrData.emergencyContactPhone;
+      // Salesman flag (gap item 7).
+      if (hrData.isSalesman) payload.isSalesman = true;
 
       const response = await apiService.createStaff(payload);
       if (response.success) {
@@ -484,6 +491,20 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
             value={hrData.department}
             onChange={(e) => setHrData((prev) => ({ ...prev, department: e.target.value }))}
           />
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg border border-[rgba(15,23,60,0.08)] bg-[#f8f9fb] p-3">
+          <Checkbox
+            id="isSalesman"
+            checked={hrData.isSalesman}
+            onCheckedChange={(checked) => setHrData((prev) => ({ ...prev, isSalesman: checked === true }))}
+          />
+          <div className="space-y-0.5">
+            <Label htmlFor="isSalesman" className="text-sm font-semibold text-[#0a1128]">Salesman</Label>
+            <p className="text-xs leading-relaxed text-[#8c95b0]">
+              Designate this staff member as a salesman — they appear in the POS salesman picker and in salesman performance, and their sales count toward commissions.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

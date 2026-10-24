@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,41 @@ interface StaffPerformance {
   recentCommissions: Commission[];
 }
 
+// Salesman performance (gap item 7): one row per designated salesman
+// from /api/salesmen/performance — sales attributed via salespersonId
+// (else cashier), plus the commission rows calculated for them.
+interface SalesmanRow {
+  staffProfileId: string;
+  employeeId: string;
+  userId: string;
+  name: string;
+  email: string;
+  designation?: string | null;
+  totalSales: number;
+  transactions: number;
+  averageSale: number;
+  commissions: { periods: number; totalAmount: number; totalCommission: number; totalBonus: number };
+}
+
+interface SalesmanDetail {
+  staffProfileId: string;
+  name: string;
+  totalSales: number;
+  totalPaid: number;
+  transactions: number;
+  averageSale: number;
+  recentSales: Array<{
+    id: string;
+    invoiceNumber?: string | null;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: string;
+    createdAt: string;
+    customer?: { id: string; name: string } | null;
+    branch?: { id: string; name: string } | null;
+  }>;
+}
+
 const PAGE_SIZE = 10;
 
 const PerformanceTracking = () => {
@@ -133,6 +168,15 @@ const PerformanceTracking = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
   const [isCalculateDialogOpen, setIsCalculateDialogOpen] = useState(false);
+
+  // Salesmen leaderboard (gap item 7): designated salesmen only.
+  const [salesmenPerf, setSalesmenPerf] = useState<{
+    salesmen: SalesmanRow[];
+    totals: { totalSales: number; transactions: number; totalCommission: number };
+  } | null>(null);
+  const [salesmenLoading, setSalesmenLoading] = useState(false);
+  const [expandedSalesmanId, setExpandedSalesmanId] = useState<string | null>(null);
+  const [salesmanDetail, setSalesmanDetail] = useState<SalesmanDetail | null>(null);
 
   // Performance date range (defaults to the current month)
   const now = new Date();
@@ -241,9 +285,60 @@ const PerformanceTracking = () => {
     loadStaff();
   }, [loadStaff]);
 
+  // Salesmen leaderboard (gap item 7): the same date range + branch
+  // as the rest of this page; sales attributed via salespersonId.
+  const loadSalesmenPerformance = useCallback(async () => {
+    try {
+      setSalesmenLoading(true);
+      const response = await apiService.getSalesmenPerformance({
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        branchId: selectedBranchId || undefined,
+      });
+      if (response.success && response.data) {
+        setSalesmenPerf(response.data as unknown as {
+          salesmen: SalesmanRow[];
+          totals: { totalSales: number; transactions: number; totalCommission: number };
+        });
+      } else {
+        setSalesmenPerf(null);
+      }
+    } catch (err) {
+      console.error("Error loading salesmen performance:", err);
+      setSalesmenPerf(null);
+    } finally {
+      setSalesmenLoading(false);
+    }
+  }, [startDate, endDate, selectedBranchId]);
+
+  const toggleSalesmanDetail = async (row: SalesmanRow) => {
+    if (expandedSalesmanId === row.staffProfileId) {
+      setExpandedSalesmanId(null);
+      setSalesmanDetail(null);
+      return;
+    }
+    setExpandedSalesmanId(row.staffProfileId);
+    try {
+      const response = await apiService.getSalesmanPerformance(row.staffProfileId, {
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        branchId: selectedBranchId || undefined,
+      });
+      if (response.success && response.data) {
+        setSalesmanDetail(response.data as unknown as SalesmanDetail);
+      } else {
+        setSalesmanDetail(null);
+      }
+    } catch (err) {
+      console.error("Error loading salesman detail:", err);
+      setSalesmanDetail(null);
+    }
+  };
+
   useEffect(() => {
     loadStats();
     loadPerformance();
+    loadSalesmenPerformance();
     setPage(1);
     loadCommissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,6 +346,7 @@ const PerformanceTracking = () => {
 
   useEffect(() => {
     loadPerformance();
+    loadSalesmenPerformance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
@@ -263,6 +359,7 @@ const PerformanceTracking = () => {
     loadStaff();
     loadStats();
     loadPerformance();
+    loadSalesmenPerformance();
     loadCommissions();
   };
 
@@ -569,6 +666,101 @@ const PerformanceTracking = () => {
               </Card>
             </div>
           )}
+
+          {/* Salesmen leaderboard (gap item 7): designated salesmen
+              only, over the same date range + branch as this page.
+              Sales are attributed via salespersonId (else cashier) —
+              the same rule commissions use, so the rows never
+              double-count a sale. Click a row for recent sales. */}
+          <Card className="shadow-soft border-0">
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex items-center space-x-2">
+                  <Target className="w-5 h-5" />
+                  <span>Salesmen — Sales Performance</span>
+                </span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {salesmenPerf
+                    ? `${formatCurrency(salesmenPerf.totals.totalSales)} across ${salesmenPerf.totals.transactions} sales`
+                    : "Designated salesmen only"}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {salesmenLoading ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Loading salesmen…</p>
+              ) : !salesmenPerf || salesmenPerf.salesmen.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No salesmen designated yet. Mark staff as salesmen in Staff — they will appear here and in the POS picker.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-2 pr-3 font-medium">Salesman</th>
+                        <th className="py-2 pr-3 font-medium text-right">Sales</th>
+                        <th className="py-2 pr-3 font-medium text-right">Transactions</th>
+                        <th className="py-2 pr-3 font-medium text-right">Avg sale</th>
+                        <th className="py-2 font-medium text-right">Commission</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salesmenPerf.salesmen.map((row) => (
+                        <Fragment key={row.staffProfileId}>
+                          <tr
+                            onClick={() => void toggleSalesmanDetail(row)}
+                            className="cursor-pointer border-b last:border-0 hover:bg-muted/50"
+                          >
+                            <td className="py-2.5 pr-3">
+                              <span className="font-semibold text-foreground">{row.name}</span>
+                              {row.designation ? (
+                                <span className="text-muted-foreground"> ({row.designation})</span>
+                              ) : null}
+                            </td>
+                            <td className="py-2.5 pr-3 text-right font-semibold">{formatCurrency(row.totalSales)}</td>
+                            <td className="py-2.5 pr-3 text-right">{row.transactions}</td>
+                            <td className="py-2.5 pr-3 text-right">{formatCurrency(row.averageSale)}</td>
+                            <td className="py-2.5 text-right">{formatCurrency(row.commissions.totalCommission)}</td>
+                          </tr>
+                          {expandedSalesmanId === row.staffProfileId && (
+                            <tr className="border-b bg-muted/30">
+                              <td colSpan={5} className="px-3 py-3">
+                                {!salesmanDetail || salesmanDetail.staffProfileId !== row.staffProfileId ? (
+                                  <p className="text-sm text-muted-foreground">Loading recent sales…</p>
+                                ) : salesmanDetail.recentSales.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">No sales in this range.</p>
+                                ) : (
+                                  <ul className="space-y-1.5">
+                                    {salesmanDetail.recentSales.map((sale) => (
+                                      <li key={sale.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                        <span>
+                                          {sale.invoiceNumber || "Sale"} • {sale.customer?.name || "Walk-in"} •{" "}
+                                          {formatDate(sale.createdAt)}
+                                        </span>
+                                        <span className="font-semibold">
+                                          {formatCurrency(sale.totalAmount)}
+                                          {sale.paymentStatus !== "COMPLETED" && (
+                                            <span className="ml-2 text-xs font-normal text-amber-600">
+                                              {formatCurrency(sale.paidAmount)} paid
+                                            </span>
+                                          )}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Selected staff performance */}
           {selectedStaff && (

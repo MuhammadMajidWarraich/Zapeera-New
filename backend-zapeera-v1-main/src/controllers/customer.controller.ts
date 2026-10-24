@@ -1041,14 +1041,17 @@ export const recordCustomerAdjustment = async (req: AuthRequest, res: Response) 
     if (Number(value.amount) > 0 && value.creditLimitOverride !== true) {
       const creditCheck = await checkCreditLimit(prisma, customer.id, businessId, ledgerRound2(Number(value.amount)));
       if (creditCheck && !creditCheck.allowed) {
+        // !allowed implies a limit IS set (checkCreditLimit returns
+        // null when there is none), so creditLimit is a number here.
+        const limit = creditCheck.creditLimit as number;
         return res.status(402).json({
           success: false,
-          message: `Credit limit exceeded: this adjustment would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${creditCheck.creditLimit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Pass creditLimitOverride: true to post it explicitly.`,
+          message: `Credit limit exceeded: this adjustment would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${limit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Pass creditLimitOverride: true to post it explicitly.`,
           code: CREDIT_LIMIT_EXCEEDED,
           data: {
             customerId: customer.id,
             balance: creditCheck.balance,
-            creditLimit: creditCheck.creditLimit,
+            creditLimit: limit,
             projectedBalance: creditCheck.projectedBalance,
             overBy: creditCheck.overBy,
             amount: ledgerRound2(Number(value.amount))

@@ -1889,15 +1889,18 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             saleData.creditLimitOverride === true &&
             (CREDIT_LIMIT_OVERRIDE_ROLES as readonly string[]).includes(getUserRole(req));
           if (!overrideAllowed) {
+            // !allowed implies a limit IS set (checkCreditLimit returns
+            // null when there is none), so creditLimit is a number here.
+            const limit = creditCheck.creditLimit as number;
             const e: any = new HttpError(
               402,
-              `Credit limit exceeded: this sale would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${creditCheck.creditLimit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Reduce the credit amount, collect a payment, or ask an owner/manager to approve an override.`
+              `Credit limit exceeded: this sale would take the customer's outstanding khata to PKR ${creditCheck.projectedBalance.toFixed(2)} against a limit of PKR ${limit.toFixed(2)} (current balance PKR ${creditCheck.balance.toFixed(2)}, over by PKR ${creditCheck.overBy.toFixed(2)}). Reduce the credit amount, collect a payment, or ask an owner/manager to approve an override.`
             );
             e.code = CREDIT_LIMIT_EXCEEDED;
             e.details = {
               customerId: saleData.customerId,
               balance: creditCheck.balance,
-              creditLimit: creditCheck.creditLimit,
+              creditLimit: limit,
               projectedBalance: creditCheck.projectedBalance,
               overBy: creditCheck.overBy,
               dueAmount

@@ -65,6 +65,9 @@ interface Customer {
   loyaltyPoints: number;
   isVIP: boolean;
   createdBy?: string;
+  // Credit limit (khata, gap item 7): max outstanding udhaar in PKR.
+  // Null = no limit. Set from the add/edit dialogs; shown in khata.
+  creditLimit?: number | null;
   // Khata balance (Wave B2): positive = the customer owes the shop.
   balance: number;
 }
@@ -129,7 +132,9 @@ const Customers = () => {
     name: "",
     phone: "",
     email: "",
-    address: ""
+    address: "",
+    // Credit limit (khata, gap item 7): blank = no limit.
+    creditLimit: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -140,7 +145,9 @@ const Customers = () => {
     name: "",
     phone: "",
     email: "",
-    address: ""
+    address: "",
+    // Credit limit (khata, gap item 7): blank = no limit.
+    creditLimit: ""
   });
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -154,6 +161,9 @@ const Customers = () => {
     totalDue: number;
     totalPaid: number;
     entryCount: number;
+    // Credit limit (gap item 7): null = no limit.
+    creditLimit?: number | null;
+    availableCredit?: number | null;
   } | null>(null);
   const [khataEntries, setKhataEntries] = useState<KhataEntry[]>([]);
   const [paymentForm, setPaymentForm] = useState({
@@ -189,6 +199,19 @@ const Customers = () => {
   const canAdjustKhata =
     currentRole === "OWNER" || currentRole === "MANAGER" || currentRole === "ADMIN";
 
+  // Credit limit (khata, gap item 7): the form holds a string. Blank
+  // means "no limit" — undefined on create (leave unset), null on
+  // edit (clear an existing limit). Non-numeric / negative input is
+  // rejected by falling back to the blank meaning, never by writing
+  // a 0 limit that would block all credit.
+  const parseCreditLimitInput = (value: string, onBlank: undefined | null): number | undefined | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return onBlank;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n < 0) return onBlank;
+    return Math.round(n * 100) / 100;
+  };
+
   const handleAddCustomer = async () => {
     if (!newCustomer.name.trim() || !newCustomer.phone.trim()) {
       toast({
@@ -223,6 +246,7 @@ const Customers = () => {
         phone: newCustomer.phone,
         email: newCustomer.email,
         address: newCustomer.address,
+        creditLimit: parseCreditLimitInput(newCustomer.creditLimit, undefined),
         branchId: branchId || undefined // Send undefined instead of empty string
       });
 
@@ -237,7 +261,8 @@ const Customers = () => {
           name: "",
           phone: "",
           email: "",
-          address: ""
+          address: "",
+          creditLimit: ""
         });
 
         setIsAddDialogOpen(false);
@@ -268,7 +293,8 @@ const Customers = () => {
       name: customer.name || "",
       phone: customer.phone || "",
       email: customer.email || "",
-      address: customer.address || ""
+      address: customer.address || "",
+      creditLimit: customer.creditLimit != null ? String(customer.creditLimit) : ""
     });
     setIsEditDialogOpen(true);
   };
@@ -290,7 +316,8 @@ const Customers = () => {
         name: editCustomerForm.name,
         phone: editCustomerForm.phone,
         email: editCustomerForm.email,
-        address: editCustomerForm.address
+        address: editCustomerForm.address,
+        creditLimit: parseCreditLimitInput(editCustomerForm.creditLimit, null)
       });
 
       if (response.success) {
@@ -604,7 +631,7 @@ const Customers = () => {
       </head><body>
       <h2 style="margin:0">Khata Statement</h2>
       <p style="margin:4px 0">Customer: <b>${esc(khataCustomer.name)}</b> — ${esc(khataCustomer.phone)}<br/>Printed: ${new Date().toLocaleString()}</p>
-      <p style="margin:4px 0">Total udhaar: <b>PKR ${khataSummary.totalDue.toLocaleString()}</b> &nbsp;|&nbsp; Total paid: <b>PKR ${khataSummary.totalPaid.toLocaleString()}</b> &nbsp;|&nbsp; Balance due: <b>PKR ${khataSummary.balance.toLocaleString()}</b></p>
+      <p style="margin:4px 0">Total udhaar: <b>PKR ${khataSummary.totalDue.toLocaleString()}</b> &nbsp;|&nbsp; Total paid: <b>PKR ${khataSummary.totalPaid.toLocaleString()}</b> &nbsp;|&nbsp; Balance due: <b>PKR ${khataSummary.balance.toLocaleString()}</b>${khataSummary.creditLimit != null ? ` &nbsp;|&nbsp; Credit limit: <b>PKR ${khataSummary.creditLimit.toLocaleString()}</b> &nbsp;|&nbsp; Available: <b>PKR ${(khataSummary.availableCredit ?? 0).toLocaleString()}</b>` : ' &nbsp;|&nbsp; Credit limit: <b>No limit</b>'}</p>
       <table><thead><tr><th>Date</th><th>Detail</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Balance</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5">No khata entries yet.</td></tr>'}</tbody></table>
       <script>window.onload = () => window.print();</script>
@@ -682,6 +709,7 @@ const Customers = () => {
             : new Date().toISOString().split('T')[0],
           loyaltyPoints: Number(customer.loyaltyPoints) || 0,
           isVIP: Boolean(customer.isVIP) || false,
+          creditLimit: customer.creditLimit ?? null,
           createdBy: customer.createdBy || null,
           balance: Number(customer.balance) || 0,
         }));
@@ -1258,6 +1286,22 @@ const Customers = () => {
                 className={customerFormTextarea}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerCreditLimit" className="text-sm font-semibold text-[#0a1128]">
+                Credit limit (PKR) <span className="text-xs font-normal text-[#8c95b0]">(optional — blank = no limit)</span>
+              </Label>
+              <Input
+                id="customerCreditLimit"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="e.g. 50000"
+                value={newCustomer.creditLimit}
+                onChange={(e) => setNewCustomer({ ...newCustomer, creditLimit: e.target.value })}
+                className={customerFormField}
+              />
+              <p className="text-xs text-[#8c95b0]">The most udhaar this customer may carry. Credit sales beyond it are blocked at the POS unless an owner/manager approves.</p>
+            </div>
           </div>
 
           <DialogFooter className="gap-3 border-t-0 p-0 sm:justify-end">
@@ -1266,7 +1310,7 @@ const Customers = () => {
               variant="outline"
               onClick={() => {
                 setIsAddDialogOpen(false);
-                setNewCustomer({ name: "", phone: "", email: "", address: "" });
+                setNewCustomer({ name: "", phone: "", email: "", address: "", creditLimit: "" });
               }}
               disabled={isSubmitting}
               className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-7 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
@@ -1356,6 +1400,22 @@ const Customers = () => {
                 rows={3}
                 className={customerFormTextarea}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editCustomerCreditLimit" className="text-sm font-semibold text-[#0a1128]">
+                Credit limit (PKR) <span className="text-xs font-normal text-[#8c95b0]">(optional — blank = no limit)</span>
+              </Label>
+              <Input
+                id="editCustomerCreditLimit"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="e.g. 50000"
+                value={editCustomerForm.creditLimit}
+                onChange={(e) => setEditCustomerForm({ ...editCustomerForm, creditLimit: e.target.value })}
+                className={customerFormField}
+              />
+              <p className="text-xs text-[#8c95b0]">The most udhaar this customer may carry. Credit sales beyond it are blocked at the POS unless an owner/manager approves.</p>
             </div>
           </div>
 
@@ -1447,7 +1507,7 @@ const Customers = () => {
           {khataCustomer && (
             <div className="space-y-6 pt-6">
               <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f8f9fb] p-5">
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                   <div className="text-center">
                     <p className="text-xs font-medium text-[#8c95b0]">Balance due</p>
                     <p
@@ -1458,6 +1518,15 @@ const Customers = () => {
                     >
                       PKR {(khataSummary?.balance || 0).toLocaleString()}
                     </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-[#8c95b0]">Credit limit</p>
+                    <p className="mt-1 text-lg font-extrabold text-[#0a1128]">
+                      {khataSummary?.creditLimit != null ? `PKR ${khataSummary.creditLimit.toLocaleString()}` : "No limit"}
+                    </p>
+                    {khataSummary?.creditLimit != null && (
+                      <p className="text-xs font-medium text-[#8c95b0]">PKR {(khataSummary.availableCredit ?? 0).toLocaleString()} available</p>
+                    )}
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-medium text-[#8c95b0]">Total udhaar</p>

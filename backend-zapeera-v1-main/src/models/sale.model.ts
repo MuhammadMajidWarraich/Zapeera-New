@@ -27,6 +27,7 @@ export interface CreateSaleData {
   prescriptionId?: string | null; // Prescriptions (Wave C1): register record this sale dispenses against; required at the POS for requiresPrescription items when enforcement is on
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
+  creditLimitOverride?: boolean; // Credit limit (gap item 7): explicit owner/manager flag allowing this one credit sale to exceed the customer's credit limit
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer
