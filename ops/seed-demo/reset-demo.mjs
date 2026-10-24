@@ -351,30 +351,57 @@ function monthsFromNow(months, dayOffset = 0) {
   return d.toISOString().slice(0, 10);
 }
 
-async function seedDemoBusiness(token) {
-  // Business (auto-creates Main Branch + OWNER membership).
-  const created = await api('POST', '/companies', {
-    token,
-    body: {
+/**
+ * Bootstrap the demo business row via Prisma — NOT via POST /companies.
+ * The demo account is deliberately fenced against business creation
+ * (demo-guard.ts), so the seed creates exactly the rows the real
+ * create-company flow creates (business + Main Branch + OWNER role +
+ * ACTIVE membership, slug 'demo-pharmacy'), then every content row below
+ * goes through the real HTTP API as the demo user. Runs on every seed:
+ * the wipe phase deletes all demo businesses first.
+ */
+async function bootstrapDemoBusiness(prisma, userId) {
+  const business = await prisma.business.create({
+    data: {
       name: 'Demo Pharmacy',
+      slug: 'demo-pharmacy',
       businessType: 'PHARMACY',
       address: 'Main Boulevard, Gulberg III, Lahore',
       phone: '+92 300 1234567',
       email: DEMO_EMAIL,
+      createdBy: userId,
+      isActive: true,
     },
   });
-  expect(created.status === 201 || created.status === 200, 'create Demo Pharmacy', `http=${created.status} ${JSON.stringify(created.json).slice(0, 200)}`);
-  const business = created.json?.data?.company || created.json?.data?.business || created.json?.data;
-  const businessId = business?.id;
-  expect(!!businessId, 'demo business id', JSON.stringify(created.json).slice(0, 200));
-  console.log(`[seed-demo] business: ${businessId} slug=${business?.slug}`);
+  const branch = await prisma.branch.create({
+    data: {
+      name: 'Main Branch',
+      address: 'Main Boulevard, Gulberg III, Lahore',
+      phone: '+92 300 1234567',
+      email: DEMO_EMAIL,
+      companyId: business.id,
+      createdBy: userId,
+      isActive: true,
+    },
+  });
+  let role = await prisma.role.findFirst({ where: { businessId: business.id, name: 'OWNER' } });
+  if (!role) {
+    role = await prisma.role.create({
+      data: { businessId: business.id, name: 'OWNER', isSystem: true, isActive: true },
+    });
+  }
+  await prisma.membership.create({
+    data: { userId, businessId: business.id, roleId: role.id, status: 'ACTIVE' },
+  });
+  console.log(`[seed-demo] business bootstrapped: ${business.id} slug=demo-pharmacy branch=${branch.id}`);
+  return { businessId: business.id, branchId: branch.id };
+}
+
+async function seedDemoBusiness(token, prisma, userId) {
+  const { businessId, branchId } = await bootstrapDemoBusiness(prisma, userId);
 
   await assignGrowthPlan(businessId);
 
-  const branchesRes = await api('GET', '/branches', { token, businessId });
-  const branchList = branchesRes.json?.data?.branches || branchesRes.json?.data || [];
-  const branchId = (Array.isArray(branchList) ? branchList[0]?.id : null) || null;
-  expect(!!branchId, 'main branch id', `http=${branchesRes.status}`);
   const H = { token, businessId, branchId };
 
   // Categories.
@@ -497,7 +524,7 @@ async function main() {
   try {
     const { token, userId } = await ensureDemoUser(prisma);
     await wipeDemoBusinesses(prisma, userId);
-    const result = await seedDemoBusiness(token);
+    const result = await seedDemoBusiness(token, prisma, userId);
 
     // Verify golden state through the API.
     const prods = await api('GET', '/products?limit=100', {

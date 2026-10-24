@@ -11,11 +11,14 @@ dedicated public tenant — "Demo Pharmacy", owned by the demo account
 - `reset-demo.mjs` — ensure-user → wipe → reseed → verify. Creates the
   demo account through the real register + email-verify flow on first
   run, deletes every row owned by the demo user's businesses (children
-  first, direct Prisma — the only DB-direct phase), then rebuilds the
-  golden dataset (pharmacy, ~40 products with batches/expiry, 6
-  customers, 14 sales, 2 expenses, Growth plan via the real backoffice
-  assign endpoint) entirely through the HTTP API, so all demo numbers
-  are computed by the real app.
+  first, direct Prisma), bootstraps the business row via Prisma (the
+  demo account is fenced against POST /companies by design — the
+  bootstrap writes exactly the rows the real create-company flow
+  writes: business + Main Branch + OWNER role + membership), then
+  rebuilds the golden dataset (pharmacy, ~40 products with batches/
+  expiry, 6 customers, 14 sales, 2 expenses, Growth plan via the real
+  backoffice assign endpoint) entirely through the HTTP API as the demo
+  user, so all demo numbers are computed by the real app.
 - `run-reset.sh` — host wrapper: `docker cp` the script into
   `zapeera-backend-1` and `docker exec` it (fresh copy each run, so
   container recreates by deploys don't lose it).
