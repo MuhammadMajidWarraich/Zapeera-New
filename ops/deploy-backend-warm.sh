@@ -177,8 +177,15 @@ if [ -n "$DIST_TARBALL" ]; then
   docker rm -f "$ASM" >/dev/null 2>&1 || true
   # Sleep-typed assembly container; commit restores the real entrypoint/cmd
   # via --change (a commit otherwise captures the override — known trap).
+  # Prepare /app/dist via exec once the container is up: doing it in the
+  # run command races `docker cp` (rm lands before mkdir — seen live).
   docker run -d --name "$ASM" --entrypoint sh "$LIVE_IMAGE_ID" \
-    -c 'rm -rf /app/dist && mkdir -p /app/dist && sleep 900' >/dev/null
+    -c 'sleep 900' >/dev/null
+  for _ in $(seq 1 30); do
+    if docker exec "$ASM" true >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  docker exec "$ASM" sh -c 'rm -rf /app/dist && mkdir -p /app/dist'
   docker cp "$WORK/dist/." "$ASM:/app/dist/"
   docker commit \
     --change 'ENTRYPOINT ["docker-entrypoint.sh"]' \
