@@ -4248,6 +4248,87 @@ export class ApiService {
     return this.request<any>(`/reports/accounting/cashbook${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
 
+  async getPnlComparison(params?: any) {
+    return this.request<any>(`/reports/accounting/pnl/compare${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  // Bank reconciliation (Wave B — Item 8)
+  async getBankAccounts(params?: any) {
+    return this.request<any>(`/reports/accounting/bank-accounts${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async createBankAccount(payload: any) {
+    return this.request<any>(`/reports/accounting/bank-accounts`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateBankAccount(id: string, payload: any) {
+    return this.request<any>(`/reports/accounting/bank-accounts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getBankStatements(params?: any) {
+    return this.request<any>(`/reports/accounting/statements${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async createBankStatement(payload: any) {
+    return this.request<any>(`/reports/accounting/statements`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getBankStatement(id: string) {
+    return this.request<any>(`/reports/accounting/statements/${id}`);
+  }
+
+  async autoMatchStatement(id: string) {
+    return this.request<any>(`/reports/accounting/statements/${id}/auto-match`, {
+      method: "POST",
+    });
+  }
+
+  async matchStatementLine(statementId: string, lineId: string, payload: any) {
+    return this.request<any>(`/reports/accounting/statements/${statementId}/lines/${lineId}/match`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async unmatchStatementLine(statementId: string, lineId: string) {
+    return this.request<any>(`/reports/accounting/statements/${statementId}/lines/${lineId}/unmatch`, {
+      method: "POST",
+    });
+  }
+
+  async ignoreStatementLine(statementId: string, lineId: string, payload?: any) {
+    return this.request<any>(`/reports/accounting/statements/${statementId}/lines/${lineId}/ignore`, {
+      method: "POST",
+      body: JSON.stringify(payload || {}),
+    });
+  }
+
+  async getReconciliations(params?: any) {
+    return this.request<any>(`/reports/accounting/reconciliations${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async createReconciliation(payload: any) {
+    return this.request<any>(`/reports/accounting/reconciliations`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async completeReconciliation(id: string) {
+    return this.request<any>(`/reports/accounting/reconciliations/${id}/complete`, {
+      method: "POST",
+    });
+  }
+
   // Admin Management (Platform Admin only)
   async getAdmins(params?: {
     page?: number;

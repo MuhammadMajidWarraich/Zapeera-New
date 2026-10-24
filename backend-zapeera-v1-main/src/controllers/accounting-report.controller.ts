@@ -5,11 +5,13 @@ import { AuthRequest, buildBranchWhereClause } from '../middleware/auth.middlewa
 import {
   summarizeCogs,
   computePnl,
+  comparePnl,
   ageLedgerEntries,
   mergeTenderRows,
   sumTenderRows,
   round2,
   TenderRow,
+  PnlStatement,
 } from '../utils/accounting.util';
 
 // Accounting-lite endpoints (Wave B8) — read-only finance views over
@@ -98,21 +100,188 @@ function resolveScope(req: AuthRequest): { companyId?: string; branchId?: string
   return out;
 }
 
+/** Scope shape the P&L builder consumes (branchId optional). */
+interface PnlScope {
+  companyId?: string;
+  branchId?: string;
+}
+
 /** Sale where for statements: period + tenant scope, REFUNDED sales excluded (house rule). */
-function buildStatementSaleWhere(req: AuthRequest, dateFilter: { gte: Date; lte: Date }) {
-  const scope = resolveScope(req);
+function buildStatementSaleWhere(scope: PnlScope, dateFilter: { gte: Date; lte: Date }) {
   const where: any = { createdAt: dateFilter, status: { not: 'REFUNDED' } };
   if (scope.companyId) where.companyId = scope.companyId;
   if (scope.branchId) where.branchId = scope.branchId;
   return where;
 }
 
-function buildExpenseWhere(req: AuthRequest, dateFilter: { gte: Date; lte: Date }) {
-  const scope = resolveScope(req);
+function buildExpenseWhere(scope: PnlScope, dateFilter: { gte: Date; lte: Date }) {
   const where: any = { expenseDate: { gte: dateFilter.gte, lte: dateFilter.lte } };
   if (scope.companyId) where.companyId = scope.companyId;
   if (scope.branchId) where.branchId = scope.branchId;
   return where;
+}
+
+/**
+ * P&L statement builder (Item 8) — the exact computation the old
+ * getAccountingPnl did inline, extracted so /pnl/compare can reuse it
+ * for the current period, the previous period and every branch.
+ * Returns the statement data (no res.json); callers handle errors.
+ */
+async function buildPnlStatement(prisma: any, scope: PnlScope, dateFilter: { gte: Date; lte: Date }) {
+  const saleWhere = buildStatementSaleWhere(scope, dateFilter);
+  // Refunds are scoped to the tenant WITHOUT the period/status parts:
+  // a refund belongs to the period it was created in, whatever the
+  // original sale's date or status (the dashboard's netting basis).
+  const { createdAt: _createdAt, status: _status, ...saleScope } = saleWhere;
+  const expenseWhere = buildExpenseWhere(scope, dateFilter);
+
+  const [salesAgg, saleItems, refunds, expenseAgg, expenseByCategory] = await Promise.all([
+    prisma.sale.aggregate({ where: saleWhere, _sum: { totalAmount: true }, _count: { id: true } }),
+    prisma.saleItem.findMany({
+      where: { sale: saleWhere },
+      select: { quantity: true, productId: true, batch: { select: { purchasePrice: true } } },
+    }),
+    prisma.refund.findMany({
+      where: { createdAt: dateFilter, originalSale: saleScope },
+      select: {
+        id: true,
+        refundAmount: true,
+        originalSaleId: true,
+        items: { select: { productId: true, quantity: true } },
+      },
+    }),
+    prisma.expense.aggregate({ where: expenseWhere, _sum: { amount: true }, _count: { id: true } }),
+    prisma.expense.groupBy({
+      by: ['categoryId'],
+      where: expenseWhere,
+      _sum: { amount: true },
+      _count: { id: true },
+    }),
+  ]);
+
+  const grossRevenue = salesAgg._sum?.totalAmount || 0;
+  const refundsTotal = refunds.reduce((sum: number, r: any) => sum + (r.refundAmount || 0), 0);
+
+  // Service lines (Wave C4) have no batch BY DESIGN and their cost
+  // is knowably zero (a consultation consumes no stock) — price
+  // them at 0 here so they are not miscounted as cost-unknown
+  // legacy lines by summarizeCogs.
+  const itemProductIds = [...new Set(saleItems.map((it: any) => it.productId).filter(Boolean))];
+  const serviceProductIdSet = new Set(
+    itemProductIds.length
+      ? (await prisma.product.findMany({
+          where: { id: { in: itemProductIds }, isService: true },
+          select: { id: true },
+        })).map((p: any) => p.id)
+      : []
+  );
+
+  const cogsGross = summarizeCogs(
+    saleItems.map((it: any) => ({
+      quantity: it.quantity,
+      batchPurchasePrice: it.batch
+        ? it.batch.purchasePrice
+        : (serviceProductIdSet.has(it.productId) ? 0 : null),
+    }))
+  );
+
+  // Refund COGS reversal: original batch cost per product, resolved
+  // from the original sales' items (first line per product, as the
+  // dashboard does). A refund item whose product is absent from the
+  // original sale — or whose original line had no batch — is cost-
+  // unknown: counted, contributes 0.
+  let refundCost = { cogs: 0, knownLines: 0, unknownCostLines: 0, unknownCostUnits: 0 };
+  if (refunds.length > 0) {
+    const originalSaleIds = [...new Set(refunds.map((r: any) => r.originalSaleId))];
+    const originalItems = await prisma.saleItem.findMany({
+      where: { saleId: { in: originalSaleIds } },
+      select: { saleId: true, productId: true, batch: { select: { purchasePrice: true } } },
+    });
+    // Refunded service lines (Wave C4) likewise reverse at a
+    // knowable cost of 0, not "unknown".
+    const originalProductIds = [...new Set((originalItems as any[]).map((oi: any) => oi.productId))];
+    const refundServiceIdSet = new Set(
+      originalProductIds.length
+        ? (await prisma.product.findMany({
+            where: { id: { in: originalProductIds }, isService: true },
+            select: { id: true },
+          })).map((p: any) => p.id)
+        : []
+    );
+    const costBySaleProduct = new Map<string, number | null>();
+    for (const oi of originalItems as any[]) {
+      const key = `${oi.saleId}::${oi.productId}`;
+      if (!costBySaleProduct.has(key)) {
+        costBySaleProduct.set(
+          key,
+          oi.batch ? oi.batch.purchasePrice : (refundServiceIdSet.has(oi.productId) ? 0 : null)
+        );
+      }
+    }
+    const lines = refunds.flatMap((r: any) =>
+      (r.items || []).map((ri: any) => ({
+        quantity: ri.quantity,
+        batchPurchasePrice: costBySaleProduct.get(`${r.originalSaleId}::${ri.productId}`) ?? null,
+      }))
+    );
+    refundCost = summarizeCogs(lines);
+  }
+
+  // Expense category names (same resolution as the expense report).
+  const categoryIds = expenseByCategory
+    .map((g: any) => g.categoryId)
+    .filter((id: any): id is string => typeof id === 'string' && id !== '');
+  const categoryRows = categoryIds.length > 0
+    ? await prisma.expenseCategory.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+    : [];
+  const categoryNameById = new Map(categoryRows.map((c: any) => [c.id, c.name]));
+  const byCategory = (expenseByCategory as any[])
+    .map((g) => ({
+      categoryId: g.categoryId || null,
+      category: g.categoryId ? categoryNameById.get(g.categoryId) || 'Unknown category' : 'Uncategorized',
+      amount: round2(g._sum?.amount || 0),
+      count: g._count?.id || 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const pnl = computePnl({
+    grossRevenue,
+    refundsTotal,
+    cogsGross: cogsGross.cogs,
+    cogsReversal: refundCost.cogs,
+    expensesTotal: expenseAgg._sum?.amount || 0,
+  });
+
+  return {
+    period: { from: dateFilter.gte.toISOString(), to: dateFilter.lte.toISOString() },
+    revenue: pnl.revenue,
+    cogs: {
+      ...pnl.cogs,
+      unknownCostLines: cogsGross.unknownCostLines,
+      unknownCostUnits: cogsGross.unknownCostUnits,
+      unknownRefundCostLines: refundCost.unknownCostLines,
+      unknownRefundCostUnits: refundCost.unknownCostUnits,
+    },
+    grossProfit: pnl.grossProfit,
+    expenses: {
+      total: pnl.expenses,
+      count: expenseAgg._count?.id || 0,
+      byCategory,
+    },
+    netProfit: pnl.netProfit,
+    counts: { sales: salesAgg._count?.id || 0, refunds: refunds.length },
+  };
+}
+
+/** Narrow a built statement to the PnlStatement shape comparePnl consumes. */
+function toPnlStatement(data: any): PnlStatement {
+  return {
+    revenue: data.revenue,
+    cogs: { gross: data.cogs.gross, refundReversal: data.cogs.refundReversal, net: data.cogs.net },
+    grossProfit: data.grossProfit,
+    expenses: data.expenses.total,
+    netProfit: data.netProfit,
+  };
 }
 
 // ─── GET /reports/accounting/pnl ─────────────────────────────────────
@@ -121,154 +290,72 @@ export const getAccountingPnl = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
     const dateFilter = resolvePeriod(req);
-    const saleWhere = buildStatementSaleWhere(req, dateFilter);
-    // Refunds are scoped to the tenant WITHOUT the period/status parts:
-    // a refund belongs to the period it was created in, whatever the
-    // original sale's date or status (the dashboard's netting basis).
-    const { createdAt: _createdAt, status: _status, ...saleScope } = saleWhere;
-    const expenseWhere = buildExpenseWhere(req, dateFilter);
+    const data = await buildPnlStatement(prisma, resolveScope(req), dateFilter);
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Accounting P&L error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
 
-    const [salesAgg, saleItems, refunds, expenseAgg, expenseByCategory] = await Promise.all([
-      prisma.sale.aggregate({ where: saleWhere, _sum: { totalAmount: true }, _count: { id: true } }),
-      prisma.saleItem.findMany({
-        where: { sale: saleWhere },
-        select: { quantity: true, productId: true, batch: { select: { purchasePrice: true } } },
-      }),
-      prisma.refund.findMany({
-        where: { createdAt: dateFilter, originalSale: saleScope },
-        select: {
-          id: true,
-          refundAmount: true,
-          originalSaleId: true,
-          items: { select: { productId: true, quantity: true } },
-        },
-      }),
-      prisma.expense.aggregate({ where: expenseWhere, _sum: { amount: true }, _count: { id: true } }),
-      prisma.expense.groupBy({
-        by: ['categoryId'],
-        where: expenseWhere,
-        _sum: { amount: true },
-        _count: { id: true },
-      }),
-    ]);
+// ─── GET /reports/accounting/pnl/compare ─────────────────────────────
+// Item 8 — deeper P&L: the current period against the previous
+// equal-length period immediately before it, plus a per-branch
+// breakdown of the current period (only when no single branch is
+// selected — a branch-scoped request is already one branch).
+// The previous period is derived from the requested range, so a
+// custom from/to compares against the equal-length window before it.
 
-    const grossRevenue = salesAgg._sum?.totalAmount || 0;
-    const refundsTotal = refunds.reduce((sum: number, r: any) => sum + (r.refundAmount || 0), 0);
+export const getPnlComparison = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const dateFilter = resolvePeriod(req);
+    const scope = resolveScope(req);
 
-    // Service lines (Wave C4) have no batch BY DESIGN and their cost
-    // is knowably zero (a consultation consumes no stock) — price
-    // them at 0 here so they are not miscounted as cost-unknown
-    // legacy lines by summarizeCogs.
-    const itemProductIds = [...new Set(saleItems.map((it: any) => it.productId).filter(Boolean))];
-    const serviceProductIdSet = new Set(
-      itemProductIds.length
-        ? (await prisma.product.findMany({
-            where: { id: { in: itemProductIds }, isService: true },
-            select: { id: true },
-          })).map((p: any) => p.id)
-        : []
-    );
+    const current = await buildPnlStatement(prisma, scope, dateFilter);
+    const lengthMs = dateFilter.lte.getTime() - dateFilter.gte.getTime();
+    const prevEnd = new Date(dateFilter.gte.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - lengthMs);
+    const previous = await buildPnlStatement(prisma, scope, { gte: prevStart, lte: prevEnd });
+    const comparison = comparePnl(toPnlStatement(current), toPnlStatement(previous));
 
-    const cogsGross = summarizeCogs(
-      saleItems.map((it: any) => ({
-        quantity: it.quantity,
-        batchPurchasePrice: it.batch
-          ? it.batch.purchasePrice
-          : (serviceProductIdSet.has(it.productId) ? 0 : null),
-      }))
-    );
-
-    // Refund COGS reversal: original batch cost per product, resolved
-    // from the original sales' items (first line per product, as the
-    // dashboard does). A refund item whose product is absent from the
-    // original sale — or whose original line had no batch — is cost-
-    // unknown: counted, contributes 0.
-    let refundCost = { cogs: 0, knownLines: 0, unknownCostLines: 0, unknownCostUnits: 0 };
-    if (refunds.length > 0) {
-      const originalSaleIds = [...new Set(refunds.map((r: any) => r.originalSaleId))];
-      const originalItems = await prisma.saleItem.findMany({
-        where: { saleId: { in: originalSaleIds } },
-        select: { saleId: true, productId: true, batch: { select: { purchasePrice: true } } },
+    let byBranch: any[] = [];
+    if (!scope.branchId && scope.companyId) {
+      const branches = await prisma.branch.findMany({
+        where: { companyId: scope.companyId },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
       });
-      // Refunded service lines (Wave C4) likewise reverse at a
-      // knowable cost of 0, not "unknown".
-      const originalProductIds = [...new Set((originalItems as any[]).map((oi: any) => oi.productId))];
-      const refundServiceIdSet = new Set(
-        originalProductIds.length
-          ? (await prisma.product.findMany({
-              where: { id: { in: originalProductIds }, isService: true },
-              select: { id: true },
-            })).map((p: any) => p.id)
-          : []
+      byBranch = await Promise.all(
+        (branches as any[]).map(async (b) => {
+          const s = await buildPnlStatement(prisma, { ...scope, branchId: b.id }, dateFilter);
+          return {
+            branchId: b.id,
+            branchName: b.name,
+            revenue: s.revenue,
+            cogs: s.cogs,
+            grossProfit: s.grossProfit,
+            expenses: s.expenses,
+            netProfit: s.netProfit,
+            counts: s.counts,
+          };
+        })
       );
-      const costBySaleProduct = new Map<string, number | null>();
-      for (const oi of originalItems as any[]) {
-        const key = `${oi.saleId}::${oi.productId}`;
-        if (!costBySaleProduct.has(key)) {
-          costBySaleProduct.set(
-            key,
-            oi.batch ? oi.batch.purchasePrice : (refundServiceIdSet.has(oi.productId) ? 0 : null)
-          );
-        }
-      }
-      const lines = refunds.flatMap((r: any) =>
-        (r.items || []).map((ri: any) => ({
-          quantity: ri.quantity,
-          batchPurchasePrice: costBySaleProduct.get(`${r.originalSaleId}::${ri.productId}`) ?? null,
-        }))
-      );
-      refundCost = summarizeCogs(lines);
     }
-
-    // Expense category names (same resolution as the expense report).
-    const categoryIds = expenseByCategory
-      .map((g: any) => g.categoryId)
-      .filter((id: any): id is string => typeof id === 'string' && id !== '');
-    const categoryRows = categoryIds.length > 0
-      ? await prisma.expenseCategory.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
-      : [];
-    const categoryNameById = new Map(categoryRows.map((c: any) => [c.id, c.name]));
-    const byCategory = (expenseByCategory as any[])
-      .map((g) => ({
-        categoryId: g.categoryId || null,
-        category: g.categoryId ? categoryNameById.get(g.categoryId) || 'Unknown category' : 'Uncategorized',
-        amount: round2(g._sum?.amount || 0),
-        count: g._count?.id || 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-
-    const pnl = computePnl({
-      grossRevenue,
-      refundsTotal,
-      cogsGross: cogsGross.cogs,
-      cogsReversal: refundCost.cogs,
-      expensesTotal: expenseAgg._sum?.amount || 0,
-    });
 
     return res.json({
       success: true,
       data: {
-        period: { from: dateFilter.gte.toISOString(), to: dateFilter.lte.toISOString() },
-        revenue: pnl.revenue,
-        cogs: {
-          ...pnl.cogs,
-          unknownCostLines: cogsGross.unknownCostLines,
-          unknownCostUnits: cogsGross.unknownCostUnits,
-          unknownRefundCostLines: refundCost.unknownCostLines,
-          unknownRefundCostUnits: refundCost.unknownCostUnits,
-        },
-        grossProfit: pnl.grossProfit,
-        expenses: {
-          total: pnl.expenses,
-          count: expenseAgg._count?.id || 0,
-          byCategory,
-        },
-        netProfit: pnl.netProfit,
-        counts: { sales: salesAgg._count?.id || 0, refunds: refunds.length },
+        period: current.period,
+        previousPeriod: previous.period,
+        current,
+        previous,
+        comparison,
+        byBranch,
       },
     });
   } catch (error: any) {
-    console.error('Accounting P&L error:', error);
+    console.error('Accounting P&L comparison error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -417,7 +504,7 @@ export const getCashbook = async (req: AuthRequest, res: Response) => {
     if (scope.companyId) saleScope.companyId = scope.companyId;
     if (scope.branchId) saleScope.branchId = scope.branchId;
 
-    const expenseWhere = buildExpenseWhere(req, dateFilter);
+    const expenseWhere = buildExpenseWhere(resolveScope(req), dateFilter);
 
     const [allocations, legacySales, khataPayments, refundRows, expenseAgg] = await Promise.all([
       prisma.salePayment.groupBy({

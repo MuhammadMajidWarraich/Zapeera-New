@@ -38,10 +38,26 @@ import {
 } from '../controllers/advanced-report.controller';
 import {
   getAccountingPnl,
+  getPnlComparison,
   getReceivablesAgeing,
   getPayables,
   getCashbook
 } from '../controllers/accounting-report.controller';
+import {
+  listBankAccounts,
+  createBankAccount,
+  updateBankAccount,
+  listStatements,
+  createStatement,
+  getStatement,
+  autoMatchStatement,
+  matchStatementLine,
+  unmatchStatementLine,
+  ignoreStatementLine,
+  listReconciliations,
+  createReconciliation,
+  completeReconciliation
+} from '../controllers/bank-reconciliation.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { requireBusinessDashboardAccess } from '../middleware/business-dashboard-access.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -107,8 +123,26 @@ router.get('/advanced/daily', checkPermission('reports.read'), getAdvancedDailyR
 
 // Accounting-lite (Wave B8): read-only P&L / ageing / payables / cashbook
 router.get('/accounting/pnl', checkPermission('reports.read'), getAccountingPnl);
+router.get('/accounting/pnl/compare', checkPermission('reports.read'), getPnlComparison);
 router.get('/accounting/receivables-ageing', checkPermission('reports.read'), getReceivablesAgeing);
 router.get('/accounting/payables', checkPermission('reports.read'), getPayables);
 router.get('/accounting/cashbook', checkPermission('reports.read'), getCashbook);
+
+// Bank reconciliation (Wave B — Item 8): accounts, statements, matching,
+// per-period reconciliation state. Same Finance Pack / Growth+ gate as
+// the rest of /accounting/* above.
+router.get('/accounting/bank-accounts', checkPermission('reports.read'), listBankAccounts);
+router.post('/accounting/bank-accounts', checkPermission('reports.read'), createBankAccount);
+router.patch('/accounting/bank-accounts/:id', checkPermission('reports.read'), updateBankAccount);
+router.get('/accounting/statements', checkPermission('reports.read'), listStatements);
+router.post('/accounting/statements', checkPermission('reports.read'), createStatement);
+router.get('/accounting/statements/:id', checkPermission('reports.read'), getStatement);
+router.post('/accounting/statements/:id/auto-match', checkPermission('reports.read'), autoMatchStatement);
+router.post('/accounting/statements/:id/lines/:lineId/match', checkPermission('reports.read'), matchStatementLine);
+router.post('/accounting/statements/:id/lines/:lineId/unmatch', checkPermission('reports.read'), unmatchStatementLine);
+router.post('/accounting/statements/:id/lines/:lineId/ignore', checkPermission('reports.read'), ignoreStatementLine);
+router.get('/accounting/reconciliations', checkPermission('reports.read'), listReconciliations);
+router.post('/accounting/reconciliations', checkPermission('reports.read'), createReconciliation);
+router.post('/accounting/reconciliations/:id/complete', checkPermission('reports.read'), completeReconciliation);
 
 export default router;
