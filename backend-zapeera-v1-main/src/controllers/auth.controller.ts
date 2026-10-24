@@ -14,6 +14,7 @@ import { getDatabaseService } from '../services/database.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { generateCSRFToken } from '../middleware/csrf.middleware';
 import { isLocked, recordFailedAttempt, clearFailedAttempts } from '../utils/account-lockout.util';
+import { createChallengeToken } from '../utils/two-factor.util';
 import { claimPendingPartnerAdmins } from '../utils/partner.util';
 import logger from '../utils/logger';
 import Joi from 'joi';
@@ -68,6 +69,126 @@ const registerSchema = Joi.object({
     phone: Joi.string().required()
   }).optional()
 });
+
+/**
+ * Issue a full login session for an already-authenticated user: rotates the
+ * single-session token, stamps lastLoginAt, resolves memberships and returns
+ * the standard login payload ({ user, accessToken } + auth cookies).
+ *
+ * Shared by POST /auth/login (after the password check — and after the 2FA
+ * gate when the account is enrolled) and POST /auth/login/2fa (after the
+ * TOTP/recovery code has been verified), so both paths return byte-identical
+ * success shapes.
+ */
+export const issueLoginSession = async (req: Request, res: Response, prisma: PrismaClient, user: any): Promise<void> => {
+  // Generate unique session token for single-session enforcement
+  const sessionToken = generateSessionToken();
+
+  // Update user with new session token (invalidates any previous sessions)
+  await prisma.zapeeraUser.update({
+    where: { id: user.id },
+    data: {
+      sessionToken,
+      lastLoginAt: new Date()
+    }
+  });
+
+  // Note: concurrent session enforcement is handled per-business via Settings-based tracking in auth middleware.
+
+  const activeMemberships = await prisma.membership.findMany({
+    where: { userId: user.id, status: 'ACTIVE' },
+    include: {
+      business: { select: { name: true, createdBy: true } },
+      role: { select: { name: true } },
+      branches: { select: { branchId: true } }
+    }
+  });
+
+  const membershipList = activeMemberships.map((m) => {
+    const fallbackRoleName =
+      m.business?.createdBy && String(m.business.createdBy) === String(user.id)
+        ? 'OWNER'
+        : null;
+
+    return {
+      id: m.id,
+      businessId: m.businessId,
+      businessName: m.business?.name || 'Unknown Business',
+      roleId: m.roleId,
+      roleName: m.role?.name || fallbackRoleName,
+      branchIds: Array.isArray(m.branches) ? m.branches.map((b) => b.branchId) : [],
+      status: m.status
+    };
+  });
+
+  // Find membership for currently selected company (if any)
+  const selectedCompanyId = req.headers['x-company-id'] as string;
+  const currentMembership = selectedCompanyId 
+    ? membershipList.find(m => m.businessId === selectedCompanyId)
+    : membershipList[0]; // Default to first membership if none selected
+
+  const membershipRole = currentMembership?.roleName ? String(currentMembership.roleName).toUpperCase() : null;
+  const effectiveRole = membershipRole || 'USER';
+
+  // Generate JWT token with session token included
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is not defined in environment variables');
+    throw new Error('JWT_SECRET is not defined. Please set JWT_SECRET in your .env file or environment variables.');
+  }
+
+  const tokenPayload: any = {
+    userId: user.id,
+    username: user.username,
+    branchId: user.branchId,
+    createdBy: user.createdBy,
+    sessionToken // Include session token in JWT for validation
+  };
+  const token = (jwt.sign as any)(
+    tokenPayload,
+    process.env.JWT_SECRET!,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+
+  console.log('✅ Login successful for user:', user.username);
+
+  // Generate CSRF token
+  const csrfToken = generateCSRFToken();
+
+  // Set JWT token in httpOnly cookie for enhanced security
+  res.cookie('auth-token', token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none', // Required for cross-origin (Vercel → Railway)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/'
+  });
+
+  // Set CSRF token in cookie (accessible to frontend)
+  res.cookie('csrf-token', csrfToken, {
+    httpOnly: false, // Client needs to read this
+    secure: true,
+    sameSite: 'none', // Required for cross-origin (Vercel → Railway)
+    maxAge: 60 * 60 * 1000, // 1 hour
+    path: '/'
+  });
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        isActive: user.isActive,
+        email: user.email,
+        role: effectiveRole, // Backward compatibility
+        membership: currentMembership || null, // Nests for frontend expectation
+        memberships: membershipList // Nests for frontend expectation
+      },
+      accessToken: token
+    }
+  });
+};
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -405,113 +526,30 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     clearFailedAttempts(usernameOrEmail);
     if (accountLockoutKey) clearFailedAttempts(accountLockoutKey);
 
-    // Generate unique session token for single-session enforcement
-    const sessionToken = generateSessionToken();
-
-    // Update user with new session token (invalidates any previous sessions)
-    await prisma.zapeeraUser.update({
-      where: { id: user.id },
-      data: {
-        sessionToken,
-        lastLoginAt: new Date()
-      }
-    });
-
-    // Note: concurrent session enforcement is handled per-business via Settings-based tracking in auth middleware.
-
-    const activeMemberships = await prisma.membership.findMany({
-      where: { userId: user.id, status: 'ACTIVE' },
-      include: {
-        business: { select: { name: true, createdBy: true } },
-        role: { select: { name: true } },
-        branches: { select: { branchId: true } }
-      }
-    });
-
-    const membershipList = activeMemberships.map((m) => {
-      const fallbackRoleName =
-        m.business?.createdBy && String(m.business.createdBy) === String(user.id)
-          ? 'OWNER'
-          : null;
-
-      return {
-        id: m.id,
-        businessId: m.businessId,
-        businessName: m.business?.name || 'Unknown Business',
-        roleId: m.roleId,
-        roleName: m.role?.name || fallbackRoleName,
-        branchIds: Array.isArray(m.branches) ? m.branches.map((b) => b.branchId) : [],
-        status: m.status
-      };
-    });
-
-    // Find membership for currently selected company (if any)
-    const selectedCompanyId = req.headers['x-company-id'] as string;
-    const currentMembership = selectedCompanyId 
-      ? membershipList.find(m => m.businessId === selectedCompanyId)
-      : membershipList[0]; // Default to first membership if none selected
-
-    const membershipRole = currentMembership?.roleName ? String(currentMembership.roleName).toUpperCase() : null;
-    const effectiveRole = membershipRole || 'USER';
-
-    // Generate JWT token with session token included
-    if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET is not defined in environment variables');
-      throw new Error('JWT_SECRET is not defined. Please set JWT_SECRET in your .env file or environment variables.');
+    // ── Two-factor authentication gate ────────────────────────────────
+    // LOCKOUT SAFETY (do not weaken): the challenge is enforced ONLY when
+    // the user has COMPLETED 2FA setup — twoFactorEnabled=true AND a TOTP
+    // secret is stored. Accounts that merely flipped the old Settings
+    // toggle (which persisted the flag with no secret and no enforcement)
+    // have twoFactorSecret=null; they MUST log in exactly as before and be
+    // prompted to finish enrollment from Settings. Challenging them here
+    // would lock them out permanently — nobody can answer a code for a
+    // secret that does not exist.
+    const twoFactorEnrolled =
+      (user.twoFactorEnabled === true || user.twoFactorEnabled === 1) && !!user.twoFactorSecret;
+    if (twoFactorEnrolled) {
+      const challengeToken = createChallengeToken(user.id);
+      res.json({
+        success: true,
+        data: {
+          twoFactorRequired: true,
+          challengeToken
+        }
+      });
+      return;
     }
 
-    const tokenPayload: any = {
-      userId: user.id,
-      username: user.username,
-      branchId: user.branchId,
-      createdBy: user.createdBy,
-      sessionToken // Include session token in JWT for validation
-    };
-    const token = (jwt.sign as any)(
-      tokenPayload,
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
-    console.log('✅ Login successful for user:', usernameOrEmail);
-
-    // Generate CSRF token
-    const csrfToken = generateCSRFToken();
-
-    // Set JWT token in httpOnly cookie for enhanced security
-    res.cookie('auth-token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/'
-    });
-
-    // Set CSRF token in cookie (accessible to frontend)
-    res.cookie('csrf-token', csrfToken, {
-      httpOnly: false, // Client needs to read this
-      secure: true,
-      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
-      maxAge: 60 * 60 * 1000, // 1 hour
-      path: '/'
-    });
-
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          isActive: user.isActive,
-          email: user.email,
-          role: effectiveRole, // Backward compatibility
-          membership: currentMembership || null, // Nests for frontend expectation
-          memberships: membershipList // Nests for frontend expectation
-        },
-        accessToken: token
-      }
-    });
+    await issueLoginSession(req, res, prisma, user);
   } catch (error: any) {
     console.error('❌ Login error:', error);
     console.error('❌ Login error details:', {
@@ -742,6 +780,10 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         dateOfBirth: user.dateOfBirth,
         bio: user.bio,
         twoFactorEnabled: user.twoFactorEnabled,
+        // True once a TOTP secret exists (setup started/completed). Lets the
+        // UI distinguish "enabled for real" from a legacy flag-only account
+        // whose enrollment was never finished. Never exposes the secret.
+        twoFactorConfigured: Boolean((user as any).twoFactorSecret),
         isActive: user.isActive,
         role: effectiveRole,
         membership: currentMembership || null,
@@ -836,8 +878,12 @@ const updateProfileSchema = Joi.object({
   city: Joi.string().allow('').optional(),
   country: Joi.string().allow('').optional(),
   dateOfBirth: Joi.string().isoDate().allow(null).optional(),
-  bio: Joi.string().allow('').optional(),
-  twoFactorEnabled: Joi.boolean().optional()
+  bio: Joi.string().allow('').optional()
+  // NOTE: twoFactorEnabled is deliberately NOT accepted here. 2FA state may
+  // only change through the dedicated /auth/2fa/* endpoints (setup requires
+  // a password re-confirm, enable requires a valid TOTP, disable requires a
+  // code) — letting a generic profile update flip it was the old fake
+  // toggle. The flag remains readable via profile responses.
 });
 
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
@@ -853,7 +899,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     }
 
     const userId = (req as any).user.id;
-    const { name, email, profileImage, phone, address, city, country, dateOfBirth, bio, twoFactorEnabled } = req.body;
+    const { name, email, profileImage, phone, address, city, country, dateOfBirth, bio } = req.body;
 
     // Get database client (works with SQLite or PostgreSQL)
     const prisma = await getPrisma();
@@ -888,8 +934,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         ...(city !== undefined && { city: city || null }),
         ...(country !== undefined && { country: country || null }),
         ...(dateOfBirth !== undefined && { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }),
-        ...(bio !== undefined && { bio: bio || null }),
-        ...(twoFactorEnabled !== undefined && { twoFactorEnabled })
+        ...(bio !== undefined && { bio: bio || null })
       }
     });
 
@@ -914,6 +959,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         dateOfBirth: updatedUser.dateOfBirth,
         bio: updatedUser.bio,
         twoFactorEnabled: updatedUser.twoFactorEnabled,
+        twoFactorConfigured: Boolean((updatedUser as any).twoFactorSecret),
         role: normalizeAppRole((req as any)?.membership?.role_name || 'USER')
       }
     });

@@ -37,6 +37,7 @@ interface LoginFormProps {
   onLogin: (user: any) => void;
   onNavigateToSignup?: () => void;
   loginHandler?: (credentials: { usernameOrEmail: string; password: string }) => Promise<any>;
+  login2faHandler?: (payload: { challengeToken: string; code?: string; recoveryCode?: string }) => Promise<any>;
 }
 
 interface FieldErrors {
@@ -44,7 +45,7 @@ interface FieldErrors {
   password?: string;
 }
 
-const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps) => {
+const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler, login2faHandler }: LoginFormProps) => {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const [formData, setFormData] = useState({
@@ -68,6 +69,14 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
   const [verificationEmail, setVerificationEmail] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
+  // Two-factor challenge state: set when the password check passed but the
+  // account requires a TOTP/recovery code before a session exists.
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState("");
+  const [verifying2fa, setVerifying2fa] = useState(false);
 
   // Validate individual field
   const validateField = (field: string, value: string): string => {
@@ -99,6 +108,52 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
     return Object.keys(errors).length === 0;
   };
 
+  // Shared completion for a fully authenticated login response (a normal
+  // login and the 2FA completion return the same shape): persist the user,
+  // hand it to AuthContext, and enter the app.
+  const finishLogin = async (user: any): Promise<void> => {
+    // Auth is now handled via httpOnly cookie — no client-side token storage needed
+    try {
+      const role = normalizeAppRole(user.role);
+      const userForStore = {
+        ...user,
+        role,
+        membership: user.membership
+          ? {
+              ...user.membership,
+              roleName: user.membership.roleName ? normalizeAppRole(user.membership.roleName) : undefined,
+            }
+          : user.membership,
+        memberships: Array.isArray(user.memberships)
+          ? user.memberships.map((m: any) => ({
+              ...m,
+              roleName: m.roleName ? normalizeAppRole(m.roleName) : undefined,
+            }))
+          : user.memberships,
+      };
+      writeStoredUser(userForStore);
+    } catch (storageError: any) {
+      setError("Login failed: Could not save user data.");
+      return;
+    }
+
+    const storedUser = readStoredUser();
+
+    if (!storedUser) {
+      setError("Login failed: User data not saved properly.");
+      return;
+    }
+
+    // Call onLogin to update AuthContext (reuse stored shape so memberships persist)
+    try {
+      await onLogin(JSON.parse(storedUser));
+    } catch {
+      await onLogin({ ...user, role: normalizeAppRole(user.role) });
+    }
+
+    navigate('/dashboard');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -124,6 +179,17 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
             password: formData.password
           });
 
+      if ((response.data as any)?.twoFactorRequired && (response.data as any)?.challengeToken) {
+        // Password accepted — a second factor is required before any
+        // session exists. Switch to the code step; nothing is stored yet.
+        setChallengeToken((response.data as any).challengeToken);
+        setTwoFactorError("");
+        setTwoFactorCode("");
+        setRecoveryCode("");
+        setUseRecoveryCode(false);
+        return;
+      }
+
       if (response.success && response.data) {
         const { user } = response.data;
 
@@ -132,46 +198,8 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
           return;
         }
 
-        // Auth is now handled via httpOnly cookie — no client-side token storage needed
-        try {
-          const role = normalizeAppRole(user.role);
-          const userForStore = {
-            ...user,
-            role,
-            membership: user.membership
-              ? {
-                  ...user.membership,
-                  roleName: user.membership.roleName ? normalizeAppRole(user.membership.roleName) : undefined,
-                }
-              : user.membership,
-            memberships: Array.isArray(user.memberships)
-              ? user.memberships.map((m: any) => ({
-                  ...m,
-                  roleName: m.roleName ? normalizeAppRole(m.roleName) : undefined,
-                }))
-              : user.memberships,
-          };
-          writeStoredUser(userForStore);
-        } catch (storageError: any) {
-          setError("Login failed: Could not save user data.");
-          return;
-        }
+        await finishLogin(user);
 
-        const storedUser = readStoredUser();
-
-        if (!storedUser) {
-          setError("Login failed: User data not saved properly.");
-          return;
-        }
-
-        // Call onLogin to update AuthContext (reuse stored shape so memberships persist)
-        try {
-          await onLogin(JSON.parse(storedUser));
-        } catch {
-          await onLogin({ ...user, role: normalizeAppRole(user.role) });
-        }
-
-        navigate('/dashboard');
       } else {
         if (response.accountDisabled) {
           // Clear any stored data to prevent auto-login on page refresh
@@ -221,6 +249,61 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verifying2fa || !challengeToken) return;
+
+    const payload: { challengeToken: string; code?: string; recoveryCode?: string } = { challengeToken };
+    if (useRecoveryCode) {
+      if (!recoveryCode.trim()) {
+        setTwoFactorError("Enter one of your recovery codes.");
+        return;
+      }
+      payload.recoveryCode = recoveryCode.trim();
+    } else {
+      const code = twoFactorCode.replace(/\s+/g, "");
+      if (!/^\d{6}$/.test(code)) {
+        setTwoFactorError("Enter the 6-digit code from your authenticator app.");
+        return;
+      }
+      payload.code = code;
+    }
+
+    setVerifying2fa(true);
+    setTwoFactorError("");
+    try {
+      const response = login2faHandler
+        ? await login2faHandler(payload)
+        : await apiService.login2fa(payload);
+
+      if (response?.success && response.data) {
+        const { user } = response.data;
+        if (!user || !user.id) {
+          setTwoFactorError("Verification failed: Invalid user data received from server.");
+          return;
+        }
+        await finishLogin(user);
+      } else {
+        // The backend answers every failure (wrong code, used recovery
+        // code, expired/dead challenge) with one generic message — show
+        // it as-is; an expired challenge means signing in again.
+        setTwoFactorError(response?.message || "Verification failed. Please try again.");
+      }
+    } catch (error: any) {
+      setTwoFactorError(error?.message || "Verification failed. Please try again.");
+    } finally {
+      setVerifying2fa(false);
+    }
+  };
+
+  const cancelTwoFactor = () => {
+    setChallengeToken(null);
+    setTwoFactorCode("");
+    setRecoveryCode("");
+    setUseRecoveryCode(false);
+    setTwoFactorError("");
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -332,6 +415,103 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
             <p className="text-gray-600">Sign in to your {branding.productName} account</p>
           </div>
 
+          {challengeToken ? (
+          <div className="space-y-5">
+            <div className="p-5 bg-blue-50 border-2 border-blue-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-blue-900 font-semibold">Two-factor verification</p>
+                  <p className="text-sm text-blue-800 mt-1 leading-relaxed">
+                    {useRecoveryCode
+                      ? "Enter one of the recovery codes you saved when you turned on two-factor authentication. Each code works once."
+                      : "Enter the 6-digit code from your authenticator app. The code changes every 30 seconds."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleTwoFactorSubmit} className="space-y-5">
+              {!useRecoveryCode ? (
+                <div>
+                  <label htmlFor="login-2fa-code" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Authenticator code
+                  </label>
+                  <input
+                    id="login-2fa-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    maxLength={6}
+                    value={twoFactorCode}
+                    onChange={(e) => { setTwoFactorCode(e.target.value.replace(/[^0-9]/g, "")); if (twoFactorError) setTwoFactorError(""); }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-2xl tracking-[0.5em] font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50"
+                    placeholder="------"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="login-2fa-recovery" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Recovery code
+                  </label>
+                  <input
+                    id="login-2fa-recovery"
+                    type="text"
+                    autoComplete="off"
+                    autoFocus
+                    value={recoveryCode}
+                    onChange={(e) => { setRecoveryCode(e.target.value); if (twoFactorError) setTwoFactorError(""); }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-lg tracking-[0.2em] font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50"
+                    placeholder="XXXX-XXXX"
+                  />
+                </div>
+              )}
+
+              {twoFactorError && (
+                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start animate-in slide-in-from-top-2 duration-300">
+                  <AlertCircle className="w-5 h-5 text-red-600 mr-3 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 font-medium">{twoFactorError}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={verifying2fa}
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              >
+                {verifying2fa ? (
+                  <span className="flex items-center justify-center space-x-2">
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Verifying...</span>
+                  </span>
+                ) : (
+                  "Verify & Sign In"
+                )}
+              </button>
+            </form>
+
+            <div className="flex items-center justify-between text-sm">
+              <button
+                type="button"
+                onClick={() => { setUseRecoveryCode(!useRecoveryCode); setTwoFactorError(""); }}
+                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                {useRecoveryCode ? "Use authenticator code instead" : "Use a recovery code instead"}
+              </button>
+              <button
+                type="button"
+                onClick={cancelTwoFactor}
+                className="font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          </div>
+          ) : (
+          <>
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Username Field */}
@@ -497,6 +677,9 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler }: LoginFormProps
               </button>
             </p>
           </div>
+
+          </>
+          )}
 
           {/* Security note */}
           <div className="mt-6 flex items-center justify-center space-x-2 text-xs text-gray-500">

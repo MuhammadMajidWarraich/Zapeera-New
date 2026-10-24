@@ -1,12 +1,15 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { login, register, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
+import { setupTwoFactor, enableTwoFactor, disableTwoFactor, regenerateRecoveryCodes, verifyLoginTwoFactor } from '../controllers/two-factor.controller';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Public routes
 router.post('/login', login);
+// Completes a 2FA-challenged login (the challenge token is the credential).
+router.post('/login/2fa', verifyLoginTwoFactor);
 router.post('/register', register);
 router.post('/signup', register);
 router.post('/forgot-password', forgotPassword);
@@ -51,6 +54,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);
+// Two-factor authentication management (setup is pending until enable
+// verifies a TOTP code — see two-factor.controller.ts).
+router.post('/2fa/setup', authenticate, setupTwoFactor);
+router.post('/2fa/enable', authenticate, enableTwoFactor);
+router.post('/2fa/disable', authenticate, disableTwoFactor);
+router.post('/2fa/recovery-codes/regenerate', authenticate, regenerateRecoveryCodes);
 router.post('/change-password', authenticate, changePassword);
 router.put('/update-profile', authenticate, updateProfile);
 router.post('/reset-password', authenticate, resetPassword);

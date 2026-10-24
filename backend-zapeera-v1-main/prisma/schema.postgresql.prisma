@@ -28,6 +28,13 @@ model ZapeeraUser {
   isActive                 Boolean   @default(true)
   businessAccessGranted    Boolean   @default(true)
   twoFactorEnabled         Boolean   @default(false)
+  // Real TOTP 2FA (2026-10-24): twoFactorSecret holds the TOTP secret once
+  // setup has started; enforcement at login requires twoFactorEnabled=true
+  // AND a non-null secret (flag-only legacy accounts stay unchallenged).
+  // twoFactorRecoveryCodes holds a JSON array of SHA-256 hex hashes of the
+  // single-use recovery codes — plaintext codes are never stored.
+  twoFactorSecret          String?
+  twoFactorRecoveryCodes   String?
   sessionToken             String?
   passwordResetToken       String?
   passwordResetExpires     DateTime?

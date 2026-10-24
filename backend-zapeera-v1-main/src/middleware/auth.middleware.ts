@@ -77,6 +77,14 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       return res.status(401).json({ success: false, message: 'Invalid token' });
     }
 
+    // SECURITY: purpose-scoped tokens are NOT access tokens. The 2FA login
+    // challenge (purpose: '2fa-challenge') proves only that a password check
+    // passed for one user; it must never authenticate an API request. Only
+    // tokens with NO purpose claim (regular login/session tokens) proceed.
+    if ((decoded as any).purpose) {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+
     // Get database client (works with SQLite or PostgreSQL)
     let prisma;
     try {
