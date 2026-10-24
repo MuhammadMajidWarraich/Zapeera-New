@@ -129,7 +129,12 @@ interface TranscribeRow {
 const OnlineStore = () => {
   const { user } = useAuth();
   const role = getMembershipRole(user);
-  const canReview = role === "OWNER" || role === "MANAGER" || role === "ADMIN";
+  // NOTE: do not write `role === "ADMIN"` here — getMembershipRole's
+  // return type narrows to OWNER | MANAGER | CASHIER, so a direct
+  // === "ADMIN" comparison is a TS2367 error (the same latent error
+  // already sits in Prescriptions.tsx's canManage line). includes()
+  // on the role list typechecks and reads the same.
+  const canReview = ["OWNER", "MANAGER", "ADMIN"].includes(role);
   const { selectedBusinessId } = useAdmin();
 
   const [loading, setLoading] = useState(true);
