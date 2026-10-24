@@ -125,7 +125,9 @@ const publicProductSelect = {
     select: { quantity: true, sellingPrice: true },
     orderBy: { expireDate: 'asc' as const },
   },
-} as const;
+};
+// NOTE: deliberately NOT `as const` — Prisma's select args need mutable
+// arrays (the batches `where.OR`); a readonly select fails tsc.
 
 const toPublicProduct = (product: any) => {
   const batches = (product.batches || []) as Array<{ quantity: number; sellingPrice: number }>;
