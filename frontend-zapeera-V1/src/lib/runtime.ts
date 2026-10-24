@@ -15,7 +15,11 @@ export type SyncState =
   | 'pending'
   | 'offline'
   | 'failed'
-  | 'conflict';
+  | 'conflict'
+  // Desktop only: the cloud answers, but the local DB holds zero
+  // memberships, so nothing can download yet (2026-10-24 trap). This is
+  // NOT 'online-and-fine': the badge/Settings must say so, not "Online".
+  | 'setup-pending';
 
 export interface DesktopBusinessState {
   businessId: string;

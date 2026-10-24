@@ -103,6 +103,9 @@ export function AccountStats() {
   const { user } = useAuth();
   const runtime = useRuntime();
   const navigate = useNavigate();
+  // Setup-pending (2026-10-24 trap): cloud answers, zero local memberships,
+  // nothing downloaded yet — the pill must not say "Online" for that state.
+  const setupPending = runtime.syncState === "setup-pending";
 
   const stats = useMemo(() => {
     const owned = (allCompanies || []).filter((c: any) => String(c?.createdBy || "") === String(user?.id || "") || c?.accessType === "owned").length;
@@ -143,8 +146,8 @@ export function AccountStats() {
               <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] font-medium leading-tight tracking-[-0.01em] text-[#8c95b0]">
                 <span className="min-w-0">{s.label}</span>
                 {s.desktop ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-1.5 py-px text-[10px] font-bold text-green-600">
-                    <Wifi className="h-2.5 w-2.5" /> Online
+                  <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-bold", setupPending ? "bg-amber-500/10 text-amber-600" : "bg-green-500/10 text-green-600")}>
+                    <Wifi className="h-2.5 w-2.5" /> {setupPending ? "Sync setup pending" : "Online"}
                   </span>
                 ) : null}
               </span>

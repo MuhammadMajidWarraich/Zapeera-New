@@ -28,6 +28,17 @@ let fullSyncCounter = 0;
 let pushDebounceTimer = null;
 let pendingPushTables = new Set();
 
+// Membership recovery (2026-10-24 trap): the provision/pull loops iterate
+// local memberships, which are seeded ONLY by login's fire-and-forget
+// account sync. If that one step missed, the engine idles forever behind
+// a green "Online" (status checks 200, zero download calls). Recovery
+// re-runs account sync when the engine is online but holds no memberships
+// — bounded to one attempt per minute while the condition holds, and it
+// stops as soon as memberships exist.
+let _lastAccountSync = null;
+let _lastAccountSyncAttemptAt = 0;
+const ACCOUNT_SYNC_RECOVERY_INTERVAL_MS = 60 * 1000;
+
 // Cloud API reports entity types using Prisma model names (singular, e.g. 'product').
 // Local SQLite tables use plural names (e.g. 'products'). Map one to the other so
 // pulled changes land in the correct tables.
@@ -559,6 +570,64 @@ function getLocalBusinessIds() {
   return (rows || []).map(r => r.businessId).filter(Boolean);
 }
 
+function getLocalMembershipCount() {
+  return getLocalBusinessIds().length;
+}
+
+function getLastAccountSync() {
+  return _lastAccountSync;
+}
+
+// Re-seed local memberships from the cloud when the engine is online but
+// the local DB holds none — the self-healing step login's fire-and-forget
+// account sync never had. Never throws: every failure is recorded on
+// _lastAccountSync (surfaced to the UI via the sync-status IPC) and the
+// next attempt waits out the throttle window. Identity comes from the
+// users table, NOT local_identity: provision-session writes the users row
+// even when its account-sync step fails, so users is the row that exists
+// in exactly the trap state this recovers from.
+async function recoverMissingMemberships() {
+  if (!query) return { recovered: false, reason: 'no-database' };
+  if (Date.now() - _lastAccountSyncAttemptAt < ACCOUNT_SYNC_RECOVERY_INTERVAL_MS) {
+    return { recovered: false, reason: 'throttled', accountSync: _lastAccountSync };
+  }
+  _lastAccountSyncAttemptAt = Date.now();
+  try {
+    let localUser = null;
+    try {
+      const rows = query('SELECT id, email FROM users ORDER BY lastLoginAt DESC LIMIT 1');
+      localUser = rows && rows[0];
+    } catch {
+      // Older local DBs without lastLoginAt: any local user will do.
+      const rows = query('SELECT id, email FROM users LIMIT 1');
+      localUser = rows && rows[0];
+    }
+    if (!localUser || !localUser.email) {
+      _lastAccountSync = { at: now(), success: false, memberships: 0, message: 'No local user to re-sync account for' };
+      return { recovered: false, reason: 'no-local-user', accountSync: _lastAccountSync };
+    }
+    const accountService = require('./sync-account.service');
+    const result = await accountService.syncAccount(localUser.id, localUser.email);
+    const memberships = (result && result.data && result.data.memberships) ? result.data.memberships.length : 0;
+    _lastAccountSync = {
+      at: now(),
+      success: result ? result.success === true : false,
+      memberships,
+      message: result ? (result.message || null) : 'Account sync unavailable'
+    };
+    if (_lastAccountSync.success) {
+      console.log(`[Sync] Account recovery: ${memberships} membership(s) re-seeded`);
+      return { recovered: memberships > 0, accountSync: _lastAccountSync };
+    }
+    console.log(`[Sync] Account recovery failed: ${_lastAccountSync.message}`);
+    return { recovered: false, reason: 'account-sync-failed', accountSync: _lastAccountSync };
+  } catch (e) {
+    _lastAccountSync = { at: now(), success: false, memberships: 0, message: e.message };
+    console.log(`[Sync] Account recovery error: ${e.message}`);
+    return { recovered: false, reason: 'error', accountSync: _lastAccountSync };
+  }
+}
+
 function getSyncCursor(businessId) {
   if (!query) return null;
   const rows = query(`SELECT value FROM settings WHERE key = ?`, [`sync_cursor_${businessId}`]);
@@ -626,6 +695,11 @@ async function syncBidirectional() {
     return { status: state === 'OFFLINE' ? 'OFFLINE' : 'AUTH_REQUIRED', uploaded: 0, downloaded: 0 };
   }
   console.log('[Sync] Starting synchronization');
+  // Membership recovery: with zero local memberships the provision/pull
+  // steps below iterate zero rows forever — re-seed first (throttled).
+  if (getLocalBusinessIds().length === 0) {
+    await recoverMissingMemberships();
+  }
   try {
     const provisionResult = await provisionPendingBusinesses();
     if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
@@ -672,6 +746,14 @@ function startPeriodicSync() {
       const st = await checkCloudConnectivity();
       if (st !== 'SYNC_READY') return;
       fullSyncCounter++;
+      // Membership recovery (2026-10-24 trap): with zero local memberships
+      // the provision/pull steps below iterate zero rows forever — re-seed
+      // first (throttled to one account-sync attempt per minute). On a
+      // successful re-seed the same tick provisions + pulls, so recovery
+      // completes without waiting for the next tick.
+      if (getLocalBusinessIds().length === 0) {
+        await recoverMissingMemberships();
+      }
       try {
         const provisionResult = await provisionPendingBusinesses();
         if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
@@ -851,6 +933,9 @@ module.exports = {
   pushChangesToCloud,
   pullChangesFromCloud,
   provisionPendingBusinesses,
+  getLocalMembershipCount,
+  getLastAccountSync,
+  recoverMissingMemberships,
   syncBidirectional,
   getSyncResult,
   SYNC_CONFIG,

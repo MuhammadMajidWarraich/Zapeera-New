@@ -71,12 +71,14 @@ export function DesktopStatusPanel() {
             status.syncState === 'synced' && 'text-green-600',
             status.syncState === 'syncing' && 'text-blue-500',
             status.syncState === 'pending' && 'text-amber-500',
+            status.syncState === 'setup-pending' && 'text-amber-500',
             status.syncState === 'failed' && 'text-red-500',
             status.syncState === 'offline' && 'text-gray-400',
           )}>
             {status.syncState === 'synced' && 'Synced'}
             {status.syncState === 'syncing' && 'Syncing...'}
             {status.syncState === 'pending' && `${status.pendingChanges} pending`}
+            {status.syncState === 'setup-pending' && 'Sync setup pending'}
             {status.syncState === 'failed' && 'Failed'}
             {status.syncState === 'offline' && 'Offline'}
             {status.syncState === 'idle' && 'Idle'}

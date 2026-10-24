@@ -1711,12 +1711,18 @@ function setupIPC() {
           failedChanges: failed,
           syncInProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
           inProgress: syncService.getSyncInProgress ? syncService.getSyncInProgress() : false,
-          queueLength: pending + failed
+          queueLength: pending + failed,
+          // Membership recovery (2026-10-24 trap): the renderer needs the
+          // local membership count to tell "online and syncing" apart from
+          // "online but nothing will ever download", plus the last
+          // account-sync outcome so a failure is visible, not just logged.
+          localBusinessCount: syncService.getLocalMembershipCount ? syncService.getLocalMembershipCount() : 0,
+          accountSync: syncService.getLastAccountSync ? syncService.getLastAccountSync() : null
         };
       }
-      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0 };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null };
     } catch (e) {
-      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, error: e.message };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null, error: e.message };
     }
   });
 

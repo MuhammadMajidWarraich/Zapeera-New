@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   ArrowRight,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -227,16 +228,27 @@ const Settings = () => {
     return usedLabel && totalLabel ? `${usedLabel} / ${totalLabel}` : null;
   })();
   const deviceStatus = {
-    connectivity: syncStatus.connectionState === "online"
-      ? "Online"
-      : syncStatus.connectionState === "auth-required"
-        ? "Sign in again"
-        : syncStatus.connectionState === "checking"
-          ? "Checking…"
-          : "Offline",
+    // Setup-pending (2026-10-24 trap): the cloud answers but no business
+    // has downloaded yet — this stat must not say "Online" for that state.
+    connectivity: syncStatus.syncState === "setup-pending"
+      ? "Sync setup pending"
+      : syncStatus.connectionState === "online"
+        ? "Online"
+        : syncStatus.connectionState === "auth-required"
+          ? "Sign in again"
+          : syncStatus.connectionState === "checking"
+            ? "Checking…"
+            : "Offline",
     lastSync: formatRelative(syncStatus.lastSyncAt),
     storage: storageLabel,
-    printer: formatPrinterPanelValue(printerList)
+    printer: formatPrinterPanelValue(printerList),
+    // Last account-sync failure, surfaced instead of living only in the
+    // desktop console log. Truncated: stat values are single-line tiles.
+    syncSetupError: syncStatus.accountSyncError
+      ? (syncStatus.accountSyncError.length > 60
+        ? `${syncStatus.accountSyncError.slice(0, 57)}…`
+        : syncStatus.accountSyncError)
+      : null,
   };
 
   useEffect(() => {
@@ -1203,13 +1215,23 @@ toast({
             <ZV3DeviceStat
               icon={syncStatus.connectionState === "online" ? Wifi : WifiOff}
               iconClass={
-                syncStatus.connectionState === "online"
-                  ? "bg-green-600/10 text-green-600"
-                  : "bg-amber-500/10 text-amber-600"
+                syncStatus.syncState === "setup-pending"
+                  ? "bg-amber-500/10 text-amber-600"
+                  : syncStatus.connectionState === "online"
+                    ? "bg-green-600/10 text-green-600"
+                    : "bg-amber-500/10 text-amber-600"
               }
               value={deviceStatus.connectivity}
               label="Connection"
             />
+            {deviceStatus.syncSetupError && (
+              <ZV3DeviceStat
+                icon={AlertTriangle}
+                iconClass="bg-amber-500/10 text-amber-600"
+                value={deviceStatus.syncSetupError}
+                label="Sync setup"
+              />
+            )}
             <ZV3DeviceStat
               icon={RefreshCw}
               iconClass="bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]"

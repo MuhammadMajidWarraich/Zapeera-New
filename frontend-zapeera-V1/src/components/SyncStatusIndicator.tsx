@@ -110,21 +110,32 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
 
   const isOnline = status.connectionState === 'online';
   const isAuthRequired = status.connectionState === 'auth-required';
+  // Setup-pending (2026-10-24 trap): the cloud answers, but no business
+  // has downloaded yet — this must NEVER render as green "Online".
+  const isSetupPending = status.syncState === 'setup-pending';
   const hasPending = status.pendingChanges > 0;
 
   return (
     <span
-      title={isAuthRequired ? 'Your cloud sign-in has expired. Sign out and sign in again to resume syncing.' : undefined}
+      title={
+        isAuthRequired
+          ? 'Your cloud sign-in has expired. Sign out and sign in again to resume syncing.'
+          : isSetupPending
+            ? status.accountSyncError
+              ? `Connected to the cloud, but your businesses have not downloaded yet. Last account sync failed: ${status.accountSyncError}`
+              : 'Connected to the cloud, but your businesses have not downloaded yet — sync setup is retrying.'
+            : undefined
+      }
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-        isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : isAuthRequired ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+        isSetupPending ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : isAuthRequired ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
         className,
       )}>
       <span className={cn(
         'w-1.5 h-1.5 rounded-full',
-        isOnline ? 'bg-green-500' : isAuthRequired ? 'bg-red-500' : 'bg-gray-400',
+        isSetupPending ? 'bg-amber-500' : isOnline ? 'bg-green-500' : isAuthRequired ? 'bg-red-500' : 'bg-gray-400',
       )} />
-      {isOnline ? 'Online' : isAuthRequired ? 'Sign in again' : 'Offline'}
+      {isSetupPending ? 'Sync setup pending' : isOnline ? 'Online' : isAuthRequired ? 'Sign in again' : 'Offline'}
       {hasPending && <span className="ml-0.5">· {status.pendingChanges}</span>}
     </span>
   );
