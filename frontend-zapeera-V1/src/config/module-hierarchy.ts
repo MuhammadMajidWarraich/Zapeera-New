@@ -275,6 +275,14 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         module: 'purchases',
         roles: ['OWNER', 'MANAGER'],
       },
+      {
+        key: 'purchase-suggestions',
+        label: 'Purchase Suggestions',
+        href: '/purchase-suggestions',
+        icon: ShoppingCart,
+        module: 'purchases',
+        roles: ['OWNER', 'MANAGER'],
+      },
     ],
   },
 
@@ -526,6 +534,14 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         href: '/advanced-reports',
         icon: BarChart3,
         module: 'advanced_reports',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        key: 'aging_reports',
+        label: 'Aging Reports',
+        href: '/aging-reports',
+        icon: BarChart3,
+        module: 'reports',
         roles: ['OWNER', 'MANAGER'],
       },
       {

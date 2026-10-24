@@ -79,6 +79,8 @@ const ZapeeraDashboard = React.lazy(() => import("./components/dashboard/Zapeera
 const Batches = React.lazy(() => import("./pages/Batches"));
 const Purchases = React.lazy(() => import("./pages/Purchases"));
 const ReorderSuggestionsPage = React.lazy(() => import("./pages/ReorderSuggestions"));
+const PurchaseSuggestionsPage = React.lazy(() => import("./pages/PurchaseSuggestions"));
+const AgingReportsPage = React.lazy(() => import("./pages/AgingReports"));
 const DesktopLoginFlow = React.lazy(() => import("./components/desktop/DesktopLoginFlow").then(m => ({ default: m.DesktopLoginFlow })));
 const InvitationsPage = React.lazy(() => import("./components/user-dashboard/InvitationsPage"));
 const ProfileSecurityPage = React.lazy(() => import("./components/user-dashboard/ProfileSecurityPage"));
@@ -668,6 +670,32 @@ const AppRoutes = () => {
                 <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
                   <MainLayout>
                     <AdvancedReportsPage />
+                  </MainLayout>
+                </RoleProtectedRoute>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/purchase-suggestions" element={
+          <AuthStatus fallback={<Navigate to="/login" replace />}>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <RoleProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'OWNER']}>
+                  <MainLayout>
+                    <PurchaseSuggestionsPage />
+                  </MainLayout>
+                </RoleProtectedRoute>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/aging-reports" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
+                  <MainLayout>
+                    <AgingReportsPage />
                   </MainLayout>
                 </RoleProtectedRoute>
               </AutoModuleGuard>
@@ -1490,6 +1518,36 @@ const AppRoutes = () => {
                   <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
                     <MainLayout>
                       <ReorderSuggestionsPage />
+                    </MainLayout>
+                  </RoleProtectedRoute>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/purchase-suggestions" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
+                    <MainLayout>
+                      <PurchaseSuggestionsPage />
+                    </MainLayout>
+                  </RoleProtectedRoute>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/aging-reports" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
+                    <MainLayout>
+                      <AgingReportsPage />
                     </MainLayout>
                   </RoleProtectedRoute>
                 </AutoModuleGuard>
