@@ -645,6 +645,71 @@ export interface TaxBreakdownLine {
   taxAmount: number;
 }
 
+// Provincial tax (Gap program item 1): PRA / SRB / KPRA / BRA
+// alongside FBR. One row per business (branchId null) or per branch
+// (branchId set — overrides the business row for that branch). The
+// rate/registration are snapshots on each sale's provincial tax
+// lines; the sale's provincialTaxAmount is SEPARATE from taxAmount,
+// so FBR payloads (which read taxAmount only) never change.
+export type ProvincialAuthority = 'PRA' | 'SRB' | 'KPRA' | 'BRA';
+
+export interface ProvincialTaxAuthorityInfo {
+  authority: ProvincialAuthority;
+  name: string;
+  province: string;
+}
+
+export interface ProvincialTaxConfigRecord {
+  id: string;
+  companyId: string;
+  branchId: string | null;
+  branch?: { id: string; name: string } | null;
+  authority: ProvincialAuthority;
+  authorityName: string;
+  province: string | null;
+  registrationNumber: string | null;
+  rate: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProvincialTaxConfigPayload {
+  authority: ProvincialAuthority;
+  registrationNumber?: string | null;
+  rate: number;
+  branchId?: string | null;
+  enabled?: boolean;
+}
+
+// One provincial authority line of a sale, as stored on its
+// SaleProvincialTaxLine rows (authority/rate are snapshots from sale
+// creation). The sale's provincialTaxAmount is the sum of these.
+export interface ProvincialTaxBreakdownLine {
+  authority: ProvincialAuthority;
+  authorityName: string;
+  registrationNumber: string | null;
+  rate: number;
+  taxableAmount: number;
+  taxAmount: number;
+}
+
+export interface ProvincialTaxSummary {
+  from: string | null;
+  to: string | null;
+  branchId: string | null;
+  byAuthority: Array<{
+    authority: ProvincialAuthority;
+    authorityName: string;
+    registrationNumber: string | null;
+    rates: number[];
+    salesCount: number;
+    taxableAmount: number;
+    taxAmount: number;
+  }>;
+  totals: { salesCount: number; taxableAmount: number; taxAmount: number };
+}
+
 // FBR POS fiscal integration (Wave B7): per-business IMS config.
 // The API token is write-only — reads expose only `hasToken`.
 export type FbrEnvironment = 'TEST' | 'SANDBOX' | 'PRODUCTION';
@@ -3006,6 +3071,48 @@ export class ApiService {
     });
   }
 
+  // Provincial tax (Gap program item 1): PRA / SRB / KPRA / BRA.
+  // Config writes are owner-only on the server; reads are
+  // owner/manager/admin. Retire is a soft disable (delete).
+  // The backend returns { success, data: configs, authorities } and
+  // the request wrapper passes the whole body through, so the
+  // authorities list rides alongside `data` on the response.
+  async getProvincialTaxConfigs(): Promise<ApiResponse<ProvincialTaxConfigRecord[]> & { authorities?: ProvincialTaxAuthorityInfo[] }> {
+    return this.request<ProvincialTaxConfigRecord[]>('/provincial-tax');
+  }
+
+  async createProvincialTaxConfig(data: ProvincialTaxConfigPayload) {
+    return this.request<ProvincialTaxConfigRecord>('/provincial-tax', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProvincialTaxConfig(configId: string, data: Partial<ProvincialTaxConfigPayload>) {
+    return this.request<ProvincialTaxConfigRecord>(`/provincial-tax/${configId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // The backend retires (enabled = false) so past sales' snapshots survive.
+  async deleteProvincialTaxConfig(configId: string) {
+    return this.request<ProvincialTaxConfigRecord>(`/provincial-tax/${configId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getProvincialTaxSummary(params?: { from?: string; to?: string; branchId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value);
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<ProvincialTaxSummary>(`/provincial-tax/summary${query ? `?${query}` : ''}`);
+  }
+
   // Backup & Restore (owner only). Exports are file downloads (the
   // server streams the whole business as one JSON document); a restore
   // posts the parsed file and creates a NEW business from it.
@@ -3242,6 +3349,10 @@ export class ApiService {
       }>;
       // Tax classes (Wave B5): per-class breakdown behind taxAmount.
       taxBreakdown?: TaxBreakdownLine[];
+      // Provincial tax (Gap item 1): per-authority breakdown behind
+      // provincialTaxAmount (separate from taxAmount / FBR).
+      provincialTaxAmount?: number;
+      provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
       // Prescriptions (Wave C1): the attached register summary, and
       // the warning flag set when Rx items were sold without one
       // while the business has enforcement off.
@@ -3361,6 +3472,10 @@ export class ApiService {
         subtotal: number;
         taxAmount: number;
         taxBreakdown?: TaxBreakdownLine[];
+        // Provincial tax (Gap item 1): per-authority breakdown behind
+        // provincialTaxAmount (separate from taxAmount / FBR).
+        provincialTaxAmount?: number;
+        provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
         discountAmount: number;
         totalAmount: number;
         paymentMethod: string;
@@ -3412,6 +3527,10 @@ export class ApiService {
       subtotal: number;
       taxAmount: number;
       taxBreakdown?: TaxBreakdownLine[];
+      // Provincial tax (Gap item 1): per-authority breakdown behind
+      // provincialTaxAmount (separate from taxAmount / FBR).
+      provincialTaxAmount?: number;
+      provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
       discountAmount: number;
       totalAmount: number;
       paymentMethod: string;
