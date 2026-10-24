@@ -2858,3 +2858,67 @@ model PartnerApplication {
   @@index([status], name: "idx_partner_application_status")
   @@map("partner_applications")
 }
+
+// ─── Auto-purchase suggestions (Gap Item 4) ──────────────────────────────
+// A PERSISTED reorder proposal. Generation only ever WRITES suggestion
+// rows — it never creates a Purchase, a Batch, or any stock movement.
+// A Purchase is created ONLY by an explicit owner/manager approval
+// (approve endpoint), which runs the same create-from-suggestions flow
+// as the C3 one-click order. Status: PENDING | APPROVED | REJECTED |
+// EXPIRED. Only PENDING can be approved or rejected; approval is
+// terminal and records purchaseId. Branch-scoped like every purchase.
+// Line reason: BELOW_REORDER_LEVEL | BELOW_MIN_STOCK | EXPIRING_STOCK.
+// sellableStock excludes expired batches (FEFO: expired stock is not
+// sellable); expiringStock counts sellable units in batches expiring
+// within 30 days, so an approval can see the cliff coming.
+model PurchaseSuggestion {
+  id           String    @id @default(cuid())
+  companyId    String
+  branchId     String
+  supplierId   String?
+  status       String    @default("PENDING")
+  reason       String?
+  generatedBy  String?
+  approvedBy   String?
+  approvedAt   DateTime?
+  rejectedBy   String?
+  rejectedAt   DateTime?
+  rejectReason String?
+  purchaseId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company  Business           @relation(fields: [companyId], references: [id])
+  branch   Branch             @relation(fields: [branchId], references: [id])
+  supplier Supplier?          @relation(fields: [supplierId], references: [id])
+  purchase Purchase?          @relation(fields: [purchaseId], references: [id])
+  lines    PurchaseSuggestionLine[]
+
+  @@index([companyId], name: "idx_purchaseSuggestion_company")
+  @@index([branchId], name: "idx_purchaseSuggestion_branch")
+  @@index([supplierId], name: "idx_purchaseSuggestion_supplier")
+  @@index([status], name: "idx_purchaseSuggestion_status")
+  @@map("purchase_suggestions")
+}
+
+model PurchaseSuggestionLine {
+  id            String  @id @default(cuid())
+  suggestionId  String
+  productId     String
+  currentStock  Int
+  sellableStock Int
+  expiringStock Int     @default(0)
+  reorderLevel  Int?
+  minStock      Int
+  suggestedQty  Int
+  unitCost      Float?
+  reason        String
+  note          String?
+
+  suggestion PurchaseSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  product    Product            @relation(fields: [productId], references: [id])
+
+  @@index([suggestionId], name: "idx_purchaseSuggestionLine_suggestion")
+  @@index([productId], name: "idx_purchaseSuggestionLine_product")
+  @@map("purchase_suggestion_lines")
+}
