@@ -158,6 +158,8 @@ model Business {
   paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
   fbrConfig                 FbrConfig?
   fbrInvoiceQueue           FbrInvoiceQueue[]
+  integrationConnections      IntegrationConnection[]
+  integrationSyncLogs         IntegrationSyncLog[]
   prescriptions             Prescription[]
   patients                  Patient[]
   doctors                   Doctor[]
@@ -2857,4 +2859,49 @@ model PartnerApplication {
   @@index([email, status], name: "idx_partner_application_email_status")
   @@index([status], name: "idx_partner_application_status")
   @@map("partner_applications")
+}
+
+// ─── Integrations framework (feature/integration-framework) ───────────────
+// Shared, vendor-neutral framework the six provider builders build on.
+// One row per (business, provider). Credentials are AES-256-GCM
+// encrypted server-side (see src/utils/integration-encryption.util.ts)
+// and are NEVER returned by any API — reads expose hasCredentials only.
+// The `config` column is a JSON string (codebase convention, cf.
+// StaffProfile.documents): which entities sync + in which direction.
+model IntegrationConnection {
+  id                   String   @id @default(cuid())
+  businessId           String
+  provider             String // shopify | woocommerce | daraz | jazzcash | postex | google-sheets | easypaisa | meta-commerce | foodpanda | mulphilog | quickbooks | xero | twilio | smsala | tcs | leopards
+  status               String   @default("disconnected") // connected | disconnected | error
+  encryptedCredentials String? // AES-256-GCM ciphertext (v1.iv.tag.data, base64) — never sent to the frontend
+  config               String? // JSON: { syncProducts, syncStock, syncOrders, syncCustomers, direction }
+  lastSyncAt           DateTime?
+  lastError            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, provider])
+  @@map("integration_connections")
+}
+
+model IntegrationSyncLog {
+  id               String   @id @default(cuid())
+  businessId       String
+  provider         String
+  direction        String // in | out
+  entity           String // product | stock | order | customer | payment | shipment
+  status           String // success | partial | failed
+  recordsProcessed Int      @default(0)
+  recordsFailed    Int      @default(0)
+  errorMessage     String?
+  startedAt        DateTime @default(now())
+  finishedAt       DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, provider], name: "idx_integration_sync_log_business_provider")
+  @@index([businessId, startedAt], name: "idx_integration_sync_log_business_started")
+  @@map("integration_sync_logs")
 }

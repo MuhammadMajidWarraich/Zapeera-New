@@ -79,6 +79,11 @@ import parkedSaleRoutes from './routes/parked-sale.routes';
 import promotionRoutes from './routes/promotion.routes';
 import taxClassRoutes from './routes/tax-class.routes';
 import fbrRoutes from './routes/fbr.routes';
+import integrationsRoutes from './routes/integrations.routes';
+// Integrations framework: importing the provider barrel registers every
+// landed provider handler (side effect). The barrel is empty until the
+// six provider builders add their lines.
+import './integrations/providers';
 import prescriptionRoutes from './routes/prescription.routes';
 import patientRoutes from './routes/patient.routes';
 import doctorRoutes from './routes/doctor.routes';
@@ -600,6 +605,7 @@ app.use('/api/v1/parked-sales', parkedSaleRoutes);
 app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
+app.use('/api/v1/integrations', integrationsRoutes);
 app.use('/api/v1/prescriptions', prescriptionRoutes);
 app.use('/api/v1/patients', patientRoutes);
 app.use('/api/v1/doctors', doctorRoutes);
@@ -663,6 +669,7 @@ app.use('/api/parked-sales', parkedSaleRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/fbr', fbrRoutes);
+app.use('/api/integrations', integrationsRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);

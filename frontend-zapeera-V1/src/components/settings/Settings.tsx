@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { isBarcodeApplicableBusinessType } from "@/lib/barcode-scan";
 import { formatPrinterPanelValue, type OsPrinter } from "@/lib/printer-status";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
+import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 
 type DeviceIcon = ComponentType<{ className?: string; strokeWidth?: string | number }>;
 
@@ -116,6 +117,9 @@ const Settings = () => {
   const [isSavingFbr, setIsSavingFbr] = useState(false);
   const [isTestingFbr, setIsTestingFbr] = useState(false);
   const canManageFbr = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
+  // Integrations framework: same owner/manager gate as FBR (the server
+  // enforces OWNER/MANAGER on every integrations route too).
+  const canManageIntegrations = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
   // Backup & Restore: owner-only (the server enforces it too) — a
   // backup carries the business's entire dataset.
   const isBackupOwner = ["OWNER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
@@ -1740,6 +1744,8 @@ toast({
             </p>
           </div>
         </section>
+        {/* Integrations framework */}
+        <IntegrationsSection canManage={canManageIntegrations} selectedCompanyId={selectedCompanyId} />
         {/* Backup & Restore (owner only) */}
         <section
           className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"

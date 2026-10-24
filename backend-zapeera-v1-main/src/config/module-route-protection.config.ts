@@ -81,6 +81,9 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
 
   // Business Management (settings, roles, billing, admin)
   '/api/settings': { module: 'business_management', page: 'settings' },
+  // Integrations framework: the UI lives in Settings, so it shares the
+  // settings page key (same precedent as /api/settings above).
+  '/api/integrations': { module: 'business_management', page: 'settings' },
   '/api/billing-profiles': { module: 'business_management', page: 'billing' },
   '/api/roles': { module: 'business_management', page: 'roles' },
   '/api/admin': { module: 'business_management', page: 'admin' },
