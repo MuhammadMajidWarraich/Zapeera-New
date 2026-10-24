@@ -99,9 +99,28 @@ export const INTEGRATION_REGISTRY: IntegrationProviderEntry[] = [
     limitation:
       'No webhooks — polling only (orders every 15 min, hourly stock push). No true sandbox: the API Explorer runs against production data. Requires a Daraz seller account (CNIC/NTN + bank, verification 24–48h).',
     tier: 1,
+    // Auth material (updated by feature/integration-daraz): the App Key
+    // + Secret alone cannot call ANY Daraz business API — every call
+    // needs a seller OAuth access token too (Lazada-compatible flow:
+    // seller authorizes the app → code → /auth/token/create → tokens;
+    // see src/integrations/daraz/README.md §1). The seller pastes the
+    // tokens from that exchange into the connect dialog; the handler
+    // auto-refreshes with the refresh token and persists rotations.
     credentialFields: [
       { key: 'appKey', label: 'App Key', secret: false },
-      { key: 'appSecret', label: 'App Secret', secret: true }
+      { key: 'appSecret', label: 'App Secret', secret: true },
+      {
+        key: 'accessToken',
+        label: 'Seller Access Token',
+        secret: true,
+        placeholder: 'Paste the seller access token from the Daraz authorization exchange'
+      },
+      {
+        key: 'refreshToken',
+        label: 'Seller Refresh Token',
+        secret: true,
+        placeholder: 'Paste the seller refresh token (enables automatic token renewal)'
+      }
     ]
   },
   {

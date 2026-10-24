@@ -872,6 +872,13 @@ model Sale {
   status             String    @default("COMPLETED")
   saleDate           DateTime?
   membershipId       String?
+  // Channel import (feature/integration-daraz): which external channel
+  // this sale came from ('daraz', ...) and the channel's own order id.
+  // Both null for ordinary counter sales. The composite unique is the
+  // import-idempotency key: the same Daraz order can never create a
+  // second sale (NULLs stay distinct, so legacy rows are unaffected).
+  channel            String?
+  externalOrderId    String?
   uuid               String?   @unique
   syncStatus         String    @default("PENDING")
   createdAt          DateTime  @default(now())
@@ -897,6 +904,7 @@ model Sale {
   user     ZapeeraUser  @relation("SaleCashier", fields: [userId], references: [id])
   salesperson ZapeeraUser? @relation("SaleSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
 
+  @@unique([companyId, channel, externalOrderId])
   @@index([companyId], name: "idx_sale_company")
   @@index([branchId], name: "idx_sale_branch")
   @@index([customerId], name: "idx_sale_customer")

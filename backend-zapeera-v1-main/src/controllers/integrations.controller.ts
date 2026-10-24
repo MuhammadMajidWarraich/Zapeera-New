@@ -63,7 +63,11 @@ const connectSchema = Joi.object({
     syncStock: Joi.boolean(),
     syncOrders: Joi.boolean(),
     syncCustomers: Joi.boolean(),
-    direction: Joi.string().valid('in', 'out', 'both')
+    direction: Joi.string().valid('in', 'out', 'both'),
+    // Daraz: the one branch its shop maps to + the Daraz category id
+    // used when creating listings (optional; see IntegrationSyncConfig).
+    branchId: Joi.string().optional(),
+    darazCategoryId: Joi.string().optional()
   }).optional()
 });
 
@@ -71,7 +75,9 @@ const syncSchema = Joi.object({
   entity: Joi.string()
     .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
     .optional(),
-  direction: Joi.string().valid('in', 'out').optional()
+  direction: Joi.string().valid('in', 'out').optional(),
+  // Required when entity is 'shipment': sale id or invoice number.
+  saleRef: Joi.string().optional()
 });
 
 export const listIntegrationsHandler = async (req: AuthRequest, res: Response) => {

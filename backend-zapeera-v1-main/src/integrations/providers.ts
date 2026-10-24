@@ -10,4 +10,6 @@
 //
 // The framework ships with ZERO provider lines below on purpose: every
 // provider card renders "Coming soon" until its builder lands.
+import './daraz';
+
 export {};

@@ -73,6 +73,20 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /**
+   * The ONE branch a single-shop provider (Daraz) maps to. Optional and
+   * generic: when unset, the provider resolves the business's single
+   * active branch and fails loudly on multi-branch businesses instead
+   * of guessing. Set via the connect payload's config (the Settings
+   * dialog does not collect it yet — wave follow-up: branch picker).
+   */
+  branchId?: string;
+  /**
+   * Daraz-only: the Daraz PrimaryCategory id used when syncProducts
+   * CREATES a listing for a Zapeera product that is not listed yet.
+   * Without it, unlisted products are reported (not created).
+   */
+  darazCategoryId?: string;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {
@@ -169,7 +183,30 @@ export interface IntegrationSyncResult {
  * - syncProducts / syncStock / importOrders: optional per provider — a
  *   provider implements only the directions its API supports. The
  *   framework returns 501 NOT_IMPLEMENTED for unimplemented methods.
+ * - createShipment: the generic fulfilment step, added by the PostEx
+ *   builder and reused by Daraz pack/ready-to-ship (and future
+ *   couriers). The service builds the vendor-neutral input from a
+ *   Zapeera sale (recipient from the customer, COD = unpaid balance,
+ *   parcel from the lines) — handlers never build it themselves.
+ *   getTracking / cancelShipment / createReturnShipment are the
+ *   on-demand companions, dispatched by the dedicated shipment routes.
  */
+export interface CreateShipmentInput {
+  /** Zapeera sale id the shipment is for. */
+  saleId: string;
+  /** Sale invoice number (human reference). */
+  saleInvoiceNumber?: string | null;
+  /** Channel the sale came from ('daraz', ...) + the channel's order id. */
+  channel?: string | null;
+  externalOrderId?: string | null;
+  /** Recipient, from the sale's customer (walk-in when nulls). */
+  recipient: { name: string; phone: string | null; address: string | null };
+  /** Cash to collect on delivery = sale total − paid (0 when prepaid). */
+  codAmount: number;
+  /** Parcel lines, in base units. */
+  items: Array<{ productId: string; quantity: number; name?: string | null }>;
+}
+
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
   connect(credentials: Record<string, unknown>): Promise<{ ok: boolean; message?: string }>;
@@ -178,4 +215,5 @@ export interface IntegrationSyncHandler {
   syncProducts?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   syncStock?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   importOrders?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
+  createShipment?(ctx: IntegrationSyncContext, input: CreateShipmentInput): Promise<IntegrationSyncResult>;
 }
