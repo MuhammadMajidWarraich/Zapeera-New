@@ -56,6 +56,14 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/auth/resend-verification', policy: { kind: 'public' } },
   { prefix: '/api/auth/check-status', policy: { kind: 'public' } },
   { prefix: '/api/auth/sse-token', policy: { kind: 'public' } },
+  // Public live-demo entry (marketing hero): credential-less by design —
+  // the endpoint can only ever sign in the server-designated demo account.
+  // Without this entry the '/api/auth' catch-all below classifies it as
+  // 'auth' and the gate 401s it before the handler runs.
+  { prefix: '/api/auth/demo-login', policy: { kind: 'public' } },
+  // 2FA login completion: the challenge token in the body is the
+  // credential — no JWT exists yet, so the 'auth' catch-all would 401 it.
+  { prefix: '/api/auth/login/2fa', policy: { kind: 'public' } },
   { prefix: '/api/auth', policy: { kind: 'auth' } },
 
   // ── Users (account management, platform-level) ───────────────────────────
