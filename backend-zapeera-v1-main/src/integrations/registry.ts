@@ -85,7 +85,19 @@ export const INTEGRATION_REGISTRY: IntegrationProviderEntry[] = [
     credentialFields: [
       { key: 'storeUrl', label: 'Store URL', secret: false, placeholder: 'https://mystore.com' },
       { key: 'consumerKey', label: 'Consumer key', secret: true },
-      { key: 'consumerSecret', label: 'Consumer secret', secret: true }
+      { key: 'consumerSecret', label: 'Consumer secret', secret: true },
+      // Webhook signing secret (feature/integration-woocommerce): the
+      // Secret set on each webhook in WooCommerce — NOT the consumer
+      // secret (WooCommerce signs deliveries with the per-webhook
+      // secret). Optional at connect time; required before webhook
+      // deliveries are accepted. Add it later by reconnecting.
+      {
+        key: 'webhookSecret',
+        label: 'Webhook secret',
+        secret: true,
+        optional: true,
+        placeholder: 'Same secret as on the WooCommerce webhook'
+      }
     ]
   },
   {

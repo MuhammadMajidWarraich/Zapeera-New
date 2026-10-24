@@ -63,7 +63,10 @@ const connectSchema = Joi.object({
     syncStock: Joi.boolean(),
     syncOrders: Joi.boolean(),
     syncCustomers: Joi.boolean(),
-    direction: Joi.string().valid('in', 'out', 'both')
+    direction: Joi.string().valid('in', 'out', 'both'),
+    // WooCommerce branch binding (feature/integration-woocommerce):
+    // the id of the ONE branch the store maps to.
+    branchId: Joi.string().optional()
   }).optional()
 });
 

@@ -73,6 +73,13 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /**
+   * WooCommerce (feature/integration-woocommerce): the ONE branch the
+   * store is bound to. A store maps to exactly one branch — the handler
+   * refuses to sync when this is unset and the business has several
+   * active branches. Other providers ignore it.
+   */
+  branchId?: string;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {
@@ -91,6 +98,13 @@ export interface IntegrationCredentialField {
   /** Rendered as a password input; never echoed back by any API. */
   secret: boolean;
   placeholder?: string;
+  /**
+   * The field may be left empty (the connect dialog does not require
+   * it). WooCommerce's `webhookSecret` is optional: it is only needed
+   * once the merchant registers webhooks, and it can be added later by
+   * reconnecting.
+   */
+  optional?: boolean;
 }
 
 /** Static, vendor-neutral registry entry (see ./registry.ts). */

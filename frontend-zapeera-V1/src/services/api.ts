@@ -769,6 +769,8 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /** WooCommerce: the id of the ONE branch the store is bound to. */
+  branchId?: string;
 }
 
 export interface IntegrationCredentialField {
@@ -776,6 +778,8 @@ export interface IntegrationCredentialField {
   label: string;
   secret: boolean;
   placeholder?: string;
+  /** The field may be left empty (WooCommerce webhook secret). */
+  optional?: boolean;
 }
 
 export interface IntegrationProviderInfo {
