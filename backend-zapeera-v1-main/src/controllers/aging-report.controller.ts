@@ -7,7 +7,6 @@ import {
 } from '../utils/accounting.util';
 import {
   ageDays,
-  ageBucket,
   bucketOutstandingByAge,
   stockAgeBucket,
   classifyMovement,
@@ -206,9 +205,7 @@ export const getCustomerAgingReport = async (req: AuthRequest, res: Response) =>
       // Oldest open due: replay the FIFO tranches — the earliest
       // SALE_DUE date whose amount is not fully settled by later
       // payments. ageLedgerEntries settles oldest-first, so the oldest
-      // surviving tranche date is the earliest SALE_DUE minus settled
-      // amounts; recompute cheaply here by walking entries in order.
-      let remaining = aged.openDue;
+      // surviving tranche date is the earliest unsettled SALE_DUE.
       let oldestDueDate: Date | null = null;
       let credit = 0;
       const tranches: Array<{ date: Date; remaining: number }> = [];
@@ -232,7 +229,6 @@ export const getCustomerAgingReport = async (req: AuthRequest, res: Response) =>
         }
       }
       if (tranches.length > 0) oldestDueDate = tranches[0].date;
-      void remaining;
       const lastPayment = [...list]
         .filter(e => e.type === 'PAYMENT')
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
@@ -583,7 +579,3 @@ export const getProfitabilityReport = async (req: AuthRequest, res: Response) =>
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
-
-// Re-exported for the route file's convenience (keeps the bucket labels
-// in one place).
-export { ageBucket };
