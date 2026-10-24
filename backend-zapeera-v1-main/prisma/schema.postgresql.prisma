@@ -868,6 +868,7 @@ model GiftCardTransaction {
   createdBy    String?
   createdAt    DateTime @default(now())
   giftCard     GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade)
+  company      Business @relation(fields: [companyId], references: [id])
 
   @@index([giftCardId], name: "idx_giftcard_txn_card")
   @@index([companyId], name: "idx_giftcard_txn_company")
