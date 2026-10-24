@@ -247,7 +247,12 @@ async function wipeDemoBusinesses(prisma, userId) {
     const mems = await prisma.membership.findMany({ where: { businessId: bid }, select: { id: true } });
     const membershipIds = mems.map((m) => m.id);
 
-    // Grandchildren / line items first.
+    // Delete order is FK order (dependents before the rows they point
+    // at). A previous version deleted sales before the rows that
+    // reference saleId (customerLedgerEntry, loyaltyTransaction), so the
+    // sale delete failed silently and branch/business deletes then died
+    // on FK constraints. Order here: sale line items + every sale
+    // referrer → sale → customer → stock parents → branches.
     await safe('saleItem', () => prisma.saleItem.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('salePayment', () => prisma.salePayment.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('salePromotion', () => prisma.salePromotion.deleteMany({ where: { saleId: { in: saleIds } } }));
@@ -256,6 +261,10 @@ async function wipeDemoBusinesses(prisma, userId) {
     await safe('receipt', () => prisma.receipt.deleteMany({ where: { companyId: bid } }));
     await safe('refundItem', () => prisma.refundItem.deleteMany({ where: { refundId: { in: refundIds } } }));
     await safe('refund', () => prisma.refund.deleteMany({ where: { id: { in: refundIds } } }));
+    await safe('customerLedgerEntry-by-sale', () => prisma.customerLedgerEntry.deleteMany({ where: { saleId: { in: saleIds } } }));
+    await safe('loyaltyTransaction-by-sale', () => prisma.loyaltyTransaction.deleteMany({ where: { saleId: { in: saleIds } } }));
+    await safe('folioCharge-by-sale', () => prisma.folioCharge.deleteMany({ where: { saleId: { in: saleIds } } }));
+    await safe('appointment-by-sale', () => prisma.appointment.deleteMany({ where: { saleId: { in: saleIds } } }));
     await safe('prescriptionItem', () => prisma.prescriptionItem.deleteMany({ where: { prescriptionId: { in: prescriptionIds } } }));
     await safe('purchaseItem', () => prisma.purchaseItem.deleteMany({ where: { purchaseId: { in: purchaseIds } } }));
     await safe('stockTakeLine', () => prisma.stockTakeLine.deleteMany({ where: { stockTakeId: { in: stockTakeIds } } }));
@@ -270,13 +279,19 @@ async function wipeDemoBusinesses(prisma, userId) {
     await safe('shift', () => prisma.shift.deleteMany({ where: { membershipId: { in: membershipIds } } }));
     await safe('commission', () => prisma.commission.deleteMany({ where: { membershipId: { in: membershipIds } } }));
 
-    // Business-scoped parents (companyId === business id in this codebase).
+    // Business-scoped parents (companyId === business id in this codebase),
+    // ordered so no row is deleted while another remaining row points at
+    // it: sale referrers are gone (above), then sale, then customer
+    // (sale.customerId), then stock parents, then branches last.
     const byCompany = [
-      'sale', 'prescription', 'purchase', 'stockTake', 'stockTransfer', 'customerLedgerEntry',
-      'loyaltyTransaction', 'batch', 'productVariant', 'customer', 'appointment', 'folio',
-      'reservation', 'room', 'roomType', 'doctorSettlement', 'doctor', 'patient',
-      'prescription', 'promotion', 'taxClass', 'fbrConfig', 'deviceActivation',
-      'syncProcessedOperation', 'expense', 'product', 'category', 'expenseCategory',
+      'prescription', 'purchase', 'stockTake', 'stockTransfer',
+      'customerLedgerEntry', 'loyaltyTransaction',
+      'appointment', 'reservation', 'folio', 'room', 'roomType',
+      'doctorSettlement', 'doctor', 'patient',
+      'promotion', 'taxClass', 'fbrConfig', 'deviceActivation',
+      'syncProcessedOperation', 'expense',
+      'sale', 'customer',
+      'batch', 'productVariant', 'product', 'category', 'expenseCategory',
       'manufacturer', 'supplier', 'shelf',
     ];
     // productVariant hangs off productId, not companyId — handled explicitly.
@@ -286,6 +301,14 @@ async function wipeDemoBusinesses(prisma, userId) {
     }
     await safe('productVariant', () => prisma.productVariant.deleteMany({ where: { productId: { in: productIds } } }));
     await safe('product-retry', () => prisma.product.deleteMany({ where: { companyId: bid } }));
+
+    // Fail fast if core rows survived (a silent skip must not leave a
+    // half-wiped tenant for the reseed to collide with).
+    const leftovers = await prisma.sale.count({ where: { companyId: bid } });
+    const leftoverProducts = await prisma.product.count({ where: { companyId: bid } });
+    if (leftovers || leftoverProducts) {
+      throw new Error(`wipe incomplete for ${bid}: ${leftovers} sales, ${leftoverProducts} products remain`);
+    }
 
     // Platform tables keyed by businessId.
     const byBusiness = [
