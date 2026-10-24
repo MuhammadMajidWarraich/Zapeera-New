@@ -273,6 +273,12 @@ let prisma: PrismaClient | undefined;
 
 // Initialize prisma client after database service is ready
 async function initializePrismaClient(): Promise<void> {
+  // Idempotent: repeated calls must not stack fallback PrismaClients —
+  // each one is a separate connection pool, and overwriting `prisma`
+  // without disconnecting the previous client leaks its connections.
+  if (prisma) {
+    return;
+  }
   try {
     // Use database service to get the correct client (SQLite or PostgreSQL)
     if (dbService) {

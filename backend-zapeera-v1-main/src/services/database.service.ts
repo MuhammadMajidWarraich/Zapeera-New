@@ -21,7 +21,7 @@ function withPostgresConnectionLimit(databaseUrl: string): string {
     if (!parsed.searchParams.has('connection_limit')) {
       // Use smaller connection pool to avoid exhausting PostgreSQL server limits
       // PostgreSQL default max_connections is usually 100, so we use 10-15 to leave room
-      parsed.searchParams.set('connection_limit', process.env.PG_CONNECTION_LIMIT || '15');
+      parsed.searchParams.set('connection_limit', process.env.PG_CONNECTION_LIMIT || '10');
     }
     if (!parsed.searchParams.has('pool_timeout')) {
       // Reasonable timeout for connection acquisition
@@ -135,7 +135,13 @@ class DatabaseService {
           } catch (schemaError: any) {
             console.log('[Database] ⚠️ SQLite database exists but schema may be invalid:', schemaError.message);
             console.log('[Database] 💡 Run: npm run db:push to fix schema');
-            // Continue anyway - let Prisma handle the error
+            // Continue anyway - let Prisma handle the error. Disconnect the
+            // failed client first so its connection pool is not leaked when
+            // the reference is replaced.
+            const failedClient = this.client;
+            if (failedClient) {
+              try { await failedClient.$disconnect(); } catch { /* ignore */ }
+            }
             this.client = new PrismaClient();
             await this.client.$connect();
             // Enable foreign keys

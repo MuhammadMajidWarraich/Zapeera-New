@@ -638,6 +638,7 @@ class SyncService {
 
       if (!sqliteClient) {
         console.log('[Sync] ⚠️  SQLite client not available');
+        await pgClient.end();
         return result;
       }
 
@@ -2198,11 +2199,29 @@ class SyncService {
       errors: [] as string[]
     };
 
+    // PostgreSQL (website) mode: the server already reads/writes PostgreSQL
+    // directly — there is no local SQLite database to push. Returning early
+    // matters beyond tidiness: this function previously created a raw pg
+    // client BEFORE discovering there was no SQLite client, then returned
+    // without ending it — leaking one PostgreSQL connection per call. The
+    // SyncScheduler's backupSync invokes bidirectionalSync() (which calls
+    // this) every 5 minutes: 85 leaked idle connections in ~7 hours is what
+    // exhausted PostgreSQL (max_connections=100) on 2026-10-24.
+    if (process.env.USE_POSTGRESQL === 'true') {
+      return result;
+    }
+
     const dbService = getDatabaseService();
     const sqliteClient = dbService.getSQLiteClient();
+
+    if (!sqliteClient) {
+      result.errors.push('Database clients not available');
+      return result;
+    }
+
     const pgClient = await dbService.getRawPostgreSQLClient();
 
-    if (!sqliteClient || !pgClient) {
+    if (!pgClient) {
       result.errors.push('Database clients not available');
       return result;
     }
@@ -2411,12 +2430,15 @@ class SyncService {
         }
       }
 
-      await pgClient.end();
       console.log(`[Sync] ✅ SQLite → PostgreSQL complete: ${result.synced} synced, ${result.failed} failed`);
 
     } catch (error: any) {
       console.error('[Sync] ❌ SQLite → PostgreSQL failed:', error.message);
       result.errors.push(error.message);
+    } finally {
+      // The raw pg client must be ended on EVERY path — previously only the
+      // happy path ended it, so any mid-sync error leaked the connection.
+      try { await pgClient.end(); } catch { /* already closed */ }
     }
 
     return result;
@@ -2448,8 +2470,9 @@ class SyncService {
       return false;
     }
 
+    let pgClient: any = null;
     try {
-      const pgClient = await dbService.getRawPostgreSQLClient();
+      pgClient = await dbService.getRawPostgreSQLClient();
       if (!pgClient) {
         this.addToQueue(tableName, operation, record);
         return false;
@@ -2467,7 +2490,6 @@ class SyncService {
           break;
       }
 
-      await pgClient.end();
       console.log(`[Sync] ✅ Immediately synced ${operation} to PostgreSQL: ${tableName}`);
       return true;
     } catch (error: any) {
@@ -2475,6 +2497,9 @@ class SyncService {
       // Queue for retry
       this.addToQueue(tableName, operation, record);
       return false;
+    } finally {
+      // End the raw client on every path — the catch path previously leaked it.
+      if (pgClient) { try { await pgClient.end(); } catch { /* already closed */ } }
     }
   }
 
@@ -2515,6 +2540,7 @@ class SyncService {
 
       if (!pgClient || !sqliteClient) {
         console.log(`[Sync] ⚠️ Database clients not available`);
+        if (pgClient) { try { await pgClient.end(); } catch { /* already closed */ } }
         return result;
       }
 
@@ -2677,6 +2703,7 @@ class SyncService {
       const sqliteClient = dbService.getSQLiteClient();
 
       if (!pgClient || !sqliteClient) {
+        if (pgClient) { try { await pgClient.end(); } catch { /* already closed */ } }
         return false;
       }
 
