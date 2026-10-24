@@ -108,16 +108,19 @@ const SALE_RECIPES = [
   { items: [[0, 2], [22, 1]], customer: 0 },
   { items: [[1, 1], [16, 4]], customer: null },
   { items: [[11, 1], [28, 2]], customer: 1 },
-  { items: [[5, 1]], customer: 2, discount: 0 },
+  // NOTE: prescription-only products (requiresPrescription) are NOT sold
+  // here — the sale endpoint rightly demands a prescription for them, and
+  // the demo seed does not fabricate prescriptions.
+  { items: [[22, 1]], customer: 2, discount: 0 },
   { items: [[24, 2], [26, 1]], customer: null },
-  { items: [[30, 2], [2, 1]], customer: 3 },
+  { items: [[23, 2], [2, 1]], customer: 3 },
   { items: [[36, 1], [17, 2]], customer: null, paymentMethod: 'CARD' },
   { items: [[18, 3], [19, 2], [16, 2]], customer: 4 },
   { items: [[12, 1]], customer: null, discount: 5 },
-  { items: [[32, 1], [34, 1]], customer: 5 },
+  { items: [[15, 1], [13, 1]], customer: 5 },
   { items: [[0, 3], [27, 1]], customer: null },
   { items: [[38, 1], [27, 1]], customer: 1, discount: 10 },
-  { items: [[7, 1]], customer: null },
+  { items: [[25, 1]], customer: null },
   { items: [[21, 1], [18, 1]], customer: 2 },
 ];
 
