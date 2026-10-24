@@ -14,6 +14,7 @@ import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, Tax
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
+import { allocateFefo } from '../utils/fefo.util';
 import { variantBatchWhere } from '../utils/variant.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
@@ -510,6 +511,34 @@ export const getSale = async (req: AuthRequest, res: Response) => {
         success: false,
         message: 'Sale not found'
       });
+    }
+
+    // Unit conversion (gap-features item 3): attach the per-batch
+    // FEFO allocations to each line (batchNo + expiry + base units
+    // taken), so receipts/audits can show which batches a line drew
+    // from. Best-effort: a pre-migration DB has no sale_item_batches
+    // table (P2021), and the detail then reads exactly as before.
+    // NOTE: `saleItemBatch` is typed on the generated client only
+    // after `npm run setup:web` regenerates it (deploy does this);
+    // the `as any` bridge keeps tsc green in this sandbox.
+    try {
+      const itemIds = (sale.items as any[]).map((i) => i.id);
+      if (itemIds.length > 0) {
+        const allocRows = await (prisma as any).saleItemBatch.findMany({
+          where: { saleItemId: { in: itemIds } },
+          orderBy: { createdAt: 'asc' },
+          include: { batch: { select: { batchNo: true, expireDate: true } } }
+        });
+        const byItem = new Map<string, any[]>();
+        for (const row of allocRows) {
+          const list = byItem.get(row.saleItemId) || [];
+          list.push({ batchId: row.batchId, quantity: row.quantity, batchNo: row.batch?.batchNo || null, expireDate: row.batch?.expireDate || null });
+          byItem.set(row.saleItemId, list);
+        }
+        (sale as any).items = (sale.items as any[]).map((i) => ({ ...i, allocations: byItem.get(i.id) || [] }));
+      }
+    } catch (e: any) {
+      if (e?.code !== 'P2021' && !/sale_item_batches/i.test(String(e?.message || ''))) throw e;
     }
 
     return res.json({
@@ -1623,9 +1652,22 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${totalAvailableStock}, Required: ${unitsRequired}`);
         }
 
-        // Handle batch tracking (require a batch, fallback to FIFO if missing)
-        // Use explicit select to avoid reportReason column issues
+        // Batch allocation — multi-batch FEFO (gap-features item 3).
+        // A PINNED batch (batchId / batchNumber) keeps its historical
+        // single-batch contract: the whole line must fit in that
+        // batch, or the sale is refused — a cashier who picks a batch
+        // means that batch. An UNPINNED line allocates FEFO across
+        // the branch's batches (nearest expiry first, spilling into
+        // the next batch when one runs out), so selling 15 loose
+        // tablets from batches of 10 + 10, or 1 strip (10 tablets)
+        // when the nearest-expiry batch holds only 8, now succeeds
+        // instead of failing with "no batch available". The desktop
+        // route already plans deductions this way; the web engine
+        // now matches it, and persists the plan as SaleItemBatch
+        // rows (below) so refunds and sale deletion can return every
+        // unit to the batch it actually came from.
         let selectedBatch = null as any;
+        let batchAllocations: { batchId: string; qty: number }[] = [];
         if (item.batchId) {
           selectedBatch = await tx.batch.findFirst({
             where: {
@@ -1657,6 +1699,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           if (selectedBatch.quantity < unitsRequired) {
             throw new HttpError(422, `Insufficient stock in selected batch ${selectedBatch.batchNo}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
           }
+          batchAllocations = [{ batchId: selectedBatch.id, qty: unitsRequired }];
         } else if (item.batchNumber) {
           selectedBatch = await tx.batch.findFirst({
             where: {
@@ -1689,62 +1732,57 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           if (!selectedBatch) {
             throw new HttpError(422, `Batch ${item.batchNumber} not available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
           }
+          batchAllocations = [{ batchId: selectedBatch.id, qty: unitsRequired }];
         } else {
-          selectedBatch = await tx.batch.findFirst({
-            where: {
-              productId: item.productId,
-              branchId: targetBranchId,
-              quantity: {
-                gte: unitsRequired
-              },
-              isActive: true,
-              ...variantPool
-            },
-            orderBy: { expireDate: 'asc' }, // FIFO - First In, First Out
-            select: {
-              id: true,
-              productId: true,
-              branchId: true,
-              batchNo: true,
-              quantity: true,
-              expireDate: true,
-              productionDate: true,
-              sellingPrice: true,
-              purchasePrice: true,
-              isActive: true,
-              isReported: true,
-              createdAt: true,
-              updatedAt: true
-            }
-          });
-          if (!selectedBatch) {
-            throw new HttpError(422, `No batch available with sufficient stock for ${product.name}. Required: ${unitsRequired} units.`);
+          // Unpinned: allocate FEFO across the branch's batches.
+          // Expired batches never sell — they are filtered BEFORE
+          // allocation (the desktop route does the same), so a good
+          // batch behind an expired one is used instead of the sale
+          // being refused for the expired batch at the front.
+          const sellableBatches = availableBatches.filter(
+            (b: any) => !b.expireDate || new Date(b.expireDate).getTime() >= Date.now()
+          );
+          const sellableStock = sellableBatches.reduce((sum: number, batch: any) => sum + batch.quantity, 0);
+          if (sellableStock < unitsRequired) {
+            throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${sellableStock}, Required: ${unitsRequired}`);
           }
+          const fefoPlan = allocateFefo(sellableBatches, unitsRequired);
+          if (fefoPlan.shortfall > 0) {
+            throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${sellableStock}, Required: ${unitsRequired}`);
+          }
+          batchAllocations = fefoPlan.allocations;
+          selectedBatch = sellableBatches.find((b: any) => b.id === batchAllocations[0].batchId);
         }
 
         // Never sell expired stock: the batch this line resolves to — the
-        // explicitly selected one or the FIFO choice — must be in date
-        // (Batch.expireDate, per the Prisma schema).
+        // explicitly selected one or the FEFO-first one — must be in date
+        // (Batch.expireDate, per the Prisma schema). The unpinned path
+        // above already filtered expired batches out, so this check now
+        // only ever fires for pinned batches.
         if (selectedBatch.expireDate && new Date(selectedBatch.expireDate).getTime() < Date.now()) {
           throw new HttpError(422, `Cannot sell expired batch ${selectedBatch.batchNo} for ${product.name} (expired ${new Date(selectedBatch.expireDate).toISOString().slice(0, 10)})`);
         }
 
-        // Decrement stock atomically (A-16): the update only applies while
-        // the batch still holds enough units, so two concurrent sales can
-        // no longer both pass the availability check on the same snapshot
-        // and drive the batch negative.
-        const decrementResult = await tx.batch.updateMany({
-          where: {
-            id: selectedBatch.id,
-            quantity: { gte: unitsRequired }
-          },
-          data: {
-            quantity: { decrement: unitsRequired }
-          }
-        });
+        // Decrement stock atomically (A-16): each update only applies
+        // while its batch still holds enough units, so two concurrent
+        // sales can no longer both pass the availability check on the
+        // same snapshot and drive a batch negative. The whole sale is
+        // one transaction, so a failed later batch rolls the earlier
+        // decrements back.
+        for (const alloc of batchAllocations) {
+          const decrementResult = await tx.batch.updateMany({
+            where: {
+              id: alloc.batchId,
+              quantity: { gte: alloc.qty }
+            },
+            data: {
+              quantity: { decrement: alloc.qty }
+            }
+          });
 
-        if (decrementResult.count !== 1) {
-          throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
+          if (decrementResult.count !== 1) {
+            throw new HttpError(422, `Insufficient stock for ${product.name}. Available: ${selectedBatch.quantity}, Required: ${unitsRequired}`);
+          }
         }
 
         // Create sale item — totalPrice is the server-computed line total
@@ -1790,6 +1828,28 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         });
 
         saleItems.push(saleItem);
+
+        // Persist the FEFO plan (gap-features item 3): one
+        // SaleItemBatch row per batch this line drew from, in FEFO
+        // order, quantities in base units. SaleItem.batchId above
+        // stays the FEFO-first batch, so every existing consumer
+        // (receipts, reports, refunds' fallback) reads exactly what
+        // it read before; refunds and sale deletion restock from
+        // these rows instead of crediting the whole line to one
+        // batch. NOTE: `saleItemBatch` is typed on the generated
+        // client only after `npm run setup:web` regenerates it from
+        // the updated schema (deploy does this — see the build); the
+        // `as any` bridge keeps tsc green in this sandbox, where
+        // `prisma generate` cannot fetch its engine (egress proxy).
+        if (batchAllocations.length > 0) {
+          await (tx as any).saleItemBatch.createMany({
+            data: batchAllocations.map((a) => ({
+              saleItemId: saleItem.id,
+              batchId: a.batchId,
+              quantity: a.qty
+            }))
+          });
+        }
 
         // Update product stock
         // Stock is now managed through batches, no need to update product stock directly
@@ -2553,6 +2613,30 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
 
     // Use transaction to ensure data consistency
     await prisma.$transaction(async (tx: any) => {
+      // Unit conversion (gap-features item 3): load the FEFO
+      // allocation rows BEFORE the items are deleted — the rows
+      // cascade with their SaleItem, so they must be read first.
+      // A pre-migration DB has no sale_item_batches table; the
+      // P2021 fallback below then restocks via batchId exactly as
+      // before. NOTE: `saleItemBatch` is typed on the generated
+      // client only after `npm run setup:web` regenerates it (deploy
+      // does this); the `as any` bridge keeps tsc green in this
+      // sandbox, where `prisma generate` cannot fetch its engine.
+      const allocationsByItem = new Map<string, { batchId: string; qty: number }[]>();
+      try {
+        const allocRows = await (tx as any).saleItemBatch.findMany({
+          where: { saleItemId: { in: existingSale.items.map((i: any) => i.id) } },
+          orderBy: { createdAt: 'asc' }
+        });
+        for (const row of allocRows) {
+          const list = allocationsByItem.get(row.saleItemId) || [];
+          list.push({ batchId: row.batchId, qty: row.quantity });
+          allocationsByItem.set(row.saleItemId, list);
+        }
+      } catch (e: any) {
+        if (e?.code !== 'P2021' && !/sale_item_batches/i.test(String(e?.message || ''))) throw e;
+      }
+
       // Delete sale items first (foreign key constraint)
       await tx.saleItem.deleteMany({
         where: { saleId: id }
@@ -2566,14 +2650,30 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
       // Restore stock from batches if sale was completed
       if (existingSale.status === 'COMPLETED') {
         for (const item of existingSale.items) {
-          if (item.batchId) {
-            // Restore the BASE units this line deducted — the same
-            // unitsDeducted-first rule refunds apply. Wave C2 lines
-            // store quantity == unitsDeducted == base, and on
-            // UNIT/voice/desktop lines the two are always equal, so
-            // only legacy BOX lines change: they now restock fully
-            // instead of by their box count.
-            const restoreQty = item.unitsDeducted && item.unitsDeducted > 0 ? item.unitsDeducted : item.quantity;
+          // Restore the BASE units this line deducted — the same
+          // unitsDeducted-first rule refunds apply. Wave C2 lines
+          // store quantity == unitsDeducted == base, and on
+          // UNIT/voice/desktop lines the two are always equal, so
+          // only legacy BOX lines change: they now restock fully
+          // instead of by their box count.
+          const restoreQty = item.unitsDeducted && item.unitsDeducted > 0 ? item.unitsDeducted : item.quantity;
+          // Unit conversion (gap-features item 3): a line that drew
+          // from several batches restocks EACH batch by its own
+          // allocation row (the rows sum to restoreQty); lines
+          // without rows — pre-change or desktop-synced — keep the
+          // historical single-batch restock via batchId.
+          const itemAllocations = allocationsByItem.get(item.id);
+          if (itemAllocations && itemAllocations.length > 0) {
+            for (const alloc of itemAllocations) {
+              // Update batch quantity - use raw SQL directly to avoid reportReason column issues
+              await tx.$executeRawUnsafe(
+                `UPDATE batches 
+                 SET quantity = quantity + ${alloc.qty},
+                     "updatedAt" = CURRENT_TIMESTAMP
+                 WHERE id = '${alloc.batchId}'`
+              );
+            }
+          } else if (item.batchId) {
             // Update batch quantity - use raw SQL directly to avoid reportReason column issues
             await tx.$executeRawUnsafe(
               `UPDATE batches 
@@ -2581,19 +2681,21 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
                    "updatedAt" = CURRENT_TIMESTAMP
                WHERE id = '${item.batchId}'`
             );
-
-            // Create stock movement for restoration
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId,
-                type: 'IN',
-                quantity: restoreQty,
-                reason: 'Sale Deletion - Stock Restored',
-                reference: id,
-                createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'
-              }
-            });
+          } else {
+            continue;
           }
+
+          // Create stock movement for restoration
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: 'IN',
+              quantity: restoreQty,
+              reason: 'Sale Deletion - Stock Restored',
+              reference: id,
+              createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'
+            }
+          });
         }
 
         // Update customer stats if customer exists. Loyalty (Wave

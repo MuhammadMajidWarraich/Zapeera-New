@@ -4,7 +4,7 @@
 import { Request, Response } from 'express';
 import { getPrisma, isPostgreSQL } from '../utils/db.util';
 import { normalizePctCode } from '../utils/fbr.util';
-import { validateUnitStructure } from '../utils/unit.util';
+import { validateUnitStructure, breakdownStock } from '../utils/unit.util';
 import { CreateProductData, UpdateProductData } from '../models/product.model';
 import { validate } from '../middleware/validation.middleware';
 import { AuthRequest, buildAdminWhereClause, buildBranchWhereClause } from '../middleware/auth.middleware';
@@ -330,6 +330,11 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
         stock: totalStock,
         price: currentPrice,
         currentBatch: currentBatch,
+        // Unit conversion (gap-features item 3): the same stock
+        // expressed in the product's own units ("2 packs · 3 strips
+        // · 4 tablets"); the low-stock comparison below stays in
+        // base units (stock <= minStock).
+        stockBreakdown: breakdownStock(totalStock, product),
         unitsPerPack: product.unitsPerPack && product.unitsPerPack > 1
           ? product.unitsPerPack
           : (currentBatch?.unitsPerBox || 1)

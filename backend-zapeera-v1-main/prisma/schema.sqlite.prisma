@@ -531,6 +531,12 @@ model Batch {
   transferItemsOut    StockTransferItem[] @relation("transferSourceBatch")
   transferItemsIn     StockTransferItem[] @relation("transferDestBatch")
   saleItems           SaleItem[]
+  // Unit conversion (gap-features item 3): the per-batch FEFO
+  // allocations a sale line drew from. One SaleItem may span several
+  // batches; SaleItem.batchId stays the FEFO-first batch for
+  // backward compatibility, and this relation is the audit trail
+  // refunds and sale deletion restock from.
+  saleItemAllocations SaleItemBatch[]
 
   @@unique([batchNo, productId, branchId])
   @@index([companyId], name: "idx_batch_company")
@@ -947,9 +953,38 @@ model SaleItem {
   batch         Batch?    @relation(fields: [batchId], references: [id])
   variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   sale          Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  // Unit conversion (gap-features item 3): the per-batch FEFO
+  // allocations this line drew from, in FEFO order. Empty on
+  // pre-change lines and on desktop-synced lines (the desktop keeps
+  // its own transient deductions); consumers fall back to batchId
+  // + unitsDeducted when this is empty.
+  allocations   SaleItemBatch[]
 
   @@index([variantId], name: "idx_saleItem_variant")
   @@map("sale_items")
+}
+
+// Per-batch FEFO allocation of one sale line (gap-features item 3).
+// A line that spans batches (e.g. 15 loose tablets taken as 10 from
+// the nearest-expiry batch + 5 from the next) stores one row per
+// batch touched, quantities in BASE units. The rows are the audit
+// trail for the sale: refunds and sale deletion restock each batch
+// by its own row, never the whole line into SaleItem.batchId.
+// `saleItemId` cascades with its SaleItem. Batches are never
+// hard-deleted, so the batch relation needs no onDelete action.
+model SaleItemBatch {
+  id         String   @id @default(cuid())
+  saleItemId String
+  batchId    String
+  quantity   Int // Base units taken from this batch
+  createdAt  DateTime @default(now())
+
+  saleItem SaleItem @relation(fields: [saleItemId], references: [id], onDelete: Cascade)
+  batch    Batch    @relation(fields: [batchId], references: [id])
+
+  @@index([saleItemId], name: "idx_saleItemBatch_saleItem")
+  @@index([batchId], name: "idx_saleItemBatch_batch")
+  @@map("sale_item_batches")
 }
 
 // Split tender (Wave B1): one row per tender allocation of a sale.
