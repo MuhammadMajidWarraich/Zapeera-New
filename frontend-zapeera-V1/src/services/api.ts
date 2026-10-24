@@ -184,6 +184,75 @@ export interface TaxClassPayload {
   isActive?: boolean;
 }
 
+// Controlled / narcotics register (Gap item 2): append-only dispense
+// log for scheduled/controlled medicines. One entry per POS sale line
+// of a controlled product (DISPENSE, positive quantity, running
+// balance = batch stock after the sale); corrections are REVERSAL
+// rows (negative quantity, linked via reversesId) — entries are never
+// edited or deleted.
+export interface ControlledRegisterEntry {
+  id: string;
+  companyId: string;
+  branchId: string;
+  productId: string;
+  batchId: string | null;
+  batchNo: string | null;
+  saleId: string | null;
+  saleItemId: string | null;
+  entryType: 'DISPENSE' | 'REVERSAL';
+  quantity: number;
+  balanceAfter: number;
+  reversesId: string | null;
+  reason: string | null;
+  staffUserId: string;
+  staffName: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  prescriptionId: string | null;
+  prescriptionRef: string | null;
+  invoiceNumber: string | null;
+  createdAt: string;
+  product?: { id: string; name: string; controlledSchedule: string | null; isControlled: boolean };
+  batch?: { id: string; batchNo: string; expireDate: string | null } | null;
+  sale?: { id: string; invoiceNumber: string | null } | null;
+}
+
+export interface ControlledRegisterSummary {
+  productId: string;
+  productName: string | null;
+  batchId: string | null;
+  batchNo: string | null;
+  totalDispensed: number;
+  totalReversed: number;
+  netDispensed: number;
+  currentBalance: number;
+  lastEntryAt: string;
+  entryCount: number;
+}
+
+export interface ControlledStaffAuditRow {
+  staffUserId: string;
+  staffName: string | null;
+  totalDispensed: number;
+  totalReversed: number;
+  netDispensed: number;
+  entryCount: number;
+  dispenseCount: number;
+  reversalCount: number;
+  lastEntryAt: string | null;
+}
+
+export interface ControlledInspectionPack {
+  businessName: string | null;
+  branchNames: string[];
+  period: { from: string | null; to: string | null };
+  generatedAt: string;
+  generatedBy: string | null;
+  totals: { totalDispensed: number; totalReversed: number; netDispensed: number; entryCount: number };
+  summary: ControlledRegisterSummary[];
+  entries: Array<ControlledRegisterEntry & { branchName: string | null }>;
+}
+
 // Prescriptions (Wave C1 — Pharmacy pack): the register of paper
 // prescriptions a pharmacy received. A record is never deleted —
 // voiding flips isActive off and stamps voidReason/voidedAt; voided
@@ -1706,6 +1775,9 @@ export class ApiService {
         unitsPerStrip: number | null;
       barcode?: string;
       requiresPrescription: boolean;
+      // Controlled / narcotics register (Gap item 2).
+      isControlled?: boolean;
+      controlledSchedule?: string | null;
       taxClassId?: string | null;
       pctCode?: string | null;
       taxClass?: { id: string; name: string; rate: number } | null;
@@ -1781,6 +1853,8 @@ export class ApiService {
     branchId?: string | null;
     barcode?: string | null;
     requiresPrescription?: boolean;
+    isControlled?: boolean; // Gap item 2 - controlled/scheduled medicine
+    controlledSchedule?: string | null; // Gap item 2 - schedule/category label
     isActive?: boolean;
     taxClassId?: string | null;
     pctCode?: string | null;
@@ -1806,6 +1880,8 @@ export class ApiService {
       branch: { id: string; name: string };
       barcode?: string;
       requiresPrescription: boolean;
+      isControlled?: boolean; // Gap item 2
+      controlledSchedule?: string | null; // Gap item 2
       isActive: boolean;
       createdAt: string;
       // Temporary fields for backend compatibility
@@ -1893,6 +1969,8 @@ export class ApiService {
     unitsPerStrip?: number | null;
     barcode?: string;
     requiresPrescription?: boolean;
+    isControlled?: boolean; // Gap item 2
+    controlledSchedule?: string | null; // Gap item 2
     isActive?: boolean;
   }) {
     return this.request<{
@@ -1913,6 +1991,8 @@ export class ApiService {
       taxClass?: { id: string; name: string; rate: number } | null;
       barcode?: string;
       requiresPrescription: boolean;
+      isControlled?: boolean; // Gap item 2
+      controlledSchedule?: string | null; // Gap item 2
       isActive: boolean;
       updatedAt: string;
     }>(`/products/${productId}`, {
@@ -3632,6 +3712,104 @@ export class ApiService {
         _count: { id: number };
       }>;
     }>(`/reports/sales${query ? `?${query}` : ''}`);
+  }
+
+  // Controlled / narcotics register (Gap item 2). Reads are
+  // OWNER/MANAGER-only (reports.read on the server); corrections are
+  // REVERSAL rows via createControlledReversal — entries are never
+  // edited or deleted.
+  async getControlledRegister(params?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    productId?: string;
+    batchId?: string;
+    staffUserId?: string;
+    entryType?: 'DISPENSE' | 'REVERSAL';
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<{
+      entries: ControlledRegisterEntry[];
+      summary: ControlledRegisterSummary[];
+      totals: { totalDispensed: number; totalReversed: number; netDispensed: number; entryCount: number };
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/controlled-medicines${query ? `?${query}` : ''}`);
+  }
+
+  async getControlledRegisterEntry(entryId: string) {
+    return this.request<ControlledRegisterEntry>(`/controlled-medicines/${entryId}`);
+  }
+
+  async getControlledStaffAudit(params?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<{
+      staff: ControlledStaffAuditRow[];
+      totals: { totalDispensed: number; totalReversed: number; netDispensed: number; entryCount: number };
+    }>(`/controlled-medicines/audit/staff${query ? `?${query}` : ''}`);
+  }
+
+  async getControlledInspectionPack(params?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    productId?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<ControlledInspectionPack>(`/controlled-medicines/inspection-pack${query ? `?${query}` : ''}`);
+  }
+
+  async downloadControlledInspectionPackCsv(params?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+    productId?: string;
+  }): Promise<void> {
+    const queryParams = new URLSearchParams({ format: 'csv' });
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return this.downloadBackupFile(`/controlled-medicines/inspection-pack?${queryParams.toString()}`, 'controlled-register.csv');
+  }
+
+  async createControlledReversal(data: { originalEntryId: string; quantity: number; reason: string }) {
+    return this.request<ControlledRegisterEntry>('/controlled-medicines/reversals', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async getInventoryReport(params?: {

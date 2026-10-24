@@ -197,6 +197,11 @@ const ENTRIES: RegistryEntry[] = [
   // ── Reports module ────────────────────────────────────────────────────────
   { prefix: '/api/reports', policy: { kind: 'module', resourceKey: 'reports.reports' } },
 
+  // ── Controlled / narcotics register (Gap item 2) ───────────────────────
+  // A report surface: the register lives on the reports page, so it
+  // shares the reports.reports resource key (OWNER/MANAGER-only).
+  { prefix: '/api/controlled-medicines', policy: { kind: 'module', resourceKey: 'reports.reports' } },
+
   // ── Business management module ────────────────────────────────────────────
   { prefix: '/api/settings', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
   { prefix: '/api/billing-profiles', policy: { kind: 'module', resourceKey: 'business_management.billing' } },

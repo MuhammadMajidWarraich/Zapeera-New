@@ -402,6 +402,15 @@ model Product {
   barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
   isGenerated          Boolean   @default(false) // true if barcode was auto-generated
   requiresPrescription Boolean   @default(false)
+  // Controlled / narcotics register (Gap item 2): flag +
+  // schedule label for scheduled medicines. `controlledSchedule`
+  // is a category label only (NARCOTIC / PSYCHOTROPIC /
+  // SCHEDULE_II ... SCHEDULE_V / CONTROLLED); it makes no
+  // regulatory claim about the drug's legal class - the
+  // pharmacy sets it. A controlled product with no schedule
+  // reads as CONTROLLED.
+  isControlled       Boolean   @default(false)
+  controlledSchedule String?
   // Tax class (Wave B5): the rate group this product sells under.
   // Null = the company's default handling (its isDefault tax class,
   // or the defaultTax setting when it has no classes).
@@ -439,6 +448,7 @@ model Product {
   purchaseItems  PurchaseItem[]
   stockTransferItems StockTransferItem[]
   prescriptionItems PrescriptionItem[]
+  controlledDispenseLogs ControlledDispenseLog[]
   serviceForDoctors Doctor[]       @relation("DoctorServiceProduct")
   promotions     Promotion[]
   taxClass       TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
@@ -531,6 +541,7 @@ model Batch {
   transferItemsOut    StockTransferItem[] @relation("transferSourceBatch")
   transferItemsIn     StockTransferItem[] @relation("transferDestBatch")
   saleItems           SaleItem[]
+  controlledDispenseLogs ControlledDispenseLog[]
 
   @@unique([batchNo, productId, branchId])
   @@index([companyId], name: "idx_batch_company")
@@ -878,6 +889,7 @@ model Sale {
   receipts Receipt[]
   refunds  Refund[]    @relation("SaleRefunds")
   items    SaleItem[]
+  controlledDispenseLogs ControlledDispenseLog[]
   payments SalePayment[]
   promotions SalePromotion[]
   taxLines SaleTaxLine[]
@@ -950,6 +962,62 @@ model SaleItem {
 
   @@index([variantId], name: "idx_saleItem_variant")
   @@map("sale_items")
+}
+
+// Controlled / narcotics register (Gap item 2 - CloudPOS parity):
+// an APPEND-ONLY dispense log for scheduled/controlled medicines.
+// One row is written per POS sale line of a controlled product
+// (sale.controller, inside the sale transaction) and one REVERSAL
+// row per refunded / corrected quantity (refund.controller, or the
+// manual reversal endpoint). Rows are NEVER updated or deleted -
+// corrections are reversing entries only (see
+// controlled-medicines.service.ts; there is deliberately no update /
+// delete code path for this model anywhere in the codebase).
+// `quantity` is base units (tablets/pieces): positive on DISPENSE,
+// negative on REVERSAL. `balanceAfter` snapshots the batch's stock
+// on hand immediately after this entry was written, so the register
+// carries a running balance per product/batch even though receipts
+// (purchases) are not logged here - the register is a DISPENSE
+// register, not a stock ledger. No `updatedAt`: a row's content is
+// final the moment it is written.
+model ControlledDispenseLog {
+  id              String   @id @default(cuid())
+  companyId       String
+  branchId        String
+  productId       String
+  batchId         String?
+  batchNo         String?
+  saleId          String?
+  saleItemId      String?
+  entryType       String   @default("DISPENSE") // DISPENSE | REVERSAL
+  quantity        Int // base units; > 0 dispensed, < 0 reversed
+  balanceAfter    Int // batch stock on hand right after this entry
+  reversesId      String? // REVERSAL only: the DISPENSE entry it corrects
+  reason          String? // REVERSAL only: why (refund / correction)
+  staffUserId     String // dispensing staff member (Sale.userId)
+  staffName       String? // snapshot at dispense time
+  customerId      String?
+  customerName    String? // snapshot at dispense time
+  prescriptionId  String?
+  prescriptionRef String? // snapshot: prescription id / doctor name
+  invoiceNumber   String?
+  createdAt       DateTime @default(now())
+
+  product    Product               @relation(fields: [productId], references: [id])
+  batch      Batch?                @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  sale       Sale?                 @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  reverses   ControlledDispenseLog?  @relation("ControlledReversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy ControlledDispenseLog[] @relation("ControlledReversal")
+
+  @@index([companyId], name: "idx_controlled_log_company")
+  @@index([branchId], name: "idx_controlled_log_branch")
+  @@index([productId], name: "idx_controlled_log_product")
+  @@index([batchId], name: "idx_controlled_log_batch")
+  @@index([saleId], name: "idx_controlled_log_sale")
+  @@index([staffUserId], name: "idx_controlled_log_staff")
+  @@index([createdAt], name: "idx_controlled_log_created")
+  @@index([entryType], name: "idx_controlled_log_type")
+  @@map("controlled_dispense_logs")
 }
 
 // Split tender (Wave B1): one row per tender allocation of a sale.

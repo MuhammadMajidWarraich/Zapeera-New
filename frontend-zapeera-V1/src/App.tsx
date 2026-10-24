@@ -56,6 +56,7 @@ const FoliosPage = React.lazy(() => import("./pages/Folios"));
 const StockTakesPage = React.lazy(() => import("./pages/StockTakes"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
+const ControlledRegisterPage = React.lazy(() => import("./pages/ControlledRegister"));
 const AccountingPage = React.lazy(() => import("./pages/Accounting"));
 const SettingsPage = React.lazy(() => import("./pages/Settings"));
 const ExpenseManagement = React.lazy(() => import("./pages/ExpenseManagement"));
@@ -668,6 +669,19 @@ const AppRoutes = () => {
                 <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
                   <MainLayout>
                     <AdvancedReportsPage />
+                  </MainLayout>
+                </RoleProtectedRoute>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/controlled-register" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN']}>
+                  <MainLayout>
+                    <ControlledRegisterPage />
                   </MainLayout>
                 </RoleProtectedRoute>
               </AutoModuleGuard>
@@ -1475,6 +1489,21 @@ const AppRoutes = () => {
                   <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
                     <MainLayout>
                       <AdvancedReportsPage />
+                    </MainLayout>
+                  </RoleProtectedRoute>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/controlled-register" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <RoleProtectedRoute allowedRoles={['MANAGER', 'ADMIN', 'OWNER']}>
+                    <MainLayout>
+                      <ControlledRegisterPage />
                     </MainLayout>
                   </RoleProtectedRoute>
                 </AutoModuleGuard>

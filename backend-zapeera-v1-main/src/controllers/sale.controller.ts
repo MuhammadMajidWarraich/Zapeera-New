@@ -12,6 +12,7 @@ import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForS
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
+import { appendControlledDispenseEntries, ControlledDispenseLineInput } from '../services/controlled-medicines.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
 import { variantBatchWhere } from '../utils/variant.util';
@@ -1185,6 +1186,31 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Controlled / narcotics register (Gap item 2): snapshots for
+    // the register entries - customer name + prescription ref,
+    // resolved once before the transaction (reads only; the entries
+    // themselves are appended inside the transaction below).
+    let customerNameForRegister: string | null = null;
+    if (saleData.customerId) {
+      const customerRow = await prisma.customer.findUnique({
+        where: { id: saleData.customerId },
+        select: { name: true },
+      });
+      customerNameForRegister = customerRow?.name || null;
+    }
+    let prescriptionRefForRegister: string | null = null;
+    if (saleData.prescriptionId) {
+      const prescriptionRow = await prisma.prescription.findFirst({
+        where: { id: String(saleData.prescriptionId) },
+        select: { id: true, doctorName: true },
+      });
+      if (prescriptionRow) {
+        prescriptionRefForRegister = prescriptionRow.doctorName
+          ? `Rx ${prescriptionRow.id} (Dr. ${prescriptionRow.doctorName})`
+          : `Rx ${prescriptionRow.id}`;
+      }
+    }
+
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
@@ -1482,6 +1508,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
 
       // Create sale items and update stock
       const saleItems = [];
+      // Controlled / narcotics register (Gap item 2): lines collected
+      // here, appended after the loop in this same transaction.
+      const controlledLines: ControlledDispenseLineInput[] = [];
       for (let itemIndex = 0; itemIndex < saleData.items.length; itemIndex++) {
         const item = saleData.items[itemIndex];
         const normalizedSaleType = (item.saleType || 'UNIT').toString().toUpperCase();
@@ -1511,6 +1540,13 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         // reports already read as "no stock moved". The line total
         // is the server-computed itemTotals entry, like every line.
         if ((product as any).isService) {
+          // Controlled / narcotics register (Gap item 2): a service
+          // line has no batch and no stock movement, so there is
+          // nothing the register could balance against - refuse
+          // rather than log a batch-less dispense.
+          if ((product as any).isControlled) {
+            throw new HttpError(400, `Controlled product ${product.name} cannot be sold as a service item - it must dispense from a batch so the controlled-medicines register can record it`);
+          }
           const serviceItem = await tx.saleItem.create({
             data: {
               saleId: sale.id,
@@ -1804,6 +1840,52 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             reference: sale.id,
             createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'
           }
+        });
+
+        // Controlled / narcotics register (Gap item 2): collect the
+        // line for the append-only dispense log (appended after the
+        // loop, in this same transaction). `quantity` is base units
+        // (unitsRequired) - the same units the batch was decremented by.
+        if ((product as any).isControlled) {
+          controlledLines.push({
+            saleItemId: saleItem.id,
+            productId: item.productId,
+            isControlled: true,
+            batchId: selectedBatch.id,
+            batchNo: selectedBatch.batchNo,
+            quantity: unitsRequired,
+          });
+        }
+      }
+
+      // Controlled / narcotics register (Gap item 2): one append-only
+      // DISPENSE entry per controlled sale line, in this same
+      // transaction - a failed append rolls the sale back, and a
+      // completed sale can never miss its register entries. The
+      // batch was already decremented above, so each entry's
+      // balanceAfter snapshot reads the post-sale stock.
+      if (controlledLines.length > 0) {
+        let staffNameForRegister: string | null =
+          (req.user as any)?.name || (req.user as any)?.fullName || null;
+        if (!staffNameForRegister) {
+          const staffRow = await tx.zapeeraUser.findUnique({
+            where: { id: userId },
+            select: { name: true },
+          });
+          staffNameForRegister = staffRow?.name || null;
+        }
+        await appendControlledDispenseEntries(tx, {
+          companyId: targetCompanyId,
+          branchId: targetBranchId,
+          saleId: sale.id,
+          invoiceNumber,
+          staffUserId: userId,
+          staffName: staffNameForRegister,
+          customerId: saleData.customerId || null,
+          customerName: customerNameForRegister,
+          prescriptionId: saleData.prescriptionId || null,
+          prescriptionRef: prescriptionRefForRegister,
+          lines: controlledLines,
         });
       }
 
