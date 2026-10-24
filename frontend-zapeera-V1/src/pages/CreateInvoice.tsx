@@ -39,6 +39,7 @@ import {
   MessageCircle,
   Landmark,
   Wallet,
+  Gift,
   Stethoscope,
   Zap,
   History,
@@ -68,6 +69,12 @@ import { playScanFailureSound, playScanSuccessSound } from "@/lib/scan-sound";
 // Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAISA
 // are first-class rails alongside cash/card; MOBILE is the legacy
 // mobile-wallet label kept for older records.
+// GIFT_CARD / EWALLET (Wave C9 — gap item 9): gift-card redemption
+// (code in the split row's reference) and eWallet spend (the sale
+// customer). Both travel ONLY as split-tender allocations — picking
+// one auto-opens the split editor (see selectPaymentMethod) — and the
+// server enforces the GIFT_CARD_KIOSK_PACK add-on + the ledger
+// balance inside the sale transaction.
 const PAYMENT_METHOD_OPTIONS = [
   { key: 'CASH', label: 'Cash', Icon: Banknote },
   { key: 'CARD', label: 'Card', Icon: CreditCard },
@@ -75,6 +82,8 @@ const PAYMENT_METHOD_OPTIONS = [
   { key: 'EASYPAISA', label: 'Easypaisa', Icon: Wallet },
   { key: 'MOBILE', label: 'Mobile', Icon: Smartphone },
   { key: 'BANK_TRANSFER', label: 'Bank', Icon: Landmark },
+  { key: 'GIFT_CARD', label: 'Gift Card', Icon: Gift },
+  { key: 'EWALLET', label: 'eWallet', Icon: Wallet },
 ] as const;
 
 interface SplitPaymentRow {
@@ -1416,6 +1425,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   };
 
+  // Gift cards / eWallet (Wave C9): ledger tender always travels as
+  // a split-tender allocation — the card code rides the row's
+  // reference and a wallet spend needs the sale customer — while the
+  // single-method path has no reference field. Picking one of these
+  // methods therefore opens the split editor with a row of that
+  // method, instead of leaving the sale un-submittable.
+  const selectPaymentMethod = (key: string) => {
+    setPaymentMethod(key);
+    if ((key === 'GIFT_CARD' || key === 'EWALLET') && !splitEnabled) {
+      setSplitEnabled(true);
+      setSplitPayments([{ method: key, amount: mainTotalAfterLoyalty || 0, reference: '' }]);
+    }
+  };
+
   // Calculate totals for modal invoice
   const modalSubtotal = useMemo(() => {
     return modalInvoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -2328,7 +2351,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       // sharing a method are merged (references joined); the stored
       // paidAmount becomes exactly the allocated sum, which is what
       // the server validates the allocations against.
-      let splitPayload: Array<{ method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER'; amount: number; reference?: string }> | undefined;
+      let splitPayload: Array<{ method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET'; amount: number; reference?: string }> | undefined;
       let effectivePaidAmount = paidAmount || 0;
       if (splitEnabled) {
         const rows = splitPayments.filter(row => (Number(row.amount) || 0) > 0);
@@ -2357,9 +2380,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           });
           return;
         }
-        const merged = new Map<string, { method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER'; amount: number; reference?: string }>();
+        const merged = new Map<string, { method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET'; amount: number; reference?: string }>();
         for (const row of rows) {
-          const key = row.method.toUpperCase();
+          const method = row.method.toUpperCase();
+          // Gift cards (Wave C9): one allocation PER CARD — rows for
+          // different codes must never merge (their references are
+          // distinct card codes, not a joinable note). Same-code rows
+          // still merge, amounts summed.
+          const key = method === 'GIFT_CARD' ? `GIFT_CARD:${row.reference.trim().toUpperCase()}` : method;
           const existing = merged.get(key);
           if (existing) {
             existing.amount = Math.round((existing.amount + Number(row.amount)) * 100) / 100;
@@ -2367,7 +2395,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             if (ref) existing.reference = existing.reference ? `${existing.reference}, ${ref}` : ref;
           } else {
             merged.set(key, {
-              method: key as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
+              method: method as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET',
               amount: Number(row.amount),
               reference: row.reference.trim() || undefined,
             });
@@ -2515,7 +2543,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
         // value sent here is the largest allocation's method.
-        paymentMethod: (splitPayload ? splitPayload[0].method : paymentMethod.toUpperCase()) as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentMethod: (splitPayload ? splitPayload[0].method : paymentMethod.toUpperCase()) as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET',
         paymentStatus: paymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
         ...(splitPayload ? { payments: splitPayload } : {}),
         discountAmount: discountAmount, // Global discount amount
@@ -2839,7 +2867,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         customerName: (!customerId && modalInvoiceCustomer.name) ? modalInvoiceCustomer.name : undefined,
         customerPhone: (!customerId && modalInvoiceCustomer.phone) ? modalInvoiceCustomer.phone : undefined,
         branchId: branchId,
-        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER',
+        paymentMethod: modalPaymentMethod.toUpperCase() as 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET',
         paymentStatus: modalPaymentStatus.toUpperCase() as 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED',
         discountAmount: discountAmount,
         discountPercentage: modalDiscountPercentage || 0,
@@ -4819,7 +4847,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setPaymentMethod(key)}
+                      onClick={() => selectPaymentMethod(key)}
                       aria-pressed={paymentMethod === key}
                       className={cn(
                         "flex h-14 flex-col items-center justify-center gap-1 rounded-[12px] border text-[13px] font-bold transition-all",
@@ -4968,7 +4996,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               </button>
                             </div>
                             <Input
-                              placeholder="Reference (optional) — txn id, account title…"
+                              placeholder={row.method === 'GIFT_CARD' ? 'Gift card code — e.g. GC-XXXX-XXXX (required)' : row.method === 'EWALLET' ? 'eWallet — charged to the sale customer' : 'Reference (optional) — txn id, account title…'}
                               value={row.reference}
                               onChange={(e) => updateSplitRow(index, { reference: e.target.value })}
                               className="h-8 bg-white text-xs"

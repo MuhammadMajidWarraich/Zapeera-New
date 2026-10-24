@@ -68,7 +68,7 @@ export const listWallets = async (req: AuthRequest, res: Response) => {
       }),
       prisma.customerWallet.count({ where }),
     ]);
-    return res.json({ success: true, data: wallets, pagination: { page: Number(page) || 1, limit: take, total } });
+    return res.json({ success: true, data: { wallets, pagination: { page: Number(page) || 1, limit: take, total } } });
   } catch (error) {
     return sendWalletError(res, error);
   }
@@ -155,7 +155,7 @@ export const getWalletTransactions = async (req: AuthRequest, res: Response) => 
       prisma.walletTransaction.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take }),
       prisma.walletTransaction.count({ where }),
     ]);
-    return res.json({ success: true, data: transactions, pagination: { page: Number(page) || 1, limit: take, total } });
+    return res.json({ success: true, data: { transactions, pagination: { page: Number(page) || 1, limit: take, total } } });
   } catch (error) {
     return sendWalletError(res, error);
   }

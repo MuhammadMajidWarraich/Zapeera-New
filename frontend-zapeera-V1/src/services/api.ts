@@ -3160,16 +3160,22 @@ export class ApiService {
       discountAmount?: number;
       totalPrice?: number;
     }>;
-    paymentMethod: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER';
+    paymentMethod: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET';
     paymentStatus?: string;
     // Split tender (Wave B1): per-method allocations; their sum must
     // equal paidAmount. Omit for a single-tender sale — the server
     // synthesizes the single allocation from paymentMethod + paidAmount.
+    // Gift cards / eWallet (Wave C9 — gap item 9): GIFT_CARD rows
+    // carry the card code in `reference` (one allocation PER CARD);
+    // EWALLET rows spend the sale customer's wallet.
     payments?: Array<{
-      method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER';
+      method: 'CASH' | 'CARD' | 'JAZZCASH' | 'EASYPAISA' | 'MOBILE' | 'BANK_TRANSFER' | 'GIFT_CARD' | 'EWALLET';
       amount: number;
       reference?: string;
     }>;
+    // Gift cards / eWallet + kiosk (Wave C9): the channel this sale
+    // came through (POS default; KIOSK for kiosk orders).
+    channel?: string;
     // Loyalty redemption (Wave B3): points to spend on this sale.
     // Requires customerId; the server validates the balance and turns
     // the points into a discount at the loyaltyPointValue rate.
@@ -3341,6 +3347,10 @@ export class ApiService {
     companyId?: string;
     customerId?: string;
     paymentMethod?: string;
+    // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): the kiosk
+    // orders queue reads channel=KIOSK&status=PENDING.
+    channel?: string;
+    status?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -6933,6 +6943,21 @@ export class ApiService {
     }>>('/subscription/addons/catalogue');
   }
 
+  async getAddonCatalogue() {
+    return this.request<Array<{
+      type: string;
+      name: string;
+      description: string;
+      priceMonthly: number;
+      stackable: boolean;
+      unitLabel?: string;
+      // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): true
+      // while the price is undecided — the pack is listed but cannot
+      // be purchased. (ONLINE_STORE_PACK, item 5, same treatment.)
+      pricingPending?: boolean;
+    }>>('/subscription/addons/catalogue');
+  }
+
   async getBusinessAddons(businessId: string) {
     return this.request<{
       businessId: string;
@@ -6947,6 +6972,7 @@ export class ApiService {
         quantity: number;
         status: string;
         priceMonthly: number | null;
+        pricingPending?: boolean;
         startedAt: string | null;
         periodEnd: string | null;
         cancelledAt: string | null;
@@ -6959,6 +6985,7 @@ export class ApiService {
         advancedReportsAllowed: boolean;
         multiBranchReportsAllowed: boolean;
         whatsappPack: boolean;
+        giftCardKioskAllowed: boolean;
         voiceTokenQuota: number;
       };
     }>(`/subscription/addons?businessId=${encodeURIComponent(businessId)}`);
@@ -6983,6 +7010,179 @@ export class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // ── Gift cards / eWallet + kiosk (Wave C9 — gap item 9) ──────────
+  // All staff endpoints are add-on-gated server-side
+  // (GIFT_CARD_KIOSK_PACK); the kiosk endpoints are public by design
+  // (branch-scoped in the path, no auth).
+
+  async purchaseGiftCard(data: {
+    branchId: string;
+    value: number;
+    recipientName?: string;
+    recipientPhone?: string;
+    purchasedBy?: string;
+    paymentMethod?: string;
+    expiresAt?: string;
+  }) {
+    return this.request<{
+      id: string;
+      code: string;
+      balance: number;
+      initialValue: number;
+      status: string;
+      recipientName: string | null;
+      recipientPhone: string | null;
+      expiresAt: string | null;
+      createdAt: string;
+    }>('/gift-cards', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async listGiftCards(params: { branchId?: string; status?: string; search?: string; page?: number; limit?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.branchId) q.set('branchId', params.branchId);
+    if (params.status) q.set('status', params.status);
+    if (params.search) q.set('search', params.search);
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return this.request<{
+      giftCards: Array<{
+        id: string;
+        code: string;
+        balance: number;
+        initialValue: number;
+        status: string;
+        recipientName: string | null;
+        recipientPhone: string | null;
+        expiresAt: string | null;
+        createdAt: string;
+      }>;
+      pagination: { page: number; limit: number; total: number };
+    }>(`/gift-cards${suffix}`);
+  }
+
+  async lookupGiftCardByCode(code: string) {
+    return this.request<{
+      id: string;
+      code: string;
+      balance: number;
+      initialValue: number;
+      status: string;
+      recipientName: string | null;
+      recipientPhone: string | null;
+      expiresAt: string | null;
+      transactions?: Array<{ id: string; type: string; amount: number; balanceAfter: number; saleId: string | null; createdAt: string }>;
+    }>(`/gift-cards/code/${encodeURIComponent(code)}`);
+  }
+
+  async getGiftCard(id: string) {
+    return this.request<{
+      id: string;
+      code: string;
+      balance: number;
+      initialValue: number;
+      status: string;
+      recipientName: string | null;
+      recipientPhone: string | null;
+      expiresAt: string | null;
+      transactions?: Array<{ id: string; type: string; amount: number; balanceAfter: number; saleId: string | null; createdAt: string }>;
+    }>(`/gift-cards/${encodeURIComponent(id)}`);
+  }
+
+  async voidGiftCard(id: string) {
+    return this.request<{ id: string; status: string; balance: number }>(`/gift-cards/${encodeURIComponent(id)}/void`, {
+      method: 'POST',
+    });
+  }
+
+  async listWallets(params: { search?: string; page?: number; limit?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.search) q.set('search', params.search);
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return this.request<{
+      wallets: Array<{
+        id: string;
+        customerId: string;
+        balance: number;
+        customer: { id: string; name: string; phone: string };
+      }>;
+      pagination: { page: number; limit: number; total: number };
+    }>(`/wallets${suffix}`);
+  }
+
+  async getWallet(customerId: string) {
+    return this.request<{
+      customer: { id: string; name: string; phone: string };
+      wallet: { id: string; balance: number } | null;
+      balance: number;
+      exists: boolean;
+    }>(`/wallets/customers/${encodeURIComponent(customerId)}`);
+  }
+
+  async topUpWallet(customerId: string, data: { amount: number; method?: string; note?: string }) {
+    return this.request<{ walletId: string; customerId: string; balanceAfter: number }>(
+      `/wallets/customers/${encodeURIComponent(customerId)}/topup`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+  }
+
+  async getWalletTransactions(customerId: string, params: { page?: number; limit?: number } = {}) {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return this.request<{
+      transactions: Array<{
+        id: string;
+        type: string;
+        amount: number;
+        balanceAfter: number;
+        saleId: string | null;
+        method: string | null;
+        note: string | null;
+        createdAt: string;
+      }>;
+      pagination: { page: number; limit: number; total: number };
+    }>(`/wallets/customers/${encodeURIComponent(customerId)}/transactions${suffix}`);
+  }
+
+  async getKioskInfo(branchId: string) {
+    return this.request<{
+      branchId: string;
+      branchName: string;
+      companyName: string;
+      address: string | null;
+      phone: string | null;
+    }>(`/kiosk/${encodeURIComponent(branchId)}`);
+  }
+
+  async getKioskCatalog(branchId: string, params: { search?: string; categoryId?: string; inStock?: boolean } = {}) {
+    const q = new URLSearchParams();
+    if (params.search) q.set('search', params.search);
+    if (params.categoryId) q.set('categoryId', params.categoryId);
+    if (params.inStock !== undefined) q.set('inStock', String(params.inStock));
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return this.request<Array<{
+      id: string;
+      name: string;
+      categoryId: string | null;
+      price: number;
+      stock: number;
+      inStock: boolean;
+    }>>(`/kiosk/${encodeURIComponent(branchId)}/products${suffix}`);
+  }
+
+  async checkoutKioskOrder(branchId: string, data: { items: Array<{ productId: string; quantity: number }>; customerName?: string; customerPhone?: string }) {
+    return this.request<{
+      id: string;
+      invoiceNumber?: string;
+      totalAmount: number;
+      receiptNumber?: string;
+    }>(`/kiosk/${encodeURIComponent(branchId)}/checkout`, { method: 'POST', body: JSON.stringify(data) });
   }
 
   async getPaymentMethods() {

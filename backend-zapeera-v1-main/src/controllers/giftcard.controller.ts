@@ -160,7 +160,7 @@ export const listGiftCards = async (req: AuthRequest, res: Response) => {
       prisma.giftCard.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take }),
       prisma.giftCard.count({ where }),
     ]);
-    return res.json({ success: true, data: cards, pagination: { page: Number(page) || 1, limit: take, total } });
+    return res.json({ success: true, data: { giftCards: cards, pagination: { page: Number(page) || 1, limit: take, total } } });
   } catch (error) {
     return sendGiftCardError(res, error);
   }
