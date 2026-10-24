@@ -42,6 +42,7 @@ export const listBusinessAddonsAdmin = async (req: AdminAuthRequest, res: Respon
           advancedReportsAllowed: limits.advancedReportsAllowed,
           multiBranchReportsAllowed: limits.multiBranchReportsAllowed,
           whatsappPack: limits.whatsappPack,
+          onlineStoreAllowed: limits.onlineStoreAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         addons: rows.map((r: any) => ({

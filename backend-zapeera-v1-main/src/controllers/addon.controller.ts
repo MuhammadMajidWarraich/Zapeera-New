@@ -74,6 +74,7 @@ const serializeAddon = (row: any) => ({
   quantity: row.quantity,
   status: row.status,
   priceMonthly: ADDON_CATALOGUE[row.type as AddonType]?.priceMonthly ?? null,
+  pricingPending: ADDON_CATALOGUE[row.type as AddonType]?.pricingPending ?? false,
   startedAt: row.startedAt,
   periodEnd: row.periodEnd,
   cancelledAt: row.cancelledAt,
@@ -81,7 +82,7 @@ const serializeAddon = (row: any) => ({
   updatedAt: row.updatedAt,
 });
 
-/** GET /api/subscription/addons/catalogue — the 7 add-ons with prices. */
+/** GET /api/subscription/addons/catalogue — the 8 add-ons with prices (ONLINE_STORE_PACK is listed with pricingPending until Muhammad prices it). */
 export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
   return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
 };
@@ -117,6 +118,7 @@ export const getBusinessAddons = async (req: AuthRequest, res: Response) => {
           advancedReportsAllowed: limits.advancedReportsAllowed,
           multiBranchReportsAllowed: limits.multiBranchReportsAllowed,
           whatsappPack: limits.whatsappPack,
+          onlineStoreAllowed: limits.onlineStoreAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         monthlyAddonSpend: limits.monthlyAddonSpend,
