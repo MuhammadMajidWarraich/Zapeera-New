@@ -359,6 +359,9 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/reports': 'reports',
   '/advanced-reports': 'reports',
   '/prescriptions': 'prescriptions',
+  // Online store (Wave C5 — gap item 5): the staff page rides the
+  // prescriptions module — its core job is the Rx review queue.
+  '/online-store': 'prescriptions',
   // Clinic family (Wave C4): each register is its own module.
   '/patients': 'patients',
   '/doctors': 'doctors',
@@ -406,6 +409,8 @@ const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
   reports: 'reports',
   'advanced-reports': 'reports',
   prescriptions: 'prescriptions',
+  // Online store (Wave C5 — gap item 5): rides prescriptions.
+  'online-store': 'prescriptions',
   patients: 'patients',
   doctors: 'doctors',
   appointments: 'appointments',
@@ -456,6 +461,7 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   '/reports': { parentModule: 'reports', subModuleKey: 'reports', label: 'Reports' },
   '/advanced-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Advanced Reports' },
   '/prescriptions': { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Prescriptions' },
+  '/online-store': { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Online Store' },
   '/patients': { parentModule: 'patients', subModuleKey: 'patients', label: 'Patients' },
   '/doctors': { parentModule: 'doctors', subModuleKey: 'doctors', label: 'Doctors' },
   '/appointments': { parentModule: 'appointments', subModuleKey: 'appointments', label: 'Appointments' },
@@ -490,6 +496,7 @@ const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   reports: { parentModule: 'reports', subModuleKey: 'reports', label: 'Reports' },
   'advanced-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Advanced Reports' },
   prescriptions: { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Prescriptions' },
+  'online-store': { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Online Store' },
   patients: { parentModule: 'patients', subModuleKey: 'patients', label: 'Patients' },
   doctors: { parentModule: 'doctors', subModuleKey: 'doctors', label: 'Doctors' },
   appointments: { parentModule: 'appointments', subModuleKey: 'appointments', label: 'Appointments' },

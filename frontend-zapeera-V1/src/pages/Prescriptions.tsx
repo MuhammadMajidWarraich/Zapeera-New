@@ -497,11 +497,25 @@ const Prescriptions = () => {
                   </td>
                   <td className="px-4 py-3 text-[#4a5578]">{record._count?.sales ?? 0}</td>
                   <td className="px-4 py-3">
-                    {record.isActive ? (
-                      <Badge className="bg-emerald-600 font-semibold text-white hover:bg-emerald-600">Active</Badge>
-                    ) : (
-                      <Badge variant="secondary" className="font-semibold text-red-600">Voided</Badge>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {record.isActive ? (
+                        <Badge className="bg-emerald-600 font-semibold text-white hover:bg-emerald-600">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-semibold text-red-600">Voided</Badge>
+                      )}
+                      {/* Pharmacist review (Wave C5 — gap item 5): uploads
+                          arrive PENDING and cannot be dispensed against
+                          until approved; REJECTED stays visible too. */}
+                      {record.source === "ONLINE_UPLOAD" ? (
+                        <Badge variant="outline" className="font-semibold">Online upload</Badge>
+                      ) : null}
+                      {record.reviewStatus === "PENDING" ? (
+                        <Badge className="bg-amber-500 font-semibold text-white hover:bg-amber-500">Review pending</Badge>
+                      ) : null}
+                      {record.reviewStatus === "REJECTED" ? (
+                        <Badge variant="secondary" className="font-semibold text-red-600">Rejected</Badge>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
@@ -732,6 +746,19 @@ const Prescriptions = () => {
                   <span className="font-bold">Voided</span>
                   {detail.voidedAt && <span> on {formatDate(detail.voidedAt)}</span>}
                   {detail.voidReason && <span className="block text-xs">Reason: {detail.voidReason}</span>}
+                </div>
+              )}
+              {/* Pharmacist review (Wave C5 — gap item 5): uploads show
+                  their review state here; review itself happens on the
+                  Online Store page, where the medicines are transcribed. */}
+              {detail.source === "ONLINE_UPLOAD" && (
+                <div className="rounded-[10px] border px-3 py-2.5">
+                  <span className="font-bold">Online upload — review {String(detail.reviewStatus || "REVIEWED").toLowerCase()}</span>
+                  {detail.reviewedAt && <span> on {formatDate(detail.reviewedAt)}</span>}
+                  {detail.reviewNote && <span className="block text-xs text-[#5b6b8c]">Pharmacist note: {detail.reviewNote}</span>}
+                  {detail.reviewStatus === "PENDING" && (
+                    <span className="block text-xs text-[#5b6b8c]">Approve or reject it from the Online Store page — it cannot be dispensed against until approved.</span>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">

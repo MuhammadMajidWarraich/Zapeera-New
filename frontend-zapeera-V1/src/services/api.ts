@@ -213,6 +213,14 @@ export interface PrescriptionRecord {
   voidReason?: string | null;
   voidedAt?: string | null;
   voidedBy?: string | null;
+  // Pharmacist review (Wave C5 — gap item 5): PENDING uploads wait
+  // for review; REVIEWED can be dispensed against; REJECTED cannot.
+  // Staff-entered records are REVIEWED at entry; source marks uploads.
+  reviewStatus?: 'PENDING' | 'REVIEWED' | 'REJECTED' | string;
+  source?: 'STAFF' | 'ONLINE_UPLOAD' | string;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewNote?: string | null;
   createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -243,6 +251,68 @@ export interface PrescriptionPayload {
   imageUrl?: string | null;
   issuedDate: string;
   items: PrescriptionItemPayload[];
+}
+
+// Online pharmacy store — public storefront types (Wave C5 — gap item 5).
+export interface StoreInfo {
+  business: { id: string; name: string; slug?: string | null };
+  branch: { id: string; name: string; address?: string | null; phone?: string | null; email?: string | null };
+  onlineStoreEnabled: boolean;
+  currency: string;
+  paymentMethods: string[];
+}
+
+export interface StoreProduct {
+  id: string;
+  name: string;
+  description?: string | null;
+  formula?: string | null;
+  sku?: string | null;
+  category?: { id: string; name: string } | null;
+  unitsPerPack: number;
+  unitsPerStrip?: number | null;
+  requiresPrescription: boolean;
+  price: number;
+  stock: number;
+  inStock: boolean;
+}
+
+export interface StorePrescriptionUpload {
+  patientName: string;
+  patientPhone?: string | null;
+  doctorName?: string | null;
+  doctorReg?: string | null;
+  notes?: string | null;
+  imageUrl: string;
+  issuedDate?: string;
+}
+
+export interface StorePrescriptionStatus {
+  id: string;
+  patientName: string;
+  reviewStatus: string;
+  reviewNote?: string | null;
+  issuedDate: string;
+  createdAt: string;
+  items?: Array<{ productName: string; quantity: number; dosage?: string | null }>;
+}
+
+export interface StoreCheckoutPayload {
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress?: string | null;
+  deliveryNotes?: string | null;
+  prescriptionId?: string | null;
+  items: Array<{ productId: string; quantity: number }>;
+}
+
+export interface StoreCheckoutResult {
+  id?: string;
+  invoiceNumber?: string | null;
+  totalAmount?: number;
+  paymentStatus?: string;
+  status?: string;
+  [key: string]: unknown;
 }
 
 // Clinic pack (Wave C4): Patient-Lite, Doctors, Appointments/OPD.
@@ -2441,6 +2511,8 @@ export class ApiService {
     from?: string;
     to?: string;
     isActive?: boolean;
+    reviewStatus?: string;
+    source?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -2472,12 +2544,72 @@ export class ApiService {
     });
   }
 
+  // Pharmacist review (Wave C5 — gap item 5): approve/reject a
+  // customer upload; `items` transcribes the paper prescription's
+  // medicines on approve (uploads arrive item-less).
+  async reviewPrescription(
+    prescriptionId: string,
+    data: { decision: 'REVIEWED' | 'REJECTED'; note?: string | null; items?: PrescriptionItemPayload[] }
+  ) {
+    return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // DELETE voids the record (legal register — never a hard delete);
   // the server requires a reason and an OWNER/MANAGER role.
   async voidPrescription(prescriptionId: string, reason: string) {
     return this.request<PrescriptionRecord>(`/prescriptions/${prescriptionId}`, {
       method: 'DELETE',
       body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ── Online pharmacy store — public storefront (Wave C5 — gap item 5)
+  // These hit the unauthenticated /api/store/* endpoints: no customer
+  // account exists. `request` only attaches an Authorization header
+  // when a token is stored, so logged-out customers call these bare;
+  // the server ignores any staff headers a logged-in viewer carries.
+  async getStoreInfo(branchId: string) {
+    return this.request<StoreInfo>(`/store/${encodeURIComponent(branchId)}`);
+  }
+
+  async getStoreCatalog(
+    branchId: string,
+    params?: { search?: string; categoryId?: string; inStock?: boolean; page?: number; limit?: number }
+  ) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<StoreProduct[]>(`/store/${encodeURIComponent(branchId)}/products${query ? `?${query}` : ''}`);
+  }
+
+  async getStoreProduct(branchId: string, productId: string) {
+    return this.request<StoreProduct>(`/store/${encodeURIComponent(branchId)}/products/${encodeURIComponent(productId)}`);
+  }
+
+  async uploadStorePrescription(branchId: string, data: StorePrescriptionUpload) {
+    return this.request<{ id: string; patientName: string; reviewStatus: string; source: string; issuedDate: string; createdAt: string }>(
+      `/store/${encodeURIComponent(branchId)}/prescriptions`,
+      { method: 'POST', body: JSON.stringify(data) }
+    );
+  }
+
+  async getStorePrescriptionStatus(branchId: string, prescriptionId: string, phone: string) {
+    return this.request<StorePrescriptionStatus>(
+      `/store/${encodeURIComponent(branchId)}/prescriptions/${encodeURIComponent(prescriptionId)}?phone=${encodeURIComponent(phone)}`
+    );
+  }
+
+  async checkoutStoreOrder(branchId: string, data: StoreCheckoutPayload) {
+    return this.request<StoreCheckoutResult>(`/store/${encodeURIComponent(branchId)}/checkout`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 
@@ -3341,6 +3473,10 @@ export class ApiService {
     companyId?: string;
     customerId?: string;
     paymentMethod?: string;
+    // Online store (Wave C5 — gap item 5): the staff online-orders
+    // queue is getSales({ channel: 'ONLINE_STORE', status: 'PENDING' }).
+    channel?: string;
+    status?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -3366,6 +3502,13 @@ export class ApiService {
         paymentMethod: string;
         paymentStatus: string;
         status: string;
+        invoiceNumber?: string | null;
+        // Online store (Wave C5 — gap item 5)
+        channel?: string;
+        deliveryAddress?: string | null;
+        deliveryPhone?: string | null;
+        deliveryNotes?: string | null;
+        prescriptionId?: string | null;
         createdAt: string;
         customer?: {
           id: string;
@@ -6930,6 +7073,9 @@ export class ApiService {
       priceMonthly: number;
       stackable: boolean;
       unitLabel?: string;
+      // Online store (Wave C5 — gap item 5): true while the price is
+      // undecided — the pack is listed but cannot be purchased.
+      pricingPending?: boolean;
     }>>('/subscription/addons/catalogue');
   }
 
@@ -6947,6 +7093,7 @@ export class ApiService {
         quantity: number;
         status: string;
         priceMonthly: number | null;
+        pricingPending?: boolean;
         startedAt: string | null;
         periodEnd: string | null;
         cancelledAt: string | null;
@@ -6959,6 +7106,8 @@ export class ApiService {
         advancedReportsAllowed: boolean;
         multiBranchReportsAllowed: boolean;
         whatsappPack: boolean;
+        // Online store (Wave C5 — gap item 5)
+        onlineStoreAllowed: boolean;
         voiceTokenQuota: number;
       };
     }>(`/subscription/addons?businessId=${encodeURIComponent(businessId)}`);

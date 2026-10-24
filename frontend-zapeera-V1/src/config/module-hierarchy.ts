@@ -40,6 +40,7 @@ import {
   User,
   Bell,
   Stethoscope,
+  Store,
   HeartPulse,
   BedDouble,
   CalendarCheck,
@@ -364,6 +365,17 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         label: 'Prescriptions',
         href: '/prescriptions',
         icon: Stethoscope,
+        module: 'prescriptions',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      // Online store (Wave C5 — gap item 5): staff home for the
+      // public storefront — store links, online-orders queue and the
+      // prescription review queue. Same module as Prescriptions.
+      {
+        key: 'online-store',
+        label: 'Online Store',
+        href: '/online-store',
+        icon: Store,
         module: 'prescriptions',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
