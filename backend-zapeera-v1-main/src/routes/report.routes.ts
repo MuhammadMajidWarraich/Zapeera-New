@@ -42,6 +42,13 @@ import {
   getPayables,
   getCashbook
 } from '../controllers/accounting-report.controller';
+import {
+  getSupplierAgingReport,
+  getCustomerAgingReport,
+  getStockAgingReport,
+  getMovementReport,
+  getProfitabilityReport
+} from '../controllers/aging-report.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { requireBusinessDashboardAccess } from '../middleware/business-dashboard-access.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership, checkPermission } from '../middleware/multitenancy.middleware';
@@ -104,6 +111,14 @@ router.get('/advanced/discount', checkPermission('reports.read'), getAdvancedDis
 router.get('/advanced/product', checkPermission('reports.read'), getAdvancedProductReport);
 router.get('/advanced/turnover', checkPermission('reports.read'), getAdvancedTurnoverReport);
 router.get('/advanced/daily', checkPermission('reports.read'), getAdvancedDailyReport);
+
+// Aging reports (Gap Item 4) — read-only; under /advanced so the
+// Reports Pack / Growth+ gate above applies.
+router.get('/advanced/aging/supplier', checkPermission('reports.read'), getSupplierAgingReport);
+router.get('/advanced/aging/customer', checkPermission('reports.read'), getCustomerAgingReport);
+router.get('/advanced/aging/stock', checkPermission('reports.read'), getStockAgingReport);
+router.get('/advanced/aging/movement', checkPermission('reports.read'), getMovementReport);
+router.get('/advanced/aging/profitability', checkPermission('reports.read'), getProfitabilityReport);
 
 // Accounting-lite (Wave B8): read-only P&L / ageing / payables / cashbook
 router.get('/accounting/pnl', checkPermission('reports.read'), getAccountingPnl);

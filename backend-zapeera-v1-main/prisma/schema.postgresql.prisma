@@ -140,6 +140,7 @@ model Business {
   sales                     Sale[]
   batches                   Batch[]
   purchases                 Purchase[]
+  purchaseSuggestions       PurchaseSuggestion[]
   stockTransfers            StockTransfer[]
   promotions                Promotion[]
   taxClasses                TaxClass[]
@@ -209,6 +210,7 @@ model Branch {
   scheduledShifts    ScheduledShift[]
   batches            Batch[]
   purchases          Purchase[]
+  purchaseSuggestions  PurchaseSuggestion[]
   stockTransfersOut  StockTransfer[]    @relation("stockTransfersOut")
   stockTransfersIn   StockTransfer[]    @relation("stockTransfersIn")
   prescriptions      Prescription[]
@@ -343,6 +345,7 @@ model Supplier {
   products       Product[]
   batches        Batch[]
   purchases      Purchase[]
+  purchaseSuggestions PurchaseSuggestion[]
 
   @@unique([name, branchId], name: "supplier_name_per_branch")
   @@index([companyId], name: "idx_supplier_company")
@@ -437,6 +440,7 @@ model Product {
   variants       ProductVariant[]
   stockTakeLines StockTakeLine[]
   purchaseItems  PurchaseItem[]
+  purchaseSuggestionLines PurchaseSuggestionLine[]
   stockTransferItems StockTransferItem[]
   prescriptionItems PrescriptionItem[]
   serviceForDoctors Doctor[]       @relation("DoctorServiceProduct")
@@ -561,6 +565,7 @@ model Purchase {
   branch        Branch         @relation(fields: [branchId], references: [id])
   company       Business       @relation(fields: [companyId], references: [id])
   purchaseItems PurchaseItem[]
+  purchaseSuggestions PurchaseSuggestion[]
 
   @@index([companyId], name: "idx_purchase_company")
   @@index([branchId], name: "idx_purchase_branch")
