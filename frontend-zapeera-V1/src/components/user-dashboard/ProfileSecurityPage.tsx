@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiService } from "@/services/api";
+import {
+  deriveAccountStatus,
+  invalidateAccountStatus,
+  type AccountStatusProfile,
+} from "@/lib/account-status";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +40,10 @@ const ProfileSecurityPage = () => {
     bio: "",
   });
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  // Raw GET /auth/profile payload — the Security Status card derives
+  // from this via lib/account-status (the same source the dashboard
+  // CompletionStrip uses, so the two surfaces cannot disagree).
+  const [profileData, setProfileData] = useState<AccountStatusProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
@@ -50,6 +59,7 @@ const ProfileSecurityPage = () => {
     try {
       const res = await apiService.getProfile();
       if (res.success && res.data) {
+        setProfileData(res.data as AccountStatusProfile);
         setProfile({
           name: res.data.name || "",
           email: res.data.email || "",
@@ -75,6 +85,17 @@ const ProfileSecurityPage = () => {
           bio: (user as any).bio || "",
         });
         setTwoFactorEnabled(Boolean((user as any).twoFactorEnabled));
+        setProfileData({
+          name: user.name || "",
+          email: (user as any).email || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth || "",
+          bio: (user as any).bio || "",
+          twoFactorEnabled: Boolean((user as any).twoFactorEnabled),
+        });
       }
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -89,6 +110,18 @@ const ProfileSecurityPage = () => {
           country: (user as any).country || "",
           dateOfBirth: (user as any).dateOfBirth ? String((user as any).dateOfBirth).slice(0, 10) : "",
           bio: (user as any).bio || "",
+        });
+      if (user)
+        setProfileData({
+          name: user.name || "",
+          email: (user as any).email || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth || "",
+          bio: (user as any).bio || "",
+          twoFactorEnabled: Boolean((user as any)?.twoFactorEnabled),
         });
       setTwoFactorEnabled(Boolean((user as any)?.twoFactorEnabled));
     } finally {
@@ -118,6 +151,11 @@ const ProfileSecurityPage = () => {
       });
       if (res.success) {
         toast({ title: "Profile updated", description: "Your profile has been saved." });
+        // Resync from the server so the Security Status card (and, via
+        // the invalidated cache, the dashboard strip) reflect the SAVED
+        // state — not whatever the form happened to contain.
+        invalidateAccountStatus();
+        await loadProfile();
       } else {
         toast({ title: "Update failed", description: res.message || "Could not update profile.", variant: "destructive" });
       }
@@ -159,9 +197,14 @@ const ProfileSecurityPage = () => {
     }
   };
 
-  const hasEmail = Boolean(user?.email);
-  const hasPhone = Boolean(profile.phone) || Boolean((user as any)?.phone);
-  const has2fa = twoFactorEnabled || Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
+  // Status-truth (2026-10-24): the Security Status card below derives
+  // EVERY row from the shared module over the freshly loaded profile —
+  // previously `hasPhone` here also counted unsaved form input, and the
+  // email row was `Boolean(user?.email)` (presence, not verification).
+  // The 2FA toggle keeps editing the raw flag (its own state); the card
+  // shows the enrolled truth via accountStatus.twoFactorOn.
+  const accountStatus = deriveAccountStatus(profileData);
+  const has2fa = twoFactorEnabled;
 
   const handleToggle2FA = async (enabled: boolean) => {
     setToggling2FA(true);
@@ -169,6 +212,8 @@ const ProfileSecurityPage = () => {
       const res = await apiService.updateProfile({ twoFactorEnabled: enabled });
       if (res.success) {
         setTwoFactorEnabled(enabled);
+        setProfileData((prev) => (prev ? { ...prev, twoFactorEnabled: enabled } : prev));
+        invalidateAccountStatus();
         toast({
           title: enabled ? "2FA enabled" : "2FA disabled",
           description: enabled ? "Two-factor authentication is now on." : "Two-factor authentication is now off.",
@@ -472,11 +517,11 @@ const ProfileSecurityPage = () => {
             </div>
             <div className="divide-y divide-[rgba(15,23,60,0.06)]">
               {[
-                { label: "Secure login", ok: true, desc: "Password-protected account" },
-                { label: "Email verified", ok: hasEmail, desc: hasEmail ? "Your email is on file" : "Add your email" },
-                { label: "Phone number", ok: hasPhone, desc: hasPhone ? "Phone on file" : "Add a phone number" },
-                { label: "Two-factor authentication", ok: has2fa, desc: has2fa ? "2FA is enabled" : "Not enabled yet" },
-                { label: "Encrypted connection", ok: true, desc: "Data is encrypted in transit" },
+                { label: "Secure login", ok: accountStatus.secureLogin, desc: accountStatus.secureLogin ? "Password-protected account" : "No password set on this account" },
+                { label: "Email verified", ok: accountStatus.emailVerified, desc: accountStatus.emailVerified ? "Your email is on file" : "Not verified yet — check your inbox" },
+                { label: "Phone number", ok: accountStatus.phoneOnFile, desc: accountStatus.phoneOnFile ? "Phone on file" : "Add a phone number" },
+                { label: "Two-factor authentication", ok: accountStatus.twoFactorOn, desc: accountStatus.twoFactorOn ? "2FA is enabled" : "Not enabled yet" },
+                { label: "Encrypted connection", ok: accountStatus.encryptedConnection, desc: accountStatus.encryptedConnection ? "Data is encrypted in transit" : "This connection is not encrypted" },
               ].map((it) => (
                 <div key={it.label} className="flex items-center gap-3 px-6 py-4">
                   {it.ok ? (

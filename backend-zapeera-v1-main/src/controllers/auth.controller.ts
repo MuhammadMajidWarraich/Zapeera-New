@@ -742,6 +742,13 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         dateOfBirth: user.dateOfBirth,
         bio: user.bio,
         twoFactorEnabled: user.twoFactorEnabled,
+        // Status-truth (2026-10-24): the account-status UI must derive from
+        // real state, not from field presence. emailVerified exists on the
+        // row (with a full verification flow behind it) but was never
+        // exposed here; hasPassword lets "Secure login" derive from the
+        // credential actually existing instead of a hardcoded check.
+        emailVerified: user.emailVerified ?? false,
+        hasPassword: Boolean(user.password),
         isActive: user.isActive,
         role: effectiveRole,
         membership: currentMembership || null,
@@ -914,6 +921,9 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         dateOfBirth: updatedUser.dateOfBirth,
         bio: updatedUser.bio,
         twoFactorEnabled: updatedUser.twoFactorEnabled,
+        // Status-truth (2026-10-24): keep parity with getProfile.
+        emailVerified: updatedUser.emailVerified ?? false,
+        hasPassword: Boolean(updatedUser.password),
         role: normalizeAppRole((req as any)?.membership?.role_name || 'USER')
       }
     });

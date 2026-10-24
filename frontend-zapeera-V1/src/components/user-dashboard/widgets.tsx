@@ -20,7 +20,7 @@ import {
   Database,
   Star,
   Lock,
-  CircleCheckBig,
+  User,
   BadgeCheck,
   Users,
   Building2,
@@ -42,6 +42,7 @@ import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
 import { whatsappUrl, callUrl, emailUrl, SUPPORT_PHONE_DISPLAY, DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 import { apiService } from "@/services/api";
+import { useAccountStatus } from "@/lib/account-status";
 import { config } from "@/lib/config";
 import {
   readUserScopedBusinesses,
@@ -162,29 +163,36 @@ export function AccountStats() {
 /* ------------------------------------------------------------------ */
 export function SecurityCard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  // Status-truth (2026-10-24): these rows were hardcoded `ok: true`, and
+  // the 2FA row's check was driven by `user.isActive` — an unrelated
+  // flag that made 2FA look enabled on every active account. All three
+  // now come from the shared derivation over the fresh profile.
+  const { status } = useAccountStatus();
   const items = [
-    { key: "email", label: "Secure Login", ok: true, icon: BadgeCheck },
-    { key: "enc", label: "Encrypted Connection", ok: true, icon: Lock },
+    { key: "email", label: "Secure Login", ok: status?.secureLogin ?? false, icon: BadgeCheck },
+    { key: "enc", label: "Encrypted Connection", ok: status?.encryptedConnection ?? false, icon: Lock },
   ];
   return (
     <Panel title="Your Account Is Protected" subtitle="Security & device status" action={() => navigate("/settings")} actionLabel="Security Settings">
       <div className="space-y-2.5 p-4 pt-1">
-        {items.map((it) => {
-          const Icon = it.icon;
-          return (
-            <div key={it.key} className="flex items-center gap-2.5 text-sm">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-              <Icon className="h-4 w-4 shrink-0 text-[#1a52c5]" />
-              <span className="text-[#4a5578]">{it.label}</span>
-            </div>
-          );
-        })}
-        <div className="flex items-center gap-2.5 text-sm">
-          {user?.isActive ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
-          <Shield className="h-4 w-4 shrink-0 text-[#1a52c5]" />
-          <span className="text-[#4a5578]">Two Factor Authentication</span>
-        </div>
+        {status &&
+          items.map((it) => {
+            const Icon = it.icon;
+            return (
+              <div key={it.key} className="flex items-center gap-2.5 text-sm">
+                {it.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
+                <Icon className="h-4 w-4 shrink-0 text-[#1a52c5]" />
+                <span className="text-[#4a5578]">{it.label}</span>
+              </div>
+            );
+          })}
+        {status && (
+          <div className="flex items-center gap-2.5 text-sm">
+            {status.twoFactorOn ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
+            <Shield className="h-4 w-4 shrink-0 text-[#1a52c5]" />
+            <span className="text-[#4a5578]">Two Factor Authentication</span>
+          </div>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -203,28 +211,27 @@ export function SecurityCard() {
 /* Account completion widget                                           */
 /* ------------------------------------------------------------------ */
 export function AccountCompletion() {
-  const { user } = useAuth();
-  const runtime = useRuntime();
   const navigate = useNavigate();
+  // Status-truth (2026-10-24): same shared derivation as the dashboard
+  // CompletionStrip — this widget previously duplicated the strip's
+  // snapshot-based math and inherited all of its contradictions.
+  const { status } = useAccountStatus();
 
   const items = useMemo(() => {
-    const hasEmail = Boolean(user?.email);
-    const hasPhone = Boolean((user as any)?.phone);
-    const hasName = Boolean(user?.name && user.name.trim().length > 1);
-    const desktopConnected = runtime.isDesktop;
-    const has2fa = Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
-    const list = [
-      { key: "email", label: "Email verified", done: hasEmail, icon: Mail, to: "/settings" },
-      { key: "profile", label: "Complete profile", done: hasName, icon: CircleCheckBig, to: "/settings" },
-      { key: "phone", label: "Add phone number", done: hasPhone, icon: Phone, to: "/settings" },
-      { key: "2fa", label: "Enable 2FA", done: has2fa, icon: ShieldCheck, to: "/settings" },
-      { key: "desktop", label: "Connect desktop", done: desktopConnected, icon: Laptop, to: "/downloads" },
+    if (!status) return [];
+    return [
+      { key: "email", label: "Email verified", done: status.emailVerified, icon: Mail, to: "/settings" },
+      { key: "profile", label: "Complete profile", done: status.profileComplete, icon: User, to: "/settings" },
+      { key: "phone", label: "Add phone number", done: status.phoneOnFile, icon: Phone, to: "/settings" },
+      { key: "2fa", label: "Enable 2FA", done: status.twoFactorOn, icon: ShieldCheck, to: "/settings" },
+      { key: "desktop", label: "Connect desktop", done: status.desktopConnected, icon: Laptop, to: "/downloads" },
     ];
-    return list;
-  }, [user, runtime.isDesktop]);
+  }, [status]);
 
   const doneCount = items.filter((i) => i.done).length;
-  const pct = Math.round((doneCount / items.length) * 100);
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+
+  if (!status) return null;
 
   return (
     <Panel title="Account Completion" subtitle={`${doneCount} of ${items.length} completed`}>

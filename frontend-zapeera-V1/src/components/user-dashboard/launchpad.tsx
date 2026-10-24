@@ -36,13 +36,14 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
-  CircleCheckBig,
+  User,
   UserPlus,
   Wifi,
   WifiOff,
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccountStatus } from "@/lib/account-status";
 import { useAdmin } from "@/contexts/useAdmin";
 import { useRuntime } from "@/lib/runtime";
 import { useSync } from "@/contexts/SyncProvider";
@@ -108,31 +109,31 @@ export function InvitationsStrip() {
 /* Account completion — slim strip (gone entirely at 100%)             */
 /* ------------------------------------------------------------------ */
 export function CompletionStrip() {
-  const { user } = useAuth();
-  const runtime = useRuntime();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
+  // Status-truth (2026-10-24): every check comes from the shared
+  // derivation over the FRESH profile — previously this strip read the
+  // login snapshot, whose payload has no phone / twoFactorEnabled at
+  // all, so those two steps could never complete here even when the
+  // security page (fresh data) showed them done.
+  const { status } = useAccountStatus();
 
   const items = useMemo(() => {
-    const hasEmail = Boolean(user?.email);
-    const hasPhone = Boolean((user as any)?.phone);
-    const hasName = Boolean(user?.name && user.name.trim().length > 1);
-    const desktopConnected = runtime.isDesktop;
-    const has2fa = Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
+    if (!status) return [];
     return [
-      { key: "email", label: "Email verified", done: hasEmail, icon: Mail, to: "/settings" },
-      { key: "profile", label: "Complete profile", done: hasName, icon: CircleCheckBig, to: "/settings" },
-      { key: "phone", label: "Add phone number", done: hasPhone, icon: Phone, to: "/settings" },
-      { key: "2fa", label: "Enable 2FA", done: has2fa, icon: ShieldCheck, to: "/settings" },
-      { key: "desktop", label: "Connect desktop", done: desktopConnected, icon: Laptop, to: "/downloads" },
+      { key: "email", label: "Email verified", done: status.emailVerified, icon: Mail, to: "/settings" },
+      { key: "profile", label: "Complete profile", done: status.profileComplete, icon: User, to: "/settings" },
+      { key: "phone", label: "Add phone number", done: status.phoneOnFile, icon: Phone, to: "/settings" },
+      { key: "2fa", label: "Enable 2FA", done: status.twoFactorOn, icon: ShieldCheck, to: "/settings" },
+      { key: "desktop", label: "Connect desktop", done: status.desktopConnected, icon: Laptop, to: "/downloads" },
     ];
-  }, [user, runtime.isDesktop]);
+  }, [status]);
 
   const doneCount = items.filter((i) => i.done).length;
-  const pct = Math.round((doneCount / items.length) * 100);
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
   const next = items.find((i) => !i.done);
 
-  if (pct >= 100 || !next) return null;
+  if (!status || pct >= 100 || !next) return null;
 
   const nextHints: Record<string, string> = {
     email: "Verify your email address",

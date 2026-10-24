@@ -1432,12 +1432,39 @@ export class ApiService {
       dateOfBirth?: string | null;
       bio?: string | null;
       twoFactorEnabled?: boolean;
+      // Status-truth (2026-10-24): real account-status fields. emailVerified
+      // + hasPassword are exposed by getProfile; twoFactorConfigured /
+      // twoFactorActive arrive with the real-TOTP-2FA backend.
+      emailVerified?: boolean;
+      hasPassword?: boolean;
+      twoFactorConfigured?: boolean;
+      twoFactorActive?: boolean;
       branchId: string;
       branch?: {
         id: string;
         name: string;
       };
     }>('/auth/profile');
+  }
+
+  // My devices — desktop presence for THIS account.
+  // Mirrors feature/desktop-connected verbatim (same route, same response
+  // contract) so the wave merge unifies the two additions: the backend
+  // answers GET /api/devices/my with the caller's devices plus
+  // `desktopConnected` = how many desktops checked in within the
+  // backend's presence window (30 min, status != INACTIVE).
+  async getMyDevices() {
+    return this.request<{
+      devices: Array<{
+        deviceId: string;
+        platform?: string | null;
+        hostname?: string | null;
+        status: string;
+        lastSeenAt?: string | null;
+        connected: boolean;
+      }>;
+      desktopConnected: number;
+    }>('/devices/my');
   }
 
   // Forgot Password - Request password reset
