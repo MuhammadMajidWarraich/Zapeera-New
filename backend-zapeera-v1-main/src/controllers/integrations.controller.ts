@@ -13,8 +13,10 @@ import {
   connectProvider,
   disconnectProvider,
   getConnectionStatus,
+  inquireIntegrationPayment,
   listProvidersWithStatus,
   listSyncLogs,
+  refundIntegrationPayment,
   triggerSync
 } from '../services/integration.service';
 
@@ -67,11 +69,44 @@ const connectSchema = Joi.object({
   }).optional()
 });
 
+const paymentSchema = Joi.object({
+  saleId: Joi.string().required(),
+  amount: Joi.number().positive().required(),
+  method: Joi.string().valid('mobile-account', 'bank-account', 'otc', 'card').required(),
+  mobileNumber: Joi.string().allow('', null).optional(),
+  cnicLast6: Joi.string().allow('', null).optional(),
+  bankId: Joi.string().allow('', null).optional(),
+  accountNo: Joi.string().allow('', null).optional(),
+  cnic: Joi.string().allow('', null).optional(),
+  email: Joi.string().allow('', null).optional(),
+  otp: Joi.string().allow('', null).optional(),
+  billReference: Joi.string().allow('', null).optional(),
+  description: Joi.string().allow('', null).optional()
+});
+
 const syncSchema = Joi.object({
   entity: Joi.string()
     .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
     .optional(),
-  direction: Joi.string().valid('in', 'out').optional()
+  direction: Joi.string().valid('in', 'out').optional(),
+  // Required when entity is 'payment' — the payment initiation payload.
+  payment: paymentSchema.optional()
+});
+
+const inquireSchema = Joi.object({
+  txnRefNo: Joi.string().required()
+});
+
+const refundSchema = Joi.object({
+  saleId: Joi.string().required(),
+  txnRefNo: Joi.string().required(),
+  amount: Joi.number().positive().required(),
+  method: Joi.string().valid('mobile-account', 'card', 'otc').required(),
+  // Merchant's own wallet MPIN for a mobile-account refund — per call
+  // only, never stored (it is NOT part of the connection credentials).
+  merchantMpin: Joi.string().allow('', null).optional(),
+  voucherId: Joi.string().allow('', null).optional(),
+  cnic: Joi.string().allow('', null).optional()
 });
 
 export const listIntegrationsHandler = async (req: AuthRequest, res: Response) => {
@@ -148,7 +183,7 @@ export const triggerIntegrationSyncHandler = async (req: AuthRequest, res: Respo
       });
     }
     const prisma = await getPrisma();
-    const { log, result } = await triggerSync(
+    const { log, result, payment } = await triggerSync(
       prisma,
       resolveIntegrationBusinessId(req),
       req.params.provider,
@@ -169,9 +204,60 @@ export const triggerIntegrationSyncHandler = async (req: AuthRequest, res: Respo
           startedAt: log.startedAt,
           finishedAt: log.finishedAt
         },
-        result
+        result,
+        ...(payment ? { payment } : {})
       }
     });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+// Payment-rail calls (JazzCash; generic). Payments themselves go
+// through the sync route above (entity 'payment', full payment object
+// in the response) — inquiry and refund are separate routes because
+// they are not sync runs (no log row, no lastSyncAt).
+export const inquireIntegrationPaymentHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const { error, value } = inquireSchema.validate(req.body ?? {});
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid inquiry request: txnRefNo is required.'
+      });
+    }
+    const prisma = await getPrisma();
+    const inquiry = await inquireIntegrationPayment(
+      prisma,
+      resolveIntegrationBusinessId(req),
+      req.params.provider,
+      value.txnRefNo
+    );
+    return res.json({ success: true, data: inquiry });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const refundIntegrationPaymentHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const { error, value } = refundSchema.validate(req.body ?? {});
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid refund request: saleId, txnRefNo, a positive amount and a method (mobile-account|card|otc) are required.'
+      });
+    }
+    const prisma = await getPrisma();
+    const refund = await refundIntegrationPayment(
+      prisma,
+      resolveIntegrationBusinessId(req),
+      req.params.provider,
+      value
+    );
+    return res.json({ success: true, data: refund });
   } catch (error) {
     return handleError(res, error);
   }

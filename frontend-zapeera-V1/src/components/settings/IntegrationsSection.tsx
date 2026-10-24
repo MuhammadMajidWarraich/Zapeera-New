@@ -130,6 +130,10 @@ function IntegrationProviderCard({
   const Icon = CATEGORY_ICON[provider.category] ?? Plug;
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const connected = provider.status === "connected";
+  // Payment rails (JazzCash) are not syncs: money moves at checkout,
+  // not on a schedule, so there is no "Sync now" for them — the card
+  // says so instead of offering a button that would 501.
+  const isPaymentRail = provider.category === "payments";
 
   return (
     <div className="flex flex-col rounded-[16px] border border-[rgba(15,23,60,0.08)] bg-white p-5">
@@ -164,7 +168,13 @@ function IntegrationProviderCard({
 
       <div className="mt-3 flex items-center gap-2 text-xs font-medium text-[#8c95b0]">
         <Clock className="h-3.5 w-3.5 shrink-0" />
-        {connected ? `Last synced ${formatRelative(provider.lastSyncAt)}` : "Not synced yet"}
+        {isPaymentRail
+          ? connected
+            ? "Payments are recorded on sales, not synced"
+            : "Connect to take payments at checkout"
+          : connected
+            ? `Last synced ${formatRelative(provider.lastSyncAt)}`
+            : "Not synced yet"}
       </div>
       {provider.status === "error" && provider.lastError && (
         <p className="mt-2 rounded-[10px] bg-red-50 px-3 py-2 text-[12px] leading-relaxed text-red-700">
@@ -177,16 +187,23 @@ function IntegrationProviderCard({
           <>
             {connected ? (
               <>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => onSync(provider)}
-                  disabled={!canManage || syncing}
-                  className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white"
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
-                  {syncing ? "Syncing…" : "Sync now"}
-                </Button>
+                {isPaymentRail ? (
+                  <p className="text-[13px] leading-relaxed text-[#4a5578]">
+                    Payments happen at checkout, not by sync — take JazzCash payments from a sale and they
+                    land on that sale&apos;s record.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => onSync(provider)}
+                    disabled={!canManage || syncing}
+                    className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
+                    {syncing ? "Syncing…" : "Sync now"}
+                  </Button>
+                )}
                 {confirmingDisconnect ? (
                   <>
                     <Button
@@ -477,9 +494,11 @@ export function IntegrationsSection({
       <div className="flex flex-col px-[30px] py-[30px]">
         <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
           Connect your sales channels, payment wallets, couriers, accounting tools and SMS gateways so Zapeera
-          can sync products, stock, orders and customers with them. Credentials are encrypted on the server and
-          are never shown back. Providers marked “Coming soon” are not built yet — their cards show the honest
-          limitation (for example, Daraz has no webhooks, so it polls instead).
+          can sync products, stock, orders and customers with them. Payment providers don&apos;t sync —
+          once connected, their payments are taken at checkout and land on the sale&apos;s record.
+          Credentials are encrypted on the server and are never shown back. Providers marked “Coming soon”
+          are not built yet — their cards show the honest limitation (for example, Daraz has no webhooks,
+          so it polls instead).
         </p>
         {!canManage && (
           <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
@@ -544,8 +563,15 @@ export function IntegrationsSection({
                   </div>
                 ))
               )}
-              <div>
-                <Label className="mb-2 block text-sm font-bold text-[#0a1128]">What syncs</Label>
+              {dialogProvider.category === "payments" ? (
+                <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                  {dialogProvider.displayName} is a payment rail, not a sync — no products, stock,
+                  orders or customers sync. Once connected, payments are taken at checkout and land on
+                  the sale&apos;s record.
+                </p>
+              ) : (
+                <div>
+                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">What syncs</Label>
                 <div className="flex flex-col gap-3 rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
                   {(
                     [
@@ -582,7 +608,8 @@ export function IntegrationsSection({
                     </Select>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
               <p className="text-xs leading-relaxed text-[#8c95b0]">
                 Credentials are encrypted on the server before they are stored, and are never shown back. The
                 connection is verified against {dialogProvider.displayName} before anything is saved.

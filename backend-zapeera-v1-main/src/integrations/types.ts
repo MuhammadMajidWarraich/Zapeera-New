@@ -169,6 +169,15 @@ export interface IntegrationSyncResult {
  * - syncProducts / syncStock / importOrders: optional per provider — a
  *   provider implements only the directions its API supports. The
  *   framework returns 501 NOT_IMPLEMENTED for unimplemented methods.
+ * - processPayment / refundPayment / inquirePayment: optional, generic,
+ *   payment-rail methods (added for JazzCash, 2026-10-24 — see the
+ *   "Payment rails" note below). A payment provider implements
+ *   processPayment; sales-channel / logistics providers do not. The
+ *   framework routes entity 'payment' to processPayment via
+ *   ENTITY_TO_METHOD in integration.service.ts. Payments are recorded
+ *   through the EXISTING sale ledger (SalePayment rows, method
+ *   'JAZZCASH'/'EASYPAYSA', reference = vendor transaction id) — a
+ *   handler must never build a parallel ledger.
  */
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
@@ -178,4 +187,116 @@ export interface IntegrationSyncHandler {
   syncProducts?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   syncStock?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   importOrders?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
+  processPayment?(ctx: IntegrationSyncContext, request: IntegrationPaymentRequest): Promise<IntegrationPaymentResult>;
+  refundPayment?(ctx: IntegrationSyncContext, request: IntegrationRefundRequest): Promise<IntegrationRefundResult>;
+  inquirePayment?(ctx: IntegrationSyncContext, txnRefNo: string): Promise<IntegrationPaymentInquiryResult>;
+}
+
+// ─── Payment rails (generic — added for JazzCash; Easypaisa reuses this
+// shape) ─────────────────────────────────────────────────────────────────
+// A payment rail is NOT a sync: money moves at checkout, not on a schedule.
+// The framework still routes it through triggerSync (entity 'payment') so
+// a payment attempt gets the same audit log row as a sync run, and the
+// Settings card stays the single place a rail is connected — but the card
+// must say so (see IntegrationsSection: payment providers show no
+// "Sync now" button). Amounts are ALWAYS in PKR major units (rupees) at
+// this layer; the vendor module converts to the vendor's minor units
+// (JazzCash takes paisas, amount x 100) at the wire.
+/** How the customer pays through the rail. */
+export type IntegrationPaymentMethod = 'mobile-account' | 'bank-account' | 'otc' | 'card';
+
+/** Outcome of a payment initiation. */
+export type IntegrationPaymentStatus =
+  | 'success' // vendor confirmed the debit — recorded on the sale
+  | 'pending' // initiated but money not received yet (OTC voucher issued, wallet 157) — NOT recorded
+  | 'failed' // vendor declined — nothing recorded
+  | 'otp-required' // bank-account step 1 done; caller must collect the OTP and retry with it
+  | 'redirect'; // card: caller must POST the customer to redirectUrl with redirectFields
+
+export interface IntegrationPaymentRequest {
+  /** Zapeera sale id the payment settles. */
+  saleId: string;
+  /** PKR, major units (rupees). Must be > 0 and <= the sale's remaining balance. */
+  amount: number;
+  method: IntegrationPaymentMethod;
+  /** Customer's wallet mobile number (mobile-account, otc). */
+  mobileNumber?: string;
+  /** Last 6 digits of the customer's CNIC (JazzCash MWALLET v2.0). */
+  cnicLast6?: string;
+  /** Bank-account step 1: bank id, account number, full CNIC, email. */
+  bankId?: string;
+  accountNo?: string;
+  cnic?: string;
+  email?: string;
+  /** Bank-account step 2: OTP the customer received. */
+  otp?: string;
+  /** Optional bill/invoice reference override; defaults to the sale's invoice number. */
+  billReference?: string;
+  description?: string;
+}
+
+export interface IntegrationPaymentResult {
+  status: IntegrationPaymentStatus;
+  /** Merchant-generated transaction reference (pp_TxnRefNo). */
+  txnRefNo: string;
+  /** Vendor retrieval reference number — stored as SalePayment.reference. */
+  retrievalReferenceNo?: string | null;
+  authCode?: string | null;
+  /** Vendor operation response code (pp_ResponseCode, '000' = success). */
+  responseCode: string;
+  responseMessage: string;
+  /** PKR actually charged/recorded, major units. */
+  amount: number;
+  method: IntegrationPaymentMethod;
+  saleId: string;
+  /** Card redirect only: JazzCash merchant-form URL to POST the customer to. */
+  redirectUrl?: string;
+  /** Card redirect only: signed form fields (incl. pp_SecureHash) to POST. */
+  redirectFields?: Record<string, string>;
+  /** OTC only: voucher number the customer pays at a retailer, when the vendor returns one. */
+  voucherNo?: string | null;
+  /** Human next step (e.g. 'Ask the customer for the OTP and retry with it.'). */
+  nextStep?: string;
+}
+
+export interface IntegrationRefundRequest {
+  saleId: string;
+  /** Original payment's merchant transaction reference. */
+  txnRefNo: string;
+  /** PKR, major units. */
+  amount: number;
+  method: 'mobile-account' | 'card' | 'otc';
+  /**
+   * Merchant's own JazzCash wallet MPIN — required for a mobile-account
+   * refund. Supplied per call, NEVER stored (it is not part of the
+   * connection credentials).
+   */
+  merchantMpin?: string;
+  /** OTC voucher refund: the voucher number issued at payment time. */
+  voucherId?: string;
+  /** OTC voucher refund: customer's CNIC (last 6 per the vendor docs). */
+  cnic?: string;
+}
+
+export interface IntegrationRefundResult {
+  status: 'success' | 'failed';
+  responseCode: string;
+  responseMessage: string;
+  /** PKR refunded by this call, major units. */
+  refundAmount: number;
+  /** PKR refunded in total against the original transaction, major units. */
+  totalRefundAmount: number | null;
+  txnRefNo: string;
+}
+
+export interface IntegrationPaymentInquiryResult {
+  status: 'completed' | 'pending' | 'failed' | 'refunded' | 'unknown';
+  /** Inquiry-operation code ('000' = the inquiry itself succeeded). */
+  responseCode: string;
+  /** Transaction status code ('121' = completed, '131' = refunded, '109' = does not exist). */
+  paymentResponseCode: string;
+  paymentResponseMessage: string;
+  retrievalReferenceNo?: string | null;
+  authCode?: string | null;
+  txnRefNo: string;
 }

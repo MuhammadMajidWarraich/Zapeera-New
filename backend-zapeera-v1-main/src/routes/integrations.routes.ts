@@ -3,8 +3,10 @@ import {
   connectIntegrationHandler,
   disconnectIntegrationHandler,
   getIntegrationStatusHandler,
+  inquireIntegrationPaymentHandler,
   listIntegrationLogsHandler,
   listIntegrationsHandler,
+  refundIntegrationPaymentHandler,
   triggerIntegrationSyncHandler
 } from '../controllers/integrations.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -32,6 +34,11 @@ router.post('/:provider/connect', connectIntegrationHandler);
 router.post('/:provider/disconnect', disconnectIntegrationHandler);
 router.get('/:provider/status', getIntegrationStatusHandler);
 router.post('/:provider/sync', triggerIntegrationSyncHandler);
+// Payment rails (JazzCash): inquiry + refund are not sync runs, so
+// they have their own routes. Payments go through POST /:provider/sync
+// with { entity: 'payment', payment: {...} }.
+router.post('/:provider/inquire', inquireIntegrationPaymentHandler);
+router.post('/:provider/refund', refundIntegrationPaymentHandler);
 router.get('/:provider/logs', listIntegrationLogsHandler);
 
 export default router;

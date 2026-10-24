@@ -179,6 +179,12 @@ const ENTRIES: RegistryEntry[] = [
   // precedent; the router additionally gates every route to
   // OWNER/MANAGER.
   { prefix: '/api/integrations', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
+  // JazzCash vendor callbacks (feature/integration-jazzcash): PUBLIC —
+  // JazzCash calls them with no user session. Security is the
+  // SecureHash, verified per callback against the connection's salt.
+  // Longest-prefix wins, so these override the module entry above.
+  { prefix: '/api/integrations/jazzcash/ipn', policy: { kind: 'public' } },
+  { prefix: '/api/integrations/jazzcash/return', policy: { kind: 'public' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
   // There is no standalone 'customers' module in module_definitions; the
