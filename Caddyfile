@@ -16,11 +16,16 @@
 	encode gzip
 
 	# QA Wave 2: baseline security headers on every response.
+	# Hero live demo (2026-10-24): framing is governed by CSP
+	# frame-ancestors — the app may be framed ONLY by itself and the
+	# marketing site (which embeds the live demo). X-Frame-Options is
+	# dropped because it cannot express the marketing origin; every
+	# other origin stays denied by frame-ancestors.
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		X-Frame-Options "SAMEORIGIN"
+		Content-Security-Policy "frame-ancestors 'self' https://zapeera.seikho.online"
 	}
 
 	# Content-hashed build assets never change under the same URL —

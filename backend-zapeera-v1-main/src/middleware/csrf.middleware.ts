@@ -50,6 +50,8 @@ export const generateCSRF = (_req: Request, res: Response, next: NextFunction) =
  */
 const CSRF_EXEMPT_PATHS = [
   '/api/auth/login',
+  '/api/auth/demo-login',
+  '/api/v1/auth/demo-login',
   '/api/auth/register',
   '/api/auth/forgot-password',
   '/api/auth/reset-password-with-token',

@@ -15,6 +15,7 @@ import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { generateCSRFToken } from '../middleware/csrf.middleware';
 import { isLocked, recordFailedAttempt, clearFailedAttempts } from '../utils/account-lockout.util';
 import { claimPendingPartnerAdmins } from '../utils/partner.util';
+import { getDemoUserEmail } from '../utils/demo-guard';
 import logger from '../utils/logger';
 import Joi from 'joi';
 
@@ -68,6 +69,161 @@ const registerSchema = Joi.object({
     phone: Joi.string().required()
   }).optional()
 });
+
+/**
+ * Issue a full login session for an already-authenticated user: rotates the
+ * single-session token, stamps lastLoginAt, sets the auth + CSRF cookies and
+ * writes the standard login response. Shared by password login and the
+ * public demo login (hero live demo) so both produce identical sessions.
+ */
+export const issueLoginSession = async (req: Request, res: Response, user: any): Promise<void> => {
+  const prisma = await getPrisma();
+
+  // Generate unique session token for single-session enforcement
+  const sessionToken = generateSessionToken();
+
+  // Update user with new session token (invalidates any previous sessions)
+  await prisma.zapeeraUser.update({
+    where: { id: user.id },
+    data: {
+      sessionToken,
+      lastLoginAt: new Date()
+    }
+  });
+
+  // Note: concurrent session enforcement is handled per-business via Settings-based tracking in auth middleware.
+
+  const activeMemberships = await prisma.membership.findMany({
+    where: { userId: user.id, status: 'ACTIVE' },
+    include: {
+      business: { select: { name: true, createdBy: true } },
+      role: { select: { name: true } },
+      branches: { select: { branchId: true } }
+    }
+  });
+
+  const membershipList = activeMemberships.map((m) => {
+    const fallbackRoleName =
+      m.business?.createdBy && String(m.business.createdBy) === String(user.id)
+        ? 'OWNER'
+        : null;
+
+    return {
+      id: m.id,
+      businessId: m.businessId,
+      businessName: m.business?.name || 'Unknown Business',
+      roleId: m.roleId,
+      roleName: m.role?.name || fallbackRoleName,
+      branchIds: Array.isArray(m.branches) ? m.branches.map((b) => b.branchId) : [],
+      status: m.status
+    };
+  });
+
+  // Find membership for currently selected company (if any)
+  const selectedCompanyId = req.headers['x-company-id'] as string;
+  const currentMembership = selectedCompanyId
+    ? membershipList.find(m => m.businessId === selectedCompanyId)
+    : membershipList[0]; // Default to first membership if none selected
+
+  const membershipRole = currentMembership?.roleName ? String(currentMembership.roleName).toUpperCase() : null;
+  const effectiveRole = membershipRole || 'USER';
+
+  // Generate JWT token with session token included
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ JWT_SECRET is not defined in environment variables');
+    throw new Error('JWT_SECRET is not defined. Please set JWT_SECRET in your .env file or environment variables.');
+  }
+
+  const tokenPayload: any = {
+    userId: user.id,
+    username: user.username,
+    branchId: user.branchId,
+    createdBy: user.createdBy,
+    sessionToken // Include session token in JWT for validation
+  };
+  const token = (jwt.sign as any)(
+    tokenPayload,
+    process.env.JWT_SECRET!,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
+
+  console.log('✅ Login successful for user:', user.email || user.username);
+
+  // Generate CSRF token
+  const csrfToken = generateCSRFToken();
+
+  // Set JWT token in httpOnly cookie for enhanced security
+  res.cookie('auth-token', token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none', // Required for cross-origin (Vercel → Railway)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/'
+  });
+
+  // Set CSRF token in cookie (accessible to frontend)
+  res.cookie('csrf-token', csrfToken, {
+    httpOnly: false, // Client needs to read this
+    secure: true,
+    sameSite: 'none', // Required for cross-origin (Vercel → Railway)
+    maxAge: 60 * 60 * 1000, // 1 hour
+    path: '/'
+  });
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        isActive: user.isActive,
+        email: user.email,
+        role: effectiveRole, // Backward compatibility
+        membership: currentMembership || null, // Nests for frontend expectation
+        memberships: membershipList // Nests for frontend expectation
+      },
+      accessToken: token
+    }
+  });
+};
+
+/**
+ * POST /api/auth/demo-login — public live-demo entry (marketing hero).
+ * Issues a normal session for the ONE demo account designated server-side
+ * by DEMO_USER_EMAIL. Takes NO credentials; refuses (404, indistinguishable
+ * from an unknown route) when the env var is unset or the account is
+ * missing/inactive. The account is fenced by the demo guard in the auth
+ * middleware (account/billing/structure mutations are refused) and its
+ * business data is reset nightly. Password + email-verification gates are
+ * intentionally skipped: the account is server-designated, not guessed —
+ * the endpoint can only ever sign in that one fenced user.
+ */
+export const demoLogin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const demoEmail = getDemoUserEmail();
+    if (!demoEmail) {
+      res.status(404).json({ success: false, message: 'Demo is not available' });
+      return;
+    }
+
+    const prisma = await getPrisma();
+    const user = await prisma.zapeeraUser.findUnique({ where: { email: demoEmail } });
+
+    if (!user || !user.isActive) {
+      res.status(404).json({ success: false, message: 'Demo is not available' });
+      return;
+    }
+
+    await issueLoginSession(req, res, user);
+  } catch (error: any) {
+    console.error('❌ Demo login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Demo login failed. Please try again.'
+    });
+  }
+};
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -405,113 +561,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     clearFailedAttempts(usernameOrEmail);
     if (accountLockoutKey) clearFailedAttempts(accountLockoutKey);
 
-    // Generate unique session token for single-session enforcement
-    const sessionToken = generateSessionToken();
-
-    // Update user with new session token (invalidates any previous sessions)
-    await prisma.zapeeraUser.update({
-      where: { id: user.id },
-      data: {
-        sessionToken,
-        lastLoginAt: new Date()
-      }
-    });
-
-    // Note: concurrent session enforcement is handled per-business via Settings-based tracking in auth middleware.
-
-    const activeMemberships = await prisma.membership.findMany({
-      where: { userId: user.id, status: 'ACTIVE' },
-      include: {
-        business: { select: { name: true, createdBy: true } },
-        role: { select: { name: true } },
-        branches: { select: { branchId: true } }
-      }
-    });
-
-    const membershipList = activeMemberships.map((m) => {
-      const fallbackRoleName =
-        m.business?.createdBy && String(m.business.createdBy) === String(user.id)
-          ? 'OWNER'
-          : null;
-
-      return {
-        id: m.id,
-        businessId: m.businessId,
-        businessName: m.business?.name || 'Unknown Business',
-        roleId: m.roleId,
-        roleName: m.role?.name || fallbackRoleName,
-        branchIds: Array.isArray(m.branches) ? m.branches.map((b) => b.branchId) : [],
-        status: m.status
-      };
-    });
-
-    // Find membership for currently selected company (if any)
-    const selectedCompanyId = req.headers['x-company-id'] as string;
-    const currentMembership = selectedCompanyId 
-      ? membershipList.find(m => m.businessId === selectedCompanyId)
-      : membershipList[0]; // Default to first membership if none selected
-
-    const membershipRole = currentMembership?.roleName ? String(currentMembership.roleName).toUpperCase() : null;
-    const effectiveRole = membershipRole || 'USER';
-
-    // Generate JWT token with session token included
-    if (!process.env.JWT_SECRET) {
-      console.error('❌ JWT_SECRET is not defined in environment variables');
-      throw new Error('JWT_SECRET is not defined. Please set JWT_SECRET in your .env file or environment variables.');
-    }
-
-    const tokenPayload: any = {
-      userId: user.id,
-      username: user.username,
-      branchId: user.branchId,
-      createdBy: user.createdBy,
-      sessionToken // Include session token in JWT for validation
-    };
-    const token = (jwt.sign as any)(
-      tokenPayload,
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
-    console.log('✅ Login successful for user:', usernameOrEmail);
-
-    // Generate CSRF token
-    const csrfToken = generateCSRFToken();
-
-    // Set JWT token in httpOnly cookie for enhanced security
-    res.cookie('auth-token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/'
-    });
-
-    // Set CSRF token in cookie (accessible to frontend)
-    res.cookie('csrf-token', csrfToken, {
-      httpOnly: false, // Client needs to read this
-      secure: true,
-      sameSite: 'none', // Required for cross-origin (Vercel → Railway)
-      maxAge: 60 * 60 * 1000, // 1 hour
-      path: '/'
-    });
-
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          isActive: user.isActive,
-          email: user.email,
-          role: effectiveRole, // Backward compatibility
-          membership: currentMembership || null, // Nests for frontend expectation
-          memberships: membershipList // Nests for frontend expectation
-        },
-        accessToken: token
-      }
-    });
+    await issueLoginSession(req, res, user);
   } catch (error: any) {
     console.error('❌ Login error:', error);
     console.error('❌ Login error details:', {

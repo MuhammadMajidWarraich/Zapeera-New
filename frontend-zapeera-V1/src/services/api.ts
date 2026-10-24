@@ -1224,6 +1224,61 @@ export class ApiService {
     return loginPromise;
   }
 
+  // Public live-demo login (marketing hero): the backend endpoint takes no
+  // credentials and signs in the one server-designated demo account. On
+  // success the session is stored exactly like a normal password login
+  // (httpOnly cookie set by the server + stored user snapshot), so the app
+  // boots into the demo workspace identically to a real sign-in.
+  async demoLogin() {
+    try {
+      const response = await this.request<{
+        success: boolean;
+        data?: { user: any; accessToken?: string };
+        message?: string;
+      }>('/auth/demo-login', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      if (!response || !response.success || !response.data) {
+        return {
+          success: false,
+          message: response?.message || 'Demo is not available right now',
+        };
+      }
+
+      const { user } = response.data as any;
+      if (!user || !user.id) {
+        return { success: false, message: 'Invalid demo session received from server' };
+      }
+
+      const userForStore = {
+        ...user,
+        role: normalizeAppRole(user.role),
+        membership: user.membership
+          ? {
+              ...user.membership,
+              roleName: user.membership.roleName ? normalizeAppRole(user.membership.roleName) : undefined,
+            }
+          : user.membership,
+        memberships: Array.isArray(user.memberships)
+          ? user.memberships.map((m: any) => ({
+              ...m,
+              roleName: m.roleName ? normalizeAppRole(m.roleName) : undefined,
+            }))
+          : user.memberships,
+      };
+      writeStoredUser(userForStore);
+
+      return { success: true, user: userForStore };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || 'Demo login request failed',
+      };
+    }
+  }
+
   // Offline session login - validates existing session without password
   async sessionLogin() {
     const sessionToken = localStorage.getItem('sessionToken');

@@ -86,6 +86,19 @@ export default function VoiceAssistant() {
   const [muted, setMuted] = useState<boolean>(loadMuted);
   const [aiUsage, setAiUsage] = useState<{ calls: number; approxLimit: number; percent: number } | null>(null);
 
+  // Deep-link hint from the /demo entry (marketing hero "Voice Assistant"
+  // tab): open the panel once on arrival, then clear the flag.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('zapeera:open-voice') === '1') {
+        sessionStorage.removeItem('zapeera:open-voice');
+        setOpen(true);
+      }
+    } catch {
+      /* storage unavailable — the FAB still opens the panel manually */
+    }
+  }, []);
+
   const speechSupported = useMemo(() => isSpeechRecognitionSupported(), []);
   const sessionRef = useRef<{ stop: () => void } | null>(null);
   const idRef = useRef(0);

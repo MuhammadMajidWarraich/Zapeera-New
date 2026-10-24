@@ -33,6 +33,7 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 // uses natural dynamic-import chunks, like the Backoffice router.)
 const ResetPassword = React.lazy(() => import("./components/auth/ResetPassword"));
 const VerifyEmail = React.lazy(() => import("./components/auth/VerifyEmail"));
+const DemoPage = React.lazy(() => import("./pages/DemoPage"));
 const POS = React.lazy(() => import("./pages/POS"));
 const CreateInvoice = React.lazy(() => import("./pages/CreateInvoice"));
 const InventoryPage = React.lazy(() => import("./pages/Inventory"));
@@ -280,6 +281,9 @@ const AppRoutes = () => {
         <Route path="/join/:slug" element={<JoinPartnerPage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        {/* Public live demo (marketing hero): credential-less sign-in to
+            the fenced demo account, then into its workspace. */}
+        <Route path="/demo" element={<DemoPage />} />
 
         {/* Protected Routes - Default redirect to login if not authenticated */}
         <Route path="/" element={

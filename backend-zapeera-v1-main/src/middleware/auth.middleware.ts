@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getPrisma } from '../utils/db.util';
 import { getBusinessEntitlementsSummary, SupportedBusinessType } from '../utils/subscription-entitlements.util';
+import { isDemoUserEmail, demoBlockedAction, DEMO_BLOCKED_MESSAGE } from '../utils/demo-guard';
 import logger from '../utils/logger';
 
 export interface AuthRequest extends Request {
@@ -196,6 +197,18 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       sessionToken: decoded.sessionToken ? String(decoded.sessionToken) : undefined,
       role: isAdmin ? (req as any).adminRole || 'SUPER_ADMIN' : undefined,
     };
+
+    // Public live-demo fence: the demo account (DEMO_USER_EMAIL) may use
+    // everything inside its demo business, but account/billing/structure
+    // mutations are refused here, centrally — see utils/demo-guard.ts for
+    // the exact block list.
+    if (isDemoUserEmail(user.email) && demoBlockedAction(req.method, req.originalUrl)) {
+      return res.status(403).json({
+        success: false,
+        message: DEMO_BLOCKED_MESSAGE,
+        code: 'DEMO_ACCOUNT_RESTRICTED',
+      });
+    }
 
     // MULTI-TENANT: Resolve Membership Context
     if (selectedCompanyId) {

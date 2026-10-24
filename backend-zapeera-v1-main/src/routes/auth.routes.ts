@@ -1,12 +1,37 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { login, register, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
+import rateLimit from 'express-rate-limit';
+import { login, demoLogin, register, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// Public live-demo login (marketing hero): credential-less by design — the
+// endpoint can only ever sign in the one server-designated demo account
+// (DEMO_USER_EMAIL), which is fenced in the auth middleware. Hard rate
+// limits: per-IP and a global ceiling, because every hit rotates the demo
+// account's single-session token.
+const demoLoginIpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  message: { success: false, message: 'Too many demo requests. Please wait a minute and try again.' },
+});
+const demoLoginGlobalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: () => 'demo-login-global',
+  message: { success: false, message: 'The demo is busy right now. Please try again in a minute.' },
+});
+
 // Public routes
 router.post('/login', login);
+router.post('/demo-login', demoLoginIpLimiter, demoLoginGlobalLimiter, demoLogin);
 router.post('/register', register);
 router.post('/signup', register);
 router.post('/forgot-password', forgotPassword);
