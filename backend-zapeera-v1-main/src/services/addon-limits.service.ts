@@ -135,9 +135,12 @@ export interface PlanInclusion {
 
 /**
  * What each plan includes WITHOUT add-ons. Mirrors the pricing page
- * (see file header). Staff seats: Trial 0 / Starter 0 / Growth 20 /
- * Scale 100. Voice quotas are NOT here — they live in the
- * backoffice-editable voice-AI config (voice-ai-config.util).
+ * (see file header). Staff seats: Trial 0 / Starter 0 / Growth 6 /
+ * Scale 20 — i.e. owner + one manager + one cashier per branch
+ * (Growth: 1 + 3 + 3 = 7 total accounts; Scale: 1 + 10 + 10 = 21).
+ * The OWNER never counts toward the seat number. Voice quotas are
+ * NOT here — they live in the backoffice-editable voice-AI config
+ * (voice-ai-config.util).
  */
 export const PLAN_INCLUSIONS: Record<PlanId, PlanInclusion> = {
   [PLANS.TRIAL]: {
@@ -158,7 +161,7 @@ export const PLAN_INCLUSIONS: Record<PlanId, PlanInclusion> = {
   },
   [PLANS.GROWTH]: {
     maxBranches: 3,
-    staffSeats: 20,
+    staffSeats: 6,
     staff: true,
     finance: true,
     advancedReports: true,
@@ -166,7 +169,7 @@ export const PLAN_INCLUSIONS: Record<PlanId, PlanInclusion> = {
   },
   [PLANS.SCALE]: {
     maxBranches: 10,
-    staffSeats: 100,
+    staffSeats: 20,
     staff: true,
     finance: true,
     advancedReports: true,
