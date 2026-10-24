@@ -45,8 +45,11 @@ Run it **on the VM**, from anywhere (it cds to `~/zapeera`):
    sleep override).
 3. **Boot a sidecar** `backend-next` on the compose network with the live
    backend's *exact* captured environment (same JWT secret, same DB URL,
-   same uploads volume), plus one override:
-   `ENABLE_SUBSCRIPTION_REMINDERS=false`.
+   same uploads volume), plus two overrides:
+   `ENABLE_SUBSCRIPTION_REMINDERS=false`, and `SKIP_SCHEMA_HEAL=true`
+   (see "Schema heal policy" below). The sidecar boots with
+   `--cpu-shares 256` so the serving backend keeps the CPU (see "CPU
+   contention" below); once it takes traffic it is raised to 2048.
 4. **Health gate.** Polls `GET /api/health` *inside* the sidecar until
    200. That handler performs a live `SELECT 1` against Postgres, so
    "healthy" means actually ready to serve, not just "process started".
@@ -56,10 +59,15 @@ Run it **on the VM**, from anywhere (it cds to `~/zapeera`):
    reload`. Both reloads are graceful — no frontend or Caddy recreate,
    in-flight requests complete on the old upstream.
 6. **Reconcile compose.** Tags the candidate as `zapeera-backend:latest`
-   and runs `docker compose up -d --no-deps --no-build --force-recreate
-   backend`. The compose backend's cold boot now happens *off the
-   traffic path*. Gates on its health the same way, and asserts the
-   running container's image ID is the candidate's.
+   and recreates the `backend` service (`--no-deps --no-build
+   --force-recreate`, plus a throwaway compose override that sets
+   `SKIP_SCHEMA_HEAL=true` for this one boot — the canonical compose
+   files are never modified, so the next ordinary recreate heals
+   exactly as today). The compose backend's cold boot now happens *off
+   the traffic path*; it is throttled to 256 cpu-shares while booting
+   and restored to the standard 1024 once healthy. Gates on its health
+   the same way, and asserts the running container's image ID is the
+   candidate's.
 7. **Switch traffic back** to `backend:4200` (proxy configs restored to
    their canonical form), verify, **remove the sidecar**. End state is
    the standard compose layout — the next deploy starts from exactly
@@ -67,6 +75,35 @@ Run it **on the VM**, from anywhere (it cds to `~/zapeera`):
 
 At no point does any proxy point at a backend that has not passed the
 health gate. That is the whole design.
+
+### Schema heal policy
+
+Boot runs a schema heal (`npx prisma db push`, `src/config/
+schema-heal.ts`, skippable via `SKIP_SCHEMA_HEAL=true`). It is a full
+Prisma CLI child process — the fattest part of a cold boot on this box —
+and 99% of deploys change no schema. Rules in the script:
+
+- **Default (code-only deploy):** heal skipped in *both* boots. The live
+  schema already matches; skipping changes nothing except boot cost.
+- **`--with-heal` (deploy changes the Prisma schema):** heal runs
+  exactly once, inside the sidecar boot, before the sidecar takes
+  traffic. The compose boot still skips it (already applied).
+- A schema-changing deploy run *without* `--with-heal` is operator
+  error: the new code would run against the old schema. The flag is
+  the contract — when in doubt, pass it (cost: one slower sidecar boot).
+
+### CPU contention — the real constraint on this box
+
+The VM has **1 OCPU**. A cold backend boot (Node + Prisma engines +
+heal) saturates it. Measured on the first proof attempt (2026-10-24,
+unthrottled sidecar): while the sidecar booted, the *serving* backend's
+responses degraded to repeated >6 s timeouts — a soft-failure window
+arguably worse than the clean 502 window this procedure exists to
+remove. Hence the cpu-shares choreography: whoever is booting is
+throttled (256), whoever is serving keeps priority (default 1024, the
+sidecar raised to 2048 while it serves during the reconcile). The
+boots take longer in wall-clock; serving latency stays normal. That
+trade is the correct one for user-facing traffic.
 
 ### Scheduler overlap — why it is safe
 
@@ -95,10 +132,13 @@ healthy sidecar. A reconnect is not a 502 and produces no error UI.
   exits 1. Traffic was never touched. Fix and re-run.
 - **After the switch** (steps 5–7): the script exits 2 and deliberately
   **leaves the sidecar serving traffic** — it is the healthy instance.
-  It prints recovery steps; in short: fix the compose backend, then
-  restore the proxy configs from `Caddyfile.bak-warmswap-<TS>` /
-  `nginx-default.conf.bak-warmswap-<TS>`, reload both proxies, verify
-  `/api/health`, and only then `docker rm -f backend-next`.
+  It prints recovery steps; in short: if the abort hit during the
+  reconcile, first restore the compose backend's CPU shares
+  (`docker update --cpu-shares 1024 zapeera-backend-1`); fix the compose
+  backend, then restore the proxy configs from
+  `Caddyfile.bak-warmswap-<TS>` / `nginx-default.conf.bak-warmswap-<TS>`,
+  reload both proxies, verify `/api/health`, and only then
+  `docker rm -f backend-next`.
 
 ### Rollback of a completed deploy
 

@@ -14,6 +14,17 @@
 #   2. Boot it as a SIDECAR container (backend-next) on the compose network
 #      with the live backend's exact environment — except subscription
 #      reminders disabled, so two instances can never double-send mail.
+#      The sidecar is CPU-throttled (--cpu-shares 256) while it boots so
+#      the serving backend keeps the CPU: on this 1-OCPU box an
+#      unthrottled second boot starves the live backend into request
+#      timeouts (measured on the first proof attempt, 2026-10-24).
+#      Schema heal runs in NEITHER boot by default (SKIP_SCHEMA_HEAL):
+#      it is a full `npx prisma db push` child process and the single
+#      fattest part of the boot. A code-only deploy needs no heal (the
+#      live schema already matches). A deploy that CHANGES the schema
+#      must pass --with-heal: the heal then runs exactly once, inside
+#      the sidecar boot, before the sidecar takes any traffic; the
+#      compose backend still skips it (already applied by then).
 #   3. Gate on REAL readiness: GET /api/health inside the sidecar == 200
 #      (the handler runs a live DB SELECT 1; it is not a liveness stub).
 #   4. Switch both proxies to the sidecar (Caddyfile edit + `caddy reload`;
@@ -34,6 +45,7 @@
 # USAGE (on the VM):
 #   ops/deploy-backend-warm.sh --dist /path/to/backend-dist.tar.gz
 #   ops/deploy-backend-warm.sh --image zapeera-backend:sometag
+#   add --with-heal ONLY when the deploy changes the Prisma schema.
 #
 # The dist tarball must contain the compiled backend at its root
 # (server.js at the top level — i.e. the contents of backend dist/).
@@ -69,15 +81,17 @@ PHASE="preflight"
 
 DIST_TARBALL=""
 IMAGE_REF=""
+WITH_HEAL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dist)  DIST_TARBALL="$2"; shift 2 ;;
     --image) IMAGE_REF="$2";    shift 2 ;;
+    --with-heal) WITH_HEAL=1;   shift ;;
     *) echo "unknown argument: $1" >&2; exit 64 ;;
   esac
 done
 if [ -z "$DIST_TARBALL" ] && [ -z "$IMAGE_REF" ]; then
-  echo "usage: $0 --dist <dist.tar.gz> | --image <image-ref>" >&2
+  echo "usage: $0 [--with-heal] --dist <dist.tar.gz> | --image <image-ref>" >&2
   exit 64
 fi
 
@@ -97,7 +111,10 @@ do NOT stop it. The compose backend may be down or unhealthy.
 Recovery (see ops/WARM-SWAP-DEPLOY.md):
   1. Check the sidecar is healthy:
        docker exec $SIDECAR curl -sf http://localhost:4200/api/health
-  2. Finish the reconcile by hand once the compose backend is fixed:
+  2. If the abort happened during the reconcile, the compose backend
+     may be left CPU-throttled; restore it:
+       docker update --cpu-shares 1024 zapeera-backend-1
+  3. Finish the reconcile by hand once the compose backend is fixed:
        docker tag <candidate-image> zapeera-backend:latest
        docker compose up -d --no-deps --no-build --force-recreate backend
        # wait for health, restore proxy configs from the backups:
@@ -212,10 +229,17 @@ PHASE="sidecar-boot"
 docker inspect zapeera-backend-1 --format '{{range .Config.Env}}{{println .}}{{end}}' \
   | grep -v '^HOSTNAME=' > "$WORK/env.next"
 echo 'ENABLE_SUBSCRIPTION_REMINDERS=false' >> "$WORK/env.next"
+if [ "$WITH_HEAL" -eq 1 ]; then
+  log "schema heal ENABLED for the sidecar boot (--with-heal): it runs once, here, off the traffic path"
+else
+  echo 'SKIP_SCHEMA_HEAL=true' >> "$WORK/env.next"
+  log "schema heal skipped for both boots (code-only deploy; pass --with-heal for schema changes)"
+fi
 
-log "starting sidecar $SIDECAR from $CANDIDATE"
+log "starting sidecar $SIDECAR from $CANDIDATE (cpu-shares 256 while it boots)"
 docker run -d --name "$SIDECAR" --network "$NETWORK" \
   --env-file "$WORK/env.next" \
+  --cpu-shares 256 \
   -v "$UPLOADS_VOL":/app/uploads \
   --restart no \
   "$CANDIDATE" >/dev/null
@@ -272,16 +296,34 @@ PHASE="switched"
 switch_caddy backend-next
 switch_nginx backend-next
 verify_chain backend-next
-log "traffic switched to sidecar $SIDECAR"
+# The sidecar is now the serving instance: give it full CPU priority
+# while the compose backend cold-boots throttled beside it.
+docker update --cpu-shares 2048 "$SIDECAR" >/dev/null
+log "traffic switched to sidecar $SIDECAR (sidecar cpu-shares now 2048)"
 
 # ---------------------------------------------------------------- reconcile
 PHASE="reconciling"
 docker tag "$CANDIDATE" zapeera-backend:latest
+# The compose boot also skips schema heal (already applied by the
+# sidecar in --with-heal mode; a no-op otherwise) — via a throwaway
+# override file, so the stack's canonical compose files stay untouched
+# and the NEXT ordinary recreate heals exactly as it does today.
+cat > "$WORK/override.yml" <<'YAML'
+services:
+  backend:
+    environment:
+      SKIP_SCHEMA_HEAL: "true"
+YAML
 log "recreating compose backend from candidate (traffic stays on sidecar)"
-docker compose up -d --no-deps --no-build --force-recreate backend
+docker compose -f docker-compose.yml -f "$WORK/override.yml" \
+  up -d --no-deps --no-build --force-recreate backend
+# Throttle the booting compose backend immediately so the serving
+# sidecar keeps the CPU; restored to the standard 1024 once healthy.
+docker update --cpu-shares 256 zapeera-backend-1 >/dev/null || true
 BOOT_T0=$(date +%s)
 if wait_healthy zapeera-backend-1 "$HEALTH_TIMEOUT"; then
   log "compose backend healthy after $(( $(date +%s) - BOOT_T0 ))s"
+  docker update --cpu-shares 1024 zapeera-backend-1 >/dev/null || true
 else
   docker logs --tail 40 zapeera-backend-1 >&2 || true
   die "recreated compose backend did not become healthy (traffic is safe on the sidecar)"
