@@ -63,13 +63,18 @@ const connectSchema = Joi.object({
     syncStock: Joi.boolean(),
     syncOrders: Joi.boolean(),
     syncCustomers: Joi.boolean(),
-    direction: Joi.string().valid('in', 'out', 'both')
+    direction: Joi.string().valid('in', 'out', 'both'),
+    // Provider-specific config (google-sheets, 2026-10-24): target
+    // spreadsheet id and single-branch scope. Preserved verbatim by
+    // normalizeSyncConfig; other providers ignore these keys.
+    spreadsheetId: Joi.string().trim().max(200).optional(),
+    branchId: Joi.string().trim().max(100).optional()
   }).optional()
 });
 
 const syncSchema = Joi.object({
   entity: Joi.string()
-    .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
+    .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment', 'export')
     .optional(),
   direction: Joi.string().valid('in', 'out').optional()
 });
@@ -144,7 +149,7 @@ export const triggerIntegrationSyncHandler = async (req: AuthRequest, res: Respo
       return res.status(400).json({
         success: false,
         code: 'VALIDATION_ERROR',
-        message: 'Invalid sync request: entity must be product|stock|order|customer|payment|shipment and direction in|out.'
+        message: 'Invalid sync request: entity must be product|stock|order|customer|payment|shipment|export and direction in|out.'
       });
     }
     const prisma = await getPrisma();

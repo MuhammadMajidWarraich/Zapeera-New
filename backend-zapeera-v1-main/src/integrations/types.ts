@@ -64,7 +64,15 @@ export type IntegrationSyncEntity =
   | 'order'
   | 'customer'
   | 'payment'
-  | 'shipment';
+  | 'shipment'
+  // Generic export run (added by the google-sheets builder, 2026-10-24):
+  // an export-only provider (Sheets, QuickBooks, Xero) pushes Zapeera
+  // data OUT to the vendor in one run instead of syncing one entity.
+  // Maps to IntegrationSyncHandler.exportData (see below) and to the
+  // 'export' row in ENTITY_TO_METHOD (integration.service.ts). The
+  // IntegrationSyncLog.entity column is a free string, so no schema
+  // change was needed for this.
+  | 'export';
 
 /** What syncs for one connection (stored as JSON in IntegrationConnection.config). */
 export interface IntegrationSyncConfig {
@@ -73,6 +81,18 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /**
+   * Provider-specific target / scope, preserved verbatim by
+   * normalizeSyncConfig (integration.service.ts). Both are optional and
+   * meaningless to providers that do not use them:
+   * - spreadsheetId: Google Sheets target spreadsheet (the merchant
+   *   picks it, or the Sheets handler creates one and records its id
+   *   here). Other export providers reuse this shape for their target.
+   * - branchId: export/sync scoped to one branch. When absent the
+   *   provider exports every branch and labels each row with its branch.
+   */
+  spreadsheetId?: string;
+  branchId?: string;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {
@@ -169,6 +189,13 @@ export interface IntegrationSyncResult {
  * - syncProducts / syncStock / importOrders: optional per provider — a
  *   provider implements only the directions its API supports. The
  *   framework returns 501 NOT_IMPLEMENTED for unimplemented methods.
+ * - exportData: optional, generic export run (added 2026-10-24 for the
+ *   google-sheets builder; QuickBooks/Xero reuse the shape later).
+ *   Dispatched when triggerSync is called with entity 'export'.
+ *   Direction is always 'out'. An export provider implements this
+ *   INSTEAD of the per-entity sync methods — it exports every entity
+ *   it supports in one run (Sheets: sales, stock, customers, khata —
+ *   one tab per entity, appended rows).
  */
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
@@ -178,4 +205,5 @@ export interface IntegrationSyncHandler {
   syncProducts?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   syncStock?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
   importOrders?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
+  exportData?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
 }

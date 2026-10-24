@@ -39,12 +39,19 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     raw.direction === 'in' || raw.direction === 'out' || raw.direction === 'both'
       ? raw.direction
       : DEFAULT_SYNC_CONFIG.direction;
+  // Provider-specific config is preserved verbatim (empty strings drop
+  // to undefined). Added 2026-10-24 for google-sheets (spreadsheetId +
+  // branchId); other providers ignore these keys.
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.trim().length > 0 ? v.trim() : undefined;
   return {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
     syncOrders: bool(raw.syncOrders),
     syncCustomers: bool(raw.syncCustomers),
-    direction
+    direction,
+    spreadsheetId: str(raw.spreadsheetId),
+    branchId: str(raw.branchId)
   };
 }
 
@@ -288,14 +295,18 @@ export interface TriggerSyncOptions {
 
 const ENTITY_TO_METHOD: Record<
   IntegrationSyncEntity,
-  'syncProducts' | 'syncStock' | 'importOrders' | null
+  'syncProducts' | 'syncStock' | 'importOrders' | 'exportData' | null
 > = {
   product: 'syncProducts',
   stock: 'syncStock',
   order: 'importOrders',
   customer: null, // No handler method in the v1 interface — a builder adds it.
   payment: null,
-  shipment: null
+  shipment: null,
+  // Generic export run (added 2026-10-24, google-sheets): dispatches to
+  // IntegrationSyncHandler.exportData. Direction defaults to 'out'
+  // (see triggerSync below — every non-'order' entity defaults 'out').
+  export: 'exportData'
 };
 
 /**

@@ -761,7 +761,7 @@ export type IntegrationCategory =
 
 export type IntegrationSyncDirection = 'in' | 'out' | 'both';
 
-export type IntegrationSyncEntity = 'product' | 'stock' | 'order' | 'customer' | 'payment' | 'shipment';
+export type IntegrationSyncEntity = 'product' | 'stock' | 'order' | 'customer' | 'payment' | 'shipment' | 'export';
 
 export interface IntegrationSyncConfig {
   syncProducts: boolean;
@@ -769,6 +769,10 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
+  /** Google Sheets export target (merchant-picked, or recorded when the handler creates one). */
+  spreadsheetId?: string;
+  /** Single-branch scope for an export/sync; absent = all branches (rows branch-labelled). */
+  branchId?: string;
 }
 
 export interface IntegrationCredentialField {
@@ -3130,6 +3134,18 @@ export class ApiService {
     return this.request<{ logs: IntegrationSyncLogRecord[]; total: number }>(
       `/integrations/${provider}/logs?limit=${limit}&offset=${offset}`
     );
+  }
+
+  // Google Sheets OAuth (feature/integration-google-sheets): returns the
+  // Google consent URL — the caller navigates the whole page to it.
+  // The callback exchanges the code server-side and redirects back to
+  // Settings with ?integration=google-sheets&oauth=connected|error.
+  async startGoogleSheetsOAuth(config?: { spreadsheetId?: string; branchId?: string }) {
+    const query = new URLSearchParams();
+    if (config?.spreadsheetId) query.set('spreadsheetId', config.spreadsheetId);
+    if (config?.branchId) query.set('branchId', config.branchId);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return this.request<{ authUrl: string }>(`/integrations/google-sheets/oauth/start${suffix}`);
   }
 
   // Backup & Restore (owner only). Exports are file downloads (the
