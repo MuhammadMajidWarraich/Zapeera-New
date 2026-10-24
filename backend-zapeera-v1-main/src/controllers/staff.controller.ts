@@ -39,7 +39,11 @@ const createStaffSchema = Joi.object({
   annualLeaveBalance: Joi.number().min(0).optional().default(0),
   sickLeaveBalance: Joi.number().min(0).optional().default(0),
   casualLeaveBalance: Joi.number().min(0).optional().default(0),
-  notes: Joi.string().optional().allow('')
+  notes: Joi.string().optional().allow(''),
+  // Salesman flag (gap item 7): designate this staff member as a
+  // salesman — they then appear in the POS salesman picker and the
+  // salesman performance views.
+  isSalesman: Joi.boolean().optional()
 });
 
 const updateStaffSchema = Joi.object({
@@ -67,7 +71,9 @@ const updateStaffSchema = Joi.object({
   documents: Joi.string().allow(''),
   notes: Joi.string().allow(''),
   performanceRating: Joi.number().min(0).max(5),
-  isActive: Joi.boolean()
+  isActive: Joi.boolean(),
+  // Salesman flag (gap item 7).
+  isSalesman: Joi.boolean()
 });
 
 const generateEmployeeId = async (prisma: any): Promise<string> => {
@@ -298,7 +304,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       cnicNumber, cnicExpiry, passportNumber, emergencyContactName,
       emergencyContactPhone, emergencyContactRelation, reportingManagerId,
       shiftPreference, weeklyOffDays, annualLeaveBalance, sickLeaveBalance,
-      casualLeaveBalance, notes
+      casualLeaveBalance, notes, isSalesman
     } = req.body;
 
     if (!userId && (!name || !email)) {
@@ -514,6 +520,10 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       annualLeaveBalance: annualLeaveBalance || 0,
       sickLeaveBalance: sickLeaveBalance || 0,
       casualLeaveBalance: casualLeaveBalance || 0,
+      // Salesman flag (gap item 7): undefined leaves an existing
+      // profile's flag untouched on the re-create path; a fresh
+      // profile takes the schema default (false).
+      isSalesman: isSalesman === true ? true : undefined,
       notes: notes || null
     };
 
