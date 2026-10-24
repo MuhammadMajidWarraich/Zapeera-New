@@ -1469,6 +1469,38 @@ function setupIPC() {
     };
   });
 
+  ipcMain.handle('get-printers', async () => {
+    // Real OS printer enumeration for the Settings → Device Status
+    // panel (it used to show a hardcoded "Connected"). Returns a
+    // minimal, safe shape per printer. Every failure mode — no window
+    // yet, enumeration API unavailable, empty spooler — resolves to
+    // an empty list so the renderer can say "No printer connected"
+    // honestly instead of throwing or inventing a printer.
+    try {
+      if (!mainWindow || mainWindow.isDestroyed()) return [];
+      const wc = mainWindow.webContents;
+      if (!wc) return [];
+      let printers = null;
+      if (typeof wc.getPrintersAsync === 'function') {
+        printers = await wc.getPrintersAsync();
+      } else if (typeof wc.getPrinters === 'function') {
+        printers = wc.getPrinters();
+      }
+      if (!Array.isArray(printers)) return [];
+      return printers
+        .map((p) => ({
+          name: p && typeof p.name === 'string' ? p.name : '',
+          displayName: p && typeof p.displayName === 'string' ? p.displayName : '',
+          description: p && typeof p.description === 'string' ? p.description : '',
+          status: p && typeof p.status === 'number' ? p.status : null,
+          isDefault: !!(p && p.isDefault)
+        }))
+        .filter((p) => p.name || p.displayName);
+    } catch (e) {
+      return [];
+    }
+  });
+
   ipcMain.handle('get-log-file-path', () => logFile);
 
   ipcMain.handle('open-external', async (event, url) => {

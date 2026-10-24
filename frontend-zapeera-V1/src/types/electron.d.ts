@@ -15,6 +15,16 @@ interface SaveFileResult {
   error?: string;
 }
 
+/** One OS printer as enumerated by the main process (get-printers). */
+interface OsPrinterInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  /** Raw OS status code (Win32 PRINTER_STATUS bitmask); null if unknown. */
+  status: number | null;
+  isDefault: boolean;
+}
+
 interface ElectronAPI {
   platform?: string;
   isFreshDatabase?: boolean | (() => Promise<boolean>);
@@ -27,6 +37,7 @@ interface ElectronAPI {
     databaseType: string;
   }>;
   getLogFilePath: () => Promise<string>;
+  getPrinters: () => Promise<OsPrinterInfo[]>;
   getStorageInfo: () => Promise<{
     appDataDir: string;
     dataDir: string;

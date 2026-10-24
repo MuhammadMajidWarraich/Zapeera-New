@@ -14,6 +14,7 @@ const VALID_INVOKE_CHANNELS = [
   'get-platform',
   'get-backend-status',
   'get-storage-info',
+  'get-printers',
   'get-log-file-path',
   'open-external',
   'save-file',
@@ -98,6 +99,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLocalBusinessStates: () => ipcRenderer.invoke('get-local-business-states'),
 
   // Printing
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
   printReceipt: (options) => ipcRenderer.invoke('print-receipt', options)
 });
 

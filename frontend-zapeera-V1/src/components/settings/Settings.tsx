@@ -11,6 +11,7 @@ import {
   WifiOff,
   HardDrive,
   Monitor,
+  Printer,
   Save,
   RefreshCw,
   Upload,
@@ -33,6 +34,7 @@ import { config } from "@/lib/config";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { isBarcodeApplicableBusinessType } from "@/lib/barcode-scan";
+import { formatPrinterPanelValue, type OsPrinter } from "@/lib/printer-status";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
 
 type DeviceIcon = ComponentType<{ className?: string; strokeWidth?: string | number }>;
@@ -97,6 +99,9 @@ const Settings = () => {
   // contradicted itself ("Online" here, "Offline · 3" in the header).
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => syncService.getCurrentStatus());
   const [storageInfo, setStorageInfo] = useState<{ diskTotalBytes?: number | null; diskFreeBytes?: number | null; databaseBytes?: number | null } | null>(null);
+  // OS printers as enumerated by the Electron main process; null until
+  // the list has loaded (and forever on web — the stat stays hidden).
+  const [printerList, setPrinterList] = useState<OsPrinter[] | null>(null);
   const [isEditingBusiness, setIsEditingBusiness] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -207,9 +212,13 @@ const Settings = () => {
   // · Storage: the real disk volume holding the app's data (Electron
   //   get-storage-info now reports statfs figures + the database file
   //   size). Hidden when no truthful figure exists (e.g. web).
-  // · Battery / Printer: REMOVED (2026-10-24) — they were hardcoded
-  //   strings ("78%", "Connected"); the app has no battery or printer
-  //   enumeration on desktop, and Muhammad has no printer attached.
+  // · Printer: the real OS printer list, enumerated by the Electron
+  //   main process (get-printers → webContents.getPrintersAsync). It
+  //   used to be a hardcoded "Connected"; now the stat shows the
+  //   default printer's name/status, or "No printer connected".
+  //   Hidden until the list loads, and on web (no bridge), like Storage.
+  // · Battery: REMOVED (2026-10-24) — it was a hardcoded "78%" and
+  //   the app has no battery enumeration on desktop.
   const storageLabel = (() => {
     if (!storageInfo?.diskTotalBytes) return null;
     const used = storageInfo.diskTotalBytes - (storageInfo.diskFreeBytes || 0);
@@ -226,7 +235,8 @@ const Settings = () => {
           ? "Checking…"
           : "Offline",
     lastSync: formatRelative(syncStatus.lastSyncAt),
-    storage: storageLabel
+    storage: storageLabel,
+    printer: formatPrinterPanelValue(printerList)
   };
 
   useEffect(() => {
@@ -245,6 +255,12 @@ const Settings = () => {
     (window as any).electronAPI?.getStorageInfo?.()
       .then((info: any) => { if (info) setStorageInfo(info); })
       .catch(() => { /* storage stat simply stays hidden */ });
+    const api = (window as any).electronAPI;
+    if (typeof api?.getPrinters === "function") {
+      api.getPrinters()
+        .then((list: any) => { if (Array.isArray(list)) setPrinterList(list); })
+        .catch(() => setPrinterList([]));
+    }
   }, [isDesktopApp]);
 
   const loadUserProfile = async () => {
@@ -1206,6 +1222,18 @@ toast({
                 iconClass="bg-indigo-500/10 text-indigo-600"
                 value={deviceStatus.storage}
                 label="Storage (this device)"
+              />
+            )}
+            {deviceStatus.printer && (
+              <ZV3DeviceStat
+                icon={Printer}
+                iconClass={
+                  printerList && printerList.length > 0
+                    ? "bg-green-600/10 text-green-600"
+                    : "bg-amber-500/10 text-amber-600"
+                }
+                value={deviceStatus.printer}
+                label="Printer"
               />
             )}
           </div>
