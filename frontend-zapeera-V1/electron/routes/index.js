@@ -18,6 +18,7 @@ const { registerCommissionsRoutes } = require('./commissions.routes');
 const { registerCompaniesRoutes } = require('./companies.routes');
 const { registerCustomersRoutes } = require('./customers.routes');
 const { registerDashboardRoutes } = require('./dashboard.routes');
+const { registerDevicesRoutes } = require('./devices.routes');
 const { registerEmployeesRoutes } = require('./employees.routes');
 const { registerGiftcardsRoutes } = require('./gift-cards.routes');
 const { registerInventoryRoutes } = require('./inventory.routes');
@@ -61,6 +62,7 @@ function registerAllRoutes(app, authMiddleware, deps) {
   registerCompaniesRoutes(app, authMiddleware, deps);
   registerCustomersRoutes(app, authMiddleware, deps);
   registerDashboardRoutes(app, authMiddleware, deps);
+  registerDevicesRoutes(app, authMiddleware, deps);
   // Debug routes intentionally NOT registered (QA fix 2026-10-19, Track C
   // 1.6): the unauthenticated /api/debug/postgresql endpoint leaked the
   // remote DB URL and live cloud user rows. See routes/debug.routes.js.

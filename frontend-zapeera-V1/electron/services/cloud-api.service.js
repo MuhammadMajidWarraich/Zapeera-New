@@ -98,6 +98,31 @@ async function syncAccount() {
   return makeRequest('POST', '/api/sync/account');
 }
 
+/**
+ * Device presence check-in: tells the cloud "this desktop is signed in and
+ * running" so the account dashboard's "Desktop Connected" count is real.
+ * Identity comes from the stored cloud auth token (the server derives the
+ * user from it — never from this payload); the payload only carries the
+ * device's stable id/fingerprint plus the explicit desktop marker the
+ * server requires. Never throws: presence is best-effort and must not
+ * break login or sync.
+ */
+async function checkInDevice() {
+  try {
+    const { getDeviceInfo } = require('../utils/device-fingerprint');
+    const info = getDeviceInfo();
+    return await makeRequest('POST', '/api/devices/check-in', {
+      deviceId: info.deviceId,
+      fingerprint: info.fingerprint,
+      platform: info.platform,
+      hostname: info.hostname,
+      client: 'desktop'
+    });
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
 async function provisionBusiness(businessId) {
   return makeRequest('POST', '/api/sync/business/provision', { businessId });
 }
@@ -134,6 +159,7 @@ module.exports = {
   checkHealth,
   login,
   syncAccount,
+  checkInDevice,
   provisionBusiness,
   pullChanges,
   pushOperations,

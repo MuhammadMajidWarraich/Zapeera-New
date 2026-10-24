@@ -101,8 +101,33 @@ export function Panel({
 export function AccountStats() {
   const { allCompanies } = useAdmin();
   const { user } = useAuth();
-  const runtime = useRuntime();
   const navigate = useNavigate();
+  const [desktopConnectedCount, setDesktopConnectedCount] = useState(0);
+
+  // "Desktop Connected" is an ACCOUNT-level fact that lives on the server:
+  // the desktop app checks in with the cloud when it signs in and on its
+  // sync cadence, and this card reads the real count of THIS USER's
+  // currently-connected desktops. It must never be derived from this
+  // client's own runtime — on the web there is no local desktop runtime,
+  // so the old derivation showed 0 even while the desktop app was signed
+  // in on the user's laptop.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiService.getMyDevices();
+        if (!cancelled && res.success && res.data) {
+          setDesktopConnectedCount(res.data.desktopConnected || 0);
+        }
+      } catch {
+        // Presence not established in this view — the count stays at the
+        // honest 0 rather than a guessed/local figure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const owned = (allCompanies || []).filter((c: any) => String(c?.createdBy || "") === String(user?.id || "") || c?.accessType === "owned").length;
@@ -110,16 +135,14 @@ export function AccountStats() {
     const pendingInvites = Array.isArray(user?.memberships)
       ? user.memberships.filter((m: any) => m.status && !["ACTIVE", "DOWNLOADED", "OUT_OF_SYNC"].includes(m.status)).length
       : 0;
-    const desktopConnected = runtime.isDesktop && runtime.cloudState !== "offline";
-    const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
 
     return [
       { key: "owned", label: "Businesses Owned", value: owned, icon: Building2, tint: "bg-[#1a52c5]/10 text-[#1a52c5]" },
       { key: "joined", label: "Businesses Joined", value: joined, icon: UserPlus, tint: "bg-teal-500/10 text-teal-600" },
       { key: "invites", label: "Pending Invitations", value: pendingInvites, icon: AlarmClock, tint: "bg-orange-500/10 text-orange-500", onClick: () => navigate("/zapeera/invitations") },
-      { key: "desktop", label: "Desktop Connected", value: desktopConnected ? desktopCount : 0, icon: Laptop, tint: "bg-violet-500/10 text-violet-600", desktop: desktopConnected },
+      { key: "desktop", label: "Desktop Connected", value: desktopConnectedCount, icon: Laptop, tint: "bg-violet-500/10 text-violet-600", desktop: desktopConnectedCount > 0 },
     ];
-  }, [allCompanies, user, runtime.isDesktop, runtime.cloudState, runtime.desktopBusinessStates]);
+  }, [allCompanies, user, desktopConnectedCount]);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

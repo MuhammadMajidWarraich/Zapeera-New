@@ -25,6 +25,10 @@ let _syncResult = null;
 let syncInterval = null;
 let pullInterval = null;
 let fullSyncCounter = 0;
+// Device presence: the cloud check-in is refreshed from the existing pull
+// tick below, throttled to once per 5 minutes — no separate timer.
+let lastDeviceCheckInAt = 0;
+const DEVICE_CHECKIN_INTERVAL_MS = 5 * 60 * 1000;
 let pushDebounceTimer = null;
 let pendingPushTables = new Set();
 
@@ -672,6 +676,13 @@ function startPeriodicSync() {
       const st = await checkCloudConnectivity();
       if (st !== 'SYNC_READY') return;
       fullSyncCounter++;
+      // Device presence heartbeat: piggyback on this already-running
+      // online tick (throttled) so the cloud's "Desktop Connected" record
+      // stays fresh while the app is open — no new polling loop.
+      if (cloudApi && typeof cloudApi.checkInDevice === 'function' && Date.now() - lastDeviceCheckInAt >= DEVICE_CHECKIN_INTERVAL_MS) {
+        lastDeviceCheckInAt = Date.now();
+        cloudApi.checkInDevice().catch(() => {});
+      }
       try {
         const provisionResult = await provisionPendingBusinesses();
         if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
