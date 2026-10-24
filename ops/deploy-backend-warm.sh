@@ -11,7 +11,7 @@
 # at login on 2026-10-24 10:19 PKT. This script removes the window:
 #
 #   1. Assemble the candidate image (established assembly-container route).
-#   2. Boot it as a SIDECAR container (backend-next) on the compose network
+#   2. Boot it as a SIDECAR container (warmswap-sidecar) on the compose network
 #      with the live backend's exact environment — except subscription
 #      reminders disabled, so two instances can never double-send mail.
 #      The sidecar is CPU-throttled (--cpu-shares 256) while it boots so
@@ -54,6 +54,21 @@
 #   STACK_DIR       stack directory (default: ~/zapeera)
 #   HEALTH_TIMEOUT  seconds to wait for each health gate (default: 600)
 #
+# LANDMINE — why the sidecar is label-scrubbed AND oddly named:
+#   Images built by this project's assembly/commit route carry baked-in
+#   com.docker.compose.* labels in their image config (project=zapeera,
+#   service=backend, container-number=1 — inherited from the original
+#   compose-built image through every docker commit since). A plain
+#   `docker run` container created from such an image INHERITS those
+#   labels, and the next `docker compose up` for that service ADOPTS
+#   the container as its own and recreates it (config-hash mismatch).
+#   Measured on the v2 proof run (2026-10-24): compose recreated the
+#   serving sidecar mid-swap -> ~36 s of 502s. Defences in this script:
+#   the candidate image is committed with the compose labels blanked,
+#   the sidecar additionally gets explicit non-zapeera compose labels
+#   at run time, and its name (warmswap-sidecar) sits outside compose
+#   service naming.
+#
 # FAILURE BEHAVIOUR:
 #   - Failure BEFORE the proxy switch: sidecar is removed, traffic was
 #     never touched, exit 1. Just fix the problem and re-run.
@@ -72,7 +87,7 @@ set -euo pipefail
 STACK_DIR="${STACK_DIR:-$HOME/zapeera}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-600}"
 TS="$(date +%Y%m%d%H%M%S)"
-SIDECAR="backend-next"
+SIDECAR="warmswap-sidecar"
 ASM="zapeera-backend-asm"
 CANDIDATE="zapeera-backend:candidate-$TS"
 ROLLBACK_TAG="zapeera-backend:pre-warmswap-$TS"
@@ -204,9 +219,23 @@ if [ -n "$DIST_TARBALL" ]; then
   done
   docker exec "$ASM" sh -c 'rm -rf /app/dist && mkdir -p /app/dist'
   docker cp "$WORK/dist/." "$ASM:/app/dist/"
+  # Blank the baked-in com.docker.compose.* labels (see LANDMINE note
+  # in the header): any container later created from this image must
+  # not be claimable by `docker compose up` as a service replica.
   docker commit \
     --change 'ENTRYPOINT ["docker-entrypoint.sh"]' \
     --change 'CMD ["node","dist/server.js"]' \
+    --change 'LABEL com.docker.compose.project=' \
+    --change 'LABEL com.docker.compose.service=' \
+    --change 'LABEL com.docker.compose.container-number=' \
+    --change 'LABEL com.docker.compose.config-hash=' \
+    --change 'LABEL com.docker.compose.depends_on=' \
+    --change 'LABEL com.docker.compose.image=' \
+    --change 'LABEL com.docker.compose.oneoff=' \
+    --change 'LABEL com.docker.compose.project.config_files=' \
+    --change 'LABEL com.docker.compose.project.working_dir=' \
+    --change 'LABEL com.docker.compose.replace=' \
+    --change 'LABEL com.docker.compose.version=' \
     "$ASM" "$CANDIDATE" >/dev/null
   docker rm -f "$ASM" >/dev/null
 else
@@ -240,6 +269,9 @@ log "starting sidecar $SIDECAR from $CANDIDATE (cpu-shares 256 while it boots)"
 docker run -d --name "$SIDECAR" --network "$NETWORK" \
   --env-file "$WORK/env.next" \
   --cpu-shares 256 \
+  --label com.docker.compose.project=warmswap \
+  --label com.docker.compose.service=sidecar \
+  --label zapeera.warmswap=sidecar \
   -v "$UPLOADS_VOL":/app/uploads \
   --restart no \
   "$CANDIDATE" >/dev/null
@@ -253,11 +285,11 @@ else
 fi
 
 # ---------------------------------------------------------------- switch ->
-switch_caddy() { # $1 = backend | backend-next
-  if [ "$1" = "backend-next" ]; then
-    sed -i 's/reverse_proxy backend:4200/reverse_proxy backend-next:4200/g' Caddyfile
+switch_caddy() { # $1 = backend | $SIDECAR
+  if [ "$1" = "$SIDECAR" ]; then
+    sed -i "s/reverse_proxy backend:4200/reverse_proxy $SIDECAR:4200/g" Caddyfile
   else
-    sed -i 's/reverse_proxy backend-next:4200/reverse_proxy backend:4200/g' Caddyfile
+    sed -i "s/reverse_proxy $SIDECAR:4200/reverse_proxy backend:4200/g" Caddyfile
   fi
   grep -q "reverse_proxy $1:4200" Caddyfile || die "Caddyfile edit failed (upstream $1 not found)"
   docker exec zapeera-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
@@ -266,9 +298,9 @@ switch_caddy() { # $1 = backend | backend-next
     || die "caddy reload failed"
 }
 
-switch_nginx() { # $1 = backend | backend-next
-  if [ "$1" = "backend-next" ]; then
-    sed 's|http://backend:4200|http://backend-next:4200|g' "nginx-default.conf.bak-warmswap-$TS" > "$WORK/default.conf"
+switch_nginx() { # $1 = backend | $SIDECAR
+  if [ "$1" = "$SIDECAR" ]; then
+    sed "s|http://backend:4200|http://$SIDECAR:4200|g" "nginx-default.conf.bak-warmswap-$TS" > "$WORK/default.conf"
   else
     cp "nginx-default.conf.bak-warmswap-$TS" "$WORK/default.conf"
   fi
@@ -293,9 +325,9 @@ verify_chain() { # hard gates via the proxies' own containers; soft public check
 }
 
 PHASE="switched"
-switch_caddy backend-next
-switch_nginx backend-next
-verify_chain backend-next
+switch_caddy "$SIDECAR"
+switch_nginx "$SIDECAR"
+verify_chain "$SIDECAR"
 # The sidecar is now the serving instance: give it full CPU priority
 # while the compose backend cold-boots throttled beside it.
 docker update --cpu-shares 2048 "$SIDECAR" >/dev/null
@@ -341,7 +373,7 @@ log "traffic switched back to compose backend"
 # ---------------------------------------------------------------- retire
 docker rm -f "$SIDECAR" >/dev/null
 PHASE="done"
-grep -q 'reverse_proxy backend:4200' Caddyfile && ! grep -q 'backend-next' Caddyfile \
+grep -q 'reverse_proxy backend:4200' Caddyfile && ! grep -q "$SIDECAR" Caddyfile \
   || die "final Caddyfile check failed"
 log "final stack:"
 docker ps --format '  {{.Names}} | {{.Image}} | {{.Status}}'
