@@ -1239,7 +1239,7 @@ export class ApiService {
    * On success the response is the standard login payload and is stored
    * exactly like a normal login.
    */
-  async login2fa(payload: { challengeToken: string; code?: string; recoveryCode?: string }) {
+  async login2fa(payload: { challengeToken: string; code?: string; recoveryCode?: string }): Promise<ApiResponse<any>> {
     try {
       const response = await this.request<any>('/auth/login/2fa', {
         method: 'POST',
