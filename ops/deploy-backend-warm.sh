@@ -130,6 +130,11 @@ on_exit() {
   local rc=$?
   if [ $rc -ne 0 ]; then
     if [ "$PHASE" = "switched" ] || [ "$PHASE" = "reconciling" ]; then
+      # Preserve the sidecar's logs for post-hoc analysis even on
+      # the abort path (the v4 run's missing sidecar logs cost a
+      # diagnosis). Best-effort; the container may already be gone.
+      mkdir -p "$STACK_DIR/warmswap-logs" 2>/dev/null || true
+      docker logs "$SIDECAR" > "$STACK_DIR/warmswap-logs/sidecar-$TS-abort.log" 2>&1 || true
       cat >&2 <<EOF
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -170,6 +175,14 @@ for c in zapeera-backend-1 zapeera-frontend-1 zapeera-caddy-1 zapeera-postgres-1
 done
 if docker inspect "$SIDECAR" >/dev/null 2>&1; then
   die "container $SIDECAR already exists (leftover from an aborted run?) — inspect it manually; if it is serving traffic, finish that swap first (see runbook)"
+fi
+
+# Daemon-health gate: on a sick day every docker exec on this box
+# takes 60-130 s and results come back phantom/wrong (the v4 morning).
+# A swap under those conditions is not measurable or safe. Refuse
+# unless a trivial docker call answers promptly.
+if ! timeout 25 docker info >/dev/null 2>&1; then
+  die "docker daemon did not answer within 25 s — stack is too loaded for a swap; retry in a quiet window"
 fi
 
 # Memory guard: two backends + one cold boot must fit in RAM+swap, or the
@@ -327,24 +340,18 @@ switch_caddy() { # $1 = dial target to switch TO: $SIDECAR_IP | backend
     || { cp "Caddyfile.bak-warmswap-$TS" Caddyfile; die "Caddyfile failed validation — restored pristine copy"; }
   docker exec zapeera-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
     || die "caddy reload failed"
-  # Verify the RUNNING config, not the file. Retry the reload once;
-  # if Caddy still has not applied it, restart the caddy container
-  # (it boots from the already-edited file) — a ~2 s connection churn
-  # beats silently proxying to the wrong upstream for half a minute.
+  # Verify the RUNNING config, not the file — patiently. On a loaded
+  # box each docker exec can take seconds, and a hasty "reload did not
+  # apply" verdict (the v4 run's mistake) triggers harmful fallbacks.
+  # NO automatic caddy restart: a restart drops in-flight connections
+  # and must be a human decision during an abort, not a script reflex.
   local tries=0
   while ! caddy_effective "$1"; do
     tries=$((tries+1))
-    if [ "$tries" -eq 2 ]; then
-      docker exec zapeera-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
+    if [ "$tries" -ge 12 ]; then
+      die "caddy running config does not show upstream $1 after ~60 s — reload may not have applied; investigate before proceeding"
     fi
-    if [ "$tries" -ge 4 ]; then
-      log "WARNING: caddy reload did not take effect after retries — restarting caddy container to force the edited config"
-      docker restart zapeera-caddy-1 >/dev/null
-      sleep 3
-      caddy_effective "$1" || die "caddy running config still not pointing at $1 after restart"
-      break
-    fi
-    sleep 3
+    sleep 5
   done
 }
 
@@ -356,11 +363,19 @@ switch_nginx() { # $1 = backend | $SIDECAR
   fi
   grep -q "http://$1:4200" "$WORK/default.conf" || die "nginx conf edit failed (upstream $1 not found)"
   docker cp "$WORK/default.conf" zapeera-frontend-1:/etc/nginx/conf.d/default.conf
-  if ! docker exec zapeera-frontend-1 nginx -t >/dev/null 2>&1; then
-    docker cp "nginx-default.conf.bak-warmswap-$TS" zapeera-frontend-1:/etc/nginx/conf.d/default.conf
-    docker exec zapeera-frontend-1 nginx -s reload >/dev/null 2>&1 || true
-    die "nginx config test failed — restored pristine conf"
-  fi
+  # nginx -t is idempotent and read-only: a single failure on a loaded
+  # box is usually a slow docker exec, not a bad config (the v4 run
+  # aborted on exactly such a transient). Retry before concluding.
+  local ntest=0
+  while ! docker exec zapeera-frontend-1 nginx -t >/dev/null 2>&1; do
+    ntest=$((ntest+1))
+    if [ "$ntest" -ge 3 ]; then
+      docker cp "nginx-default.conf.bak-warmswap-$TS" zapeera-frontend-1:/etc/nginx/conf.d/default.conf
+      docker exec zapeera-frontend-1 nginx -s reload >/dev/null 2>&1 || true
+      die "nginx config test failed 3 times — restored pristine conf"
+    fi
+    sleep 5
+  done
   docker exec zapeera-frontend-1 nginx -s reload >/dev/null 2>&1 || die "nginx reload failed"
 }
 

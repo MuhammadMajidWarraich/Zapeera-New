@@ -37,13 +37,13 @@ Run it **on the VM**, from anywhere (it cds to `~/zapeera`):
    (rollback), and backs up the Caddyfile and the frontend's nginx
    `default.conf`. Refuses to run if RAM+swap headroom < 700 MB (two
    backends + one cold boot must fit, or the OOM killer chooses a victim)
-   or if a `backend-next` container already exists.
+   or if a `warmswap-sidecar` container already exists.
 2. **Assemble** the candidate image `zapeera-backend:candidate-<TS>` via
    the established assembly-container route (sleep container on the live
    image, `docker cp` the dist in, `docker commit` with
    `--change ENTRYPOINT/CMD` restored — a raw commit would capture the
    sleep override).
-3. **Boot a sidecar** `backend-next` on the compose network with the live
+3. **Boot a sidecar** `warmswap-sidecar` on the compose network with the live
    backend's *exact* captured environment (same JWT secret, same DB URL,
    same uploads volume), plus two overrides:
    `ENABLE_SUBSCRIPTION_REMINDERS=false`, and `SKIP_SCHEMA_HEAL=true`
@@ -54,9 +54,17 @@ Run it **on the VM**, from anywhere (it cds to `~/zapeera`):
    200. That handler performs a live `SELECT 1` against Postgres, so
    "healthy" means actually ready to serve, not just "process started".
 5. **Switch traffic to the sidecar.** Caddyfile upstream
-   `backend` → `backend-next` + `caddy validate` + `caddy reload`;
-   frontend nginx conf upstream likewise + `nginx -t` + `nginx -s
-   reload`. Both reloads are graceful — no frontend or Caddy recreate,
+   `backend` → the sidecar's container IP (by IP, never by name — see
+   "Caddy dial path" below) + `caddy validate` + `caddy reload`, then
+   the RUNNING config is verified via Caddy's admin API
+   (`127.0.0.1:2019` — busybox `localhost` resolves to `::1` and is
+   refused) and the switch ends with a HARD end-to-end health check
+   through the public API host. Frontend nginx conf upstream likewise
+   (`backend` → `warmswap-sidecar`, name-based — nginx's
+   resolve-at-load semantics proved reliable in every proof run) +
+   `nginx -t` (retried 3× — a single failure on a loaded box is
+   usually a slow docker exec, not a bad config) + `nginx -s reload`.
+   Both reloads are graceful — no frontend or Caddy recreate,
    in-flight requests complete on the old upstream.
 6. **Reconcile compose.** Tags the candidate as `zapeera-backend:latest`
    and recreates the `backend` service (`--no-deps --no-build
@@ -91,6 +99,37 @@ and 99% of deploys change no schema. Rules in the script:
 - A schema-changing deploy run *without* `--with-heal` is operator
   error: the new code would run against the old schema. The flag is
   the contract — when in doubt, pass it (cost: one slower sidecar boot).
+
+### Compose-label adoption — the v2 landmine (do not regress)
+
+Images built by this project's assembly/commit route carry baked-in
+`com.docker.compose.*` labels in their image config
+(`project=zapeera`, `service=backend`, `container-number=1` —
+inherited from the original compose-built image through every
+`docker commit` since). A plain `docker run` container created from
+such an image INHERITS those labels, and the next
+`docker compose up` for that service ADOPTS the container as its own
+and recreates it (config-hash mismatch). Measured on the v2 proof
+run (2026-10-24): compose recreated the serving sidecar mid-swap —
+that was the v2 502 window. Defences in the script: the candidate
+image is committed with the compose labels blanked, the sidecar
+additionally gets explicit non-zapeera compose labels at run time,
+and its name (`warmswap-sidecar`) sits outside compose service
+naming. Any future image-assembly route must keep the label scrub.
+
+### Caddy dial path — the residual ~26 s window (v3, unproven fix in v4)
+
+In v2 AND v3, the Caddy chain returned 502 for ~26-36 s during the
+compose recreate phase while the nginx chain stayed clean and
+logins were unaffected, and the window self-healed before the
+switch-back. The exact sub-mechanism was not conclusively identified
+(Caddy's error log for the window came back empty through
+`docker logs`). The leading hypothesis is name-based dialing
+churning across the recreate. v4 therefore dials the sidecar by
+container IP and verifies Caddy's RUNNING config via the admin API
+after every reload. v4's proof run aborted before the reconcile
+phase (see Proof), so the IP fix is UNPROVEN as of 2026-10-24
+11:25 PKT and is the first thing the next proof run must measure.
 
 ### CPU contention — the real constraint on this box
 
@@ -138,7 +177,7 @@ healthy sidecar. A reconnect is not a 502 and produces no error UI.
   backend, then restore the proxy configs from
   `Caddyfile.bak-warmswap-<TS>` / `nginx-default.conf.bak-warmswap-<TS>`,
   reload both proxies, verify `/api/health`, and only then
-  `docker rm -f backend-next`.
+  `docker rm -f warmswap-sidecar`.
 
 ### Rollback of a completed deploy
 
@@ -153,8 +192,52 @@ with `--image zapeera-backend:pre-warmswap-<TS>`.)
 
 ### Proof
 
-First proof run: 2026-10-24, redeploying the then-live image
-(`zapeera-backend:connfix`, 532a025b6956) through the full procedure
-while a sandbox probe hit `GET /api/health` (api host) and a real
-`POST /api/auth/login` (app host, seikhoonline) every ~2 s.
-Probe log + summary: `~/workspace/warmswap-verify/` on the sandbox.
+Method (all runs, 2026-10-24): redeploy the then-live backend image
+(no code change) through the procedure while a sandbox probe hit
+`GET https://api.zapeera.seikho.online/api/health` and a real
+`POST https://app.zapeera.seikho.online/api/auth/login`
+(seikhoonline) every ~2 s, logging only status codes. Probe logs +
+swap logs: `~/workspace/warmswap-verify/` on the sandbox.
+
+- **v1 (05:36–05:41 UTC):** aborted cleanly in ASSEMBLE (a `docker cp`
+  race against the assembly container's `rm -rf /app/dist`); traffic
+  never switched. Probe `probe-20261024-053508.log`: 129 samples,
+  7 bad — all `000` (probe-timeout) samples under assembly/boot
+  load, zero HTTP errors.
+- **v2 (05:47–05:52 UTC):** script reported SUCCESS, but the probe
+  (`probe-20261024-054502.log`, 313 samples, 16 bad) showed a ~36 s
+  Caddy-chain 502 window (05:50:40–05:51:16) plus login timeouts to
+  05:51:46. Root cause found in the compose output + image inspect:
+  the sidecar was adopted and recreated by `docker compose up`
+  (see "Compose-label adoption" above).
+- **v3 (05:58–06:03 UTC):** label fix verified (compose recreated
+  ONLY `zapeera-backend-1`), script SUCCESS, but the probe
+  (`probe-20261024-055806-v3.log`, 269 samples, 16 bad) showed the
+  Caddy-chain 502 window AGAIN, ~26 s (06:01:59–06:02:21), app chain
+  clean throughout, self-healed before switch-back. Plus 4
+  both-legs timeout samples at 06:04:04–22 during a heavy
+  post-swap diagnostic SSH session (box load, not the swap).
+- **v4 (06:14–06:21 UTC):** first launch refused on a phantom stale
+  sidecar (daemon artifact; second launch passed preflight). The
+  run aborted in the SWITCH phase: the admin-API verification loop
+  was too impatient under daemon load, so the script needlessly
+  restarted the Caddy container, then a transient `nginx -t`
+  failure aborted the run before the reconcile phase. The API chain
+  502'd from 06:20:08 until manual recovery (pristine Caddyfile
+  restore + reload/restart) at ~06:22. Stack was restored to the
+  standard layout, healthy. **The IP-dial fix therefore remains
+  UNPROVEN.**
+- **v4.1 (script only, not yet proof-run):** patient admin-API
+  verification (~60 s, NO automatic Caddy restart), `nginx -t`
+  retried 3×, sidecar logs preserved on the abort path too, and a
+  daemon-health gate (`docker info` must answer within 25 s, else
+  refuse). **Next step: re-prove v4.1 in a quiet window. Do not run
+  this script while the daemon is slow — the gate enforces it.**
+
+STATUS (2026-10-24 11:25 PKT): NOT YET PROVEN. Best measured state:
+the app chain (the chain that 502'd for the user on 2026-10-24
+10:19 PKT) showed ZERO HTTP errors across the full v3 swap; the
+Caddy chain's residual window during a swap's reconcile phase is
+~26 s. The old cold-recreate deploy costs ~2 min of 502s on BOTH
+chains — the warm swap is strictly better on every measurement, but
+the zero-502 claim is not yet earned and must not be stated.
