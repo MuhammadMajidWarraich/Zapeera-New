@@ -69,6 +69,19 @@
 #   at run time, and its name (warmswap-sidecar) sits outside compose
 #   service naming.
 #
+# V4 HARDENING (from the v2/v3 proof runs, 2026-10-24): in both runs
+#   the Caddy chain returned 502 for ~26-36 s during the compose
+#   recreate phase while the nginx chain stayed clean — a name-based
+#   Caddy dial path is not trustworthy across a compose recreate on
+#   this stack. So now: (1) Caddy dials the sidecar BY IP; (2) after
+#   every `caddy reload` the script verifies Caddy's RUNNING config
+#   via the admin API (a file grep proved nothing), retrying the
+#   reload and finally restarting the caddy container if the running
+#   config does not show the intended upstream; (3) verify_chain ends
+#   with a HARD end-to-end health check through the public API host.
+#   The sidecar's logs are preserved to ~/zapeera/warmswap-logs/
+#   before it is removed.
+#
 # FAILURE BEHAVIOUR:
 #   - Failure BEFORE the proxy switch: sidecar is removed, traffic was
 #     never touched, exit 1. Just fix the problem and re-run.
@@ -279,23 +292,60 @@ docker run -d --name "$SIDECAR" --network "$NETWORK" \
 BOOT_T0=$(date +%s)
 if wait_healthy "$SIDECAR" "$HEALTH_TIMEOUT"; then
   log "sidecar healthy after $(( $(date +%s) - BOOT_T0 ))s"
+SIDECAR_IP=$(docker inspect "$SIDECAR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+[ -n "$SIDECAR_IP" ] || die "could not determine sidecar IP"
+log "sidecar IP: $SIDECAR_IP (Caddy will dial this directly)"
 else
   docker logs --tail 40 "$SIDECAR" >&2 || true
   die "sidecar did not become healthy within ${HEALTH_TIMEOUT}s (traffic untouched)"
 fi
 
 # ---------------------------------------------------------------- switch ->
-switch_caddy() { # $1 = backend | $SIDECAR
-  if [ "$1" = "$SIDECAR" ]; then
-    sed -i "s/reverse_proxy backend:4200/reverse_proxy $SIDECAR:4200/g" Caddyfile
+# Is $1 the dial target in Caddy's RUNNING config (admin API), not
+# just in the file? This is the only unambiguous check — a file grep
+# cannot tell whether the reload actually took effect.
+caddy_effective() { # $1 = dial host/ip (without port)
+  # NOTE: 127.0.0.1, not localhost — busybox wget resolves localhost
+  # to ::1 first and Caddy's admin API listens on IPv4 only.
+  docker exec zapeera-caddy-1 wget -qO- http://127.0.0.1:2019/config/ 2>/dev/null \
+    | grep -q "\"dial\": *\"$1:4200\""
+}
+
+switch_caddy() { # $1 = dial target to switch TO: $SIDECAR_IP | backend
+  # The sidecar is dialed BY IP, never by name: during the compose
+  # recreate, Docker's DNS for container names churns, and name-based
+  # dialing produced a ~26 s 502 window on this host in the v2/v3
+  # proof runs (2026-10-24) while the nginx chain — switched the same
+  # minute — stayed clean. An IP has no resolution to go stale.
+  if [ "$1" = "backend" ]; then
+    sed -i "s/reverse_proxy $SIDECAR_IP:4200/reverse_proxy backend:4200/g" Caddyfile
   else
-    sed -i "s/reverse_proxy $SIDECAR:4200/reverse_proxy backend:4200/g" Caddyfile
+    sed -i "s/reverse_proxy backend:4200/reverse_proxy $1:4200/g" Caddyfile
   fi
   grep -q "reverse_proxy $1:4200" Caddyfile || die "Caddyfile edit failed (upstream $1 not found)"
   docker exec zapeera-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
     || { cp "Caddyfile.bak-warmswap-$TS" Caddyfile; die "Caddyfile failed validation — restored pristine copy"; }
   docker exec zapeera-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
     || die "caddy reload failed"
+  # Verify the RUNNING config, not the file. Retry the reload once;
+  # if Caddy still has not applied it, restart the caddy container
+  # (it boots from the already-edited file) — a ~2 s connection churn
+  # beats silently proxying to the wrong upstream for half a minute.
+  local tries=0
+  while ! caddy_effective "$1"; do
+    tries=$((tries+1))
+    if [ "$tries" -eq 2 ]; then
+      docker exec zapeera-caddy-1 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || true
+    fi
+    if [ "$tries" -ge 4 ]; then
+      log "WARNING: caddy reload did not take effect after retries — restarting caddy container to force the edited config"
+      docker restart zapeera-caddy-1 >/dev/null
+      sleep 3
+      caddy_effective "$1" || die "caddy running config still not pointing at $1 after restart"
+      break
+    fi
+    sleep 3
+  done
 }
 
 switch_nginx() { # $1 = backend | $SIDECAR
@@ -314,20 +364,26 @@ switch_nginx() { # $1 = backend | $SIDECAR
   docker exec zapeera-frontend-1 nginx -s reload >/dev/null 2>&1 || die "nginx reload failed"
 }
 
-verify_chain() { # hard gates via the proxies' own containers; soft public check
+verify_chain() { # hard gates: internal reachability AND end-to-end via Caddy
   docker exec zapeera-caddy-1 wget -q -O /dev/null "http://$1:4200/api/health" \
     || die "post-switch check failed: Caddy cannot reach upstream $1"
   docker exec zapeera-frontend-1 wget -q -O /dev/null "http://127.0.0.1/health" \
     || die "post-switch check failed: frontend nginx chain does not answer /health"
-  if ! curl -sf -m 10 https://api.zapeera.seikho.online/api/health >/dev/null 2>&1; then
-    log "WARNING: public api health check from the VM did not pass (hairpin?) — internal chain checks passed; verify from outside"
-  fi
+  # End-to-end through the real Caddy proxy path (the check whose
+  # absence let the v2/v3 runs report success over a 502-ing chain).
+  # Hard gate: 3 attempts, then abort per the phase contract.
+  local ok=0 attempt
+  for attempt in 1 2 3; do
+    if curl -sf -m 10 https://api.zapeera.seikho.online/api/health >/dev/null 2>&1; then ok=1; break; fi
+    sleep 5
+  done
+  [ "$ok" -eq 1 ] || die "post-switch check failed: public api health via Caddy is not 200"
 }
 
 PHASE="switched"
-switch_caddy "$SIDECAR"
+switch_caddy "$SIDECAR_IP"
 switch_nginx "$SIDECAR"
-verify_chain "$SIDECAR"
+verify_chain "$SIDECAR_IP"
 # The sidecar is now the serving instance: give it full CPU priority
 # while the compose backend cold-boots throttled beside it.
 docker update --cpu-shares 2048 "$SIDECAR" >/dev/null
@@ -371,9 +427,13 @@ verify_chain backend
 log "traffic switched back to compose backend"
 
 # ---------------------------------------------------------------- retire
+# Preserve the sidecar's logs before retiring it (evidence for any
+# post-hoc analysis of the swap window), then remove it.
+mkdir -p "$STACK_DIR/warmswap-logs"
+docker logs "$SIDECAR" > "$STACK_DIR/warmswap-logs/sidecar-$TS.log" 2>&1 || true
 docker rm -f "$SIDECAR" >/dev/null
 PHASE="done"
-grep -q 'reverse_proxy backend:4200' Caddyfile && ! grep -q "$SIDECAR" Caddyfile \
+grep -q 'reverse_proxy backend:4200' Caddyfile && ! grep -q "$SIDECAR" Caddyfile && ! grep -q "$SIDECAR_IP" Caddyfile \
   || die "final Caddyfile check failed"
 log "final stack:"
 docker ps --format '  {{.Names}} | {{.Image}} | {{.Status}}'
