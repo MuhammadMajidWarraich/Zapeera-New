@@ -1079,7 +1079,7 @@ model SaleItem {
 model SalePayment {
   id        String   @id @default(cuid())
   saleId    String
-  method    String // CASH | CARD | JAZZCASH | EASYPAYSA | BANK_TRANSFER | MOBILE
+  method    String // CASH | CARD | JAZZCASH | EASYPAYSA | BANK_TRANSFER | MOBILE | GIFT_CARD | EWALLET (Wave C9: gift-card code in `reference`, wallet spend needs the sale customer)
   amount    Float
   reference String? // txn id / account title etc., when the tender has one
   createdAt DateTime @default(now())

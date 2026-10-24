@@ -27,6 +27,7 @@ export interface CreateSaleData {
   prescriptionId?: string | null; // Prescriptions (Wave C1): register record this sale dispenses against; required at the POS for requiresPrescription items when enforcement is on
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
+  channel?: string | null; // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): POS (default, all history) | ONLINE_STORE (item 5) | KIOSK (in-store self-ordering order, pay at counter)
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer

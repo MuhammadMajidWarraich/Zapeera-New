@@ -17,11 +17,22 @@ import { resolveSaleLineUnits } from '../utils/unit.util';
 import { variantBatchWhere } from '../utils/variant.util';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
+import {
+  GiftCardKioskError,
+  isGiftCardKioskEnabled,
+  redeemGiftCardAtomic,
+  spendWalletAtomic,
+} from '../utils/giftcard-kiosk.util';
 
 // Tender methods a sale (or one split-tender allocation) can be paid
 // with — Wave B1. JAZZCASH/EASYPAISA are first-class alongside the
 // original four; MOBILE is kept for backward compatibility.
-export const SALE_PAYMENT_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAISA', 'BANK_TRANSFER', 'MOBILE'] as const;
+// GIFT_CARD / EWALLET (Wave C9 — gap item 9) are tender methods too:
+// a gift-card redemption (code in the allocation's reference) or an
+// eWallet spend (needs the sale's customerId). Both are validated
+// inside the sale transaction against the ledger balance — never as
+// a discount, never trusted from the client.
+export const SALE_PAYMENT_METHODS = ['CASH', 'CARD', 'JAZZCASH', 'EASYPAISA', 'BANK_TRANSFER', 'MOBILE', 'GIFT_CARD', 'EWALLET'] as const;
 
 // Validation schemas
 const createSaleSchema = Joi.object({
@@ -91,6 +102,12 @@ const createSaleSchema = Joi.object({
   // with the sale when it is not the cashier. Optional — validated
   // in createSale to be an ACTIVE member of the sale's business.
   salespersonId: Joi.string().allow(null, '').optional(),
+  // Gift cards / eWallet + kiosk (Wave C9 — gap item 9): the channel
+  // this sale came through. POS clients never send this (the default
+  // below applies); the kiosk sends channel KIOSK. ONLINE_STORE is
+  // item 5's storefront value, listed here so the merge keeps one
+  // allow-list.
+  channel: Joi.string().valid('POS', 'ONLINE_STORE', 'KIOSK').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -112,6 +129,20 @@ class HttpError extends Error {
     this.statusCode = statusCode;
   }
 }
+
+// Gift cards / eWallet (Wave C9): the util throws
+// GiftCardKioskError, but this handler's catch only passes `code` /
+// `details` through for HttpError — convert here so the POS keeps
+// its machine-readable error contract for ledger failures.
+const asSaleHttpError = (error: any): any => {
+  if (error instanceof GiftCardKioskError) {
+    const http: any = new HttpError(error.statusCode, error.message);
+    http.code = error.code;
+    http.details = error.details;
+    return http;
+  }
+  return error;
+};
 
 const isMissingMembershipColumnError = (error: any): boolean => {
   const message = String(error?.message || '').toLowerCase();
@@ -164,7 +195,9 @@ export const getSales = async (req: AuthRequest, res: Response) => {
       endDate = '',
       branchId = '',
       customerId = '',
-      paymentMethod = ''
+      paymentMethod = '',
+      channel = '',
+      status = ''
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -185,6 +218,19 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 
     if (paymentMethod) {
       where.paymentMethod = paymentMethod;
+    }
+
+    // Kiosk (Wave C9 — gap item 9; same filter item 5's storefront
+    // uses): the staff kiosk-orders queue is GET
+    // /sales?channel=KIOSK&status=PENDING. Values are allow-listed so
+    // a junk filter reads as "no filter" rather than silently
+    // returning nothing. ONLINE_STORE is item 5's channel value,
+    // listed here so the merge keeps one allow-list.
+    if (channel === 'POS' || channel === 'ONLINE_STORE' || channel === 'KIOSK') {
+      where.channel = channel;
+    }
+    if (status === 'PENDING' || status === 'COMPLETED' || status === 'CANCELLED' || status === 'REFUNDED') {
+      where.status = status;
     }
 
     if (startDate || endDate) {
@@ -1063,6 +1109,52 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       ? (new Set(allocations.map(p => p.method)).size > 1 ? 'MIXED' : allocations[0].method)
       : saleData.paymentMethod;
 
+    // Gift cards / eWallet (Wave C9): GIFT_CARD and EWALLET are
+    // tender methods, so they only ever arrive as split-tender
+    // allocations — a bare headline method with no allocations
+    // cannot name a card, and a wallet spend needs the customer.
+    // The pack must be enabled for this business. Balance checks
+    // live INSIDE the transaction (the atomic helpers) — a
+    // pre-transaction balance read could race a concurrent sale
+    // spending the same card/wallet.
+    {
+      const headlineMethod = String(saleData.paymentMethod || '').toUpperCase();
+      const hasLedgerTender = (allocations || []).some(p => p.method === 'GIFT_CARD' || p.method === 'EWALLET');
+      if ((headlineMethod === 'GIFT_CARD' || headlineMethod === 'EWALLET') && !allocations) {
+        throw new HttpError(400, `A sale paid with ${headlineMethod} must send its tender as a payments[] allocation (gift card: code in the reference; wallet: the sale customer).`);
+      }
+      if (allocations) {
+        for (const allocation of allocations) {
+          if (allocation.method === 'GIFT_CARD' && !allocation.reference) {
+            throw new HttpError(400, 'A gift card payment must carry the card code in its reference.');
+          }
+          if (allocation.method === 'EWALLET' && !saleData.customerId) {
+            throw new HttpError(400, 'An eWallet payment needs a customer on the sale.');
+          }
+        }
+      }
+      if (hasLedgerTender) {
+        let ledgerCompanyId: string | null = null;
+        if (req.user?.selectedCompanyId) {
+          ledgerCompanyId = req.user.selectedCompanyId;
+        } else if (saleData.branchId) {
+          const branchRow = await prisma.branch.findUnique({
+            where: { id: saleData.branchId },
+            select: { companyId: true }
+          });
+          ledgerCompanyId = branchRow?.companyId || null;
+        }
+        const enabled = ledgerCompanyId
+          ? await isGiftCardKioskEnabled(prisma, ledgerCompanyId)
+          : false;
+        if (!enabled) {
+          const e: any = new HttpError(403, 'Gift cards and eWallet are not enabled for this business.');
+          e.code = 'GIFT_CARD_KIOSK_NOT_ENABLED';
+          throw e;
+        }
+      }
+    }
+
     // Prescriptions (Wave C1): if the cart holds any product flagged
     // requiresPrescription, the sale must carry a prescription from
     // the register — or, when enforcement is OFF for this business,
@@ -1302,6 +1394,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Salesperson attribution (Wave C6): validated above to
           // be an ACTIVE member of this business; null = cashier.
           salespersonId: salespersonForSale ? salespersonForSale.id : null,
+          // Gift cards / eWallet + kiosk (Wave C9 — gap item 9):
+          // channel. POS sales store the POS default; kiosk
+          // checkouts send KIOSK. (ONLINE_STORE is item 5's
+          // storefront value.)
+          channel: saleData.channel || 'POS',
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1335,6 +1432,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               prescriptionId: saleData.prescriptionId || null,
               folioId: folioForSale ? folioForSale.id : null,
               salespersonId: salespersonForSale ? salespersonForSale.id : null,
+              // Gift cards / eWallet + kiosk (Wave C9 — gap item 9):
+              // channel (same value as the first attempt above).
+              channel: saleData.channel || 'POS',
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
@@ -1861,6 +1961,58 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             createdBy: req.user?.createdBy || req.user?.id || null
           });
         }
+      }
+
+      // Gift cards / eWallet (Wave C9): redeem the tender
+      // allocations inside this same transaction — the guarded
+      // decrement in each helper is what makes concurrent redemptions
+      // safe (a second sale spending the same card/wallet loses the
+      // race with a 409 and the whole sale rolls back; the balance
+      // can never go negative). The sale stores the per-ledger totals
+      // so reporting can split them out; the per-card/per-wallet
+      // detail lives on the ledger rows. Ledger errors are converted
+      // to HttpError so the POS keeps its machine-readable code.
+      let giftCardTotal = 0;
+      let walletTotal = 0;
+      if (allocations) {
+        for (const allocation of allocations) {
+          if (allocation.method === 'GIFT_CARD') {
+            try {
+              const redeemed = await redeemGiftCardAtomic(tx, {
+                code: allocation.reference || '',
+                companyId: targetCompanyId,
+                amount: allocation.amount,
+                saleId: sale.id,
+                createdBy: req.user?.createdBy || req.user?.id || null,
+              });
+              giftCardTotal = round2(giftCardTotal + redeemed.amount);
+            } catch (error) {
+              throw asSaleHttpError(error);
+            }
+          } else if (allocation.method === 'EWALLET') {
+            try {
+              const spent = await spendWalletAtomic(tx, {
+                customerId: saleData.customerId as string,
+                companyId: targetCompanyId,
+                amount: allocation.amount,
+                saleId: sale.id,
+                createdBy: req.user?.createdBy || req.user?.id || null,
+              });
+              walletTotal = round2(walletTotal + spent.amount);
+            } catch (error) {
+              throw asSaleHttpError(error);
+            }
+          }
+        }
+      }
+      if (giftCardTotal > 0 || walletTotal > 0) {
+        await tx.sale.update({
+          where: { id: sale.id },
+          data: {
+            giftCardAmount: giftCardTotal > 0 ? giftCardTotal : null,
+            walletAmount: walletTotal > 0 ? walletTotal : null,
+          },
+        });
       }
 
       // Udhaar/khata (Wave B2): the unpaid part of a customer sale is

@@ -107,6 +107,14 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
 
   // Stock-take (Wave C6): an Inventory-family module of its own.
   '/api/stock-takes': { module: 'stock_takes', page: 'stock-takes' },
+
+  // Gift cards / eWallet (Wave C9 — gap item 9): counter money, so
+  // gift cards ride the sales POS page and wallets the sales
+  // customers page (same precedent as promotions riding invoices).
+  // The GIFT_CARD_KIOSK_PACK add-on gate is additionally enforced in
+  // every controller handler.
+  '/api/gift-cards': { module: 'sales', page: 'pos' },
+  '/api/wallets': { module: 'sales', page: 'customers' },
 };
 
 /**
@@ -154,6 +162,13 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   // Affiliate program self-service (account-level; an affiliate may own
   // no business, so no module gate — auth lives in the router)
   '/api/affiliates',
+
+  // Self-ordering kiosk (Wave C9 — gap item 9): PUBLIC BY DESIGN.
+  // Customers order with no account; the branch id in the path is
+  // the unguessable kiosk key, every read/write is branch-scoped in
+  // the router, and the whole kiosk is gated on the
+  // GIFT_CARD_KIOSK_PACK add-on.
+  '/api/kiosk',
 
   // System
   '/api/sync',
