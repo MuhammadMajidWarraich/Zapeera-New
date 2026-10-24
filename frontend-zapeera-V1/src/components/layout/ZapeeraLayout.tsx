@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { whatsappUrl } from "@/lib/support-links";
+import { SidebarUserWidget } from "@/components/layout/SidebarUserWidget";
 
 interface ZapeeraLayoutProps {
   children: React.ReactNode;
@@ -72,7 +73,6 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
@@ -321,52 +321,9 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         </div>
       </nav>
 
-      {/* User card */}
+      {/* User card — shared with the workspace sidebar (RoleBasedSidebar) */}
       <div className="relative z-[2] shrink-0 px-3.5 pb-5 pt-4">
-        <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={userMenuOpen}
-              aria-label="Account menu"
-              className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06] data-[state=open]:bg-white/[0.08]"
-            >
-              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white">
-                {user?.profileImage ? (
-                  <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  user?.name ? user.name.charAt(0).toUpperCase() : "U"
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-bold text-white">{user?.name || "User"}</p>
-                <p className="truncate text-[11px] text-white/40">{user?.email || ""}</p>
-              </div>
-              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-white/40 transition-transform duration-200", userMenuOpen && "rotate-180")} />
-            </button>
-          </DropdownMenuTrigger>
-          {/* z-index must beat the sidebar <aside> (fixed, z-[100]): the
-              shared DropdownMenuContent default is z-50 and this menu
-              opens upward OVER the sidebar, so at z-50 it rendered
-              underneath the sidebar — invisible and unclickable, which
-              is why the chip looked dead in the installed app. */}
-          <DropdownMenuContent side="top" align="start" className="z-[200] w-[240px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
-            <DropdownMenuItem onClick={() => go("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
-              <User className="h-[18px] w-[18px] opacity-60" />
-              Edit Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => go("/zapeera")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
-              <ArrowLeft className="h-[18px] w-[18px] opacity-60" />
-              Back to Dashboard
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="mx-2.5" />
-            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-red-600 focus:text-red-600">
-              <LogOut className="h-[18px] w-[18px] text-red-600 opacity-70" />
-              Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <SidebarUserWidget user={user} onNavigate={go} onLogout={handleLogout} />
       </div>
     </aside>
   );
