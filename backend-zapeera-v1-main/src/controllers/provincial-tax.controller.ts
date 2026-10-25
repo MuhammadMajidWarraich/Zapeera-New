@@ -369,7 +369,7 @@ export const getProvincialTaxSummary = async (req: AuthRequest, res: Response) =
         branchId: branchId ? String(branchId) : null,
         byAuthority: byAuthorityOut,
         totals: {
-          salesCount: new Set(lines.map(l => l.saleId)).size,
+          salesCount: new Set(lines.map((l: any) => l.saleId)).size,
           taxableAmount: round2(byAuthorityOut.reduce((s, e) => s + e.taxableAmount, 0)),
           taxAmount: round2(byAuthorityOut.reduce((s, e) => s + e.taxAmount, 0))
         }

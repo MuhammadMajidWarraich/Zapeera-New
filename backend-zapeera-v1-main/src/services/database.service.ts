@@ -112,11 +112,11 @@ class DatabaseService {
             // Ensure newer user access columns exist on older SQLite databases.
             // This keeps staff/dashboard screens working after adding access control.
             try {
-              const userColumns = await this.client.$queryRawUnsafe<Array<{ name: string }>>(
+              const userColumns = (await (this.client as any).$queryRawUnsafe(
                 'PRAGMA table_info(zapeera_users)'
-              );
+              )) as Array<{ name: string }>;
               const hasBusinessAccessGranted = userColumns.some(
-                (column) => column.name === 'businessAccessGranted'
+                (column: any) => column.name === 'businessAccessGranted'
               );
 
               if (!hasBusinessAccessGranted) {

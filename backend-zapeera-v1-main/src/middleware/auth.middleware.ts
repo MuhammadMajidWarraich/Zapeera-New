@@ -229,7 +229,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
           role_id: membership.roleId,
           role_name: roleName,
           status: membership.status,
-          branch_ids: membership.branches.map(b => b.branchId)
+          branch_ids: membership.branches.map((b: any) => b.branchId)
         };
         // DO NOT overwrite req.user.role here. Use req.membership.role_name instead.
       }
@@ -339,7 +339,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
               const payload = JSON.stringify({ items });
               
               // SECURITY FIX: Use transaction to prevent race conditions
-              await prisma.$transaction(async (tx) => {
+              await prisma.$transaction(async (tx: any) => {
                 // Re-read within transaction to ensure consistency
                 const currentSetting = await tx.settings.findUnique({
                   where: {

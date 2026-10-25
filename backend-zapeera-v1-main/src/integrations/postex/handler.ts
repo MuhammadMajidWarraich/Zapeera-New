@@ -53,6 +53,16 @@ export interface PostExHandlerOptions {
 
 /** Map the vendor-neutral shipment input to the PostEx order payload. */
 export function buildPostExOrderPayload(input: CreateShipmentInput): PostExOrderPayload {
+  // Recipient phone/address are nullable on the shared input (walk-in
+  // placeholders) but PostEx requires them — validateShipmentInput
+  // enforces this before this builder runs; guard here too so the
+  // exported builder is independently safe (and so tsc can narrow).
+  if (!input.recipient?.phone?.trim() || !input.recipient?.address?.trim()) {
+    throw new IntegrationError(
+      'SYNC_FAILED',
+      'postex: the customer needs a name, phone number and delivery address before a shipment can be booked.'
+    );
+  }
   return {
     orderRef: input.orderRef,
     recipientName: input.recipient.name,

@@ -114,13 +114,13 @@ export const listSalesmen = async (req: Request, res: Response) => {
         where: { ...where, membership: { businessId, branches: { some: { branchId: String(branchId) } } } },
         select: { id: true }
       });
-      const allowed = new Set(inBranch.map(s => s.id));
-      rows = salesmen.filter(s => allowed.has(s.id));
+      const allowed = new Set(inBranch.map((s: any) => s.id));
+      rows = salesmen.filter((s: any) => allowed.has(s.id));
     }
 
     return res.json({
       success: true,
-      data: rows.map(s => ({
+      data: rows.map((s: any) => ({
         staffProfileId: s.id,
         employeeId: s.employeeId,
         userId: s.membership.userId,
@@ -162,7 +162,7 @@ export const getSalesmenPerformance = async (req: Request, res: Response) => {
     });
 
     const rows = await Promise.all(
-      salesmen.map(async (s) => {
+      salesmen.map(async (s: any) => {
         const staffUserId = s.membership.userId;
         const [salesAgg, commissionAgg] = await Promise.all([
           prisma.sale.aggregate({

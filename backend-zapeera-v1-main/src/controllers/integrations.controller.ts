@@ -20,6 +20,7 @@ import {
   refundIntegrationPayment,
   getShipmentTracking,
   returnShipment,
+  triggerSync,
 } from '../services/integration.service';
 
 const resolveIntegrationBusinessId = (req: AuthRequest): string =>

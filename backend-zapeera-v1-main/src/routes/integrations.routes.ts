@@ -10,6 +10,7 @@ import {
   refundIntegrationPaymentHandler,
   getShipmentTrackingHandler,
   returnShipmentHandler,
+  triggerIntegrationSyncHandler,
 } from '../controllers/integrations.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';

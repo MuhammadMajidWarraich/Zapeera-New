@@ -146,7 +146,7 @@ export const getMyDevices = async (req: Request, res: Response) => {
       orderBy: { lastVerifiedAt: 'desc' }
     });
 
-    const devices = rows.map((d) => ({
+    const devices = rows.map((d: any) => ({
       deviceId: d.deviceId,
       platform: d.platform,
       hostname: d.hostname,
@@ -159,7 +159,7 @@ export const getMyDevices = async (req: Request, res: Response) => {
       success: true,
       data: {
         devices,
-        desktopConnected: devices.filter((d) => d.connected).length
+        desktopConnected: devices.filter((d: any) => d.connected).length
       }
     });
   } catch (error: any) {

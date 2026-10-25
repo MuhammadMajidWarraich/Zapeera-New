@@ -702,7 +702,7 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
     if (!sale) {
       return res.status(404).json({
         success: false,
-        message: `Sale not found for receipt number: ${receiptNumber}. Available receipts: ${allReceipts.map(r => r.receiptNumber).join(', ')}`
+        message: `Sale not found for receipt number: ${receiptNumber}. Available receipts: ${allReceipts.map((r: any) => r.receiptNumber).join(', ')}`
       });
     }
 
@@ -1433,7 +1433,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     // Wrap in try-catch to handle transaction errors gracefully
     let result;
     try {
-      result = await prisma.$transaction(async (tx) => {
+      result = await prisma.$transaction(async (tx: any) => {
       // Use selected company/branch context if available, otherwise use the provided branchId
       let targetCompanyId: string;
       let targetBranchId: string;

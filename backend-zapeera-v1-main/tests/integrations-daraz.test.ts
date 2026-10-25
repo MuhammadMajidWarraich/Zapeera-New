@@ -616,6 +616,12 @@ describe('daraz handler', () => {
       saleInvoiceNumber: 'INV-10001',
       channel: 'daraz' as const,
       externalOrderId: 'DZ-1001',
+      // Unified CreateShipmentInput (post-merge): orderRef + paymentMethod
+      // are required — the Daraz handler ignores them, but the shared
+      // input shape (built by buildCreateShipmentInput in production)
+      // always carries them.
+      orderRef: 'INV-10001',
+      paymentMethod: 'COD' as const,
       recipient: { name: 'Test Buyer', phone: '03001234567', address: '1 Test St' },
       codAmount: 200,
       items: [{ productId: 'prod-a', quantity: 2, name: 'Product A' }]
@@ -712,9 +718,13 @@ describe('daraz handler', () => {
         );
         prisma.connection.encryptedCredentials = encryptIntegrationCredentials({ ...CREDS });
         const logsBefore = prisma.syncLogs.length;
+        // Unknown saleRef is a SYNC_FAILED (bad input for this run), not
+        // NOT_IMPLEMENTED — the merged builder (PostEx branch shape) uses
+        // SYNC_FAILED for a missing sale; the Daraz branch's old
+        // NOT_IMPLEMENTED expectation tracked the pre-merge builder.
         await expect(
           triggerSync(prisma as any, BUSINESS_ID, 'daraz', { entity: 'shipment', saleRef: 'INV-NOPE' })
-        ).rejects.toMatchObject({ code: 'NOT_IMPLEMENTED' });
+        ).rejects.toMatchObject({ code: 'SYNC_FAILED' });
         expect(prisma.syncLogs.length).toBe(logsBefore); // no log row created
       } finally {
         if (originalKey === undefined) delete process.env.INTEGRATION_ENCRYPTION_KEY;

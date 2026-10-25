@@ -340,13 +340,29 @@ export async function buildCreateShipmentInput(
   businessId: string,
   saleRef: string
 ): Promise<CreateShipmentInput> {
+  const ref = String(saleRef ?? '').trim();
+  if (!ref) {
+    throw new IntegrationError(
+      'SYNC_FAILED',
+      'A sale id or invoice number is required to book a shipment.'
+    );
+  }
+  // One fetch with includes (PostEx branch shape): the sale's customer
+  // and lines come back on the row itself. The separate-lookup shape
+  // (prisma.customer / prisma.saleItem / prisma.product) is dropped —
+  // it broke every PostEx + integration test fake, which — like the real
+  // include — carries the customer and items on the sale row.
+  const include = {
+    customer: true,
+    items: { include: { product: true } }
+  };
   const sale =
-    (await prisma.sale.findUnique({ where: { id: saleRef } })) ??
-    (await prisma.sale.findFirst({ where: { invoiceNumber: saleRef, companyId: businessId } }));
+    (await prisma.sale.findUnique({ where: { id: ref }, include })) ??
+    (await prisma.sale.findFirst({ where: { companyId: businessId, invoiceNumber: ref }, include }));
   if (!sale || sale.companyId !== businessId) {
     throw new IntegrationError(
-      'NOT_IMPLEMENTED',
-      `No sale "${saleRef}" exists in this business — pass a sale id or invoice number for a shipment.`
+      'SYNC_FAILED',
+      `No sale "${ref}" exists in this business — pass a sale id or invoice number for a shipment.`
     );
   }
   if (sale.postexTrackingNumber) {
@@ -355,30 +371,24 @@ export async function buildCreateShipmentInput(
       `Sale ${sale.invoiceNumber ?? sale.id} already has a PostEx shipment (tracking ${sale.postexTrackingNumber}). Cancel it first if you need to re-book.`
     );
   }
-  const [customer, items, business] = await Promise.all([
-    sale.customerId
-      ? prisma.customer.findUnique({ where: { id: sale.customerId } })
-      : Promise.resolve(null),
-    prisma.saleItem.findMany({ where: { saleId: sale.id } }),
-    prisma.business?.findUnique ? prisma.business.findUnique({ where: { id: businessId } }) : Promise.resolve(null)
-  ]);
-  const productIds = [...new Set(items.map((i: any) => i.productId))];
-  const products =
-    productIds.length > 0
-      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } })
-      : [];
-  const nameById = new Map<string, string>(products.map((p: any) => [p.id, p.name]));
+  const customer = sale.customer ?? {};
   const codAmount = Math.max(
     0,
     Math.round(
       (Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0) - Number(sale.returnedAmount || 0)) * 100
     ) / 100
   );
+  const items: any[] = Array.isArray(sale.items) ? sale.items : [];
   const parcelItems = items.map((i: any) => ({
-    productId: i.productId,
+    // productId is always set on a real SaleItem row; the '' fallback
+    // only covers test fixtures that embed bare { quantity, product }.
+    productId: i.productId ?? '',
     quantity: Number(i.quantity) || 0,
-    name: nameById.get(i.productId) ?? null
+    name: i.product?.name ?? i.variantName ?? null
   }));
+  const business = prisma.business?.findUnique
+    ? await prisma.business.findUnique({ where: { id: businessId } })
+    : null;
   return {
     saleId: sale.id,
     saleInvoiceNumber: sale.invoiceNumber ?? null,
@@ -386,9 +396,9 @@ export async function buildCreateShipmentInput(
     externalOrderId: sale.externalOrderId ?? null,
     orderRef: String(sale.invoiceNumber ?? sale.id),
     recipient: {
-      name: customer?.name ?? 'Walk-in Customer',
-      phone: customer?.phone ?? null,
-      address: customer?.address ?? null
+      name: String(customer.name ?? '').trim() || 'Walk-in Customer',
+      phone: customer.phone ?? null,
+      address: customer.address ?? null
     },
     paymentMethod: codAmount > 0 ? 'COD' : 'PREPAID',
     codAmount,
@@ -575,13 +585,15 @@ export async function triggerSync(
 
   // Shipment is per-sale: resolve the sale and build the vendor-neutral
   // input BEFORE the log row is created, so a missing/unknown sale
-  // fails with no log row (exactly like an unimplemented entity).
+  // fails with no log row. A missing or unknown sale is a SYNC_FAILED
+  // (bad input for this run), not NOT_IMPLEMENTED — the shipment
+  // operation itself is implemented; the sale it names does not exist.
   let shipmentInput: CreateShipmentInput | undefined;
   if (entity === 'shipment') {
     const saleRef = opts.saleId ?? opts.saleRef;
     if (!saleRef) {
       throw new IntegrationError(
-        'NOT_IMPLEMENTED',
+        'SYNC_FAILED',
         'A shipment needs a sale — pass saleId or saleRef (sale id or invoice number).'
       );
     }

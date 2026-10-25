@@ -216,7 +216,7 @@ export const getStoreCatalog = async (req: Request, res: Response) => {
       prisma.product.count({ where }),
     ]);
     let listed = products.map(toPublicProduct);
-    if (String(inStock) === 'true') listed = listed.filter((p) => p.inStock);
+    if (String(inStock) === 'true') listed = listed.filter((p: any) => p.inStock);
 
     return res.json({
       success: true,

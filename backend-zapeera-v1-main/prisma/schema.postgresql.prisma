@@ -1155,7 +1155,14 @@ model Sale {
   // are only set on online orders. giftCardAmount / walletAmount are
   // the PKR redeemed from each ledger on this sale (null when none) —
   // the ledger rows themselves carry the per-card/per-wallet detail.
-  channel             String   @default("POS") // POS | ONLINE_STORE | KIOSK
+  channel             String   @default("POS") // POS | ONLINE_STORE | KIOSK | shopify | daraz | woocommerce
+  // External order id for channel imports (Shopify/Daraz/WooCommerce):
+  // the vendor's order id. The (companyId, channel, externalOrderId)
+  // unique below is the import-idempotency key — the same external
+  // order can never create a second sale. Null on every POS/manual
+  // sale (NULLs stay distinct in unique indexes, so untagged sales
+  // never collide).
+  externalOrderId    String?
   deliveryAddress     String?
   deliveryPhone       String?
   deliveryNotes       String?
@@ -1169,23 +1176,8 @@ model Sale {
   status             String    @default("COMPLETED")
   saleDate           DateTime?
   membershipId       String?
-  // Channel import (feature/integration-daraz): which external channel
-  // this sale came from ('daraz', ...) and the channel's own order id.
-  // Both null for ordinary counter sales. The composite unique is the
-  // import-idempotency key: the same Daraz order can never create a
-  // second sale (NULLs stay distinct, so legacy rows are unaffected).
-  channel            String?
-  externalOrderId    String?
   uuid               String?   @unique
   syncStatus         String    @default("PENDING")
-  // Sales-channel import tag (Shopify integration, feature/integration-shopify):
-  // the channel an imported sale came from ('shopify') and the vendor's
-  // order id, used for idempotent order import — the same external order
-  // id must never create a second sale. Null on every POS/manual sale.
-  // The composite unique below is the backstop: Postgres/SQLite treat
-  // NULLs as distinct in unique indexes, so untagged sales never collide.
-  channel            String?
-  externalOrderId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -1211,7 +1203,6 @@ model Sale {
   user     ZapeeraUser  @relation("SaleCashier", fields: [userId], references: [id])
   salesperson ZapeeraUser? @relation("SaleSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
 
-  @@unique([companyId, channel, externalOrderId])
   @@index([companyId], name: "idx_sale_company")
   @@index([branchId], name: "idx_sale_branch")
   @@index([customerId], name: "idx_sale_customer")

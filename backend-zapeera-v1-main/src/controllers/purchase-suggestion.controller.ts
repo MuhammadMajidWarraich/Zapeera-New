@@ -244,7 +244,7 @@ export const generatePurchaseSuggestions = async (req: AuthRequest, res: Respons
         created,
         totals: {
           suggestions: created.length,
-          lines: created.reduce((n, c) => n + c.lines, 0),
+          lines: created.reduce((n: number, c: any) => n + c.lines, 0),
         },
       },
       message: `Generated ${created.length} purchase suggestion(s). Nothing was ordered — approve a suggestion to create a purchase.`,
