@@ -7,6 +7,7 @@ import { appendRefundReversals, RefundReversalLineInput } from '../services/cont
 import { recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { enqueueFbrCreditNote, attemptImmediateFbr } from '../services/fbr.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { planRefundRestock } from '../utils/fefo.util';
 import Joi from 'joi';
 
 // Utility function to convert BigInt, Decimal, and Date values to strings for JSON serialization
@@ -394,6 +395,45 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
         }
       });
 
+      // Unit conversion (gap-features item 3): load the FEFO
+      // allocation rows for the refunded lines, so a refund returns
+      // units to the batches they actually came from. A pre-migration
+      // DB has no sale_item_batches table (P2021) — the map stays
+      // empty and the loop below keeps the historical batchId
+      // restock. NOTE: `saleItemBatch` is typed on the generated
+      // client only after `npm run setup:web` regenerates it (deploy
+      // does this); the `as any` bridge keeps tsc green in this
+      // sandbox, where `prisma generate` cannot fetch its engine.
+      const allocationsBySaleItem = new Map<string, { batchId: string; qty: number }[]>();
+      try {
+        const allocRows = await (tx as any).saleItemBatch.findMany({
+          where: { saleItemId: { in: [...new Set(allocations.map((a) => a.saleItem.id))] } },
+          orderBy: { createdAt: 'asc' }
+        });
+        for (const row of allocRows) {
+          const list = allocationsBySaleItem.get(row.saleItemId) || [];
+          list.push({ batchId: row.batchId, qty: row.quantity });
+          allocationsBySaleItem.set(row.saleItemId, list);
+        }
+      } catch (e: any) {
+        if (e?.code !== 'P2021' && !/sale_item_batches/i.test(String(e?.message || ''))) throw e;
+      }
+      // Base units already returned for each product by PRIOR refunds
+      // of this sale (prior refund items carry productId, not
+      // saleItemId, so this is per product — exact whenever a product
+      // was sold on one line, and exact for every C2 unitLevel line,
+      // whose unitsPerSoldUnit ratio is always 1). Converted with
+      // each line's own ratio at use time, below.
+      const priorRefundedQtyByProduct = new Map<string, number>();
+      for (const prior of priorRefunds) {
+        for (const priorItem of prior.items) {
+          priorRefundedQtyByProduct.set(
+            priorItem.productId,
+            (priorRefundedQtyByProduct.get(priorItem.productId) || 0) + (priorItem.quantity || 0)
+          );
+        }
+      }
+
       // Process each validated allocation: one refund item per sale line,
       // priced from the stored line, restocking the batch the units came
       // from — only ever the validated quantities (A-03)
@@ -425,35 +465,55 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           }
         });
 
-        // Restock the batch this sale line drew from; only when the line
-        // carries no batch do we fall back to the branch's earliest-expiring
-        // active batch for the product (previous behaviour). Service
-        // lines (Wave C4) skip the fallback: nothing was ever deducted.
+        // Restock the batches this sale line drew from. When the line
+        // has FEFO allocation rows, each batch gets back only its own
+        // units (earlier refunds of the same line are attributed to
+        // the FEFO-first allocations, so no batch is ever credited
+        // twice); only when the line carries no batch do we fall back
+        // to the branch's earliest-expiring active batch for the
+        // product (previous behaviour). Lines without allocation rows
+        // — pre-change or desktop-synced — keep the historical
+        // single-batch restock via batchId. Service lines (Wave C4)
+        // skip the fallback: nothing was ever deducted.
         const isServiceLine = serviceProductIds.has(saleItem.productId);
-        let restockBatchId = saleItem.batchId;
-        if (!restockBatchId && !isServiceLine) {
-          const activeBatch = await tx.batch.findFirst({
-            where: {
-              productId: saleItem.productId,
-              branchId: originalSale.branchId,
-              isActive: true
-            },
-            orderBy: { expireDate: 'asc' }
-          });
-          if (activeBatch) {
-            restockBatchId = activeBatch.id;
+        const lineAllocations = allocationsBySaleItem.get(saleItem.id);
+        if (!isServiceLine && lineAllocations && lineAllocations.length > 0 && unitsToReturn > 0) {
+          const priorReturnedBase = Math.round(
+            (priorRefundedQtyByProduct.get(saleItem.productId) || 0) * unitsPerSoldUnit
+          );
+          const restockPlan = planRefundRestock(lineAllocations, unitsToReturn, priorReturnedBase);
+          for (const restock of restockPlan) {
+            await tx.batch.update({
+              where: { id: restock.batchId },
+              data: { quantity: { increment: restock.qty } }
+            });
           }
-        }
-
-        if (restockBatchId && unitsToReturn > 0) {
-          await tx.batch.update({
-            where: { id: restockBatchId },
-            data: {
-              quantity: {
-                increment: unitsToReturn
-              }
+        } else {
+          let restockBatchId = saleItem.batchId;
+          if (!restockBatchId && !isServiceLine) {
+            const activeBatch = await tx.batch.findFirst({
+              where: {
+                productId: saleItem.productId,
+                branchId: originalSale.branchId,
+                isActive: true
+              },
+              orderBy: { expireDate: 'asc' }
+            });
+            if (activeBatch) {
+              restockBatchId = activeBatch.id;
             }
-          });
+          }
+
+          if (restockBatchId && unitsToReturn > 0) {
+            await tx.batch.update({
+              where: { id: restockBatchId },
+              data: {
+                quantity: {
+                  increment: unitsToReturn
+                }
+              }
+            });
+          }
         }
 
         // Create stock movement record for the return (service lines

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
+import { breakdownStock } from '../utils/unit.util';
 
 // Get inventory summary (stock levels by product)
 export const getInventorySummary = async (req: AuthRequest, res: Response) => {
@@ -115,6 +116,11 @@ export const getInventorySummary = async (req: AuthRequest, res: Response) => {
         ...product,
         stock: totalBatchQuantity, // Use only active (non-expired) batch quantities
         totalBatchQuantity,
+        // Unit conversion (gap-features item 3): the same stock
+        // expressed in the product's own units — "2 packs · 3 strips
+        // · 4 tablets" — from the base-unit total. Low-stock stays a
+        // base-unit comparison (totalBatchQuantity <= minStock).
+        stockBreakdown: breakdownStock(totalBatchQuantity, product),
         nearExpiryBatches: nearExpiryBatches.length,
         expiredBatches: expiredBatches.length,
         isLowStock: totalBatchQuantity <= product.minStock,

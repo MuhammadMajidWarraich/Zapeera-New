@@ -53,6 +53,7 @@ import { useAdmin } from "@/contexts/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { cn } from "@/lib/utils";
+import { breakdownStock } from "@/utils/units";
 
 function inventoryCategoryBadgeClass(name: string) {
   const n = (name || "").toLowerCase();
@@ -126,6 +127,11 @@ interface Product {
   price?: number;
   stock?: number;
   minStock?: number;
+  // Unit conversion (gap-features item 3): the same stock expressed
+  // in the product's own units, sent by the products/inventory list
+  // endpoints (packs · strips · tablets). Absent on older responses;
+  // the list renders a local breakdown then.
+  stockBreakdown?: { packs: number; strips: number; units: number; text: string } | null;
 }
 
 interface Category {
@@ -3753,19 +3759,38 @@ const Inventory = () => {
                             {(() => {
                               const remaining = product.stock || 0;
                               const minStock = product.minStock || 10;
+                              // Unit conversion (gap-features item 3):
+                              // remaining stock in the product's own
+                              // units ("2 packs · 3 strips · 4 tablets")
+                              // under the base-unit count. Prefers the
+                              // server-sent breakdown; falls back to the
+                              // local derivation for older responses.
+                              // Unstructured products show no second
+                              // line — the count already says it all.
+                              const breakdownText =
+                                product.stockBreakdown?.text ||
+                                breakdownStock(remaining, {
+                                  unitsPerPack: product.unitsPerPack ?? null,
+                                  unitsPerStrip: product.unitsPerStrip ?? null,
+                                }).text;
+                              const structured =
+                                (product.unitsPerPack || 1) > 1 && breakdownText !== `${remaining} tablet${remaining === 1 ? "" : "s"}`;
+                              const sub = structured ? (
+                                <span className="block text-[11px] font-normal leading-tight text-[#8c95b0]">{breakdownText}</span>
+                              ) : null;
                               if (remaining === 0) {
                                 return (
                                   <span className="inline-block whitespace-nowrap rounded-md bg-[rgba(220,38,38,0.06)] px-2.5 py-1 text-[13px] font-bold text-red-600">
-                                    {remaining} units
+                                    {remaining} units{sub}
                                   </span>
                                 );
                               }
                               if (remaining <= minStock) {
                                 return (
-                                  <span className="whitespace-nowrap text-[13px] font-bold text-amber-600">{remaining} units</span>
+                                  <span className="whitespace-nowrap text-[13px] font-bold text-amber-600">{remaining} units{sub}</span>
                                 );
                               }
-                              return <span className="whitespace-nowrap text-[13px] font-bold text-green-600">{remaining} units</span>;
+                              return <span className="whitespace-nowrap text-[13px] font-bold text-green-600">{remaining} units{sub}</span>;
                             })()}
                           </td>
                           <td className="px-4 py-4 pr-8 text-right align-middle">
