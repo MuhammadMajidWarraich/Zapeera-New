@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Activity,
   Building2,
+  ShieldAlert,
   Eye,
   EyeOff,
   Clock,
@@ -26,6 +27,7 @@ import {
   Gauge
 } from "lucide-react";
 import { apiService } from "@/services/api";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import ProfitSalesOverview from "./ProfitSalesOverview";
@@ -44,6 +46,7 @@ function getWeekNumber(date: Date): number {
 
 const Reports = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { selectedBranchId, selectedBranch, selectedCompanyId, getMembershipRole } = useAdmin();
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [selectedReport, setSelectedReport] = useState("sales");
@@ -1035,6 +1038,13 @@ const Reports = () => {
           {/* Export and Refresh for Managers */}
           {(user?.role === 'OWNER' || user?.role === 'MANAGER') && (
             <>
+              <button
+                onClick={() => navigate('/controlled-register')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 font-medium rounded-xl border border-red-200 hover:bg-red-100 transition"
+              >
+                <ShieldAlert className="w-4 h-4" />
+                Controlled Register
+              </button>
               <button 
                 onClick={() => exportReports()}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition"

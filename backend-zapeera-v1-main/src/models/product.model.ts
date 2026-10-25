@@ -17,6 +17,8 @@ export interface CreateProductData {
     barcodeType?: string; // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR
     isGenerated?: boolean; // true if barcode was auto-generated
     requiresPrescription: boolean;
+    isControlled?: boolean; // Gap item 2 - scheduled/controlled medicine flag
+    controlledSchedule?: string | null; // Gap item 2 - schedule/category label
     // Temporary fields for backward compatibility (will be removed when frontend is updated)
     costPrice?: number;
     sellingPrice?: number;
@@ -44,6 +46,8 @@ export interface CreateProductData {
     barcodeType?: string;
     isGenerated?: boolean;
     requiresPrescription?: boolean;
+    isControlled?: boolean; // Gap item 2
+    controlledSchedule?: string | null; // Gap item 2
     isActive?: boolean;
     // Temporary fields for backward compatibility (will be removed when frontend is updated)
     costPrice?: number;

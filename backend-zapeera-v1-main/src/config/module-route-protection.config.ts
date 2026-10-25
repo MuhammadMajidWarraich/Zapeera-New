@@ -82,6 +82,8 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
 
   // Reports & Analytics
   '/api/reports': { module: 'reports', page: 'reports' },
+  // Controlled / narcotics register (Gap item 2): a reports-page surface.
+  '/api/controlled-medicines': { module: 'reports', page: 'reports' },
 
   // Business Management (settings, roles, billing, admin)
   '/api/settings': { module: 'business_management', page: 'settings' },

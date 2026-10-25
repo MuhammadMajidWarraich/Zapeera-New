@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import { AuthRequest, buildBranchWhereClause, buildBranchWhereClauseForRelation } from '../middleware/auth.middleware';
 import { notifyRefundChange } from '../routes/sse.routes';
 import { SALE_PAYMENT_METHODS } from './sale.controller';
+import { appendRefundReversals, RefundReversalLineInput } from '../services/controlled-medicines.service';
 import { recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { enqueueFbrCreditNote, attemptImmediateFbr } from '../services/fbr.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
@@ -351,6 +352,19 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
       })).map((p: any) => p.id)
     );
 
+    // Controlled / narcotics register (Gap item 2): which refunded
+    // products are controlled, so their DISPENSE entries can be
+    // reversed by the returned quantity in the same transaction.
+    const controlledProductIds = new Set(
+      (await prisma.product.findMany({
+        // NOTE: `as any` until the Prisma client is regenerated for the
+        // new Product.isControlled field (see report: regen is a
+        // deploy-time step; the sandbox proxy blocks generate).
+        where: { id: { in: refundProductIds }, isControlled: true } as any,
+        select: { id: true }
+      })).map((p: any) => p.id)
+    );
+
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx: any) => {
       // Create refund record — refundedBy/createdBy are the authenticated
@@ -384,6 +398,10 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
       // priced from the stored line, restocking the batch the units came
       // from — only ever the validated quantities (A-03)
       const refundItems = [];
+      // Controlled / narcotics register (Gap item 2): refunded
+      // controlled lines collected here, reversed after the loop in
+      // this same transaction.
+      const controlledRefundLines: RefundReversalLineInput[] = [];
       for (const alloc of allocations) {
         const saleItem = alloc.saleItem;
 
@@ -453,7 +471,49 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           });
         }
 
+        // Controlled / narcotics register (Gap item 2): a refunded
+        // controlled line reverses its DISPENSE entry by the units
+        // actually returned (service lines moved no stock, so they
+        // reverse nothing). Collected, not yet written.
+        if (!isServiceLine && controlledProductIds.has(saleItem.productId) && unitsToReturn > 0) {
+          controlledRefundLines.push({
+            saleItemId: saleItem.id,
+            productId: saleItem.productId,
+            isControlled: true,
+            quantity: unitsToReturn,
+            reason: alloc.reason ? `Refund: ${alloc.reason}` : undefined,
+          });
+        }
+
         refundItems.push(refundItem);
+      }
+
+      // Controlled / narcotics register (Gap item 2): reverse the
+      // DISPENSE entries of refunded controlled lines by the returned
+      // quantities — one REVERSAL row each, in this same transaction,
+      // so the register can never overstate what stayed dispensed.
+      // Pre-register sales have no DISPENSE entry and are skipped by
+      // the service (there is nothing to reverse).
+      if (controlledRefundLines.length > 0) {
+        let staffNameForReversal: string | null =
+          (req.user as any)?.name || (req.user as any)?.fullName || null;
+        if (!staffNameForReversal) {
+          const staffRow = await tx.zapeeraUser.findUnique({
+            where: { id: actorId },
+            select: { name: true },
+          });
+          staffNameForReversal = staffRow?.name || null;
+        }
+        await appendRefundReversals(tx, {
+          companyId: originalSale.companyId,
+          branchId: originalSale.branchId,
+          saleId: originalSale.id,
+          invoiceNumber: originalSale.invoiceNumber || null,
+          staffUserId: actorId,
+          staffName: staffNameForReversal,
+          reason: `Refund: ${refundReason}`,
+          lines: controlledRefundLines,
+        });
       }
 
       // Sale status after this refund (A-08): REFUNDED only once every

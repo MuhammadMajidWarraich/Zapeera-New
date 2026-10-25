@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { getPrisma, isPostgreSQL } from '../utils/db.util';
 import { normalizePctCode } from '../utils/fbr.util';
 import { validateUnitStructure } from '../utils/unit.util';
+import { normalizeControlledSchedule } from '../services/controlled-medicines.service';
 import { CreateProductData, UpdateProductData } from '../models/product.model';
 import { validate } from '../middleware/validation.middleware';
 import { AuthRequest, buildAdminWhereClause, buildBranchWhereClause } from '../middleware/auth.middleware';
@@ -66,6 +67,8 @@ const createProductSchema = Joi.object({
   barcodeType: Joi.string().valid('CODE128', 'EAN13', 'EAN8', 'UPC_A', 'UPC_E', 'CODE39', 'QR').optional(),
   isGenerated: Joi.boolean().optional(),
   requiresPrescription: Joi.boolean().default(false),
+  isControlled: Joi.boolean().default(false), // Gap item 2 - controlled/scheduled medicine
+  controlledSchedule: Joi.string().allow('', null).optional(), // Gap item 2 - schedule/category label
   isActive: Joi.boolean().default(true),
   minStock: Joi.number().min(0).default(1).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
@@ -90,6 +93,8 @@ const updateProductSchema = Joi.object({
   barcodeType: Joi.string().valid('CODE128', 'EAN13', 'EAN8', 'UPC_A', 'UPC_E', 'CODE39', 'QR').optional(),
   isGenerated: Joi.boolean().optional(),
   requiresPrescription: Joi.boolean(),
+  isControlled: Joi.boolean(), // Gap item 2
+  controlledSchedule: Joi.string().allow('', null).optional(), // Gap item 2
   isActive: Joi.boolean(),
   minStock: Joi.number().min(0).optional(),
   maxStock: Joi.number().min(0).allow(null).optional(),
@@ -464,6 +469,25 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Controlled / narcotics register (Gap item 2): the schedule is
+    // only stored on a controlled product; an invalid label fails
+    // the create with a 400, never silently stores.
+    let controlledFields: { isControlled: boolean; controlledSchedule: string | null } = {
+      isControlled: false,
+      controlledSchedule: null,
+    };
+    if (productData.isControlled) {
+      const normalized = normalizeControlledSchedule(productData.controlledSchedule);
+      if ('error' in normalized) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: [normalized.error],
+        });
+      }
+      controlledFields = { isControlled: true, controlledSchedule: normalized.schedule };
+    }
+
     // Generate SKU if not provided
     if (!productData.sku) {
       const generateSKU = (name: string): string => {
@@ -627,6 +651,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       barcodeType: productData.barcodeType || 'CODE128',
       isGenerated: productData.isGenerated || false,
       requiresPrescription: productData.requiresPrescription || false,
+      ...controlledFields, // Gap item 2
       minStock: productData.minStock || 1,
       maxStock: productData.maxStock || null,
       reorderLevel: productData.reorderLevel ?? null, // Wave C3
@@ -801,6 +826,28 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.barcodeType !== undefined) updateFields.barcodeType = updateData.barcodeType;
     if (updateData.isGenerated !== undefined) updateFields.isGenerated = updateData.isGenerated;
     if (updateData.requiresPrescription !== undefined) updateFields.requiresPrescription = updateData.requiresPrescription;
+    // Controlled / narcotics register (Gap item 2): unflagging a
+    // product clears its schedule; a new schedule is validated
+    // against the allowed labels. The merged flag decides.
+    if (updateData.isControlled !== undefined || updateData.controlledSchedule !== undefined) {
+      // NOTE: cast until the Prisma client is regenerated for the
+      // new Product.isControlled field (see report: regen is a
+      // deploy-time step; the sandbox proxy blocks generate).
+      const mergedControlled = updateData.isControlled !== undefined ? updateData.isControlled : (existingProduct as any).isControlled;
+      if (!mergedControlled) {
+        if (updateData.isControlled !== undefined) updateFields.isControlled = false;
+        updateFields.controlledSchedule = null;
+      } else {
+        if (updateData.isControlled !== undefined) updateFields.isControlled = true;
+        if (updateData.controlledSchedule !== undefined) {
+          const normalized = normalizeControlledSchedule(updateData.controlledSchedule);
+          if ('error' in normalized) {
+            return res.status(400).json({ success: false, message: 'Validation error', errors: [normalized.error] });
+          }
+          updateFields.controlledSchedule = normalized.schedule;
+        }
+      }
+    }
     if (updateData.isActive !== undefined) updateFields.isActive = updateData.isActive;
 
     // Tenancy guard (A-02): re-pointing the product to a different

@@ -97,6 +97,9 @@ interface Product {
   };
   barcode?: string;
   requiresPrescription: boolean;
+  // Controlled / narcotics register (Gap item 2).
+  isControlled?: boolean;
+  controlledSchedule?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -146,6 +149,19 @@ interface Supplier {
   };
   isActive: boolean;
 }
+
+// Controlled / narcotics register (Gap item 2): schedule labels a
+// pharmacy can assign to a controlled product. Values must match the
+// backend CONTROLLED_SCHEDULES list.
+const CONTROLLED_SCHEDULE_OPTIONS = [
+  { value: 'NARCOTIC', label: 'Narcotic' },
+  { value: 'PSYCHOTROPIC', label: 'Psychotropic' },
+  { value: 'SCHEDULE_II', label: 'Schedule II' },
+  { value: 'SCHEDULE_III', label: 'Schedule III' },
+  { value: 'SCHEDULE_IV', label: 'Schedule IV' },
+  { value: 'SCHEDULE_V', label: 'Schedule V' },
+  { value: 'CONTROLLED', label: 'Controlled (unspecified)' },
+] as const;
 
 const Inventory = () => {
   const { user } = useAuth();
@@ -223,6 +239,8 @@ const Inventory = () => {
     formula: "",
     barcode: "",
     requiresPrescription: false,
+    isControlled: false,
+    controlledSchedule: "",
     taxClassId: "",
     pctCode: "",
     unitsPerPack: 1,
@@ -1084,6 +1102,8 @@ const Inventory = () => {
         branchId: branchId,
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
+        isControlled: newMedicine.isControlled,
+        controlledSchedule: newMedicine.isControlled ? (newMedicine.controlledSchedule || null) : null,
         taxClassId: newMedicine.taxClassId || null,
         pctCode: newMedicine.pctCode || null,
         isActive: true,
@@ -1111,6 +1131,8 @@ const Inventory = () => {
         branch: branch ? { id: branch.id, name: branch.name } : null,
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription,
+        isControlled: newMedicine.isControlled,
+        controlledSchedule: newMedicine.isControlled ? (newMedicine.controlledSchedule || null) : null,
         taxClassId: newMedicine.taxClassId || null,
         pctCode: newMedicine.pctCode || null,
         isActive: true,
@@ -1141,6 +1163,8 @@ const Inventory = () => {
         formula: "",
         barcode: "",
         requiresPrescription: false,
+        isControlled: false,
+        controlledSchedule: "",
         taxClassId: "",
         pctCode: "",
         unitsPerPack: 1,
@@ -1287,6 +1311,8 @@ const Inventory = () => {
           formula: freshProduct.formula || product.formula || "",
           barcode: freshProduct.barcode || product.barcode || "",
           requiresPrescription: freshProduct.requiresPrescription ?? product.requiresPrescription ?? false,
+          isControlled: freshProduct.isControlled ?? product.isControlled ?? false,
+          controlledSchedule: freshProduct.controlledSchedule ?? product.controlledSchedule ?? "",
           taxClassId: freshProduct.taxClassId ?? product.taxClassId ?? "",
           pctCode: freshProduct.pctCode ?? (product as any).pctCode ?? "",
           unitsPerPack: freshProduct.unitsPerPack ?? product.unitsPerPack ?? 1,
@@ -1306,6 +1332,8 @@ const Inventory = () => {
           formula: product.formula || "",
           barcode: product.barcode || "",
           requiresPrescription: product.requiresPrescription || false,
+          isControlled: product.isControlled ?? false,
+          controlledSchedule: product.controlledSchedule ?? "",
           taxClassId: product.taxClassId || "",
           pctCode: (product as any).pctCode || "",
           unitsPerPack: product.unitsPerPack || 1,
@@ -1326,6 +1354,8 @@ const Inventory = () => {
         formula: product.formula || "",
         barcode: product.barcode || "",
         requiresPrescription: product.requiresPrescription || false,
+        isControlled: product.isControlled ?? false,
+        controlledSchedule: product.controlledSchedule ?? "",
         taxClassId: product.taxClassId || "",
         pctCode: (product as any).pctCode || "",
         unitsPerPack: product.unitsPerPack || 1,
@@ -1378,6 +1408,8 @@ const Inventory = () => {
         branchId: editingProduct.branch?.id || "",
         barcode: newMedicine.barcode || "",
         requiresPrescription: newMedicine.requiresPrescription, // Use form value
+        isControlled: newMedicine.isControlled,
+        controlledSchedule: newMedicine.isControlled ? (newMedicine.controlledSchedule || null) : null,
         taxClassId: newMedicine.taxClassId || null, // Wave B5 - "" clears to default handling
         pctCode: newMedicine.pctCode || null, // Wave B7 - "" clears to the FBR fallback code
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
@@ -1459,6 +1491,8 @@ const Inventory = () => {
           formula: "",
           barcode: "",
           requiresPrescription: false,
+          isControlled: false,
+          controlledSchedule: "",
           taxClassId: "",
           pctCode: "",
           unitsPerPack: 1,
@@ -2825,6 +2859,43 @@ const Inventory = () => {
                     </div>
                   </div>
 
+                  {/* Controlled / Narcotics Register (Gap item 2) */}
+                  <div className="flex items-center space-x-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="isControlled"
+                      checked={newMedicine.isControlled}
+                      onChange={(e) => setNewMedicine({...newMedicine, isControlled: e.target.checked, controlledSchedule: e.target.checked ? newMedicine.controlledSchedule : ""})}
+                      className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <Label htmlFor="isControlled" className="text-red-800 font-medium cursor-pointer">
+                        Controlled / Scheduled Medicine
+                      </Label>
+                    </div>
+                  </div>
+
+                  {newMedicine.isControlled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="controlledSchedule">Schedule / Category</Label>
+                      <select
+                        id="controlledSchedule"
+                        value={newMedicine.controlledSchedule}
+                        onChange={(e) => setNewMedicine({...newMedicine, controlledSchedule: e.target.value})}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="">Controlled (unspecified)</option>
+                        {CONTROLLED_SCHEDULE_OPTIONS.filter((o) => o.value !== 'CONTROLLED').map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        Every sale of this product is written to the append-only Controlled Medicines Register.
+                      </p>
+                    </div>
+                  )}
+
                 </div>
               </div>
 
@@ -2862,6 +2933,8 @@ const Inventory = () => {
                 formula: "",
                 barcode: "",
                 requiresPrescription: false,
+                isControlled: false,
+                controlledSchedule: "",
                 taxClassId: "",
                 pctCode: "",
                 unitsPerPack: 1,
@@ -3113,6 +3186,43 @@ const Inventory = () => {
                       </Label>
                     </div>
                   </div>
+
+                  {/* Controlled / Narcotics Register (Gap item 2) */}
+                  <div className="flex items-center space-x-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="edit-isControlled"
+                      checked={newMedicine.isControlled}
+                      onChange={(e) => setNewMedicine({...newMedicine, isControlled: e.target.checked, controlledSchedule: e.target.checked ? newMedicine.controlledSchedule : ""})}
+                      className="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <Label htmlFor="edit-isControlled" className="text-red-800 font-medium cursor-pointer">
+                        Controlled / Scheduled Medicine
+                      </Label>
+                    </div>
+                  </div>
+
+                  {newMedicine.isControlled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-controlledSchedule">Schedule / Category</Label>
+                      <select
+                        id="edit-controlledSchedule"
+                        value={newMedicine.controlledSchedule}
+                        onChange={(e) => setNewMedicine({...newMedicine, controlledSchedule: e.target.value})}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="">Controlled (unspecified)</option>
+                        {CONTROLLED_SCHEDULE_OPTIONS.filter((o) => o.value !== 'CONTROLLED').map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        Every sale of this product is written to the append-only Controlled Medicines Register.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
