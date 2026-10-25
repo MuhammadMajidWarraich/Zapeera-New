@@ -10,7 +10,7 @@ import {
 // no longer resolved from a local plan map — they come from
 // services/addon-limits.service (plan inclusions + purchased add-ons).
 // The old local PLAN_LIMITS map (which capped Growth at 3 total
-// members, contradicting the published 20 staff seats) is retired.
+// members, contradicting the published 6 staff seats) is retired.
 
 export const validateBusinessCreationAllowanceV2 = async (
   prisma: PrismaClient,
