@@ -173,7 +173,6 @@ model Business {
   billingProfiles           BillingProfile[]         @relation("businessBillingProfiles")
   paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
   fbrConfig                 FbrConfig?
-  receiptSettings           ReceiptSettings?
   provincialTaxConfigs      ProvincialTaxConfig[]
   fbrInvoiceQueue           FbrInvoiceQueue[]
   integrationConnections      IntegrationConnection[]
@@ -1651,41 +1650,6 @@ model FbrConfig {
   company     Business @relation(fields: [companyId], references: [id])
 
   @@map("fbr_configs")
-}
-
-// ─── Receipt settings (POS update) ───────────────────────────────────────
-// One row per business: which receipt template prints (thermal 80mm
-// compact vs full-page A4 modern) plus per-business content overrides
-// and section visibility. Follows the FbrConfig pattern (one row per
-// business, upserted on companyId). `template` is stored as a plain
-// String (not an enum) so a stale/unknown value can never break a
-// read — the controller falls back to 'a4' defensively. Schema is
-// applied via `prisma db push` (Schema Heal) at deploy; there is no
-// migrations folder.
-model ReceiptSettings {
-  id                  String   @id @default(cuid())
-  companyId           String   @unique
-  template            String   @default("a4") // 'thermal' | 'a4'
-  displayName         String?
-  tagline             String?
-  address             String?
-  phone               String?
-  email               String?
-  website             String?
-  footerMessage       String?
-  showCashier         Boolean  @default(true)
-  showCustomer        Boolean  @default(true)
-  showPrescription    Boolean  @default(true)
-  showTaxBreakdown    Boolean  @default(true)
-  showFbr             Boolean  @default(true)
-  showPayment         Boolean  @default(true)
-  showItemDetails     Boolean  @default(true)
-  updatedBy           String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  company             Business @relation(fields: [companyId], references: [id])
-
-  @@map("receipt_settings")
 }
 
 // ─── Backup safety snapshots ─────────────────────────────────────

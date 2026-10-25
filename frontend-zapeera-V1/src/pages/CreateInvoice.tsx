@@ -1,11 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import {
-  buildReceiptHtml,
-  DEFAULT_RECEIPT_SETTINGS,
-  resolveReceiptSettings,
-  type ReceiptData,
-  type ReceiptSettings,
-} from "@/lib/receipt-templates";
+import { escapeHtml } from "@/utils/html-escape";
 import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, type UnitLevel } from "@/utils/units";
 import { batchInLinePool, variantUnitPrice, type ProductVariantLite } from "@/utils/variants";
 import { useNavigate } from "react-router-dom";
@@ -17,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useQrDataUrl } from "@/components/common/FbrFiscal";
+import { FbrQrImage, useQrDataUrl } from "@/components/common/FbrFiscal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart,
@@ -420,9 +414,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
-  // Receipt print templates (per-business): loaded once the business
-  // is known; defaults stand until then and on any load failure.
-  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS);
   // FBR POS (Wave B7): QR of the fiscal invoice number for print HTML.
   const currentReceiptQr = useQrDataUrl(currentReceipt?.fbrInvoiceNumber ?? null);
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
@@ -468,26 +459,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   useEffect(() => {
     loadProducts();
   }, []);
-
-  // Receipt print settings: best-effort load once the business is
-  // known. Never blocks the POS — any failure (endpoint not deployed
-  // yet, offline, 404) silently leaves DEFAULT_RECEIPT_SETTINGS in
-  // place, so print / preview / download always work.
-  useEffect(() => {
-    if (!selectedCompanyId) return;
-    let cancelled = false;
-    apiService
-      .getReceiptSettings()
-      .then((loaded) => {
-        if (!cancelled) setReceiptSettings(resolveReceiptSettings(loaded));
-      })
-      .catch(() => {
-        // Defaults stand.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCompanyId]);
 
   // Salesperson attribution (Wave C6 → gap item 7): the designated
   // SALESMEN for the checkout picker (StaffProfile.isSalesman) — not
@@ -3076,96 +3047,322 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   };
 
-  // Maps the POS Receipt to the shared ReceiptData shape the print
-  // templates render. Quantity phrases reproduce the old inline
-  // templates exactly: leveled lines read in their level
-  // ("2 STRIP (20 tablets)"), pack/box lines in boxes, the rest as
-  // plain pieces. Tax lines are passed only when
-  // shouldShowTaxBreakdown() says the sale warrants them; the
-  // showTaxBreakdown toggle then gates them in the template.
-  const toReceiptData = (receipt: Receipt): ReceiptData => ({
-    receiptNumber: receipt.receiptNumber,
-    date: receipt.date,
-    time: receipt.time,
-    cashier: receipt.cashier,
-    customer: receipt.customer
-      ? {
-          name: receipt.customer.name,
-          phone: receipt.customer.phone,
-          email: receipt.customer.email,
-          address: receipt.customer.address,
-        }
-      : null,
-    items: receipt.items.map((item) => {
-      const product = products.find((p) => p.id === item.productId);
-      const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
-      let qtyLabel: string;
-      if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
-        qtyLabel = cartItemQtyPhrase(item);
-      } else if (item.unitType === "pack" || item.unitType === "box") {
-        qtyLabel = `${(item.quantity / unitsPerPack).toFixed(0)} BOX`;
-      } else {
-        qtyLabel = `${item.quantity} ${item.unitType.toUpperCase()}`;
-      }
-      return {
-        name: item.name,
-        qty: item.quantity,
-        price: item.unitPrice,
-        total: item.totalPrice,
-        batch: item.batch || undefined,
-        expiry: item.expiry || undefined,
-        instructions: item.instructions,
-        qtyLabel,
-        variantName: item.variantName ?? undefined,
-      };
-    }),
-    subtotal: receipt.subtotal,
-    discounts: receipt.discountAmount ?? 0,
-    discountPercentage: receipt.discountPercentage,
-    loyaltyDiscount: receipt.loyaltyDiscount,
-    pointsRedeemed: receipt.pointsRedeemed,
-    pointsEarned: receipt.pointsEarned,
-    promotionDiscount: receipt.promotionDiscount,
-    promotionLabel: receipt.promotionLabel,
-    taxBreakdown: shouldShowTaxBreakdown(receipt)
-      ? (receipt.taxBreakdown || []).map((line) => ({
-          label: `Tax — ${line.className} (${Number(line.rate)}%)`,
-          amount: line.taxAmount,
-        }))
-      : undefined,
-    provincialTaxBreakdown: (receipt.provincialTaxBreakdown || []).map((line) => ({
-      label: `Provincial tax — ${line.authorityName} (${line.authority}, ${Number(line.rate)}%)`,
-      amount: line.taxAmount,
-    })),
-    fbrInvoiceNumber: receipt.fbrInvoiceNumber ?? null,
-    fbrStatus: receipt.fbrStatus ?? null,
-    fbrQrDataUrl: currentReceiptQr,
-    prescription: receipt.prescription
-      ? {
-          patientName: receipt.prescription.patientName,
-          doctorName: receipt.prescription.doctorName ?? undefined,
-        }
-      : null,
-    total: receipt.total,
-    paymentMethod: receipt.paymentMethod,
-    paymentStatus: receipt.paymentStatus,
-    business: {
-      displayName: selectedCompany?.name || selectedBranch?.name || 'Zapeera',
-      branchName: selectedBranch?.name || '',
-      address: selectedCompany?.address || selectedBranch?.address || '',
-      phone: selectedCompany?.phone || selectedBranch?.phone || '',
-      email: selectedCompany?.email || selectedBranch?.email || '',
-      website: 'www.zapeera.pk',
-    },
-  });
-
   const printReceipt = () => {
     if (!currentReceipt) return;
 
-    // Renders in the business's chosen template (thermal 80mm or A4);
-    // receiptSettings falls back to DEFAULT_RECEIPT_SETTINGS when the
-    // settings endpoint is unreachable, so printing never breaks.
-    const receiptHTML = buildReceiptHtml(toReceiptData(currentReceipt), receiptSettings);
+    // Get pharmacy information
+    const companyName = selectedCompany?.name || selectedBranch?.name || 'Zapeera';
+    const branchName = selectedBranch?.name || '';
+    const companyAddress = selectedCompany?.address || selectedBranch?.address || '';
+    const companyPhone = selectedCompany?.phone || selectedBranch?.phone || '';
+    const companyEmail = selectedCompany?.email || selectedBranch?.email || '';
+    const companyWebsite = 'www.zapeera.pk'; // Default website
+
+    // Generate receipt HTML content with improved design
+    const receiptHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Receipt - ${currentReceipt.receiptNumber}</title>
+          <style>
+          * { box-sizing: border-box; }
+            body {
+              font-family: 'Arial', sans-serif;
+              font-size: 12px;
+              line-height: 1.5;
+              margin: 0;
+              padding: 20px;
+              background: white;
+              color: black;
+              max-width: 400px;
+              margin: 0 auto;
+            }
+            .receipt-header {
+              text-align: center;
+              border-bottom: 3px solid #2563eb;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .receipt-header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 5px;
+            }
+            .receipt-header .branch-name {
+              font-size: 16px;
+              font-weight: 600;
+              color: #1e40af;
+              margin: 5px 0;
+            }
+            .receipt-header .tagline {
+              margin: 5px 0;
+              font-size: 11px;
+              color: #666;
+              font-style: italic;
+            }
+            .pharmacy-info {
+              margin-top: 15px;
+              padding-top: 15px;
+              border-top: 1px solid #e5e7eb;
+              text-align: left;
+              font-size: 10px;
+              color: #374151;
+            }
+            .pharmacy-info div {
+              margin: 3px 0;
+            }
+            .receipt-info {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+              margin-bottom: 15px;
+              font-size: 11px;
+              background: #f9fafb;
+              padding: 10px;
+              border-radius: 4px;
+            }
+            .receipt-info div {
+              margin: 2px 0;
+            }
+            .receipt-info strong {
+              color: #1f2937;
+            }
+            .customer-info {
+              margin-bottom: 15px;
+              padding: 10px;
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              border-radius: 4px;
+              font-size: 11px;
+            }
+            .customer-info h3 {
+              margin: 0 0 8px 0;
+              font-size: 12px;
+              font-weight: 600;
+              color: #1f2937;
+            }
+            .items {
+              margin-bottom: 15px;
+            }
+            .items h3 {
+              margin: 0 0 10px 0;
+              font-size: 13px;
+              font-weight: 600;
+              border-bottom: 2px solid #2563eb;
+              padding-bottom: 5px;
+              color: #1e40af;
+            }
+            .item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 10px;
+              padding: 8px 0;
+              border-bottom: 1px dotted #d1d5db;
+            }
+            .item-name {
+              font-weight: 600;
+              font-size: 12px;
+              color: #1f2937;
+            }
+            .item-details {
+              font-size: 10px;
+              color: #6b7280;
+              margin-top: 3px;
+            }
+            .item-price {
+              text-align: right;
+              font-weight: 600;
+              font-size: 12px;
+              color: #1f2937;
+            }
+            .totals {
+              border-top: 2px solid #2563eb;
+              padding-top: 10px;
+              margin-top: 15px;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+              font-size: 12px;
+            }
+            .total-final {
+              font-weight: bold;
+              font-size: 16px;
+              border-top: 2px solid #1e40af;
+              padding-top: 8px;
+              margin-top: 8px;
+              color: #1e40af;
+            }
+            .payment-info {
+              margin-top: 15px;
+              padding: 10px;
+              background: #eff6ff;
+              border: 1px solid #bfdbfe;
+              border-radius: 4px;
+              font-size: 11px;
+            }
+            .payment-info strong {
+              color: #1e40af;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 25px;
+              padding-top: 15px;
+              border-top: 1px solid #e5e7eb;
+            font-size: 9px;
+              color: #6b7280;
+            }
+            .footer p {
+              margin: 5px 0;
+            }
+            .footer .software-note {
+              margin-top: 10px;
+              font-style: italic;
+              color: #9ca3af;
+            }
+            @media print {
+              body { margin: 0; padding: 15px; width: 100%; max-width: 100%; }
+              @page { size: A4 auto; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-header">
+            <h1>${escapeHtml(companyName)}</h1>
+            ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
+            <div class="tagline">Your Health, Our Priority</div>
+
+            ${companyAddress || companyPhone || companyEmail || companyWebsite ? `
+            <div class="pharmacy-info">
+              ${companyAddress ? `<div><strong>Address:</strong> ${escapeHtml(companyAddress)}</div>` : ''}
+              ${companyPhone ? `<div><strong>Phone:</strong> ${escapeHtml(companyPhone)}</div>` : ''}
+              ${companyEmail ? `<div><strong>Email:</strong> ${escapeHtml(companyEmail)}</div>` : ''}
+              ${companyWebsite ? `<div><strong>Website:</strong> ${companyWebsite}</div>` : ''}
+            </div>
+            ` : ''}
+          </div>
+
+          <div class="receipt-info">
+            <div>
+              <strong>Receipt #:</strong> ${currentReceipt.receiptNumber}<br>
+              <strong>Date:</strong> ${currentReceipt.date}
+            </div>
+            <div>
+              <strong>Time:</strong> ${currentReceipt.time}<br>
+              <strong>Cashier:</strong> ${currentReceipt.cashier}
+            </div>
+          </div>
+
+          ${currentReceipt.customer ? `
+          <div class="customer-info">
+            <h3>Customer Information</h3>
+            <strong>Name:</strong> ${currentReceipt.customer.name}<br>
+            <strong>Phone:</strong> ${currentReceipt.customer.phone}<br>
+            ${currentReceipt.customer.email ? `<strong>Email:</strong> ${currentReceipt.customer.email}<br>` : ''}
+            ${currentReceipt.customer.address ? `<strong>Address:</strong> ${currentReceipt.customer.address}` : ''}
+          </div>
+          ` : ''}
+
+          ${currentReceipt.prescription ? `
+          <div class="customer-info">
+            <strong>Rx:</strong> ${escapeHtml(currentReceipt.prescription.patientName)}${currentReceipt.prescription.doctorName ? ` (Dr. ${escapeHtml(currentReceipt.prescription.doctorName)})` : ''}
+          </div>
+          ` : ''}
+
+          <div class="items">
+            <h3>Items Purchased:</h3>
+            ${currentReceipt.items.map(item => {
+              const product = products.find(p => p.id === item.productId);
+              const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
+              let displayQuantity = item.quantity;
+              let displayUnitType = item.unitType;
+              let displayUnitPrice = item.unitPrice;
+
+              // Convert pieces to boxes for display if unitType is box/pack
+              if (item.unitType === "pack" || item.unitType === "box") {
+                displayQuantity = item.quantity / unitsPerPack;
+                displayUnitType = "BOX";
+                displayUnitPrice = item.unitPrice; // Already price per box
+              } else {
+                displayUnitType = item.unitType.toUpperCase();
+              }
+
+              return `
+              <div class="item">
+                <div>
+                  <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
+                  <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
+                  ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
+                </div>
+                <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+              </div>
+            `;
+            }).join('')}
+          </div>
+
+          <div class="totals">
+            <div class="total-line">
+              <span>Subtotal:</span>
+              <span>PKR ${currentReceipt.subtotal.toFixed(2)}</span>
+            </div>
+            ${currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Discount (${currentReceipt.discountPercentage}%):</span>
+              <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
+            </div>
+            ` : ''}
+            ${currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Loyalty Discount (${currentReceipt.pointsRedeemed || 0} pts):</span>
+              <span>-PKR ${currentReceipt.loyaltyDiscount.toFixed(2)}</span>
+            </div>
+            ` : ''}
+            ${currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 ? `
+            <div class="total-line" style="color: #16a34a;">
+              <span>Promotion${currentReceipt.promotionLabel ? ` (${escapeHtml(currentReceipt.promotionLabel)})` : ''}:</span>
+              <span>-PKR ${currentReceipt.promotionDiscount.toFixed(2)}</span>
+            </div>
+            ` : ''}
+            ${shouldShowTaxBreakdown(currentReceipt) ? (currentReceipt.taxBreakdown || []).map((line) => `
+            <div class="total-line">
+              <span>Tax — ${escapeHtml(line.className)} (${Number(line.rate)}%):</span>
+              <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
+            </div>
+            `).join('') : ''}
+            ${(currentReceipt.provincialTaxBreakdown || []).map((line) => `
+            <div class="total-line">
+              <span>Provincial tax — ${escapeHtml(line.authorityName)} (${escapeHtml(line.authority)}, ${Number(line.rate)}%):</span>
+              <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
+            </div>
+            `).join('')}
+            <div class="total-line total-final">
+              <span>TOTAL:</span>
+              <span>PKR ${currentReceipt.total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="payment-info">
+            <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
+            <strong>Status:</strong> ${currentReceipt.paymentStatus}
+            ${currentReceipt.pointsEarned ? `<br><strong>Loyalty Points Earned:</strong> ${currentReceipt.pointsEarned}` : ''}
+          </div>
+          ${currentReceipt.fbrInvoiceNumber ? `
+          <div class="payment-info" style="text-align: center;">
+            <strong>FBR Invoice #:</strong> ${currentReceipt.fbrInvoiceNumber}
+            ${currentReceiptQr ? `<br><img src="${currentReceiptQr}" alt="FBR invoice QR" style="width: 110px; height: 110px; margin-top: 6px;">` : ''}
+          </div>` : ''}
+
+          <div class="footer">
+            <p>Thank you for choosing ${companyName}!</p>
+            ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : '<p>For any queries, contact us</p>'}
+            <p class="software-note">This invoice is generated using Zapeera A business management software</p>
+          </div>
+        </body>
+      </html>
+    `;
 
     // Create a hidden iframe for printing (works in Electron)
     const printFrame = document.createElement('iframe');
@@ -3263,11 +3460,288 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   };
 
-  // Single source of truth for the receipt document: the on-screen
-  // preview iframe and downloadReceipt both render this, so preview,
-  // print and download always show the same chosen template.
   const generateReceiptHTML = (receipt: Receipt) => {
-    return buildReceiptHtml(toReceiptData(receipt), receiptSettings);
+    const companyName = selectedCompany?.name || selectedBranch?.name || 'Zapeera';
+    const branchName = selectedBranch?.name || '';
+    const companyAddress = selectedCompany?.address || selectedBranch?.address || '';
+    const companyPhone = selectedCompany?.phone || selectedBranch?.phone || '';
+    const companyEmail = selectedCompany?.email || selectedBranch?.email || '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${receipt.receiptNumber}</title>
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+          }
+          .receipt-header {
+            text-align: center;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+          }
+          .receipt-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+          }
+          .receipt-header .branch-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e40af;
+            margin: 5px 0;
+          }
+          .receipt-header .tagline {
+            margin: 5px 0;
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+          }
+          .pharmacy-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: left;
+            font-size: 10px;
+            color: #555;
+          }
+          .pharmacy-info div {
+            margin: 3px 0;
+          }
+          .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 11px;
+          }
+          .customer-info {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+          }
+          .customer-info h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: bold;
+            color: #2563eb;
+          }
+          .items {
+            margin-bottom: 15px;
+          }
+          .items h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: bold;
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+          }
+          .item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #e5e7eb;
+            border-radius: 5px;
+          }
+          .item-name {
+            font-weight: bold;
+            flex: 1;
+            font-size: 12px;
+          }
+          .item-details {
+            font-size: 10px;
+            color: #666;
+            margin-top: 3px;
+          }
+          .item-price {
+            text-align: right;
+            font-weight: bold;
+            font-size: 14px;
+            color: #2563eb;
+          }
+          .totals {
+            border-top: 2px solid #2563eb;
+            padding: 15px;
+            margin-top: 15px;
+            background: #eff6ff;
+            border-radius: 5px;
+          }
+          .total-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+          }
+          .total-final {
+            font-weight: bold;
+            font-size: 18px;
+            border-top: 2px solid #2563eb;
+            padding-top: 10px;
+            margin-top: 10px;
+            color: #2563eb;
+          }
+          .payment-info {
+            margin-top: 15px;
+            padding: 12px;
+            background: linear-gradient(to right, #eff6ff, #dbeafe);
+            border: 1px solid #bfdbfe;
+            border-radius: 5px;
+            font-size: 11px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 2px solid #e5e7eb;
+            font-size: 10px;
+            color: #666;
+          }
+          .footer-brand {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 5px;
+          }
+          .footer-software {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            color: #9ca3af;
+            font-style: italic;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt-header">
+          <h1>${escapeHtml(companyName)}</h1>
+          ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
+          <p class="tagline">Your Health, Our Priority</p>
+          ${companyAddress || companyPhone || companyEmail ? `
+          <div class="pharmacy-info">
+            ${companyAddress ? `<div><strong>Address:</strong> ${escapeHtml(companyAddress)}</div>` : ''}
+            ${companyPhone ? `<div><strong>Phone:</strong> ${escapeHtml(companyPhone)}</div>` : ''}
+            ${companyEmail ? `<div><strong>Email:</strong> ${escapeHtml(companyEmail)}</div>` : ''}
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="receipt-info">
+          <div>
+            <strong>Receipt #:</strong> <span style="font-family: monospace;">${receipt.receiptNumber}</span><br>
+            <strong>Date:</strong> ${receipt.date}
+          </div>
+          <div>
+            <strong>Time:</strong> ${receipt.time}<br>
+            <strong>Cashier:</strong> ${escapeHtml(receipt.cashier)}
+          </div>
+        </div>
+
+        ${receipt.customer ? `
+        <div class="customer-info">
+          <h3>Customer Information</h3>
+          <strong>Name:</strong> ${escapeHtml(receipt.customer.name)}<br>
+          <strong>Phone:</strong> ${escapeHtml(receipt.customer.phone)}<br>
+          ${receipt.customer.email ? `<strong>Email:</strong> ${escapeHtml(receipt.customer.email)}<br>` : ''}
+          ${receipt.customer.address ? `<strong>Address:</strong> ${escapeHtml(receipt.customer.address)}` : ''}
+        </div>
+        ` : ''}
+
+        ${receipt.prescription ? `
+        <div class="customer-info">
+          <strong>Rx:</strong> ${escapeHtml(receipt.prescription.patientName)}${receipt.prescription.doctorName ? ` (Dr. ${escapeHtml(receipt.prescription.doctorName)})` : ''}
+        </div>
+        ` : ''}
+
+        <div class="items">
+          <h3>Items Purchased:</h3>
+          ${receipt.items.map(item => {
+            const product = products.find(p => p.id === item.productId);
+            const unitsPerPack = item.unitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1;
+            let displayQuantity = item.quantity;
+            let displayUnitType = item.unitType;
+            let displayUnitPrice = item.unitPrice;
+
+            // Wave C2: leveled lines read in their level, with the
+            // tablet count alongside ("2 STRIP (20 tablets)").
+            if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+              displayQuantity = item.quantity / item.unitFactor;
+              displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
+              displayUnitPrice = item.unitPrice;
+            } else if (item.unitType === "pack" || item.unitType === "box") {
+              // Convert pieces to boxes for display if unitType is box/pack
+              displayQuantity = item.quantity / unitsPerPack;
+              displayUnitType = "BOX";
+              displayUnitPrice = item.unitPrice; // Already price per box
+            } else {
+              displayUnitType = item.unitType.toUpperCase();
+            }
+
+            return `
+            <div class="item">
+              <div>
+                <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
+                <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
+                ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
+              </div>
+              <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
+            </div>
+          `;
+          }).join('')}
+        </div>
+
+        <div class="totals">
+          <div class="total-line">
+            <span>Subtotal:</span>
+            <span>PKR ${receipt.subtotal.toFixed(2)}</span>
+          </div>
+          ${receipt.discountPercentage && receipt.discountPercentage > 0 ? `
+          <div class="total-line" style="color: #16a34a;">
+            <span>Discount (${receipt.discountPercentage}%):</span>
+            <span>-PKR ${receipt.discountAmount?.toFixed(2) || '0.00'}</span>
+          </div>
+          ` : ''}
+          <div class="total-line total-final">
+            <span>TOTAL:</span>
+            <span>PKR ${receipt.total.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="payment-info">
+          <div style="display: flex; justify-content: space-between;">
+            <div>
+              <strong>Payment Method:</strong> ${receipt.paymentMethod.toUpperCase()}
+            </div>
+            <div>
+              <strong>Status:</strong> <span style="color: ${receipt.paymentStatus === 'COMPLETED' ? '#16a34a' : '#ca8a04'}; font-weight: bold;">${receipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p class="footer-brand">Thank you for choosing ${companyName}!</p>
+          ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : ''}
+          <p style="font-style: italic; margin-top: 5px;">Your Health, Our Priority</p>
+          <p class="footer-software">This invoice is generated using Zapeera A business management software</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
   // Invoice lookup functionality - Changed to search by invoice number instead of receipt number
@@ -5045,14 +5519,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
       <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
         <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[520px]">
-          {/* Dark header — POS redesign: receipt preview. The
+          {/* Dark header — POS redesign: thermal receipt preview. The
               share actions are the same handlers the receipt always
               had (print / download / SMS / WhatsApp / email). */}
           <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
             <div className="flex flex-wrap items-center gap-2">
               <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
                 <Receipt className="h-5 w-5 text-white/70" strokeWidth={2} />
-                Receipt Preview
+                Thermal Receipt Preview
               </p>
               <div className="ml-auto flex flex-wrap gap-1.5">
                 <Button
@@ -5142,16 +5616,140 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
           {currentReceipt && (
             <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef1f7] px-4 py-5">
-              {/* Preview of the exact document print / download render
-                  (generateReceiptHTML), so it follows the business's
-                  chosen template — thermal 80mm or A4. Tendered/change
-                  are NOT printed here because the sale record does not
-                  store them on the receipt. */}
-              <iframe
-                title="Receipt preview"
-                srcDoc={generateReceiptHTML(currentReceipt)}
-                className="mx-auto block h-[56vh] w-full max-w-[520px] rounded-lg bg-white shadow-[0_2px_14px_rgba(15,23,60,0.10)]"
-              />
+              {/* The thermal slip: narrow, centered, monospace — the
+                  same real data the wide receipt card showed (business,
+                  cashier, customer, Rx, items, discounts, tax classes,
+                  FBR). Tendered/change are NOT printed here because the
+                  sale record does not store them on the receipt. */}
+              <div className="mx-auto w-full max-w-[360px] bg-white px-5 py-5 font-mono text-[12px] leading-relaxed text-neutral-700 shadow-[0_2px_14px_rgba(15,23,60,0.10)]">
+                <div className="text-center">
+                  <p className="text-[15px] font-bold uppercase tracking-wide text-neutral-900">
+                    {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}
+                  </p>
+                  {selectedBranch && selectedCompany?.name && (
+                    <p className="font-semibold text-neutral-800">{selectedBranch.name}</p>
+                  )}
+                  {(selectedCompany?.address || selectedBranch?.address) && (
+                    <p className="text-[11px]">{selectedCompany?.address || selectedBranch?.address}</p>
+                  )}
+                  {(selectedCompany?.phone || selectedBranch?.phone) && (
+                    <p className="text-[11px]">Tel: {selectedCompany?.phone || selectedBranch?.phone}</p>
+                  )}
+                  {(selectedCompany?.email || selectedBranch?.email) && (
+                    <p className="text-[11px]">{selectedCompany?.email || selectedBranch?.email}</p>
+                  )}
+                  <p className="text-[11px] italic text-neutral-500">Your Health, Our Priority</p>
+                </div>
+
+                <div className="my-3 border-t border-dashed border-neutral-300" />
+
+                <div className="space-y-0.5">
+                  <p className="flex justify-between gap-2"><span>Receipt #:</span><span className="font-bold text-neutral-900">{currentReceipt.receiptNumber}</span></p>
+                  <p className="flex justify-between gap-2"><span>Date:</span><span>{currentReceipt.date}</span></p>
+                  <p className="flex justify-between gap-2"><span>Time:</span><span>{currentReceipt.time}</span></p>
+                  <p className="flex justify-between gap-2"><span>Cashier:</span><span>{currentReceipt.cashier}</span></p>
+                  {currentReceipt.customer && (
+                    <p className="flex justify-between gap-2">
+                      <span>Customer:</span>
+                      <span className="text-right">
+                        {currentReceipt.customer.name}
+                        {currentReceipt.customer.phone ? ` (${currentReceipt.customer.phone})` : ''}
+                      </span>
+                    </p>
+                  )}
+                  {currentReceipt.prescription && (
+                    <p className="flex justify-between gap-2">
+                      <span>Rx:</span>
+                      <span className="text-right">
+                        {currentReceipt.prescription.patientName}
+                        {currentReceipt.prescription.doctorName ? ` (Dr. ${currentReceipt.prescription.doctorName})` : ''}
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="my-3 border-t border-dashed border-neutral-300" />
+
+                <div className="space-y-2.5">
+                  {currentReceipt.items.map((item, index) => (
+                    <div key={index}>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-neutral-900">
+                          {item.name}{item.variantName ? ` (${item.variantName})` : ''}
+                        </span>
+                        <span className="shrink-0 font-bold text-neutral-900">PKR {Number(item.totalPrice || 0).toFixed(2)}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">
+                        {cartItemQtyPhrase(item)} × PKR {Number(item.unitPrice || 0).toFixed(2)}
+                      </p>
+                      {item.instructions && (
+                        <p className="text-[11px] italic text-neutral-500">{item.instructions}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="my-3 border-t border-dashed border-neutral-300" />
+
+                <div className="space-y-1">
+                  <p className="flex justify-between gap-2"><span>Subtotal:</span><span>PKR {currentReceipt.subtotal.toFixed(2)}</span></p>
+                  {currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 && (
+                    <p className="flex justify-between gap-2"><span>Discount ({currentReceipt.discountPercentage}%):</span><span>-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span></p>
+                  )}
+                  {currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 && (
+                    <p className="flex justify-between gap-2"><span>Loyalty ({currentReceipt.pointsRedeemed || 0} pts):</span><span>-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span></p>
+                  )}
+                  {currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 && (
+                    <p className="flex justify-between gap-2"><span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}:</span><span>-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span></p>
+                  )}
+                  {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
+                    <p key={line.className} className="flex justify-between gap-2">
+                      <span>Tax — {line.className} ({Number(line.rate)}%):</span>
+                      <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
+                    </p>
+                  ))}
+                  {(currentReceipt.provincialTaxBreakdown || []).map((line) => (
+                    <p key={line.authority} className="flex justify-between gap-2">
+                      <span>Provincial tax — {line.authorityName} ({line.authority}, {Number(line.rate)}%):</span>
+                      <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
+                    </p>
+                  ))}
+                  <p className="flex justify-between gap-2 border-t-2 border-neutral-800 pt-1.5 text-[14px] font-bold text-neutral-900">
+                    <span>GRAND TOTAL:</span>
+                    <span>PKR {currentReceipt.total.toFixed(2)}</span>
+                  </p>
+                  <p className="flex justify-between gap-2 pt-1">
+                    <span>Payment:</span>
+                    <span className="font-bold text-neutral-900">
+                      {currentReceipt.paymentMethod.toUpperCase()} • {currentReceipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}
+                    </span>
+                  </p>
+                  {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
+                    <p className="flex justify-between gap-2"><span>Points earned:</span><span>+{currentReceipt.pointsEarned} pts</span></p>
+                  )}
+                </div>
+
+                {currentReceipt.fbrInvoiceNumber ? (
+                  <div className="mt-3 flex flex-col items-center gap-1.5 border-t border-dashed border-neutral-300 pt-3 text-center">
+                    <FbrQrImage value={currentReceipt.fbrInvoiceNumber} size={84} />
+                    <p className="text-[11px]">FBR Invoice #: <span className="font-bold break-all">{currentReceipt.fbrInvoiceNumber}</span></p>
+                    <p className="text-[10px] text-neutral-500">Verify at FBR's invoice verification portal.</p>
+                  </div>
+                ) : currentReceipt.fbrStatus ? (
+                  <p className="mt-3 border-t border-dashed border-neutral-300 pt-3 text-center text-[11px]">
+                    Fiscal status: <strong>{currentReceipt.fbrStatus}</strong> — the FBR invoice number will appear once FBR confirms it.
+                  </p>
+                ) : null}
+
+                <div className="mt-4 border-t border-dashed border-neutral-300 pt-3 text-center">
+                  <p className="text-[13px] font-bold tracking-wide text-neutral-900">THANK YOU!</p>
+                  <p className="text-[11px]">Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}!</p>
+                  {(selectedCompany?.phone || selectedBranch?.phone) && (
+                    <p className="text-[11px]">For any queries, contact us at: {selectedCompany?.phone || selectedBranch?.phone}</p>
+                  )}
+                  <p className="mt-2 text-[10px] text-neutral-400">Powered by Zapeera Business Management Software</p>
+                </div>
+              </div>
             </div>
           )}
 
