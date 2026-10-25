@@ -235,6 +235,10 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/shifts', policy: { kind: 'module', resourceKey: 'business_management.shifts' } },
   { prefix: '/api/scheduled-shifts', policy: { kind: 'module', resourceKey: 'employee_portal.shifts' } },
   { prefix: '/api/commissions', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
+  // Salesmen roster + performance (gap item 7, salesman-credit): same
+  // staff resource as commissions — read-only staff views under the
+  // same auth + tenancy stack.
+  { prefix: '/api/salesmen', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
 
   // ── Reports module ────────────────────────────────────────────────────────
   { prefix: '/api/reports', policy: { kind: 'module', resourceKey: 'reports.reports' } },
