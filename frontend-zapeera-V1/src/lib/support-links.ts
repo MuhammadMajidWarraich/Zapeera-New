@@ -4,7 +4,7 @@ export const SUPPORT_PHONE_DISPLAY = "+92 307 5445509";
 
 /** Direct download link for the Windows desktop installer (served from zapeera.seikho.online/downloads). */
 export const DESKTOP_DOWNLOAD_URL =
-  "https://zapeera.seikho.online/downloads/Zapeera-Setup-1.0.6.exe";
+  "https://zapeera.seikho.online/downloads/Zapeera-Setup-1.0.7.exe";
 
 /** Direct download link for the Android app APK (served from zapeera.seikho.online/downloads). */
 export const ANDROID_DOWNLOAD_URL =
