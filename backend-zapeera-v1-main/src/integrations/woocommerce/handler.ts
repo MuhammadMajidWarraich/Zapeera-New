@@ -13,7 +13,10 @@
 //   importOrders  — WooCommerce → Zapeera sales via the existing
 //                   createSale engine (sale-invoker.ts) — FEFO batch
 //                   deduction, receipts, khata, tax, FBR all come free.
-//                   Idempotent via Sale.uuid = "woocommerce:<orderId>".
+//                   Idempotent via Sale.channel = 'woocommerce' +
+//                   Sale.externalOrderId = "<orderId>" (the converged
+//                   tag Shopify/Daraz use — the (companyId, channel,
+//                   externalOrderId) unique index is the guard).
 //
 // Vendor calls: every one through WooCommerceClient (withVendorRetry +
 // mapVendorError). No raw vendor error ever reaches the service layer.
@@ -37,7 +40,6 @@ import {
   isImportableWooOrder,
   parseWooMoney,
   wooCustomerName,
-  wooOrderReference,
   type MatchedWooLine,
   type WcOrder,
   type WcProduct,
@@ -515,8 +517,8 @@ async function matchOrderLines(
 // In-process per-business serialisation: two deliveries of the same order
 // (webhook retry + manual sync) must never both pass the idempotency
 // check and create two sales. This is a single-server lock — a
-// multi-instance deployment would also need the Sale.uuid unique guard
-// (see the P2002 branch below).
+// multi-instance deployment would also need the (companyId, channel,
+// externalOrderId) unique guard (see the P2002 branch below).
 const importQueues = new Map<string, Promise<unknown>>();
 
 function runSerialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -541,17 +543,15 @@ export interface ImportWooOrderOutcome {
 
 /**
  * Import ONE WooCommerce order as a Zapeera sale. Idempotent: a sale
- * whose uuid is "woocommerce:<orderId>" already exists → return it
- * without creating anything. The uuid tag is written right after
- * createSale commits (createSale's Joi schema rejects unknown fields,
- * so the tag cannot travel inside the payload).
- *
- * NOTE (no-schema-change mapping): Sale has no channel / externalOrderId
- * column, and Sale.uuid is otherwise unused by server code (verified by
- * grep — no server reader). A dedicated Sale.channel + externalOrderId
- * column pair is the cleaner follow-up; until then the uuid carries the
- * tag. If the sync engine ever starts treating Sale.uuid as a UUID,
- * revisit this.
+ * tagged channel 'woocommerce' + this order's id already exists →
+ * return it without creating anything. The tag travels INSIDE the
+ * createSale payload (channel + externalOrderId are accepted by
+ * createSale's Joi schema and written by its channelTag spread in the
+ * same transaction as the sale), so — unlike the old Sale.uuid
+ * post-write — a concurrent duplicate cannot slip in between: the
+ * (companyId, channel, externalOrderId) unique index rejects it inside
+ * createSale itself, and the failure path below re-checks for the
+ * winning sale instead of reporting a duplicate to void.
  */
 export async function importWooOrder(
   prisma: any,
@@ -561,9 +561,9 @@ export async function importWooOrder(
   order: WcOrder
 ): Promise<ImportWooOrderOutcome> {
   return runSerialized(`${businessId}:${order.id}`, async () => {
-    const tag = wooOrderReference(order.id);
-    const existing = await prisma.sale.findUnique({
-      where: { uuid: tag },
+    const externalOrderId = String(order.id);
+    const existing = await prisma.sale.findFirst({
+      where: { companyId: businessId, channel: WOOCOMMERCE_CHANNEL, externalOrderId },
       select: { id: true, branchId: true, companyId: true }
     });
     if (existing) {
@@ -588,6 +588,22 @@ export async function importWooOrder(
       ...salePayload
     });
     if (status !== 201 || !body?.success || !body?.data?.id) {
+      // A concurrent run in another process may have won the race: the
+      // unique index rejected our create inside the sale transaction,
+      // so no duplicate sale exists — re-check and report the winner.
+      const raced = await prisma.sale.findFirst({
+        where: { companyId: businessId, channel: WOOCOMMERCE_CHANNEL, externalOrderId },
+        select: { id: true, branchId: true, companyId: true }
+      });
+      if (raced) {
+        if (raced.companyId !== businessId || raced.branchId !== branchId) {
+          throw new IntegrationError(
+            'SYNC_FAILED',
+            `woocommerce: order #${order.id} was already imported into a different branch — refusing to import it here.`
+          );
+        }
+        return { saleId: raced.id, alreadyImported: true };
+      }
       const message =
         typeof body?.message === 'string' ? body.message : `sale engine returned HTTP ${status}`;
       throw new IntegrationError(
@@ -595,25 +611,7 @@ export async function importWooOrder(
         `woocommerce: order #${order.id} could not be imported — ${message}`
       );
     }
-    const saleId = String(body.data.id);
-    try {
-      await prisma.sale.update({ where: { id: saleId }, data: { uuid: tag } });
-    } catch (error: any) {
-      if (error?.code === 'P2002') {
-        // A concurrent run (another process) tagged the same order first:
-        // this sale is a duplicate. Report it plainly with the invoice
-        // number so the owner can void it — never silently delete sales.
-        throw new IntegrationError(
-          'SYNC_FAILED',
-          `woocommerce: order #${order.id} was imported twice by concurrent runs (invoice ${body.data.invoiceNumber ?? saleId} is the duplicate — please void it).`
-        );
-      }
-      throw new IntegrationError(
-        'SYNC_FAILED',
-        `woocommerce: order #${order.id} created sale ${body.data.invoiceNumber ?? saleId} but the import tag could not be written (${error?.message ?? 'unknown error'}). Re-importing will duplicate it — check the sale first.`
-      );
-    }
-    return { saleId, alreadyImported: false };
+    return { saleId: String(body.data.id), alreadyImported: false };
   });
 }
 

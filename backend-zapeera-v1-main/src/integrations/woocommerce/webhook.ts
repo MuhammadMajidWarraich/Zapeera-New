@@ -20,7 +20,7 @@
 // TOPICS
 //   order.created / order.updated → re-fetch the order and import it
 //     (idempotent — a retry re-delivers the same order, which the
-//     Sale.uuid tag deduplicates). Gated by config.syncOrders.
+//     Sale.channel + externalOrderId tag deduplicates). Gated by config.syncOrders.
 //   product.updated → re-push that one product from Zapeera (Zapeera is
 //     the master for products; a WooCommerce-side edit is overwritten
 //     on the next push). Gated by config.syncProducts.

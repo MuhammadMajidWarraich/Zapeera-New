@@ -160,16 +160,34 @@ class WooFakePrisma {
     }
   };
   sale = {
-    findUnique: async ({ where }: any) => this.sales.find((s) => s.uuid === where.uuid) ?? null,
-    update: async ({ where, data }: any) => {
-      const row = this.sales.find((s) => s.id === where.id);
-      if (!row) throw new Error('Record to update not found.');
-      if (data.uuid && this.sales.some((s) => s.id !== row.id && s.uuid === data.uuid)) {
-        const error: any = new Error('Unique constraint failed on the fields: (`uuid`)');
+    // Mirrors the (companyId, channel, externalOrderId) unique index:
+    // a second sale with the same triple collides (P2002), exactly as
+    // the real createSale transaction would reject it.
+    findFirst: async ({ where }: any) =>
+      this.sales.find(
+        (s) =>
+          (!where?.companyId || s.companyId === where.companyId) &&
+          (!where?.channel || s.channel === where.channel) &&
+          (where?.externalOrderId === undefined || s.externalOrderId === where.externalOrderId)
+      ) ?? null,
+    create: async ({ data }: any) => {
+      if (
+        data.externalOrderId &&
+        this.sales.some(
+          (s) =>
+            s.companyId === data.companyId &&
+            s.channel === data.channel &&
+            s.externalOrderId === data.externalOrderId
+        )
+      ) {
+        const error: any = new Error(
+          'Unique constraint failed on the fields: (`companyId`, `channel`, `externalOrderId`)'
+        );
         error.code = 'P2002';
         throw error;
       }
-      Object.assign(row, data);
+      const row = { id: `sale-${++this.seq}`, ...data };
+      this.sales.push(row);
       return row;
     }
   };
@@ -374,7 +392,27 @@ describe('woocommerce handler (mocked vendor + fake prisma)', () => {
     invokeSpy = jest
       .spyOn(saleInvoker, 'invokeCreateSale')
       .mockImplementation(async (_actor: any, _biz: string, _branch: string, _payload: any) => {
-        const sale = { id: `sale-${prisma.sales.length + 1}`, uuid: null as string | null, branchId: BRANCH, companyId: BIZ };
+        // Simulates the real createSale: the channel tag travels inside
+        // the payload and lands in the same transaction as the sale, so
+        // a second create with the same triple collides (P2002).
+        if (
+          _payload.externalOrderId &&
+          prisma.sales.some(
+            (s: any) =>
+              s.companyId === _biz &&
+              s.channel === _payload.channel &&
+              s.externalOrderId === _payload.externalOrderId
+          )
+        ) {
+          return { status: 500, body: { success: false, message: 'Unique constraint failed on the fields: (`companyId`, `channel`, `externalOrderId`)' } };
+        }
+        const sale = {
+          id: `sale-${prisma.sales.length + 1}`,
+          channel: _payload.channel ?? 'POS',
+          externalOrderId: _payload.externalOrderId ?? null,
+          branchId: BRANCH,
+          companyId: BIZ
+        };
         prisma.sales.push(sale);
         return { status: 201, body: { success: true, data: { id: sale.id, invoiceNumber: 'INV-10001' } } };
       });
@@ -522,10 +560,12 @@ describe('woocommerce handler (mocked vendor + fake prisma)', () => {
       expect(payload).toMatchObject({
         paymentMethod: 'CASH',
         paymentStatus: 'PENDING',
+        channel: 'woocommerce',
+        externalOrderId: '55',
         items: [{ productId: 'prod-a', quantity: 2, unitPrice: 100, saleType: 'UNIT', variantId: null }]
       });
       expect(typeof payload.customerId).toBe('string');
-      expect(prisma.sales[0].uuid).toBe('woocommerce:55');
+      expect(prisma.sales[0]).toMatchObject({ channel: 'woocommerce', externalOrderId: '55' });
       expect(prisma.customers[0]).toMatchObject({ phone: '03001234567', email: 'ahmed@example.com' });
     });
 

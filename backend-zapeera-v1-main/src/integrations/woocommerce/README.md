@@ -53,19 +53,18 @@ placed on the store.
 | In | Orders | WooCommerce `processing` / `completed` orders → Zapeera sales through the **existing `createSale` engine** (same FEFO batch deduction, receipt, customer stats, khata, tax, FBR as a POS sale). `pending` / `on-hold` / `cancelled` / `refunded` / `failed` orders are never imported — an unpaid or dead order must not decrement stock. |
 | In | Customers | Matched by billing phone, then billing email (within this business); otherwise created. |
 
-**Idempotency.** Each imported sale is tagged `Sale.uuid =
-"woocommerce:<order id>"`. Re-importing the same order (manual sync,
+**Idempotency.** Each imported sale is tagged `Sale.channel =
+'woocommerce'` + `Sale.externalOrderId = "<order id>"` (the same tag
+Shopify and Daraz use). Re-importing the same order (manual sync,
 webhook retry, or a second `order.updated` delivery) finds the tag and
 creates nothing. Imports are serialised per business in-process so two
-concurrent deliveries of one order cannot both create a sale.
+concurrent deliveries of one order cannot both create a sale, and the
+`(companyId, channel, externalOrderId)` unique index is the
+multi-instance guard — a concurrent duplicate is rejected inside the
+sale transaction itself, never as a second sale to void.
 
 ## Honest limitations (read before relying on this)
 
-- **No dedicated channel column.** `Sale` has no `channel` /
-  `externalOrderId` field, and this branch adds none. The channel +
-  order id live in `Sale.uuid` (otherwise unused by server code). A
-  dedicated `Sale.channel` + `externalOrderId` pair is the cleaner
-  follow-up — see `handler.ts` (`importWooOrder`).
 - **Totals are recomputed by Zapeera.** An imported sale's total comes
   from its line prices through Zapeera's tax engine. WooCommerce
   **shipping charges and WooCommerce tax are not carried over** (Zapeera

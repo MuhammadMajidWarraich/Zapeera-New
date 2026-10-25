@@ -30,9 +30,10 @@
 //     are not carried over (Zapeera sales have no shipping-line field
 //     and tax is computed by the local tax engine).
 
-/** Idempotency key + channel tag for an imported sale. Stored on the sale's
- *  (single, synthesized) SalePayment.reference — see handler.ts for why
- *  there is no dedicated Sale.channel / externalOrderId column yet. */
+/** Idempotency key + channel tag for an imported sale. Stored on the sale
+ *  itself as Sale.channel + Sale.externalOrderId (the same tag Shopify
+ *  and Daraz use — the (companyId, channel, externalOrderId) unique
+ *  index makes a re-import collide instead of duplicating). */
 export const WOOCOMMERCE_CHANNEL = 'woocommerce';
 
 export function wooOrderReference(orderId: number): string {
@@ -239,6 +240,11 @@ export interface WooSalePayload {
   }>;
   paymentMethod: string;
   paymentStatus: 'COMPLETED' | 'PENDING';
+  /** Sales-channel import tag (converged with Shopify/Daraz): the tag
+   *  travels inside the createSale payload, so it lands in the same
+   *  transaction as the sale itself. */
+  channel: string;
+  externalOrderId: string;
   /** WooCommerce order creation date — the sale is backdated to it. */
   saleDate: string;
 }
@@ -267,6 +273,8 @@ export function buildSalePayloadFromWooOrder(
     })),
     paymentMethod: mapWooPaymentMethod(order.payment_method),
     paymentStatus: paid ? 'COMPLETED' : 'PENDING',
+    channel: WOOCOMMERCE_CHANNEL,
+    externalOrderId: String(order.id),
     saleDate: order.date_created
   };
 }
