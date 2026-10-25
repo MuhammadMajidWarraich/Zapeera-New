@@ -154,6 +154,7 @@ import contentRoutes from './routes/content.routes';
 import barcodeRoutes from './routes/barcode.routes';
 import { startSubscriptionCron } from './jobs/subscription-cron';
 import { startFbrWorker } from './jobs/fbr-worker';
+import { startDarazOrderPoll, stopDarazOrderPoll } from './jobs/daraz-order-poll';
 import { getDatabaseService, DatabaseType } from './services/database.service';
 import { getSyncService } from './services/sync.service';
 import { getPrisma } from './utils/db.util';
@@ -208,6 +209,8 @@ try {
           startSubscriptionCron();
           // FBR POS (Wave B7): drain the fiscal outbox every 30s.
           startFbrWorker();
+          // Daraz (Tier 1): poll orders every 15 min, push stock hourly.
+          startDarazOrderPoll();
         } catch (modErr) {
           console.warn('[Server] ⚠️ Failed to ensure standard modules or business types:', modErr);
         }
@@ -830,6 +833,7 @@ app.use(errorHandler);
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Shutting down gracefully...');
+  stopDarazOrderPoll();
   if (prisma) {
     await prisma.$disconnect();
   }
@@ -838,6 +842,7 @@ process.on('SIGINT', async () => {
 
 process.on('SIGTERM', async () => {
   console.log('Shutting down gracefully...');
+  stopDarazOrderPoll();
   if (prisma) {
     await prisma.$disconnect();
   }
