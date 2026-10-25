@@ -154,6 +154,11 @@ async function startServer(port = 4201, userDataPath = null) {
   const serviceDeps = { ...databaseService, ...syncService, ...require('./utils/helpers'), getDataDir };
   deviceService.init(serviceDeps);
   sessionService.init(serviceDeps);
+  // Wire the sync engine's database handle. Without this, sync.service's
+  // query/run stay null and provisionPendingBusinesses() silently returns 0
+  // while pullChangesFromCloud() iterates zero businesses — the engine looks
+  // "Online" and ticks every 5s but never downloads anything, on any login.
+  syncService.initDatabaseFunctions(databaseService);
   syncAccountService.init(serviceDeps);
   syncQueueService.init(serviceDeps);
   syncBusinessService.init(serviceDeps);
