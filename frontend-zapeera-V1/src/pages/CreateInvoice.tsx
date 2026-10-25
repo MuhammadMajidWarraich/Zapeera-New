@@ -250,6 +250,24 @@ function shouldShowTaxBreakdown(receipt: Receipt): boolean {
 }
 
 /**
+ * POS header (fix-up 2026-10-26): branch names arrive as
+ * "Seikho Medicos - DHA" / "Seikho Medicos - Gulberg" — the business
+ * prefix is redundant in the header (the brand right beside it already
+ * says "Seikho Medicos") and at 1280px it truncated to the unreadable
+ * "Seikho Medicos -…". The select, the non-owner branch chip and the
+ * cashier pill show this SHORT name ("DHA", "Gulberg", "Main Branch");
+ * the full name stays available via the title tooltip and the open
+ * dropdown list (which keeps full names). Names without the prefix
+ * ("Main Branch") pass through unchanged.
+ */
+function shortBranchName(name: string | undefined | null, businessName?: string | null): string {
+  if (!name) return "—";
+  const prefix = businessName ? `${businessName} - ` : "";
+  if (prefix && name.startsWith(prefix)) return name.slice(prefix.length);
+  return name;
+}
+
+/**
  * WhatsApp receipt share (QA Wave 2): builds a wa.me deep link with a
  * text receipt summary. wa.me needs the phone in international format
  * without '+': local Pakistani numbers (03xx…) are converted to 92xx…;
@@ -3541,7 +3559,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           button is kept unless the row cannot fit; only then it
           becomes a right-corner ×. */}
       <div className="relative z-20 shrink-0 bg-[#0a1128] px-3 py-2.5 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-4 lg:px-5">
-        <div className="flex min-w-0 flex-nowrap items-center gap-x-2">
+        <div className="flex min-w-0 flex-nowrap items-center gap-x-1.5 2xl:gap-x-2">
           <Button
             type="button"
             variant="ghost"
@@ -3571,7 +3589,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   {registerLayout ? "POS" : "Invoice"}
                 </span>
               </div>
-              <p className="truncate text-xs leading-tight text-white/60">
+              {/* Subtitle hidden below 2xl (fix-up 2026-10-26): it
+                  repeats the branch name a third time and truncated
+                  to "Zapeera Point of S…" at 1280/1440; hiding it
+                  frees the width the brand name needs. */}
+              <p className="hidden truncate text-xs leading-tight text-white/60 2xl:block">
                 Zapeera {registerLayout ? "Point of Sale" : "Sales"}{selectedBranch?.name ? ` • ${selectedBranch.name}` : ""}
               </p>
             </div>
@@ -3586,13 +3608,24 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             >
               <SelectTrigger
                 aria-label="Active branch"
+                title={selectedBranch?.name || "Select branch"}
                 // The app's global CSS forces select triggers to a
                 // white background (!important), so on the dark bar
                 // this reads as a deliberate white pill with dark
                 // text rather than fighting the rule.
-                className="h-10 w-[148px] shrink-0 rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] sm:w-[168px] [&>svg]:text-[#4a5578]"
+                className="h-10 w-[148px] shrink-0 rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] [&>svg]:text-[#4a5578]"
               >
-                <SelectValue placeholder="Select branch" />
+                {/* Short branch name (fix-up 2026-10-26): Radix
+                    SelectValue would render the full
+                    "Seikho Medicos -…" and truncate it unreadably
+                    at 1280. The short name ("DHA" / "Gulberg" /
+                    "Main Branch") fits; the full name is on the
+                    title tooltip and in the dropdown list below. */}
+                {selectedBranch ? (
+                  <span className="min-w-0 truncate">{shortBranchName(selectedBranch.name, selectedCompany?.name)}</span>
+                ) : (
+                  <span className="font-medium text-[#8c95b0]">Select branch</span>
+                )}
               </SelectTrigger>
               <SelectContent>
                 {companyBranches.map((branch: any) => (
@@ -3604,22 +3637,28 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </Select>
           )}
           {user?.role !== 'OWNER' && selectedBranch?.name && (
-            <span className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white">
-              <MapPin className="h-4 w-4 text-white/70" strokeWidth={2} />
-              {selectedBranch.name}
+            <span
+              title={selectedBranch.name}
+              className="inline-flex h-10 max-w-[220px] shrink-0 items-center gap-2 truncate rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white"
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-white/70" strokeWidth={2} />
+              <span className="truncate">{shortBranchName(selectedBranch.name, selectedCompany?.name)}</span>
             </span>
           )}
-          {/* Center context pill — cashier / branch / real shift */}
-          <div className="hidden min-w-0 shrink items-center gap-3 truncate rounded-full bg-white/10 px-3.5 py-2 text-xs font-medium text-white/85 ring-1 ring-white/10 lg:flex">
+          {/* Center context pill — cashier / real shift. (Fix-up
+              2026-10-26: the "Branch: …" segment was removed here —
+              it duplicated the dedicated Branch select immediately
+              before this pill and its ~130px forced the cashier name
+              to truncate. The branch is still shown, first, in the
+              select.) */}
+          <div className="hidden min-w-0 shrink items-center gap-3 truncate rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-white/85 ring-1 ring-white/10 lg:flex 2xl:px-3.5">
             <span className="inline-flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               </span>
-              Cashier:&nbsp;<span className="max-w-[150px] truncate font-bold text-white">{user?.name || "—"}</span>
+              Cashier:&nbsp;<span className="max-w-[200px] truncate font-bold text-white">{user?.name || "—"}</span>
             </span>
-            <span className="h-4 w-px bg-white/15" />
-            <span>Branch:&nbsp;<span className="font-bold text-white">{selectedBranch?.name || "—"}</span></span>
             {activeShift && (
               <span className="hidden items-center gap-3 2xl:inline-flex">
                 <span className="h-4 w-px bg-white/15" />
@@ -3653,7 +3692,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onClick={handleParkSale}
               disabled={isParking}
               title="Park this cart and serve the next customer — resume it from Transactions → Held"
-              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <PauseCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden 2xl:inline">{isParking ? "Holding…" : "Hold"}</span>
@@ -3662,7 +3701,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               variant="ghost"
               onClick={() => { fetchTodaySales(); fetchParkedSales(); setIsTxnDialogOpen(true); }}
-              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <History className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden 2xl:inline">Transactions</span>
@@ -3671,7 +3710,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               variant="ghost"
               onClick={() => { fetchTodaySales(); setIsShiftDialogOpen(true); }}
-              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden 2xl:inline">Shift Report</span>
@@ -3721,7 +3760,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               variant="ghost"
               onClick={() => setIsRefundDialogOpen(true)}
-              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden 2xl:inline">Refunds &amp; returns</span>
@@ -3730,7 +3769,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               variant="ghost"
               onClick={() => setIsNewSaleDialogOpen(true)}
-              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" strokeLinecap="round" />
               <span className="hidden 2xl:inline">New Invoice</span>
@@ -5124,7 +5163,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-12 flex-1 rounded-[12px] text-sm font-bold"
             >
               <Printer className="mr-2 h-4 w-4" />
-              Print Thermal Receipt
+              Print Receipt
             </Button>
             <Button
               type="button"
