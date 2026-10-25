@@ -567,7 +567,26 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
               memberBranchId: (c.memberBranchIds || '').split(',')[0] || null,
             }));
 
-          res.json({ success: true, data: { owned, shared } });
+          // v1.0.10 (RC-2): the dashboard cards read b._count?.branches ??
+          // b.branches?.length ?? 0, but my/list used to return flat rows
+          // with neither — every desktop card showed "0 Branches" even
+          // though the branches are in the local DB. Attach the same
+          // branch list + count the cloud getMyCompanies (and the
+          // embedded /api/companies) return, so the card shows the real
+          // number. Active branches only, so branches.length matches
+          // _count.branches.
+          const withBranchInfo = (c) => {
+            let branches = [];
+            let branchCount = 0;
+            try {
+              branches = (query('SELECT id, name, phone FROM branches WHERE companyId = ? AND isActive = 1', [c.id]) || [])
+                .map((b) => ({ id: b.id, name: b.name, phone: b.phone || null }));
+              branchCount = (query('SELECT COUNT(*) as c FROM branches WHERE companyId = ? AND isActive = 1', [c.id])[0]?.c) || 0;
+            } catch { /* leave empty on error; the card falls back to 0 */ }
+            return { ...c, branches, _count: { branches: branchCount } };
+          };
+
+          res.json({ success: true, data: { owned: owned.map(withBranchInfo), shared: shared.map(withBranchInfo) } });
         } catch (e) {
           console.error('[Companies] my/list error:', e.message);
           res.status(500).json({ success: false, message: e.message });

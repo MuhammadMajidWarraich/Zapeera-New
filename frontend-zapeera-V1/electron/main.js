@@ -1745,15 +1745,39 @@ function setupIPC() {
             `)
           : [];
         const lastSyncAt = syncService.getLastSyncTime ? syncService.getLastSyncTime() : null;
-        const states = (rows || []).map((r) => ({
-          businessId: r.businessId,
-          name: r.name || null,
-          slug: r.slug || null,
-          provisioned: r.status === 'DOWNLOADED',
-          availableOffline: r.status === 'DOWNLOADED',
-          status: r.status,
-          lastSyncedAt: r.lastSyncedAt || lastSyncAt || null
-        }));
+        const states = (rows || []).map((r) => {
+          // v1.0.10 (RC-2): membership status alone cannot prove offline
+          // availability. provisionPendingBusinesses() skips businesses
+          // that already have local branches, so their status stays
+          // ACTIVE forever even though the data is fully downloaded —
+          // every card showed "Cloud only · Sync pending" on a synced
+          // DB. A business is available offline when it actually has
+          // local data (branches), regardless of the membership flag.
+          let hasLocalData = r.status === 'DOWNLOADED';
+          try {
+            const br = db.query('SELECT COUNT(*) as c FROM branches WHERE companyId = ?', [r.businessId]);
+            hasLocalData = hasLocalData || (((br && br[0] && br[0].c) || 0) > 0);
+          } catch { /* fall through: flag stays as-is */ }
+          // Last sync = this business's own pull cursor (the real
+          // last-pull time), falling back to the membership row and
+          // then the global last-sync time. The membership updatedAt
+          // is the stale provisioning time, not a sync time.
+          let lastSyncedAt = r.lastSyncedAt || lastSyncAt || null;
+          try {
+            const cur = db.query('SELECT value FROM settings WHERE key = ?', [`sync_cursor_${r.businessId}`]);
+            const raw = cur && cur[0] && cur[0].value;
+            if (raw) lastSyncedAt = String(raw).split('|')[0] || lastSyncedAt;
+          } catch { /* fall through: keep the fallback */ }
+          return {
+            businessId: r.businessId,
+            name: r.name || null,
+            slug: r.slug || null,
+            provisioned: hasLocalData,
+            availableOffline: hasLocalData,
+            status: r.status,
+            lastSyncedAt
+          };
+        });
         return { states, lastSyncAt };
       }
       return { states: [], lastSyncAt: null };
