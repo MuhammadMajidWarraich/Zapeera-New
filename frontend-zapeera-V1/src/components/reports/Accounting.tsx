@@ -10,6 +10,7 @@ import {
 import { apiService } from "@/services/api";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
+import BankReconciliation from "./BankReconciliation";
 
 /**
  * Accounting (Wave B8) — accounting-lite, read-only.
@@ -72,6 +73,7 @@ const Accounting = () => {
   const [period, setPeriod] = useState("thisMonth");
   const [loading, setLoading] = useState(false);
   const [pnl, setPnl] = useState<any>(null);
+  const [pnlCompare, setPnlCompare] = useState<any>(null);
   const [cashbook, setCashbook] = useState<any>(null);
   const [ageing, setAgeing] = useState<any>(null);
   const [payables, setPayables] = useState<any>(null);
@@ -84,13 +86,15 @@ const Accounting = () => {
       if (selectedBranchId) scopeParams.branchId = selectedBranchId;
       const periodParams = { ...scopeParams, period };
 
-      const [pnlRes, cashRes, ageRes, payRes] = await Promise.all([
+      const [pnlRes, cmpRes, cashRes, ageRes, payRes] = await Promise.all([
         apiService.getAccountingPnl(periodParams),
+        apiService.getPnlComparison(periodParams),
         apiService.getCashbook(periodParams),
         apiService.getReceivablesAgeing(scopeParams),
         apiService.getPayables(scopeParams),
       ]);
       if (pnlRes.success) setPnl(pnlRes.data);
+      if (cmpRes.success) setPnlCompare(cmpRes.data);
       if (cashRes.success) setCashbook(cashRes.data);
       if (ageRes.success) setAgeing(ageRes.data);
       if (payRes.success) setPayables(payRes.data);
@@ -200,8 +204,80 @@ const Accounting = () => {
               </div>
             </div>
           )}
+          {/* ─── Period comparison + branch breakdown (Item 8) ─── */}
+          {pnlCompare && (
+            <div className="mt-8 space-y-6 border-t pt-6">
+              <div>
+                <h4 className="mb-2 text-sm font-semibold">
+                  vs previous period ({formatDate(pnlCompare.previousPeriod?.from)} – {formatDate(pnlCompare.previousPeriod?.to)})
+                </h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Line</TableHead>
+                      <TableHead className="text-right">Current</TableHead>
+                      <TableHead className="text-right">Previous</TableHead>
+                      <TableHead className="text-right">Change</TableHead>
+                      <TableHead className="text-right">% change</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { label: "Net revenue", d: pnlCompare.comparison?.revenue?.net },
+                      { label: "Net COGS", d: pnlCompare.comparison?.cogs?.net },
+                      { label: "Gross profit", d: pnlCompare.comparison?.grossProfit },
+                      { label: "Expenses", d: pnlCompare.comparison?.expenses },
+                      { label: "Net profit", d: pnlCompare.comparison?.netProfit },
+                    ].map((r) => (
+                      <TableRow key={r.label} className={r.label === "Net profit" ? "font-bold" : ""}>
+                        <TableCell>{r.label}</TableCell>
+                        <TableCell className="text-right">{formatPKR(r.d?.current || 0)}</TableCell>
+                        <TableCell className="text-right">{formatPKR(r.d?.previous || 0)}</TableCell>
+                        <TableCell className={`text-right ${(r.d?.change || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {(r.d?.change || 0) >= 0 ? "+" : "−"}{formatPKR(Math.abs(r.d?.change || 0))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.d?.pctChange == null ? "—" : `${r.d.pctChange >= 0 ? "+" : ""}${r.d.pctChange}%`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {(pnlCompare.byBranch || []).length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-semibold">Branch breakdown — this period</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Branch</TableHead>
+                        <TableHead className="text-right">Net revenue</TableHead>
+                        <TableHead className="text-right">Gross profit</TableHead>
+                        <TableHead className="text-right">Expenses</TableHead>
+                        <TableHead className="text-right">Net profit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pnlCompare.byBranch.map((b: any) => (
+                        <TableRow key={b.branchId}>
+                          <TableCell className="font-medium">{b.branchName}</TableCell>
+                          <TableCell className="text-right">{formatPKR(b.revenue?.net || 0)}</TableCell>
+                          <TableCell className="text-right">{formatPKR(b.grossProfit || 0)}</TableCell>
+                          <TableCell className="text-right">{formatPKR(b.expenses?.total || 0)}</TableCell>
+                          <TableCell className={`text-right font-semibold ${(b.netProfit || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>{formatPKR(b.netProfit || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* ─── Bank Reconciliation (Item 8) ─── */}
+      <BankReconciliation />
 
       {/* ─── Cashbook ─── */}
       <Card className="print:shadow-none">

@@ -229,3 +229,54 @@ export function mergeTenderRows(...lists: TenderRow[][]): TenderRow[] {
 
 export const sumTenderRows = (rows: TenderRow[]): number =>
   round2(rows.reduce((sum, r) => sum + r.amount, 0));
+
+// ─── P&L comparison (Item 8: deeper P&L) ─────────────────────────────
+
+export interface PnlDelta {
+  current: number;
+  previous: number;
+  /** Current − previous, in PKR. */
+  change: number;
+  /** Percent change vs previous; null when previous is 0 (no basis). */
+  pctChange: number | null;
+}
+
+export interface PnlComparison {
+  revenue: { gross: PnlDelta; refunds: PnlDelta; net: PnlDelta };
+  cogs: { gross: PnlDelta; refundReversal: PnlDelta; net: PnlDelta };
+  grossProfit: PnlDelta;
+  expenses: PnlDelta;
+  netProfit: PnlDelta;
+}
+
+function delta(current: number, previous: number): PnlDelta {
+  const change = round2(current - previous);
+  const pctChange =
+    previous === 0 ? null : round2((change / Math.abs(previous)) * 100);
+  return { current: round2(current), previous: round2(previous), change, pctChange };
+}
+
+/**
+ * Period-over-period P&L comparison. Both statements must be built
+ * with the same definitions (computePnl) over equal-length periods;
+ * the caller (controller) resolves the previous period. A zero
+ * previous value yields pctChange null rather than an invented
+ * infinite percent.
+ */
+export function comparePnl(current: PnlStatement, previous: PnlStatement): PnlComparison {
+  return {
+    revenue: {
+      gross: delta(current.revenue.gross, previous.revenue.gross),
+      refunds: delta(current.revenue.refunds, previous.revenue.refunds),
+      net: delta(current.revenue.net, previous.revenue.net),
+    },
+    cogs: {
+      gross: delta(current.cogs.gross, previous.cogs.gross),
+      refundReversal: delta(current.cogs.refundReversal, previous.cogs.refundReversal),
+      net: delta(current.cogs.net, previous.cogs.net),
+    },
+    grossProfit: delta(current.grossProfit, previous.grossProfit),
+    expenses: delta(current.expenses, previous.expenses),
+    netProfit: delta(current.netProfit, previous.netProfit),
+  };
+}

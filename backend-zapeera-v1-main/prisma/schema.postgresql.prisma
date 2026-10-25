@@ -158,6 +158,9 @@ model Business {
   taxClasses                TaxClass[]
   categories                Category[]
   expenses                  Expense[]
+  bankAccounts              BankAccount[]
+  bankStatements            BankStatement[]
+  bankReconciliations       BankReconciliation[]
   expenseCategories         ExpenseCategory[]
   memberships               Membership[]             @relation("memberships")
   roles                     Role[]                   @relation("roles")
@@ -235,6 +238,9 @@ model Branch {
   stockTakes         StockTake[]
   categories         Category[]
   expenses           Expense[]
+  bankAccounts       BankAccount[]
+  bankStatements     BankStatement[]
+  bankReconciliations BankReconciliation[]
   expenseCategories  ExpenseCategory[]
   manufacturers      Manufacturer[]
   suppliers          Supplier[]
@@ -316,6 +322,119 @@ model Expense {
   @@index([categoryId], name: "idx_expense_category")
   @@index([expenseDate], name: "idx_expense_date")
   @@map("expenses")
+}
+
+// ─── Bank reconciliation (Wave B — Item 8: fuller accounting) ────────
+// SME-scale bank reconciliation on top of accounting-lite: a business
+// records its bank accounts, imports/records statement lines, and
+// matches them against ledger entries that already exist (sale
+// payments, expenses, refunds, khata payments). No double-entry GL:
+// matching is a link (kind + id) on the statement line, and a
+// reconciliation record freezes the per-period state (opening/closing
+// balances, matched/unmatched counts, difference).
+model BankAccount {
+  id             String   @id @default(cuid())
+  companyId      String
+  branchId       String?
+  name           String // display name, e.g. "HBL Current — Main"
+  bankName       String?
+  accountNumber  String? // last 4 / masked at the UI layer; never the full number in exports
+  accountType    String   @default("CURRENT") // CURRENT | SAVINGS | WALLET
+  openingBalance Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  company        Business @relation(fields: [companyId], references: [id])
+  branch         Branch?  @relation(fields: [branchId], references: [id])
+  statements     BankStatement[]
+  reconciliations BankReconciliation[]
+
+  @@index([companyId], name: "idx_bank_account_company")
+  @@index([branchId], name: "idx_bank_account_branch")
+  @@map("bank_accounts")
+}
+
+model BankStatement {
+  id             String   @id @default(cuid())
+  bankAccountId  String
+  companyId      String
+  branchId       String?
+  periodStart    DateTime
+  periodEnd      DateTime
+  openingBalance Float    @default(0)
+  closingBalance Float    @default(0)
+  source         String   @default("MANUAL") // MANUAL | CSV_IMPORT
+  fileName       String?
+  status         String   @default("OPEN") // OPEN | RECONCILED | CLOSED
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  bankAccount    BankAccount @relation(fields: [bankAccountId], references: [id])
+  company        Business    @relation(fields: [companyId], references: [id])
+  branch         Branch?     @relation(fields: [branchId], references: [id])
+  lines          BankStatementLine[]
+
+  @@index([bankAccountId], name: "idx_bank_statement_account")
+  @@index([companyId], name: "idx_bank_statement_company")
+  @@index([periodStart], name: "idx_bank_statement_period")
+  @@map("bank_statements")
+}
+
+model BankStatementLine {
+  id                String   @id @default(cuid())
+  statementId       String
+  txnDate           DateTime
+  description       String
+  reference         String?
+  // Signed from the BANK's perspective: + money in, − money out.
+  amount            Float
+  // UNMATCHED | MATCHED | IGNORED (bank fee / interest with no ledger row, etc.)
+  status            String   @default("UNMATCHED")
+  matchedLedgerKind String? // SALE_PAYMENT | EXPENSE | REFUND | KHATA_PAYMENT
+  matchedLedgerId   String?
+  matchConfidence   Float? // 0–100, from the auto-matcher; null on manual matches
+  matchMethod       String? // AUTO_EXACT | AUTO_FUZZY | MANUAL
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  statement         BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([statementId], name: "idx_bank_stmt_line_statement")
+  @@index([status], name: "idx_bank_stmt_line_status")
+  @@index([matchedLedgerId], name: "idx_bank_stmt_line_ledger")
+  @@map("bank_statement_lines")
+}
+
+model BankReconciliation {
+  id                      String   @id @default(cuid())
+  bankAccountId           String
+  statementId             String? // the statement this reconciliation closes, when one exists
+  companyId               String
+  branchId                String?
+  periodStart             DateTime
+  periodEnd               DateTime
+  status                  String   @default("OPEN") // OPEN | COMPLETED
+  statementOpeningBalance Float    @default(0)
+  statementClosingBalance Float    @default(0)
+  ledgerClosingBalance    Float    @default(0) // opening + Σ matched ledger amounts (bank perspective)
+  matchedCount            Int      @default(0)
+  unmatchedCount          Int      @default(0)
+  ignoredCount            Int      @default(0)
+  // statementClosing − ledgerClosing. 0 = fully reconciled.
+  difference              Float    @default(0)
+  completedAt             DateTime?
+  completedBy             String?
+  createdBy               String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  bankAccount             BankAccount @relation(fields: [bankAccountId], references: [id])
+  company                 Business    @relation(fields: [companyId], references: [id])
+  branch                  Branch?     @relation(fields: [branchId], references: [id])
+
+  @@unique([bankAccountId, periodStart, periodEnd], name: "bank_recon_account_period")
+  @@index([companyId], name: "idx_bank_recon_company")
+  @@map("bank_reconciliations")
 }
 
 model Manufacturer {
