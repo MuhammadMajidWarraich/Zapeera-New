@@ -5693,13 +5693,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                 <div className="space-y-1">
                   <p className="flex justify-between gap-2"><span>Subtotal:</span><span>PKR {currentReceipt.subtotal.toFixed(2)}</span></p>
-                  {currentReceipt.discountPercentage && currentReceipt.discountPercentage > 0 && (
+                  {(currentReceipt.discountPercentage ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Discount ({currentReceipt.discountPercentage}%):</span><span>-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span></p>
                   )}
-                  {currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 && (
+                  {(currentReceipt.loyaltyDiscount ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Loyalty ({currentReceipt.pointsRedeemed || 0} pts):</span><span>-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span></p>
                   )}
-                  {currentReceipt.promotionDiscount && currentReceipt.promotionDiscount > 0 && (
+                  {(currentReceipt.promotionDiscount ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}:</span><span>-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span></p>
                   )}
                   {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
@@ -5724,7 +5724,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       {currentReceipt.paymentMethod.toUpperCase()} • {currentReceipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}
                     </span>
                   </p>
-                  {currentReceipt.pointsEarned && currentReceipt.pointsEarned > 0 && (
+                  {(currentReceipt.pointsEarned ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Points earned:</span><span>+{currentReceipt.pointsEarned} pts</span></p>
                   )}
                 </div>
