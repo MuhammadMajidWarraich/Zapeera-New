@@ -80,6 +80,7 @@ import promotionRoutes from './routes/promotion.routes';
 import taxClassRoutes from './routes/tax-class.routes';
 import provincialTaxRoutes from './routes/provincial-tax.routes';
 import fbrRoutes from './routes/fbr.routes';
+import receiptSettingsRoutes from './routes/receipt-settings.routes';
 import integrationsRoutes from './routes/integrations.routes';
 import shopifyIntegrationRoutes from './integrations/shopify/routes';
 import jazzcashIpnRoutes from './routes/jazzcash-ipn.routes';
@@ -676,6 +677,7 @@ app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/provincial-tax', provincialTaxRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
+app.use('/api/v1/receipt-settings', receiptSettingsRoutes);
 app.use('/api/v1/integrations', jazzcashIpnRoutes);
 // PostEx webhook BEFORE the integrations router: the webhook is public
 // (PostEx calls it, no user session) and the integrations router's
@@ -754,6 +756,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/provincial-tax', provincialTaxRoutes);
 app.use('/api/fbr', fbrRoutes);
+app.use('/api/receipt-settings', receiptSettingsRoutes);
 app.use('/api/integrations', jazzcashIpnRoutes);
 // PostEx webhook BEFORE the integrations router (see the /api/v1 note above).
 app.use('/api/integrations/postex/webhook', postexWebhookRoutes);

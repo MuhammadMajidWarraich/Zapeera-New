@@ -197,6 +197,10 @@ const ENTRIES: RegistryEntry[] = [
   // and manual retries are additionally gated to OWNER/MANAGER in the
   // controller.
   { prefix: '/api/fbr', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Receipt settings (POS update): shape the printed invoice, so
+  // they share the sales.invoices key on the same precedent; writes
+  // are additionally gated to OWNER/MANAGER/ADMIN in the controller.
+  { prefix: '/api/receipt-settings', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
   // Integrations framework: lives in Settings, so it shares the
   // business_management.settings key with /api/settings on the same
   // precedent; the router additionally gates every route to

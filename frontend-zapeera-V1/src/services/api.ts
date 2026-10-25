@@ -7,6 +7,7 @@ import {
 } from '../lib/session-storage';
 import { waitForBackend } from '../utils/backendHealthCheck';
 import { normalizeAppRole } from '../utils/app-role';
+import type { ReceiptSettings } from '../lib/receipt-templates';
 
 const API_BASE_URL = config.api.baseUrl;
 const API_TIMEOUT = config.api.timeout;
@@ -3563,6 +3564,31 @@ export class ApiService {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  // Receipt print templates (per-business): template choice, header /
+  // footer overrides and section toggles (see src/lib/receipt-templates.ts).
+  // X-Business-ID is attached automatically from context. Reads are
+  // owner/manager/admin; writes are owner-only on the server. The POS
+  // treats any failure here as "use defaults" (the backend may not be
+  // deployed yet), so these throw on a non-success response.
+  async getReceiptSettings(): Promise<ReceiptSettings> {
+    const res = await this.request<ReceiptSettings>('/receipt-settings');
+    if (!res.success || !res.data) {
+      throw new Error(res.message || 'Failed to load receipt settings');
+    }
+    return res.data;
+  }
+
+  async updateReceiptSettings(patch: Partial<ReceiptSettings>): Promise<ReceiptSettings> {
+    const res = await this.request<ReceiptSettings>('/receipt-settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    });
+    if (!res.success || !res.data) {
+      throw new Error(res.message || 'Failed to save receipt settings');
+    }
+    return res.data;
   }
 
   async testFbrConnection() {
