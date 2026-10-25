@@ -197,6 +197,12 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/sse',
   '/api/health',
   '/api/payments/manual',
+
+  // JazzCash vendor callbacks (feature/integration-jazzcash): the
+  // gateway calls these with no user session; security is the
+  // SecureHash verified per callback. No module gate applies.
+  '/api/integrations/jazzcash/ipn',
+  '/api/integrations/jazzcash/return',
 ];
 
 /** Convert versioned API paths to the canonical authorization policy path. */

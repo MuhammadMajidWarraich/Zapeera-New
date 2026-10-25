@@ -82,6 +82,7 @@ import provincialTaxRoutes from './routes/provincial-tax.routes';
 import fbrRoutes from './routes/fbr.routes';
 import integrationsRoutes from './routes/integrations.routes';
 import shopifyIntegrationRoutes from './integrations/shopify/routes';
+import jazzcashIpnRoutes from './routes/jazzcash-ipn.routes';
 // Integrations framework: importing the provider barrel registers every
 // landed provider handler (side effect). The barrel is empty until the
 // six provider builders add their lines.
@@ -658,6 +659,7 @@ app.use('/api/v1/promotions', promotionRoutes);
 app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/provincial-tax', provincialTaxRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
+app.use('/api/v1/integrations', jazzcashIpnRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
 app.use('/api/v1/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/v1/prescriptions', prescriptionRoutes);
@@ -731,6 +733,7 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/provincial-tax', provincialTaxRoutes);
 app.use('/api/fbr', fbrRoutes);
+app.use('/api/integrations', jazzcashIpnRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);

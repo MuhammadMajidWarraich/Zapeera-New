@@ -24,8 +24,13 @@ import type {
   CreateShipmentInput,
   IntegrationConnectionStatus,
   IntegrationConnectionView,
+  IntegrationPaymentInquiryResult,
+  IntegrationPaymentRequest,
+  IntegrationPaymentResult,
   IntegrationProviderId,
   IntegrationProviderWithStatus,
+  IntegrationRefundRequest,
+  IntegrationRefundResult,
   IntegrationSyncConfig,
   IntegrationSyncDirection,
   IntegrationSyncEntity,
@@ -307,6 +312,9 @@ export interface TriggerSyncOptions {
   saleId?: string;
   /** Sale id OR invoice number for entity 'shipment'. */
   saleRef?: string;
+  /** Payment initiation payload — required when entity is 'payment'. */
+/** Payment initiation payload — required when entity is 'payment'. */
+  payment?: IntegrationPaymentRequest;
 }
 
 /**
@@ -366,15 +374,39 @@ export async function buildCreateShipmentInput(
 
 const ENTITY_TO_METHOD: Record<
   IntegrationSyncEntity,
-  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | null
+  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | 'processPayment' | null
 > = {
   product: 'syncProducts',
   stock: 'syncStock',
   order: 'importOrders',
   customer: null, // No handler method in the v1 interface — a builder adds it.
-  payment: null,
+  // Payment rails (JazzCash, 2026-10-24): entity 'payment' routes to
+  // the generic processPayment handler method — money moves at checkout,
+  // not on a schedule, but the attempt gets the same audit log row.
+  payment: 'processPayment',
   shipment: 'createShipment' // Generic fulfilment step (PostEx shape): triggerSync builds CreateShipmentInput from opts.saleId/saleRef.
 };
+
+/**
+ * Map a payment result to the sync-result shape triggerSync returns.
+ * A declined payment is recordsFailed 1 (the attempt is logged, the
+ * connection is NOT marked error — a decline is not a vendor outage).
+ * The vendor transaction id + RRN ride in the message; the full
+ * payment result is returned alongside (see triggerSync).
+ */
+function paymentToSyncResult(providerName: string, payment: IntegrationPaymentResult): IntegrationSyncResult {
+  const failed = payment.status === 'failed';
+  const reference = payment.retrievalReferenceNo
+    ? `, RRN ${payment.retrievalReferenceNo}`
+    : '';
+  return {
+    recordsProcessed: failed ? 0 : 1,
+    recordsFailed: failed ? 1 : 0,
+    message:
+      `${providerName} ${payment.method} payment ${payment.status}: txn ${payment.txnRefNo}${reference}` +
+      (payment.responseMessage ? ` — ${payment.responseMessage}` : '')
+  };
+}
 
 /**
  * Manual sync trigger. Dispatches to the provider's handler method for
@@ -387,7 +419,7 @@ export async function triggerSync(
   businessId: string,
   provider: string,
   opts: TriggerSyncOptions = {}
-): Promise<{ log: any; result: IntegrationSyncResult }> {
+): Promise<{ log: any; result: IntegrationSyncResult; payment?: IntegrationPaymentResult }> {
   const id = requireKnownProvider(provider);
   const handler = requireHandler(id);
   const row = await prisma.integrationConnection.findUnique({
@@ -443,8 +475,28 @@ export async function triggerSync(
   });
 
   try {
-    const result: IntegrationSyncResult = await (handler as any)[method](
-      {
+    // Payment rails take a second argument (the payment request); sync
+    // methods take only the context.
+    let result: IntegrationSyncResult;
+    let payment: IntegrationPaymentResult | undefined;
+    if (method === 'processPayment') {
+      // A payment initiation needs its payload (sale, amount, method) —
+      // without it there is nothing to charge.
+      const paymentRequest = opts.payment;
+      if (!paymentRequest) {
+        throw new IntegrationError(
+          'VENDOR_ERROR',
+          'Payment details (saleId, amount, method) are required to take a payment.'
+        );
+      }
+      const paymentResult: IntegrationPaymentResult = await (handler as any)[method](
+        { prisma, businessId, credentials, config, logId: log.id },
+        paymentRequest
+      );
+      payment = paymentResult;
+      result = paymentToSyncResult(getProviderEntry(id)?.displayName ?? id, paymentResult);
+    } else {
+      result = await (handler as any)[method]({
         prisma,
         businessId,
         credentials,
@@ -455,6 +507,7 @@ export async function triggerSync(
       // receive `undefined` here and ignore it.
       shipmentInput
     );
+    }
     const finishedAt = new Date();
     const status = result.recordsFailed > 0 ? 'partial' : 'success';
     const updatedLog = await prisma.integrationSyncLog.update({
@@ -471,7 +524,7 @@ export async function triggerSync(
       where: { businessId_provider: { businessId, provider: id } },
       data: { lastSyncAt: finishedAt, lastError: null }
     });
-    return { log: updatedLog, result };
+    return { log: updatedLog, result, ...(payment ? { payment } : {}) };
   } catch (error) {
     const message =
       error instanceof IntegrationError
@@ -510,4 +563,71 @@ export async function listSyncLogs(
     prisma.integrationSyncLog.count({ where: { businessId, provider: id } })
   ]);
   return { logs, total };
+}
+
+// ─── Payment-rail calls (JazzCash; generic so Easypaisa can reuse them) ──
+// These are NOT sync runs — no log row, no lastSyncAt — they call the
+// handler's payment methods directly. The caller (POS checkout, refund
+// flow) owns the sale-side record; the handler owns the vendor call.
+
+async function loadConnectedHandler(
+  prisma: any,
+  businessId: string,
+  provider: string
+): Promise<{ handler: any; credentials: Record<string, unknown>; config: IntegrationSyncConfig }> {
+  const id = requireKnownProvider(provider);
+  const handler = requireHandler(id);
+  const row = await prisma.integrationConnection.findUnique({
+    where: { businessId_provider: { businessId, provider: id } }
+  });
+  if (!row || row.status !== 'connected' || !row.encryptedCredentials) {
+    throw new IntegrationError(
+      'NOT_CONNECTED',
+      `${getProviderEntry(id)?.displayName ?? id} is not connected. Connect it first.`
+    );
+  }
+  return {
+    handler,
+    credentials: decryptIntegrationCredentials(row.encryptedCredentials),
+    config: parseStoredConfig(row.config)
+  };
+}
+
+/** Confirm a payment's final status at the vendor (mandatory after any IPN / missing response). */
+export async function inquireIntegrationPayment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  txnRefNo: string
+): Promise<IntegrationPaymentInquiryResult> {
+  const { handler, credentials, config } = await loadConnectedHandler(prisma, businessId, provider);
+  if (typeof handler.inquirePayment !== 'function') {
+    throw new IntegrationError(
+      'NOT_IMPLEMENTED',
+      `${getProviderEntry(provider)?.displayName ?? provider} does not implement payment status inquiry yet.`
+    );
+  }
+  return handler.inquirePayment({ prisma, businessId, credentials, config, logId: '' }, txnRefNo);
+}
+
+/**
+ * Send money back through the vendor. Creates NO local Refund row —
+ * the caller (refund flow) records the refund locally with
+ * refundMethod + refundReference from this result. The merchant MPIN
+ * (mobile-account refunds) travels in the request only, never stored.
+ */
+export async function refundIntegrationPayment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  request: IntegrationRefundRequest
+): Promise<IntegrationRefundResult> {
+  const { handler, credentials, config } = await loadConnectedHandler(prisma, businessId, provider);
+  if (typeof handler.refundPayment !== 'function') {
+    throw new IntegrationError(
+      'NOT_IMPLEMENTED',
+      `${getProviderEntry(provider)?.displayName ?? provider} does not implement refunds yet.`
+    );
+  }
+  return handler.refundPayment({ prisma, businessId, credentials, config, logId: '' }, request);
 }

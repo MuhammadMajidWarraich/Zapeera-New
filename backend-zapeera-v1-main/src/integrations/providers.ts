@@ -15,3 +15,4 @@ import './shopify';
 import './daraz';
 
 export {};
+import './jazzcash';
