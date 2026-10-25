@@ -9,6 +9,13 @@ export interface SyncStatus {
   pendingChanges: number;
   failedChanges: number;
   inProgress: boolean;
+  // Desktop only, from the main-process sync status: how many businesses
+  // the local DB holds memberships for, and the last account-sync outcome
+  // (null until an account sync has run or failed). These are what let
+  // the UI tell "online and syncing" from "online but nothing will ever
+  // download" (2026-10-24 trap).
+  localBusinessCount: number;
+  accountSyncError: string | null;
 }
 
 export type SyncStateListener = (status: SyncStatus) => void;
@@ -62,6 +69,8 @@ class SyncService {
       pendingChanges: 0,
       failedChanges: 0,
       inProgress: false,
+      localBusinessCount: 0,
+      accountSyncError: null,
     };
   }
 
@@ -148,13 +157,35 @@ class SyncService {
         const result = await electronApi.getSyncStatus();
         if (result?.connectionState) {
           const mapped = mapEngineConnectionState(result.connectionState);
+          // Setup-pending (2026-10-24 trap): the cloud answers, but the
+          // local DB holds zero memberships, so provision/pull iterate
+          // zero rows and nothing will ever download. Do NOT report this
+          // as plain 'online'/'synced': the badge must say the download
+          // hasn't happened. Unknown count (-1: field absent) never
+          // triggers this — only a confirmed zero does. A sync actually
+          // in flight keeps 'syncing' (no flicker during recovery).
+          const localBusinessCount = typeof result.localBusinessCount === 'number' ? result.localBusinessCount : -1;
+          const setupPending =
+            mapped.connectionState === 'online' &&
+            mapped.syncState !== 'syncing' &&
+            localBusinessCount === 0;
+          const accountSyncError =
+            result.accountSync && result.accountSync.success === false
+              ? (result.accountSync.message || 'Account sync failed')
+              : null;
           this.updateAndNotify({
             connectionState: mapped.connectionState,
-            syncState: mapped.syncState === 'synced' && (result.pendingChanges || 0) > 0 ? 'pending' : mapped.syncState,
+            syncState: setupPending
+              ? 'setup-pending'
+              : mapped.syncState === 'synced' && (result.pendingChanges || 0) > 0
+                ? 'pending'
+                : mapped.syncState,
             lastSyncAt: result.lastSyncAt || null,
             pendingChanges: result.pendingChanges || 0,
             failedChanges: result.failedChanges || 0,
             inProgress: result.inProgress || false,
+            localBusinessCount: localBusinessCount < 0 ? 0 : localBusinessCount,
+            accountSyncError,
           });
           return this.status;
         }
