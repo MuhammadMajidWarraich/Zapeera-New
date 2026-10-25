@@ -8,6 +8,13 @@ import {
   getReorderSuggestions,
   createPurchaseFromSuggestions
 } from '../controllers/purchase.controller';
+import {
+  generatePurchaseSuggestions,
+  getPurchaseSuggestions,
+  getPurchaseSuggestionById,
+  approvePurchaseSuggestion,
+  rejectPurchaseSuggestion
+} from '../controllers/purchase-suggestion.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';
 
@@ -24,6 +31,13 @@ router.use(checkModule('purchases'));
 // Auto-reorder (Wave C3) — before /:id so the literals win
 router.get('/reorder-suggestions', getReorderSuggestions);
 router.post('/draft-from-suggestions', createPurchaseFromSuggestions);
+// Persisted purchase suggestions (Gap Item 4) — generate writes proposal
+// rows only; approve is the ONLY path to a Purchase. Before /:id.
+router.post('/suggestions/generate', generatePurchaseSuggestions);
+router.get('/suggestions', getPurchaseSuggestions);
+router.get('/suggestions/:id', getPurchaseSuggestionById);
+router.post('/suggestions/:id/approve', approvePurchaseSuggestion);
+router.post('/suggestions/:id/reject', rejectPurchaseSuggestion);
 router.post('/', createPurchase);
 router.get('/', getPurchases);
 router.get('/:id', getPurchaseById);

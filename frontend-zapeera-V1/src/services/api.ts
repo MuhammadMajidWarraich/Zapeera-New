@@ -8602,6 +8602,182 @@ export class ApiService {
     });
   }
 
+  // ─── Persisted purchase suggestions (Gap Item 4) ──────────────────────
+  // Generate writes proposal rows only — nothing is ordered until the
+  // owner explicitly approves a suggestion, which creates the purchase.
+  async generatePurchaseSuggestions(payload?: { expiryWindowDays?: number }) {
+    return this.request<{
+      created: Array<{ id: string; supplierId: string | null; lines: number }>;
+      totals: { suggestions: number; lines: number };
+    }>('/purchases/suggestions/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
+  }
+
+  async getPurchaseSuggestions(params?: { status?: string; supplierId?: string; page?: number; limit?: number }) {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.supplierId) q.set('supplierId', params.supplierId);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    const suffix = q.toString() ? `?${q.toString()}` : '';
+    return this.request<{
+      suggestions: Array<{
+        id: string;
+        supplierId: string | null;
+        status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+        reason: string | null;
+        createdAt: string;
+        purchaseId: string | null;
+        supplier: { id: string; name: string; contactPerson?: string; phone?: string } | null;
+        lines: Array<{
+          id: string;
+          productId: string;
+          currentStock: number;
+          sellableStock: number;
+          expiringStock: number;
+          reorderLevel: number | null;
+          minStock: number;
+          suggestedQty: number;
+          unitCost: number | null;
+          reason: string;
+          note: string | null;
+          product: { id: string; name: string; sku: string; unitsPerPack: number; unitsPerStrip: number | null };
+        }>;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/purchases/suggestions${suffix}`);
+  }
+
+  async approvePurchaseSuggestion(id: string) {
+    return this.request<{
+      purchase: { id: string; totalAmount: number; status: string };
+      suggestion: { id: string; status: string; purchaseId: string | null };
+    }>(`/purchases/suggestions/${id}/approve`, { method: 'POST' });
+  }
+
+  async rejectPurchaseSuggestion(id: string, reason?: string) {
+    return this.request<{ id: string; status: string }>(
+      `/purchases/suggestions/${id}/reject`,
+      { method: 'POST', body: JSON.stringify({ reason: reason || '' }) }
+    );
+  }
+
+  // ─── Aging reports (Gap Item 4) ────────────────────────────────────────
+  async getSupplierAgingReport() {
+    return this.request<{
+      asOf: string;
+      rows: Array<{
+        supplier: { id: string; name: string; contactPerson?: string; phone?: string } | null;
+        buckets: { days0to30: number; days31to60: number; days61to90: number; over90: number };
+        total: number;
+        openInvoices: number;
+        oldestDueDate: string | null;
+        oldestDueAgeDays: number | null;
+      }>;
+      totals: { days0to30: number; days31to60: number; days61to90: number; over90: number };
+      totalOutstanding: number;
+      suppliersWithDues: number;
+    }>('/reports/advanced/aging/supplier');
+  }
+
+  async getCustomerAgingReport() {
+    return this.request<{
+      asOf: string;
+      rows: Array<{
+        customerId: string;
+        customerName: string;
+        phone: string | null;
+        total: number;
+        buckets: { days0to30: number; days31to60: number; days61to90: number; over90: number };
+        oldestDueDate: string | null;
+        oldestDueAgeDays: number | null;
+        lastPaymentDate: string | null;
+        riskBand: string;
+      }>;
+      totals: { days0to30: number; days31to60: number; days61to90: number; over90: number };
+      total: number;
+      customerAdvances: number;
+      customersWithDues: number;
+    }>('/reports/advanced/aging/customer');
+  }
+
+  async getStockAgingReport() {
+    return this.request<{
+      asOf: string;
+      rows: Array<{
+        productId: string;
+        productName: string;
+        sku: string;
+        totalQty: number;
+        totalValue: number;
+        buckets: { days0to30: number; days31to60: number; days61to90: number; days91to180: number; over180: number };
+        expiredQty: number;
+        expiredValue: number;
+        expiringQty: number;
+        expiringValue: number;
+        oldestBatchAgeDays: number;
+        lastSaleDate: string | null;
+        daysSinceLastSale: number | null;
+        nonMoving90d: boolean;
+      }>;
+      totals: {
+        totalQty: number;
+        totalValue: number;
+        expiredValue: number;
+        expiringValue: number;
+        nonMovingProducts: number;
+        buckets: { days0to30: number; days31to60: number; days61to90: number; days91to180: number; over180: number };
+      };
+    }>('/reports/advanced/aging/stock');
+  }
+
+  async getMovementReport(days?: number) {
+    const suffix = days ? `?days=${days}` : '';
+    return this.request<{
+      from: string;
+      to: string;
+      days: number;
+      rows: Array<{
+        productId: string;
+        productName: string;
+        sku: string;
+        unitsSold: number;
+        currentStock: number;
+        minStock: number;
+        dailyRate: number;
+        daysOfCover: number | null;
+        movementClass: string;
+      }>;
+      counts: { FAST: number; MEDIUM: number; SLOW: number; DEAD: number };
+      products: number;
+    }>(`/reports/advanced/aging/movement${suffix}`);
+  }
+
+  async getProfitabilityReport(days?: number) {
+    const suffix = days ? `?days=${days}` : '';
+    return this.request<{
+      from: string;
+      to: string;
+      days: number;
+      rows: Array<{
+        productId: string;
+        productName: string;
+        sku: string | null;
+        revenue: number;
+        cost: number;
+        grossProfit: number;
+        marginPct: number | null;
+        unitsSold: number;
+        unknownCostUnits: number;
+      }>;
+      totals: { revenue: number; cost: number; grossProfit: number; unitsSold: number; unknownCostUnits: number };
+    }>(`/reports/advanced/aging/profitability${suffix}`);
+  }
+
   async updatePurchase(id: string, purchaseData: {
     supplierId?: string;
     invoiceNo?: string;

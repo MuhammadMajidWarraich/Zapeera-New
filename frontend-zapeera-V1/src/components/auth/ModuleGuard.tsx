@@ -356,8 +356,12 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/purchases': 'purchases',
   // Reorder suggestions (Wave C3) live under Purchases.
   '/reorder-suggestions': 'purchases',
+  // Purchase suggestions (Gap Item 4) live under Purchases.
+  '/purchase-suggestions': 'purchases',
   '/reports': 'reports',
   '/advanced-reports': 'reports',
+  // Aging reports (Gap Item 4) live under Reports.
+  '/aging-reports': 'reports',
   '/prescriptions': 'prescriptions',
   // Clinic family (Wave C4): each register is its own module.
   '/patients': 'patients',
@@ -453,8 +457,10 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   '/order-purchase': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Purchase Orders' },
   '/purchases': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Purchase Orders' },
   '/reorder-suggestions': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Reorder Suggestions' },
+  '/purchase-suggestions': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Purchase Suggestions' },
   '/reports': { parentModule: 'reports', subModuleKey: 'reports', label: 'Reports' },
   '/advanced-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Advanced Reports' },
+  '/aging-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Aging Reports' },
   '/prescriptions': { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Prescriptions' },
   '/patients': { parentModule: 'patients', subModuleKey: 'patients', label: 'Patients' },
   '/doctors': { parentModule: 'doctors', subModuleKey: 'doctors', label: 'Doctors' },
@@ -487,8 +493,10 @@ const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   suppliers: { parentModule: 'purchases', subModuleKey: 'suppliers', label: 'Suppliers' },
   'order-purchase': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Purchase Orders' },
   'reorder-suggestions': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Reorder Suggestions' },
+  'purchase-suggestions': { parentModule: 'purchases', subModuleKey: 'order-purchase', label: 'Purchase Suggestions' },
   reports: { parentModule: 'reports', subModuleKey: 'reports', label: 'Reports' },
   'advanced-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Advanced Reports' },
+  'aging-reports': { parentModule: 'reports', subModuleKey: 'advanced-reports', label: 'Aging Reports' },
   prescriptions: { parentModule: 'prescriptions', subModuleKey: 'prescriptions', label: 'Prescriptions' },
   patients: { parentModule: 'patients', subModuleKey: 'patients', label: 'Patients' },
   doctors: { parentModule: 'doctors', subModuleKey: 'doctors', label: 'Doctors' },
