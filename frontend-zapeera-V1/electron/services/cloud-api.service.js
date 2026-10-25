@@ -141,6 +141,15 @@ async function getSyncStatus() {
   return makeRequest('GET', '/api/sync/status');
 }
 
+// v1.0.8 (RC-3): push a profile saved on the desktop (name / email /
+// profileImage) to the cloud. Same PUT /api/auth/update-profile the web
+// app uses, authenticated with the cloud JWT this module already holds
+// (set at provision, restored on boot). Rejects on non-2xx with the
+// cloud's message, so callers can report/queue it.
+async function updateProfile(profile) {
+  return makeRequest('PUT', '/api/auth/update-profile', profile, { timeout: 8000 });
+}
+
 async function refreshAuth() {
   return makeRequest('POST', '/api/auth/refresh');
 }
@@ -164,6 +173,7 @@ module.exports = {
   pullChanges,
   pushOperations,
   getSyncStatus,
+  updateProfile,
   refreshAuth,
   checkConnectivity,
   getBaseUrl

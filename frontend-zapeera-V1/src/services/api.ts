@@ -2042,6 +2042,11 @@ export class ApiService {
       role: string;
       branchId: string;
       updatedAt: string;
+      // v1.0.8 (RC-3): the embedded server reports whether the saved
+      // profile also reached the cloud (false = saved on this device
+      // only; the sync engine retries it on its next tick).
+      cloudSynced?: boolean;
+      cloudSyncError?: string | null;
     }>('/auth/update-profile', {
       method: 'PUT',
       body: JSON.stringify(profileData),

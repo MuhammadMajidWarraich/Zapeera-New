@@ -199,7 +199,8 @@ const ProfileSecurityPage = () => {
         bio: profile.bio.trim() || null,
       });
       if (res.success) {
-        toast({ title: "Profile updated", description: "Your profile has been saved." });
+        // v1.0.8 (RC-3): same cloud-sync note as the photo upload below.
+        toast({ title: "Profile updated", description: res.data && (res.data as any).cloudSynced === false ? "Saved on this device — cloud sync will retry automatically." : "Your profile has been saved." });
         // Resync from the server so the Security Status card (and, via
         // the invalidated cache, the dashboard strip) reflect the SAVED
         // state — not whatever the form happened to contain.
@@ -492,7 +493,11 @@ const ProfileSecurityPage = () => {
           // Show the picture the server just saved (the response carries
           // it), not the stale context snapshot.
           setProfileImage((res.data && res.data.profileImage) || base64String);
-          toast({ title: "Photo updated", description: "Your profile picture has been saved." });
+          // v1.0.8 (RC-3): the picture is saved locally first; if the
+          // cloud push did not confirm, say so — the sync engine retries
+          // it on its next tick. The real server message already reaches
+          // the failure toast below via res.message.
+          toast({ title: "Photo updated", description: res.data && res.data.cloudSynced === false ? "Saved on this device — cloud sync will retry automatically." : "Your profile picture has been saved." });
           setTimeout(() => window.location.reload(), 800);
         } else {
           toast({ title: "Update failed", description: res.message || "Could not update profile picture.", variant: "destructive" });

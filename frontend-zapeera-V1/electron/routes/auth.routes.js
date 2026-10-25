@@ -807,6 +807,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                   phone: u.phone || null,
                   companyId: u.companyId,
                   branchId: u.branchId,
+                  profileImage: u.profileImage || null,
                   isActive: u.isActive
                 },
                 token: restrictedToken,
@@ -978,6 +979,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                 phone: u.phone || null,
                 companyId: u.companyId,
                 branchId: u.branchId,
+                profileImage: u.profileImage || null,
                 isActive: u.isActive
               },
               token,
@@ -1260,7 +1262,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
   // "User not found" for every valid session. Select only real columns.
       app.get('/api/auth/me', authMiddleware, (req, res) => {
         try {
-          const users = query('SELECT id, username, email, name, role, companyId, branchId FROM users WHERE id = ?', [req.user.id]);
+          const users = query('SELECT id, username, email, name, role, companyId, branchId, profileImage FROM users WHERE id = ?', [req.user.id]);
           if (!users.length) return res.status(404).json({ success: false, message: 'User not found' });
           res.json({ success: true, data: users[0] });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
@@ -1472,7 +1474,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
       });
 
   // PUT /api/auth/update-profile (line 1578)
-      app.put('/api/auth/update-profile', authMiddleware, (req, res) => {
+      app.put('/api/auth/update-profile', authMiddleware, async (req, res) => {
         try {
           // QA fix 2026-10-20 (Agent B2, B-5): no `phone` column exists on the
           // desktop users table — writing/selecting it silently broke profile
@@ -1503,11 +1505,68 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             ]);
           saveDatabase();
           const user = query('SELECT id, username, email, name, role, companyId, branchId, profileImage, lastLoginAt FROM users WHERE id = ?', [req.user.id])[0];
-    
+
+          // v1.0.8 (RC-3): a missing local row used to return success:true
+          // with data:undefined — a silent false success (the 404
+          // candidate: the avatar stayed 'S' after reload).
+          if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+          }
+
           // 🔄 TWO-WAY SYNC: Queue for sync to PostgreSQL
-          if (user) handleDataChange('users', 'update', user);
-    
-          res.json({ success: true, data: user, message: 'Profile updated' });
+          handleDataChange('users', 'update', user);
+
+          // v1.0.8 (RC-3): push the saved profile to the CLOUD. The
+          // desktop login/provision flow holds the cloud JWT in
+          // cloud-api.service (set at provision, restored on boot), so
+          // the embedded server — not the renderer, which only holds
+          // the local JWT — makes this call, against the same PUT
+          // /api/auth/update-profile the web app uses. The local save
+          // above has already succeeded: a cloud failure never fails
+          // this response, it is reported in cloudSynced/cloudSyncError
+          // and the payload is parked in settings for the sync engine
+          // to retry on its next tick (sync.service
+          // pushPendingProfileUpdate).
+          let cloudSynced = false;
+          let cloudSyncError = null;
+          const cloudProfile = {};
+          if (name !== undefined && name !== null && String(name).trim() !== '') cloudProfile.name = String(name).trim();
+          if (email !== undefined && email !== null && String(email).trim() !== '') cloudProfile.email = String(email).trim().toLowerCase();
+          if (profileImage !== undefined && profileImage !== null) cloudProfile.profileImage = profileImage;
+          if (Object.keys(cloudProfile).length > 0) {
+            try {
+              const cloudApiService = require('../services/cloud-api.service');
+              if (!cloudApiService.getAuthToken || !cloudApiService.getAuthToken()) {
+                cloudSyncError = 'Cloud not signed in — profile saved on this device only';
+              } else {
+                const cloudResult = await cloudApiService.updateProfile(cloudProfile);
+                if (cloudResult && cloudResult.success !== false) {
+                  cloudSynced = true;
+                } else {
+                  cloudSyncError = (cloudResult && cloudResult.message) || 'Cloud rejected the profile update';
+                }
+              }
+            } catch (cloudErr) {
+              // makeRequest rejects on non-2xx with the cloud message
+              // on err.message and the parsed body on err.body.
+              cloudSyncError = (cloudErr && cloudErr.body && cloudErr.body.message) || (cloudErr && cloudErr.message) || 'Cloud profile sync failed';
+              console.log(`[Auth] Cloud profile push failed: ${cloudSyncError}`);
+            }
+            if (!cloudSynced) {
+              try {
+                const pending = JSON.stringify(cloudProfile);
+                const existingPending = query(`SELECT id FROM settings WHERE key = 'pending_cloud_profile_push'`);
+                if (existingPending && existingPending.length > 0) {
+                  run(`UPDATE settings SET value = ?, updatedAt = ? WHERE key = 'pending_cloud_profile_push'`, [pending, now()]);
+                } else {
+                  run(`INSERT INTO settings (id, key, value, createdAt, updatedAt) VALUES (?, 'pending_cloud_profile_push', ?, ?, ?)`, [uuid(), pending, now(), now()]);
+                }
+                saveDatabase();
+              } catch (pendErr) { /* best-effort: the error is already reported */ }
+            }
+          }
+
+          res.json({ success: true, data: user, message: 'Profile updated', cloudSynced, cloudSyncError });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
@@ -1544,7 +1603,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           }
 
           // Get user from database
-          const userRecord = query('SELECT id, email, name, role, branchId, companyId, isActive FROM users WHERE id = ?', [session.userId]);
+          const userRecord = query('SELECT id, email, name, role, branchId, companyId, isActive, profileImage FROM users WHERE id = ?', [session.userId]);
           if (!userRecord || userRecord.length === 0) {
             return res.status(401).json({
               success: false,
@@ -1578,6 +1637,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                 role: u.role,
                 companyId: u.companyId,
                 branchId: u.branchId,
+                profileImage: u.profileImage || null,
                 isActive: u.isActive
               },
               token,
@@ -1653,8 +1713,8 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             const isActiveVal = cloudUser.isActive === true || cloudUser.isActive === 1 || cloudUser.isActive === 'true' || cloudUser.isActive === '1' ? 1 : 0;
             run(`
               INSERT OR IGNORE INTO users
-              (id, username, email, password, name, role, companyId, branchId, isActive, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, username, email, password, name, role, companyId, branchId, isActive, profileImage, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
               userId,
               cloudUser.username || email,
@@ -1665,11 +1725,17 @@ function registerAuthRoutes(app, authMiddleware, deps) {
               cloudUser.companyId || null,
               cloudUser.branchId || null,
               isActiveVal,
+              cloudUser.profileImage || null,
               timestamp,
               timestamp
             ]);
             saveDatabase();
             console.log('[Provision] Created local user:', userId);
+          } else if (cloudUser.profileImage) {
+            // v1.0.8 (RC-3): adopt the cloud avatar when the local row
+            // has none — never overwrite a local picture (a newer local
+            // upload may still be waiting on its cloud push).
+            try { run(`UPDATE users SET profileImage = ? WHERE id = ? AND (profileImage IS NULL OR profileImage = '')`, [cloudUser.profileImage, userId]); } catch (e) { /* best-effort */ }
           }
 
           // Register device and create session
@@ -1794,6 +1860,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                 role: cloudUser.role || 'USER',
                 companyId: cloudUser.companyId,
                 branchId: cloudUser.branchId,
+                profileImage: cloudUser.profileImage || null,
                 isActive: 1,
                 memberships: memberships || [],
                 businesses: businesses || []
