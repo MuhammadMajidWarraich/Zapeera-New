@@ -503,6 +503,13 @@ async function initDatabase() {
     // QA fix 2026-10-19 (Track C C-03): forced password change flag for the
     // seeded default admin accounts and any account still on a known password
     'ALTER TABLE users ADD COLUMN mustChangePassword INTEGER DEFAULT 0',
+    // Real TOTP 2FA (2026-10-24): mirrors of the cloud zapeera_users columns
+    // for schema parity (the spawned-backend mode uses the Prisma sqlite
+    // schema directly; this legacy embedded layer just keeps the columns
+    // present — local/offline login does not run the cloud TOTP challenge).
+    'ALTER TABLE users ADD COLUMN twoFactorEnabled INTEGER DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN twoFactorSecret TEXT',
+    'ALTER TABLE users ADD COLUMN twoFactorRecoveryCodes TEXT',
     // Sales
     'ALTER TABLE sales ADD COLUMN receiptNumber TEXT',
     // Batches

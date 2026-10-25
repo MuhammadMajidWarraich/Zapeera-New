@@ -35,6 +35,13 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
       const cloud = getCloudApi();
       const result = await cloud.login(credentials);
       if (!result?.success) throw new Error(result?.message || 'Authentication failed');
+      // Two-factor challenge: the password passed but no session exists
+      // yet. Return to the (still-mounted) sign-in form, which renders the
+      // code step from this response — there is no access token to store.
+      if ((result.data as any)?.twoFactorRequired) {
+        setPhase('sign-in');
+        return result;
+      }
       // Store cloud access token on the cloud API instance and persist it
       const accessToken = (result.data as any)?.accessToken;
       if (accessToken) {
@@ -55,6 +62,20 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
       }
       throw e;
     }
+  }, []);
+
+  // Completes a 2FA-challenged cloud login. On success the response is the
+  // standard login payload; persist its cloud access token exactly like
+  // handleCloudLogin does, then LoginForm finishes via handlePostLogin.
+  const handleCloudLogin2fa = useCallback(async (payload: { challengeToken: string; code?: string; recoveryCode?: string }) => {
+    const cloud = getCloudApi();
+    const result = await cloud.login2fa(payload);
+    const accessToken = (result?.data as any)?.accessToken;
+    if (result?.success && accessToken) {
+      cloud.setAccessToken(accessToken);
+      persistCloudToken(accessToken);
+    }
+    return result;
   }, []);
 
   const handlePostLogin = useCallback(async (user: any) => {
@@ -249,7 +270,11 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
     );
   }
 
-  if (phase !== 'sign-in') {
+  // 'authenticating' deliberately keeps the sign-in form mounted (below):
+  // unmounting it mid-request would destroy the form's state — including a
+  // pending 2FA challenge — before its async handler can act on it. The
+  // provisioning progress screen takes over from 'authenticated-remote' on.
+  if (phase !== 'sign-in' && phase !== 'authenticating') {
     const phases = [
       { key: 'authenticating', label: 'Authenticating...' },
       { key: 'authenticated-remote', label: 'Fetching account data...' },
@@ -295,7 +320,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
           </div>
         </div>
       )}
-      <LoginForm onLogin={handlePostLogin} loginHandler={handleCloudLogin} />
+      <LoginForm onLogin={handlePostLogin} loginHandler={handleCloudLogin} login2faHandler={handleCloudLogin2fa} />
     </div>
   );
 }

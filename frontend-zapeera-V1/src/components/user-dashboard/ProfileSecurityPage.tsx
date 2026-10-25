@@ -9,7 +9,11 @@ import {
   CheckCircle2,
   XCircle,
   ShieldAlert,
+  Copy,
+  Download,
+  KeyRound,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
@@ -35,9 +39,28 @@ const ProfileSecurityPage = () => {
     bio: "",
   });
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  // twoFactorConfigured = a TOTP secret exists server-side. The pair
+  // (enabled, configured) distinguishes: truly on (true,true), legacy
+  // flag-only from the old fake toggle (true,false — NOT enforced),
+  // setup started but unconfirmed (false,true), and off (false,false).
+  const [twoFactorConfigured, setTwoFactorConfigured] = useState(false);
+  const [setupStep, setSetupStep] = useState<"idle" | "password" | "confirm" | "codes">("idle");
+  const [setupPassword, setSetupPassword] = useState("");
+  const [setupSecret, setSetupSecret] = useState("");
+  const [setupOtpauthUri, setSetupOtpauthUri] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [setupCode, setSetupCode] = useState("");
+  const [issuedRecoveryCodes, setIssuedRecoveryCodes] = useState<string[]>([]);
+  const [savedCodesAck, setSavedCodesAck] = useState(false);
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [showDisable, setShowDisable] = useState(false);
+  const [disableCode, setDisableCode] = useState("");
+  const [disableRecoveryCode, setDisableRecoveryCode] = useState("");
+  const [disablePassword, setDisablePassword] = useState("");
+  const [regenCode, setRegenCode] = useState("");
+  const [showRegen, setShowRegen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [toggling2FA, setToggling2FA] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   // The avatar must render the freshest known picture: the one returned by
   // GET /auth/profile (seeded in loadProfile) or by the update call itself.
@@ -69,6 +92,7 @@ const ProfileSecurityPage = () => {
         });
         setProfileImage(res.data.profileImage || null);
         setTwoFactorEnabled(Boolean(res.data.twoFactorEnabled));
+        setTwoFactorConfigured(Boolean((res.data as any).twoFactorConfigured));
       } else if (user) {
         setProfile({
           name: user.name || "",
@@ -82,6 +106,7 @@ const ProfileSecurityPage = () => {
           bio: (user as any).bio || "",
         });
         setTwoFactorEnabled(Boolean((user as any).twoFactorEnabled));
+        setTwoFactorConfigured(Boolean((user as any).twoFactorConfigured));
       }
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -98,6 +123,7 @@ const ProfileSecurityPage = () => {
           bio: (user as any).bio || "",
         });
       setTwoFactorEnabled(Boolean((user as any)?.twoFactorEnabled));
+      setTwoFactorConfigured(Boolean((user as any)?.twoFactorConfigured));
     } finally {
       setProfileLoading(false);
     }
@@ -168,25 +194,183 @@ const ProfileSecurityPage = () => {
 
   const hasEmail = Boolean(user?.email);
   const hasPhone = Boolean(profile.phone) || Boolean((user as any)?.phone);
-  const has2fa = twoFactorEnabled || Boolean((user as any)?.twoFactorEnabled) || Boolean((user as any)?.is2FAEnabled);
+  // ── Real two-factor state ──────────────────────────────────────────
+  // Only (enabled && configured) is truly on: the account is challenged
+  // at login. (enabled && !configured) is the legacy fake-toggle state —
+  // the flag is set but no secret exists, so nothing is enforced and the
+  // UI must say "setup not finished" instead of pretending protection.
+  const twoFactorOn = twoFactorEnabled && twoFactorConfigured;
+  const twoFactorFlagOnly = twoFactorEnabled && !twoFactorConfigured;
+  const twoFactorPending = !twoFactorEnabled && twoFactorConfigured;
+  const has2fa = twoFactorOn;
 
-  const handleToggle2FA = async (enabled: boolean) => {
-    setToggling2FA(true);
+  const resetSetupWizard = () => {
+    setSetupStep("idle");
+    setSetupPassword("");
+    setSetupSecret("");
+    setSetupOtpauthUri("");
+    setQrDataUrl("");
+    setSetupCode("");
+    setIssuedRecoveryCodes([]);
+    setSavedCodesAck(false);
+  };
+
+  const handleToggle2FA = (enabled: boolean) => {
+    if (enabled) {
+      // Turning on always runs the enrollment wizard — a bare flip is
+      // exactly the fiction this replaces.
+      setShowDisable(false);
+      setSetupStep(twoFactorPending ? "confirm" : "password");
+    } else {
+      resetSetupWizard();
+      setShowDisable(true);
+    }
+  };
+
+  const submitSetupPassword = async () => {
+    if (!setupPassword) {
+      toast({ title: "Password required", description: "Confirm your password to set up two-factor authentication.", variant: "destructive" });
+      return;
+    }
+    setTwoFactorBusy(true);
     try {
-      const res = await apiService.updateProfile({ twoFactorEnabled: enabled });
-      if (res.success) {
-        setTwoFactorEnabled(enabled);
-        toast({
-          title: enabled ? "2FA enabled" : "2FA disabled",
-          description: enabled ? "Two-factor authentication is now on." : "Two-factor authentication is now off.",
-        });
+      const res = await apiService.setup2fa(setupPassword);
+      if (res.success && res.data) {
+        setSetupSecret(res.data.secret);
+        setSetupOtpauthUri(res.data.otpauthUri);
+        try {
+          setQrDataUrl(await QRCode.toDataURL(res.data.otpauthUri, { width: 208, margin: 1 }));
+        } catch {
+          setQrDataUrl("");
+        }
+        setSetupPassword("");
+        setSetupStep("confirm");
       } else {
-        toast({ title: "Update failed", description: res.message || "Could not update 2FA.", variant: "destructive" });
+        toast({ title: "Setup failed", description: res.message || "Could not start 2FA setup.", variant: "destructive" });
       }
     } catch (e: any) {
-      toast({ title: "Update failed", description: e.message || "Could not update 2FA.", variant: "destructive" });
+      toast({ title: "Setup failed", description: e.message || "Could not start 2FA setup.", variant: "destructive" });
     } finally {
-      setToggling2FA(false);
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const submitEnable2fa = async () => {
+    const code = setupCode.replace(/\s+/g, "");
+    if (!/^\d{6}$/.test(code)) {
+      toast({ title: "Enter the 6-digit code", description: "Open your authenticator app and enter the current code.", variant: "destructive" });
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const res = await apiService.enable2fa(code);
+      if (res.success && res.data?.recoveryCodes) {
+        setIssuedRecoveryCodes(res.data.recoveryCodes);
+        setTwoFactorEnabled(true);
+        setTwoFactorConfigured(true);
+        setSetupCode("");
+        setSetupStep("codes");
+        toast({ title: "2FA enabled", description: "Two-factor authentication is now protecting your account." });
+      } else {
+        toast({ title: "Code not accepted", description: res.message || "That code does not match.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Code not accepted", description: e.message || "That code does not match.", variant: "destructive" });
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const finishCodesStep = async () => {
+    resetSetupWizard();
+    setShowRegen(false);
+    setRegenCode("");
+    await loadProfile();
+  };
+
+  const copyRecoveryCodes = async () => {
+    try {
+      await navigator.clipboard.writeText(issuedRecoveryCodes.join("\n"));
+      toast({ title: "Copied", description: "Recovery codes copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Select the codes and copy them manually.", variant: "destructive" });
+    }
+  };
+
+  const downloadRecoveryCodes = () => {
+    const blob = new Blob(
+      [`Zapeera two-factor recovery codes\nAccount: ${profile.email || profile.username}\nEach code works once. Keep this file somewhere safe.\n\n${issuedRecoveryCodes.join("\n")}\n`],
+      { type: "text/plain" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "zapeera-recovery-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const submitDisable2fa = async () => {
+    const payload: { code?: string; recoveryCode?: string; password?: string } = {};
+    if (twoFactorFlagOnly) {
+      if (!disablePassword) {
+        toast({ title: "Password required", description: "Confirm your password to turn this off.", variant: "destructive" });
+        return;
+      }
+      payload.password = disablePassword;
+    } else if (disableRecoveryCode.trim()) {
+      payload.recoveryCode = disableRecoveryCode.trim();
+    } else if (disableCode.trim()) {
+      payload.code = disableCode.trim();
+    } else {
+      toast({ title: "Code required", description: "Enter a current authenticator code or a recovery code to disable 2FA.", variant: "destructive" });
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const res = await apiService.disable2fa(payload);
+      if (res.success) {
+        setTwoFactorEnabled(false);
+        setTwoFactorConfigured(false);
+        setShowDisable(false);
+        setDisableCode("");
+        setDisableRecoveryCode("");
+        setDisablePassword("");
+        toast({ title: "2FA disabled", description: "Two-factor authentication is now off." });
+        await loadProfile();
+      } else {
+        toast({ title: "Could not disable", description: res.message || "Verification failed.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not disable", description: e.message || "Verification failed.", variant: "destructive" });
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const submitRegenCodes = async () => {
+    const code = regenCode.replace(/\s+/g, "");
+    if (!/^\d{6}$/.test(code)) {
+      toast({ title: "Enter the 6-digit code", description: "A current authenticator code is required to issue new recovery codes.", variant: "destructive" });
+      return;
+    }
+    setTwoFactorBusy(true);
+    try {
+      const res = await apiService.regenerate2faRecoveryCodes(code);
+      if (res.success && res.data?.recoveryCodes) {
+        setIssuedRecoveryCodes(res.data.recoveryCodes);
+        setSavedCodesAck(false);
+        setSetupStep("codes");
+        setShowRegen(false);
+        setRegenCode("");
+        toast({ title: "New recovery codes", description: "Your previous recovery codes no longer work." });
+      } else {
+        toast({ title: "Could not regenerate", description: res.message || "That code does not match.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not regenerate", description: e.message || "That code does not match.", variant: "destructive" });
+    } finally {
+      setTwoFactorBusy(false);
     }
   };
 
@@ -485,7 +669,7 @@ const ProfileSecurityPage = () => {
                 { label: "Secure login", ok: true, desc: "Password-protected account" },
                 { label: "Email verified", ok: hasEmail, desc: hasEmail ? "Your email is on file" : "Add your email" },
                 { label: "Phone number", ok: hasPhone, desc: hasPhone ? "Phone on file" : "Add a phone number" },
-                { label: "Two-factor authentication", ok: has2fa, desc: has2fa ? "2FA is enabled" : "Not enabled yet" },
+                { label: "Two-factor authentication", ok: has2fa, desc: has2fa ? "2FA is enabled" : twoFactorFlagOnly ? "Setup not finished \u2014 not active yet" : twoFactorPending ? "Setup started \u2014 enter a code to finish" : "Not enabled yet" },
                 { label: "Encrypted connection", ok: true, desc: "Data is encrypted in transit" },
               ].map((it) => (
                 <div key={it.label} className="flex items-center gap-3 px-6 py-4">
@@ -512,21 +696,269 @@ const ProfileSecurityPage = () => {
               </div>
               <Switch
                 id="2fa-toggle"
-                checked={has2fa}
-                disabled={toggling2FA}
+                checked={twoFactorOn}
+                disabled={twoFactorBusy || setupStep === "codes"}
                 onCheckedChange={handleToggle2FA}
                 className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]"
               />
             </div>
-            <div className="p-6">
-              <p className="text-[13px] leading-relaxed text-[#8c95b0]">
-                {has2fa
-                  ? "Two-factor authentication is enabled on your account for an extra layer of security."
-                  : "Add an extra layer of security to your account. Turn this on to require a second verification step."}
-              </p>
-              <p className="mt-3 text-xs text-[#8c95b0]">
-                {has2fa ? "You can disable it anytime from this toggle." : "Your account isn't fully protected until 2FA is on."}
-              </p>
+            <div className="space-y-4 p-6">
+              {setupStep === "codes" ? (
+                <div className="space-y-4">
+                  <div className="rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-900">Save your recovery codes now</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-amber-800">
+                      These codes are shown only once. If you lose your authenticator app, one of these
+                      codes is the only way back into your account. Each code works a single time.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {issuedRecoveryCodes.map((code) => (
+                      <div key={code} className="rounded-[10px] bg-[#f0f2f7] px-3 py-2.5 text-center font-mono text-[15px] font-semibold tracking-wider text-[#0a1128]">
+                        {code}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={copyRecoveryCodes} className="h-10 flex-1 rounded-[10px] font-semibold">
+                      <Copy className="mr-2 h-4 w-4" /> Copy
+                    </Button>
+                    <Button variant="outline" onClick={downloadRecoveryCodes} className="h-10 flex-1 rounded-[10px] font-semibold">
+                      <Download className="mr-2 h-4 w-4" /> Download
+                    </Button>
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm text-[#4a5578]">
+                    <input
+                      type="checkbox"
+                      checked={savedCodesAck}
+                      onChange={(e) => setSavedCodesAck(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-black/20 accent-[#1a52c5]"
+                    />
+                    I have saved these codes somewhere safe.
+                  </label>
+                  <Button
+                    onClick={finishCodesStep}
+                    disabled={!savedCodesAck}
+                    className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95"
+                  >
+                    Done
+                  </Button>
+                </div>
+              ) : setupStep === "password" ? (
+                <div className="space-y-4">
+                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                    First, confirm it is really you. Enter your account password to start setup.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="pp-2fa-password" className="text-sm font-semibold text-[#0a1128]">Account password</Label>
+                    <Input
+                      id="pp-2fa-password"
+                      type="password"
+                      value={setupPassword}
+                      onChange={(e) => setSetupPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={submitSetupPassword} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                      {twoFactorBusy ? "Checking\u2026" : "Continue"}
+                    </Button>
+                    <Button variant="outline" onClick={resetSetupWizard} disabled={twoFactorBusy} className="h-11 rounded-[10px] font-semibold">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : setupStep === "confirm" ? (
+                <div className="space-y-4">
+                  {setupSecret ? (
+                    <>
+                      <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                        Scan this QR code with your authenticator app (Google Authenticator, Authy,
+                        Microsoft Authenticator, or your password manager), then enter the 6-digit code
+                        it shows to finish.
+                      </p>
+                      {qrDataUrl ? (
+                        <div className="flex justify-center">
+                          <img src={qrDataUrl} alt="Two-factor setup QR code" className="h-52 w-52 rounded-[10px] border border-black/10" />
+                        </div>
+                      ) : null}
+                      <div className="rounded-[10px] bg-[#f0f2f7] p-3 text-center">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8c95b0]">Or enter this key manually</p>
+                        <p className="mt-1 break-all font-mono text-sm font-semibold tracking-wider text-[#0a1128]">{setupSecret}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                      Setup was started earlier. Enter the current 6-digit code from the authenticator
+                      entry you added then \u2014 or start over if you no longer have it.
+                    </p>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="pp-2fa-code" className="text-sm font-semibold text-[#0a1128]">Authenticator code</Label>
+                    <Input
+                      id="pp-2fa-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={setupCode}
+                      onChange={(e) => setSetupCode(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="------"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-center text-xl font-semibold tracking-[0.4em] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={submitEnable2fa} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                      {twoFactorBusy ? "Verifying\u2026" : "Enable 2FA"}
+                    </Button>
+                    <Button variant="outline" onClick={resetSetupWizard} disabled={twoFactorBusy} className="h-11 rounded-[10px] font-semibold">
+                      Cancel
+                    </Button>
+                  </div>
+                  {!setupSecret && (
+                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#1a52c5] hover:underline">
+                      Start over with a new code instead
+                    </button>
+                  )}
+                </div>
+              ) : twoFactorOn ? (
+                <div className="space-y-4">
+                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                    Two-factor authentication is enabled. Signing in now requires your password plus a
+                    code from your authenticator app (or a recovery code).
+                  </p>
+                  {showRegen ? (
+                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#f8f9fc] p-4">
+                      <p className="text-[13px] text-[#4a5578]">
+                        Issuing new recovery codes invalidates all previous ones. Enter a current
+                        authenticator code to continue.
+                      </p>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={regenCode}
+                        onChange={(e) => setRegenCode(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="6-digit code"
+                        className="h-11 rounded-[10px] bg-white text-center text-lg font-semibold tracking-[0.3em]"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={submitRegenCodes} disabled={twoFactorBusy} className="h-10 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                          Issue new codes
+                        </Button>
+                        <Button variant="outline" onClick={() => { setShowRegen(false); setRegenCode(""); }} disabled={twoFactorBusy} className="h-10 rounded-[10px] font-semibold">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : showDisable ? (
+                    <div className="space-y-3 rounded-[10px] border border-red-100 bg-red-50/60 p-4">
+                      <p className="text-[13px] font-medium text-red-900">
+                        To disable 2FA, prove it is you with a current authenticator code or a recovery code.
+                      </p>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={disableCode}
+                        onChange={(e) => setDisableCode(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="Authenticator code"
+                        className="h-11 rounded-[10px] bg-white text-center text-lg font-semibold tracking-[0.3em]"
+                      />
+                      <Input
+                        value={disableRecoveryCode}
+                        onChange={(e) => setDisableRecoveryCode(e.target.value)}
+                        placeholder="Or a recovery code (XXXX-XXXX)"
+                        className="h-11 rounded-[10px] bg-white text-center font-mono text-[15px] uppercase"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={submitDisable2fa} disabled={twoFactorBusy} className="h-10 flex-1 rounded-[10px] bg-red-600 font-semibold text-white hover:bg-red-700">
+                          Disable 2FA
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowDisable(false)} disabled={twoFactorBusy} className="h-10 rounded-[10px] bg-white font-semibold">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <Button variant="outline" onClick={() => setShowRegen(true)} className="h-10 w-full rounded-[10px] font-semibold">
+                        <KeyRound className="mr-2 h-4 w-4 text-[#1a52c5]" />
+                        Regenerate recovery codes
+                      </Button>
+                      <p className="text-xs leading-relaxed text-[#8c95b0]">
+                        To turn 2FA off, use the switch above \u2014 you will be asked for a code first.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : twoFactorFlagOnly ? (
+                <div className="space-y-4">
+                  <div className="rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-900">Setup not finished</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-amber-800">
+                      Two-factor authentication was switched on here before, but enrollment was never
+                      completed \u2014 so it is <strong>not protecting your account yet</strong> and sign-in
+                      does not ask for a code. Finish setup to make it real.
+                    </p>
+                  </div>
+                  {showDisable ? (
+                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#f8f9fc] p-4">
+                      <p className="text-[13px] text-[#4a5578]">
+                        Confirm your account password to clear this unfinished state.
+                      </p>
+                      <Input
+                        type="password"
+                        value={disablePassword}
+                        onChange={(e) => setDisablePassword(e.target.value)}
+                        placeholder="Account password"
+                        className="h-11 rounded-[10px] bg-white"
+                      />
+                      <div className="flex gap-2">
+                        <Button onClick={submitDisable2fa} disabled={twoFactorBusy} className="h-10 flex-1 rounded-[10px] bg-red-600 font-semibold text-white hover:bg-red-700">
+                          Turn off
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowDisable(false)} disabled={twoFactorBusy} className="h-10 rounded-[10px] font-semibold">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button onClick={() => setSetupStep("password")} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                        Finish setup
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowDisable(true)} className="h-11 rounded-[10px] font-semibold">
+                        Turn off
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {twoFactorPending && (
+                    <div className="rounded-[10px] border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900">Setup started but not confirmed</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-amber-800">
+                        A setup key was issued for your account but never confirmed with a code, so 2FA
+                        is not active yet.
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                    Add an extra layer of security: after your password, signing in will also ask for a
+                    one-time code from an authenticator app on your phone.
+                  </p>
+                  <Button onClick={() => setSetupStep(twoFactorPending ? "confirm" : "password")} className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                    {twoFactorPending ? "Enter a code to finish setup" : "Set up two-factor authentication"}
+                  </Button>
+                  {twoFactorPending && (
+                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#1a52c5] hover:underline">
+                      Start over with a new key
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
