@@ -67,8 +67,12 @@ const connectSchema = Joi.object({
     // One store maps to one branch: the id of the ONE branch the
     // store maps to (WooCommerce refuses to sync when unset with
     // several active branches; Shopify resolves the first active
-    // branch when absent).
-    branchId: Joi.string().allow(null, '').optional()
+    // branch when absent; Daraz resolves the single active branch
+    // and fails loudly on multi-branch businesses).
+    branchId: Joi.string().allow(null, '').optional(),
+    // Daraz: the Daraz category id used when creating listings
+    // (optional; see IntegrationSyncConfig).
+    darazCategoryId: Joi.string().optional()
   }).optional()
 });
 
@@ -76,7 +80,9 @@ const syncSchema = Joi.object({
   entity: Joi.string()
     .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
     .optional(),
-  direction: Joi.string().valid('in', 'out').optional()
+  direction: Joi.string().valid('in', 'out').optional(),
+  // Required when entity is 'shipment': sale id or invoice number.
+  saleRef: Joi.string().optional()
 });
 
 export const listIntegrationsHandler = async (req: AuthRequest, res: Response) => {

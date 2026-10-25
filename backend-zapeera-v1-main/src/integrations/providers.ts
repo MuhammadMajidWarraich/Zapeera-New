@@ -12,5 +12,6 @@
 // provider card renders "Coming soon" until its builder lands.
 import './woocommerce';
 import './shopify';
+import './daraz';
 
 export {};

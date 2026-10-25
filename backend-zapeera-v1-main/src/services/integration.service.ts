@@ -21,6 +21,7 @@ import {
 } from '../integrations/registry';
 import { IntegrationError } from '../integrations/vendor-client';
 import type {
+  CreateShipmentInput,
   IntegrationConnectionStatus,
   IntegrationConnectionView,
   IntegrationProviderId,
@@ -42,14 +43,21 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
   // WooCommerce branch binding (feature/integration-woocommerce): kept
   // only when it is a non-empty string; anything else drops to unset
   // (the handler then auto-picks a sole branch or fails loudly).
+  // Optional provider extras pass through verbatim (undefined = unset).
+  // Unknown keys are still dropped — only the typed extras survive.
   const branchId = typeof raw.branchId === 'string' && raw.branchId.trim() !== '' ? raw.branchId.trim() : undefined;
+  const darazCategoryId =
+    typeof raw.darazCategoryId === 'string' && raw.darazCategoryId.trim()
+      ? raw.darazCategoryId.trim()
+      : undefined;
   const normalized: IntegrationSyncConfig = {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
     syncOrders: bool(raw.syncOrders),
     syncCustomers: bool(raw.syncCustomers),
     direction,
-    ...(branchId ? { branchId } : {})
+    ...(branchId ? { branchId } : {}),
+    ...(darazCategoryId ? { darazCategoryId } : {})
   };
   // Branch mapping (feature/integration-shopify): carried through only
   // when set, so stored configs without a branch keep their exact shape.
@@ -295,18 +303,77 @@ export async function getConnectionStatus(
 export interface TriggerSyncOptions {
   entity?: IntegrationSyncEntity;
   direction?: IntegrationSyncDirection;
+  /** Sale id for entity 'shipment' (or use saleRef). */
+  saleId?: string;
+  /** Sale id OR invoice number for entity 'shipment'. */
+  saleRef?: string;
+}
+
+/**
+ * Build the vendor-neutral shipment input from a Zapeera sale. Recipient
+ * from the sale's customer (walk-in sale → placeholder name, no phone /
+ * address); COD = unpaid balance (total − paid, never negative); parcel
+ * from the sale lines. A missing/unknown sale fails with
+ * NOT_IMPLEMENTED before any log row is created — exactly like an
+ * unimplemented entity. (PostEx's "already-booked" check lives in its
+ * own handler via Sale.postexTrackingNumber; Daraz checks the live
+ * Daraz order status instead — see the Daraz handler.)
+ */
+export async function buildCreateShipmentInput(
+  prisma: any,
+  businessId: string,
+  saleRef: string
+): Promise<CreateShipmentInput> {
+  const sale =
+    (await prisma.sale.findUnique({ where: { id: saleRef } })) ??
+    (await prisma.sale.findFirst({ where: { invoiceNumber: saleRef, companyId: businessId } }));
+  if (!sale || sale.companyId !== businessId) {
+    throw new IntegrationError(
+      'NOT_IMPLEMENTED',
+      `No sale "${saleRef}" exists in this business — pass a sale id or invoice number for a shipment.`
+    );
+  }
+  const [customer, items] = await Promise.all([
+    sale.customerId
+      ? prisma.customer.findUnique({ where: { id: sale.customerId } })
+      : Promise.resolve(null),
+    prisma.saleItem.findMany({ where: { saleId: sale.id } })
+  ]);
+  const productIds = [...new Set(items.map((i: any) => i.productId))];
+  const products =
+    productIds.length > 0
+      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } })
+      : [];
+  const nameById = new Map<string, string>(products.map((p: any) => [p.id, p.name]));
+  return {
+    saleId: sale.id,
+    saleInvoiceNumber: sale.invoiceNumber ?? null,
+    channel: sale.channel ?? null,
+    externalOrderId: sale.externalOrderId ?? null,
+    recipient: {
+      name: customer?.name ?? 'Walk-in Customer',
+      phone: customer?.phone ?? null,
+      address: customer?.address ?? null
+    },
+    codAmount: Math.max(0, Math.round((Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0)) * 100) / 100),
+    items: items.map((i: any) => ({
+      productId: i.productId,
+      quantity: Number(i.quantity) || 0,
+      name: nameById.get(i.productId) ?? null
+    }))
+  };
 }
 
 const ENTITY_TO_METHOD: Record<
   IntegrationSyncEntity,
-  'syncProducts' | 'syncStock' | 'importOrders' | null
+  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | null
 > = {
   product: 'syncProducts',
   stock: 'syncStock',
   order: 'importOrders',
   customer: null, // No handler method in the v1 interface — a builder adds it.
   payment: null,
-  shipment: null
+  shipment: 'createShipment' // Generic fulfilment step (PostEx shape): triggerSync builds CreateShipmentInput from opts.saleId/saleRef.
 };
 
 /**
@@ -345,6 +412,21 @@ export async function triggerSync(
     opts.direction ?? (entity === 'order' ? 'in' : 'out');
   const credentials = decryptIntegrationCredentials(row.encryptedCredentials);
 
+  // Shipment is per-sale: resolve the sale and build the vendor-neutral
+  // input BEFORE the log row is created, so a missing/unknown sale
+  // fails with no log row (exactly like an unimplemented entity).
+  let shipmentInput: CreateShipmentInput | undefined;
+  if (entity === 'shipment') {
+    const saleRef = opts.saleId ?? opts.saleRef;
+    if (!saleRef) {
+      throw new IntegrationError(
+        'NOT_IMPLEMENTED',
+        'A shipment needs a sale — pass saleId or saleRef (sale id or invoice number).'
+      );
+    }
+    shipmentInput = await buildCreateShipmentInput(prisma, businessId, saleRef);
+  }
+
   const startedAt = new Date();
   const log = await prisma.integrationSyncLog.create({
     data: {
@@ -361,13 +443,18 @@ export async function triggerSync(
   });
 
   try {
-    const result: IntegrationSyncResult = await (handler as any)[method]({
-      prisma,
-      businessId,
-      credentials,
-      config,
-      logId: log.id
-    });
+    const result: IntegrationSyncResult = await (handler as any)[method](
+      {
+        prisma,
+        businessId,
+        credentials,
+        config,
+        logId: log.id
+      },
+      // Only createShipment takes a second argument; the other methods
+      // receive `undefined` here and ignore it.
+      shipmentInput
+    );
     const finishedAt = new Date();
     const status = result.recordsFailed > 0 ? 'partial' : 'success';
     const updatedLog = await prisma.integrationSyncLog.update({
