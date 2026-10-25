@@ -13,6 +13,7 @@
 import './woocommerce';
 import './shopify';
 import './daraz';
+import './jazzcash';
+import './postex';
 
 export {};
-import './jazzcash';

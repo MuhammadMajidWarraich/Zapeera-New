@@ -182,6 +182,87 @@ export interface IntegrationSyncResult {
   message?: string;
 }
 
+// ─── Generic shipments (added by feature/integration-postex, contract §10) ──
+// The v1 handler interface had no shipment method, but logistics providers
+// (PostEx first; Daraz pack/ready-to-ship and future couriers next) need
+// one. These types are deliberately vendor-neutral: the service builds a
+// CreateShipmentInput from a Zapeera sale (recipient from the customer,
+// COD from the unpaid balance, parcel from the sale lines) and the
+// provider handler maps it to the vendor's own payload. No vendor field
+// names leak into this file — see the provider module for those.
+
+/** Who the parcel goes to (from the sale's customer). */
+export interface ShipmentRecipient {
+  name: string;
+  /** Walk-in sale → null (the builder uses a placeholder name, no phone/address). */
+  phone: string | null;
+  address: string | null;
+  /** City, when known (Customer has no city field — usually part of address). */
+  city?: string | null;
+}
+
+/** What is being shipped (from the sale lines). */
+export interface ShipmentParcel {
+  /** Number of pieces/parcels. */
+  pieces?: number;
+  /** Total weight in kg, when known (Zapeera products carry no weight). */
+  weightKg?: number;
+  /** Short contents description for the label (product names). */
+  description?: string;
+}
+
+/** Vendor-neutral shipment-booking input, built by integration.service.ts
+ * (buildCreateShipmentInput — ONE builder for all couriers). Daraz's pack
+ * step reads channel / externalOrderId / saleInvoiceNumber; PostEx's
+ * booking reads orderRef / recipient / paymentMethod / parcel / sender. */
+export interface CreateShipmentInput {
+  /** Zapeera sale id the shipment is for. */
+  saleId: string;
+  /** Sale invoice number (human reference). */
+  saleInvoiceNumber?: string | null;
+  /** Channel the sale came from ('daraz', ...) + the channel's order id. */
+  channel?: string | null;
+  externalOrderId?: string | null;
+  /** Merchant-facing order reference (sale invoice number). */
+  orderRef: string;
+  /** Who the parcel goes to (from the sale's customer; walk-in sale → placeholder name, no phone/address). */
+  recipient: ShipmentRecipient;
+  /** 'COD' when an unpaid balance is collected on delivery, else 'PREPAID'. */
+  paymentMethod: 'COD' | 'PREPAID';
+  /** Cash to collect on delivery (0 for prepaid). */
+  codAmount: number;
+  /** Parcel pieces/description (from the sale lines). */
+  parcel?: ShipmentParcel;
+  /** Sender/warehouse details (from the Business row), when available. */
+  sender?: { name?: string; phone?: string; address?: string };
+  /** Parcel lines, in base units. */
+  items?: Array<{ productId: string; quantity: number; name?: string | null }>;
+}
+
+/** What a booked shipment looks like, whatever the courier. */
+export interface ShipmentResult {
+  trackingNumber: string;
+  shipmentId?: string;
+  /** AWB label URL when the vendor returns one (null = fetch it via getTracking/label). */
+  labelUrl?: string | null;
+  /** Vendor status string, normalised to upper-snake where possible. */
+  status: string;
+  codAmount: number;
+}
+
+export interface TrackingEvent {
+  status: string;
+  location?: string;
+  timestamp?: string;
+  description?: string;
+}
+
+export interface TrackingResult {
+  trackingNumber: string;
+  status: string;
+  events: TrackingEvent[];
+}
+
 /**
  * THE sync-handler interface. Every provider module implements this and
  * registers exactly one instance via registerIntegrationHandler().
@@ -216,22 +297,6 @@ export interface IntegrationSyncResult {
  *   'JAZZCASH'/'EASYPAYSA', reference = vendor transaction id) — a
  *   handler must never build a parallel ledger.
  */
-export interface CreateShipmentInput {
-  /** Zapeera sale id the shipment is for. */
-  saleId: string;
-  /** Sale invoice number (human reference). */
-  saleInvoiceNumber?: string | null;
-  /** Channel the sale came from ('daraz', ...) + the channel's order id. */
-  channel?: string | null;
-  externalOrderId?: string | null;
-  /** Recipient, from the sale's customer (walk-in when nulls). */
-  recipient: { name: string; phone: string | null; address: string | null };
-  /** Cash to collect on delivery = sale total − paid (0 when prepaid). */
-  codAmount: number;
-  /** Parcel lines, in base units. */
-  items: Array<{ productId: string; quantity: number; name?: string | null }>;
-}
-
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
   connect(credentials: Record<string, unknown>): Promise<{ ok: boolean; message?: string }>;
@@ -244,6 +309,9 @@ export interface IntegrationSyncHandler {
   processPayment?(ctx: IntegrationSyncContext, request: IntegrationPaymentRequest): Promise<IntegrationPaymentResult>;
   refundPayment?(ctx: IntegrationSyncContext, request: IntegrationRefundRequest): Promise<IntegrationRefundResult>;
   inquirePayment?(ctx: IntegrationSyncContext, txnRefNo: string): Promise<IntegrationPaymentInquiryResult>;
+getTracking?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<TrackingResult>;
+  cancelShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<IntegrationSyncResult>;
+  createReturnShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<ShipmentResult>;
 }
 
 // ─── Payment rails (generic — added for JazzCash; Easypaisa reuses this

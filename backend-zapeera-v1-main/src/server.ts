@@ -83,6 +83,7 @@ import fbrRoutes from './routes/fbr.routes';
 import integrationsRoutes from './routes/integrations.routes';
 import shopifyIntegrationRoutes from './integrations/shopify/routes';
 import jazzcashIpnRoutes from './routes/jazzcash-ipn.routes';
+import postexWebhookRoutes from './routes/postex-webhook.routes';
 // Integrations framework: importing the provider barrel registers every
 // landed provider handler (side effect). The barrel is empty until the
 // six provider builders add their lines.
@@ -660,6 +661,10 @@ app.use('/api/v1/tax-classes', taxClassRoutes);
 app.use('/api/v1/provincial-tax', provincialTaxRoutes);
 app.use('/api/v1/fbr', fbrRoutes);
 app.use('/api/v1/integrations', jazzcashIpnRoutes);
+// PostEx webhook BEFORE the integrations router: the webhook is public
+// (PostEx calls it, no user session) and the integrations router's
+// authenticate gate would 401 it first if mounted earlier.
+app.use('/api/v1/integrations/postex/webhook', postexWebhookRoutes);
 app.use('/api/v1/integrations', integrationsRoutes);
 app.use('/api/v1/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/v1/prescriptions', prescriptionRoutes);
@@ -734,6 +739,8 @@ app.use('/api/tax-classes', taxClassRoutes);
 app.use('/api/provincial-tax', provincialTaxRoutes);
 app.use('/api/fbr', fbrRoutes);
 app.use('/api/integrations', jazzcashIpnRoutes);
+// PostEx webhook BEFORE the integrations router (see the /api/v1 note above).
+app.use('/api/integrations/postex/webhook', postexWebhookRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/integrations/shopify', shopifyIntegrationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);

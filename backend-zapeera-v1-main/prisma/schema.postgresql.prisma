@@ -1120,6 +1120,12 @@ model Sale {
   // overwrite these sale-level fields.
   fbrInvoiceNumber      String?
   fbrStatus             String?
+  // PostEx (integration-postex): the courier tracking number and carrier
+  // status mirrored from the PostEx shipment booked for this sale — same
+  // pattern as fbrInvoiceNumber/fbrStatus above. Both null when no
+  // PostEx shipment was ever booked for the sale.
+  postexTrackingNumber  String?
+  postexShipmentStatus  String?
   // Prescriptions (Wave C1): the register record this sale
   // dispensed against, when one was attached at the POS. Null for
   // ordinary sales and for pre-C1 history.

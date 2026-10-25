@@ -34,7 +34,7 @@ import {
   Truck,
   Unplug,
 } from "lucide-react";
-import { apiService, getApiBaseUrl, type IntegrationCategory, type IntegrationProviderInfo, type IntegrationSyncConfig, type IntegrationSyncLogRecord } from "@/services/api";
+import { apiService, getApiBaseUrl, type IntegrationCategory, type IntegrationProviderInfo, type IntegrationSyncConfig, type IntegrationSyncLogRecord, type IntegrationTrackingResult } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +101,173 @@ function StatusPill({ status, connectable }: { status: IntegrationProviderInfo["
     <span className="rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-bold text-[#4a5578]">
       Not connected
     </span>
+  );
+}
+
+// ─── PostEx shipments (feature/integration-postex) ───────────────────────
+// Book / track / cancel / return, rendered on the PostEx card only, once
+// connected. Booking takes a sale's invoice number (or sale id): the
+// server builds the shipment from that sale — recipient from the customer,
+// COD from the unpaid balance, parcel from the sale lines — and stores the
+// tracking number on the sale. PostEx publishes no public API docs, so the
+// honest limitation below is shown on the card itself.
+function PostExShipmentPanel({ canManage }: { canManage: boolean }) {
+  const [saleRef, setSaleRef] = useState("");
+  const [trackingInput, setTrackingInput] = useState("");
+  const [tracking, setTracking] = useState<IntegrationTrackingResult | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const showError = (title: string, e: any, fallback: string) => {
+    toast({ title, description: e?.message || fallback, variant: "destructive" });
+  };
+
+  const handleBook = async () => {
+    if (!saleRef.trim()) {
+      toast({ title: "Sale reference needed", description: "Enter the sale's invoice number (or sale id).", variant: "destructive" });
+      return;
+    }
+    setBusy("book");
+    try {
+      const res = await apiService.triggerIntegrationSync("postex", { entity: "shipment", saleRef: saleRef.trim() });
+      if (res.success && res.data) {
+        toast({ title: "PostEx shipment booked", description: res.data.result.message || `${res.data.result.recordsProcessed} shipment booked.` });
+        const match = /tracking (\S+)/i.exec(res.data.result.message ?? "");
+        if (match) setTrackingInput(match[1].replace(/[),.]+$/, ""));
+        setSaleRef("");
+      } else {
+        toast({ title: "Could not book the shipment", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      showError("Could not book the shipment", e, "Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleTrack = async () => {
+    if (!trackingInput.trim()) {
+      toast({ title: "Tracking number needed", description: "Enter the PostEx tracking (CN) number.", variant: "destructive" });
+      return;
+    }
+    setBusy("track");
+    try {
+      const res = await apiService.getShipmentTracking("postex", trackingInput.trim());
+      if (res.success && res.data) {
+        setTracking(res.data);
+      } else {
+        toast({ title: "Could not fetch tracking", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      showError("Could not fetch tracking", e, "Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!tracking?.trackingNumber) return;
+    setBusy("cancel");
+    try {
+      const res = await apiService.cancelShipment("postex", tracking.trackingNumber);
+      if (res.success && res.data) {
+        toast({ title: "Shipment cancelled", description: res.data.message || `Shipment ${tracking.trackingNumber} cancelled.` });
+        setTracking({ ...tracking, status: "CANCELLED" });
+      } else {
+        toast({ title: "Could not cancel the shipment", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      showError("Could not cancel the shipment", e, "Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleReturn = async () => {
+    if (!tracking?.trackingNumber) return;
+    setBusy("return");
+    try {
+      const res = await apiService.returnShipment("postex", tracking.trackingNumber);
+      if (res.success && res.data) {
+        toast({ title: "Return shipment booked", description: `Return tracking ${res.data.trackingNumber} (${res.data.status}).` });
+      } else {
+        toast({ title: "Could not book the return", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      showError("Could not book the return", e, "Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
+      <div className="text-[13px] font-bold text-[#0a1128]">Shipments</div>
+      <div className="mt-3 flex flex-col gap-2">
+        <Label htmlFor="postex-sale-ref" className="text-xs font-bold text-[#0a1128]">
+          Book a shipment from a sale
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            id="postex-sale-ref"
+            value={saleRef}
+            onChange={(e) => setSaleRef(e.target.value)}
+            placeholder="Invoice number, e.g. INV-1001"
+            disabled={!canManage || busy !== null}
+            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+          />
+          <Button type="button" size="sm" onClick={handleBook} disabled={!canManage || busy !== null} className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white">
+            <Truck className="h-3.5 w-3.5" /> {busy === "book" ? "Booking…" : "Book shipment"}
+          </Button>
+        </div>
+        <p className="text-[11px] leading-relaxed text-[#8c95b0]">
+          Recipient comes from the sale&apos;s customer, COD from the unpaid balance (fully-paid sales book as prepaid, COD 0). The tracking number is stored on the sale.
+        </p>
+        <Label htmlFor="postex-tracking" className="mt-1 text-xs font-bold text-[#0a1128]">
+          Track a shipment
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            id="postex-tracking"
+            value={trackingInput}
+            onChange={(e) => setTrackingInput(e.target.value)}
+            placeholder="Tracking (CN) number"
+            disabled={!canManage || busy !== null}
+            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+          />
+          <Button type="button" size="sm" variant="outline" onClick={handleTrack} disabled={!canManage || busy !== null} className="rounded-lg text-xs font-semibold">
+            {busy === "track" ? "Checking…" : "Track"}
+          </Button>
+        </div>
+        {tracking && (
+          <div className="rounded-[10px] bg-[#f0f2f7] px-3 py-2 text-[12px] leading-relaxed text-[#4a5578]">
+            <span className="font-bold text-[#0a1128]">{tracking.trackingNumber}</span> · {tracking.status}
+            {tracking.events.length > 0 && (
+              <ul className="mt-1 flex flex-col gap-1">
+                {tracking.events.map((event, i) => (
+                  <li key={i}>
+                    {event.status}
+                    {event.location ? ` · ${event.location}` : ""}
+                    {event.timestamp ? ` · ${formatDateTime(event.timestamp)}` : ""}
+                    {event.description ? ` — ${event.description}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={handleCancel} disabled={!canManage || busy !== null} className="rounded-lg text-xs font-semibold">
+                {busy === "cancel" ? "Cancelling…" : "Cancel shipment"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleReturn} disabled={!canManage || busy !== null} className="rounded-lg text-xs font-semibold">
+                {busy === "return" ? "Booking return…" : "Book return"}
+              </Button>
+            </div>
+          </div>
+        )}
+        <p className="text-[11px] leading-relaxed text-[#8c95b0]">
+          PostEx publishes no public API docs — the API address comes from your PostEx merchant account. Webhook updates arrive without a signature (PostEx publishes none), so confirm a status with Track before acting on it.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -192,6 +359,11 @@ function IntegrationProviderCard({
                     Payments happen at checkout, not by sync — take JazzCash payments from a sale and they
                     land on that sale&apos;s record.
                   </p>
+                ) : provider.id === "postex" ? (
+                  /* PostEx has no product/stock sync — shipments are booked from
+                     the Shipments panel below, so the generic Sync now button
+                     would only 501. */
+                  null
                 ) : (
                   <Button
                     type="button"
@@ -279,6 +451,8 @@ function IntegrationProviderCard({
           </a>
         )}
       </div>
+
+      {provider.id === "postex" && connected && <PostExShipmentPanel canManage={canManage} />}
 
       {logsOpen && (
         <div className="mt-4 rounded-[10px] bg-[#f0f2f7] px-4 py-3">

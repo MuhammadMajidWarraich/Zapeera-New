@@ -76,6 +76,11 @@ describe('route inventory coverage (Issue 5 — fail closed for unmapped endpoin
     expect(classifyRoute('/api/users')).toBe('auth-only');
     expect(classifyRoute('/api')).toBe('bootstrap');
     expect(classifyRoute('/api/v1')).toBe('bootstrap');
+    // PostEx webhook (feature/integration-postex): public — PostEx calls it
+    // with no user session; the broader /api/integrations module policy
+    // must not swallow it (longest prefix wins in both classifiers).
+    expect(classifyRoute('/api/integrations/postex/webhook')).toBe('bootstrap');
+    expect(classifyRoute('/api/v1/integrations/postex/webhook')).toBe('bootstrap');
   });
 
   it('classifies business-scoped routes as business', () => {
@@ -111,6 +116,11 @@ describe('canonical route policy registry (Phase 4 — complete classification)'
     expect(resolveRoutePolicy('/api/health')?.kind).toBe('public');
     expect(resolveRoutePolicy('/api/sse')?.kind).toBe('public');
     expect(resolveRoutePolicy('/api/business-types')?.kind).toBe('public');
+    // PostEx webhook (feature/integration-postex): public in the registry —
+    // this is the gate the universal middleware actually consults, so the
+    // module policy on /api/integrations must not swallow it.
+    expect(resolveRoutePolicy('/api/integrations/postex/webhook')?.kind).toBe('public');
+    expect(resolveRoutePolicy('/api/v1/integrations/postex/webhook')?.kind).toBe('public');
   });
 
   it('classifies account-level endpoints as auth or auth-core', () => {

@@ -34,7 +34,8 @@ import type {
   IntegrationSyncConfig,
   IntegrationSyncDirection,
   IntegrationSyncEntity,
-  IntegrationSyncResult
+  IntegrationSyncResult,
+  TrackingResult
 } from '../integrations/types';
 import { DEFAULT_SYNC_CONFIG } from '../integrations/types';
 
@@ -317,14 +318,17 @@ export interface TriggerSyncOptions {
 }
 
 /**
- * Build the vendor-neutral shipment input from a Zapeera sale. Recipient
- * from the sale's customer (walk-in sale → placeholder name, no phone /
- * address); COD = unpaid balance (total − paid, never negative); parcel
- * from the sale lines. A missing/unknown sale fails with
- * NOT_IMPLEMENTED before any log row is created — exactly like an
- * unimplemented entity. (PostEx's "already-booked" check lives in its
- * own handler via Sale.postexTrackingNumber; Daraz checks the live
- * Daraz order status instead — see the Daraz handler.)
+ * Build the vendor-neutral shipment input from a Zapeera sale — the ONE
+ * builder for all couriers (Daraz pack reads channel / externalOrderId /
+ * saleInvoiceNumber; PostEx booking reads orderRef / recipient /
+ * paymentMethod / parcel / sender). Recipient from the sale's customer
+ * (walk-in sale → placeholder name, no phone / address); COD = unpaid
+ * balance (total − paid − returned, never negative); parcel from the
+ * sale lines. A missing/unknown sale fails with NOT_IMPLEMENTED before
+ * any log row is created — exactly like an unimplemented entity. A sale
+ * that already has a PostEx tracking number is refused here (never book
+ * the same sale twice — the PostEx handler itself does not re-check).
+ * Daraz checks the live Daraz order status instead — see the Daraz handler.
  */
 export async function buildCreateShipmentInput(
   prisma: any,
@@ -340,11 +344,18 @@ export async function buildCreateShipmentInput(
       `No sale "${saleRef}" exists in this business — pass a sale id or invoice number for a shipment.`
     );
   }
-  const [customer, items] = await Promise.all([
+  if (sale.postexTrackingNumber) {
+    throw new IntegrationError(
+      'SYNC_FAILED',
+      `Sale ${sale.invoiceNumber ?? sale.id} already has a PostEx shipment (tracking ${sale.postexTrackingNumber}). Cancel it first if you need to re-book.`
+    );
+  }
+  const [customer, items, business] = await Promise.all([
     sale.customerId
       ? prisma.customer.findUnique({ where: { id: sale.customerId } })
       : Promise.resolve(null),
-    prisma.saleItem.findMany({ where: { saleId: sale.id } })
+    prisma.saleItem.findMany({ where: { saleId: sale.id } }),
+    prisma.business?.findUnique ? prisma.business.findUnique({ where: { id: businessId } }) : Promise.resolve(null)
   ]);
   const productIds = [...new Set(items.map((i: any) => i.productId))];
   const products =
@@ -352,22 +363,47 @@ export async function buildCreateShipmentInput(
       ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } })
       : [];
   const nameById = new Map<string, string>(products.map((p: any) => [p.id, p.name]));
+  const codAmount = Math.max(
+    0,
+    Math.round(
+      (Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0) - Number(sale.returnedAmount || 0)) * 100
+    ) / 100
+  );
+  const parcelItems = items.map((i: any) => ({
+    productId: i.productId,
+    quantity: Number(i.quantity) || 0,
+    name: nameById.get(i.productId) ?? null
+  }));
   return {
     saleId: sale.id,
     saleInvoiceNumber: sale.invoiceNumber ?? null,
     channel: sale.channel ?? null,
     externalOrderId: sale.externalOrderId ?? null,
+    orderRef: String(sale.invoiceNumber ?? sale.id),
     recipient: {
       name: customer?.name ?? 'Walk-in Customer',
       phone: customer?.phone ?? null,
       address: customer?.address ?? null
     },
-    codAmount: Math.max(0, Math.round((Number(sale.totalAmount || 0) - Number(sale.paidAmount || 0)) * 100) / 100),
-    items: items.map((i: any) => ({
-      productId: i.productId,
-      quantity: Number(i.quantity) || 0,
-      name: nameById.get(i.productId) ?? null
-    }))
+    paymentMethod: codAmount > 0 ? 'COD' : 'PREPAID',
+    codAmount,
+    parcel: {
+      pieces: parcelItems.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || undefined,
+      description:
+        [...new Set(parcelItems.map((i: any) => String(i.name ?? '').trim()).filter(Boolean))]
+          .slice(0, 5)
+          .join(', ') || undefined
+    },
+    ...(business
+      ? {
+          sender: {
+            ...(business.name ? { name: String(business.name) } : {}),
+            ...(business.phone ? { phone: String(business.phone) } : {}),
+            ...(business.address ? { address: String(business.address) } : {})
+          }
+        }
+      : {}),
+    items: parcelItems
   };
 }
 
@@ -407,6 +443,91 @@ function paymentToSyncResult(providerName: string, payment: IntegrationPaymentRe
   };
 }
 
+/** Shared "connected + handler implements method" guard for on-demand shipment calls. */
+async function requireConnectedShipmentHandler(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  method: 'getTracking' | 'cancelShipment' | 'createReturnShipment'
+): Promise<{ handler: any; ctx: any }> {
+  const id = requireKnownProvider(provider);
+  const handler = requireHandler(id);
+  const row = await prisma.integrationConnection.findUnique({
+    where: { businessId_provider: { businessId, provider: id } }
+  });
+  if (!row || row.status !== 'connected' || !row.encryptedCredentials) {
+    throw new IntegrationError(
+      'NOT_CONNECTED',
+      `${getProviderEntry(id)?.displayName ?? id} is not connected. Connect it first.`
+    );
+  }
+  if (typeof (handler as any)[method] !== 'function') {
+    throw new IntegrationError(
+      'NOT_IMPLEMENTED',
+      `${getProviderEntry(id)?.displayName ?? id} does not implement "${method}" yet.`
+    );
+  }
+  return {
+    handler,
+    ctx: {
+      prisma,
+      businessId,
+      credentials: decryptIntegrationCredentials(row.encryptedCredentials),
+      config: parseStoredConfig(row.config),
+      logId: ''
+    }
+  };
+}
+
+/** On-demand tracking lookup (read-only — writes no sync-log row). */
+export async function getShipmentTracking(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<TrackingResult> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(prisma, businessId, provider, 'getTracking');
+  return handler.getTracking(ctx, clean);
+}
+
+/** On-demand shipment cancel (read-only w.r.t. sync logs). */
+export async function cancelShipment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<IntegrationSyncResult> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required to cancel a shipment.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(prisma, businessId, provider, 'cancelShipment');
+  return handler.cancelShipment(ctx, clean);
+}
+
+/** On-demand return-leg booking. Returns the new (return-leg) tracking number. */
+export async function returnShipment(
+  prisma: any,
+  businessId: string,
+  provider: string,
+  trackingNumber: string
+): Promise<{ trackingNumber: string; shipmentId?: string; labelUrl?: string | null; status: string; codAmount: number }> {
+  const clean = String(trackingNumber ?? '').trim();
+  if (!clean) {
+    throw new IntegrationError('SYNC_FAILED', 'A tracking number is required to book a return.');
+  }
+  const { handler, ctx } = await requireConnectedShipmentHandler(
+    prisma,
+    businessId,
+    provider,
+    'createReturnShipment'
+  );
+  return handler.createReturnShipment(ctx, clean);
+}
 /**
  * Manual sync trigger. Dispatches to the provider's handler method for
  * the requested entity and writes an IntegrationSyncLog row for the run
