@@ -784,6 +784,13 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         // UI distinguish "enabled for real" from a legacy flag-only account
         // whose enrollment was never finished. Never exposes the secret.
         twoFactorConfigured: Boolean((user as any).twoFactorSecret),
+        // Status-truth (2026-10-24): the account-status UI must derive from
+        // real state, not from field presence. emailVerified exists on the
+        // row (with a full verification flow behind it) but was never
+        // exposed here; hasPassword lets "Secure login" derive from the
+        // credential actually existing instead of a hardcoded check.
+        emailVerified: user.emailVerified ?? false,
+        hasPassword: Boolean(user.password),
         isActive: user.isActive,
         role: effectiveRole,
         membership: currentMembership || null,
@@ -960,6 +967,9 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         bio: updatedUser.bio,
         twoFactorEnabled: updatedUser.twoFactorEnabled,
         twoFactorConfigured: Boolean((updatedUser as any).twoFactorSecret),
+        // Status-truth (2026-10-24): keep parity with getProfile.
+        emailVerified: updatedUser.emailVerified ?? false,
+        hasPassword: Boolean(updatedUser.password),
         role: normalizeAppRole((req as any)?.membership?.role_name || 'USER')
       }
     });

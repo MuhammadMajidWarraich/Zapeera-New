@@ -1860,7 +1860,13 @@ export class ApiService {
       dateOfBirth?: string | null;
       bio?: string | null;
       twoFactorEnabled?: boolean;
+      // Status-truth (2026-10-24): real account-status fields. emailVerified
+      // + hasPassword are exposed by getProfile; twoFactorConfigured /
+      // twoFactorActive arrive with the real-TOTP-2FA backend.
+      emailVerified?: boolean;
+      hasPassword?: boolean;
       twoFactorConfigured?: boolean;
+      twoFactorActive?: boolean;
       branchId: string;
       branch?: {
         id: string;

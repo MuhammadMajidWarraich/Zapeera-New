@@ -16,6 +16,11 @@ import {
 import QRCode from "qrcode";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiService } from "@/services/api";
+import {
+  deriveAccountStatus,
+  invalidateAccountStatus,
+  type AccountStatusProfile,
+} from "@/lib/account-status";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,6 +64,10 @@ const ProfileSecurityPage = () => {
   const [disablePassword, setDisablePassword] = useState("");
   const [regenCode, setRegenCode] = useState("");
   const [showRegen, setShowRegen] = useState(false);
+  // Raw GET /auth/profile payload — the Security Status card derives
+  // from this via lib/account-status (the same source the dashboard
+  // CompletionStrip uses, so the two surfaces cannot disagree).
+  const [profileData, setProfileData] = useState<AccountStatusProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -79,6 +88,7 @@ const ProfileSecurityPage = () => {
     try {
       const res = await apiService.getProfile();
       if (res.success && res.data) {
+        setProfileData(res.data as AccountStatusProfile);
         setProfile({
           name: res.data.name || "",
           email: res.data.email || "",
@@ -107,6 +117,27 @@ const ProfileSecurityPage = () => {
         });
         setTwoFactorEnabled(Boolean((user as any).twoFactorEnabled));
         setTwoFactorConfigured(Boolean((user as any).twoFactorConfigured));
+        // Fallback profileData from the login snapshot (M1 fix): carry
+        // the snapshot's real-state fields the form already knows —
+        // profileImage (else "Complete profile" reads false-incomplete
+        // for a user who has an avatar), emailVerified and
+        // twoFactorConfigured when present. hasPassword cannot be
+        // derived from the snapshot, so it stays absent (conservative:
+        // the check reads incomplete until a fresh profile loads).
+        setProfileData({
+          name: user.name || "",
+          email: (user as any).email || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth || "",
+          bio: (user as any).bio || "",
+          profileImage: (user as any).profileImage ?? null,
+          emailVerified: Boolean((user as any).emailVerified),
+          twoFactorEnabled: Boolean((user as any).twoFactorEnabled),
+          twoFactorConfigured: Boolean((user as any).twoFactorConfigured),
+        });
       }
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -121,6 +152,24 @@ const ProfileSecurityPage = () => {
           country: (user as any).country || "",
           dateOfBirth: (user as any).dateOfBirth ? String((user as any).dateOfBirth).slice(0, 10) : "",
           bio: (user as any).bio || "",
+        });
+      if (user)
+        setProfileData({
+          name: user.name || "",
+          email: (user as any).email || "",
+          phone: (user as any).phone || "",
+          address: (user as any).address || "",
+          city: (user as any).city || "",
+          country: (user as any).country || "",
+          dateOfBirth: (user as any).dateOfBirth || "",
+          bio: (user as any).bio || "",
+          // M1 fix (see the else-branch above): carry the snapshot's
+          // profileImage / emailVerified / twoFactorConfigured so the
+          // card does not read false-incomplete on the error path.
+          profileImage: (user as any).profileImage ?? null,
+          emailVerified: Boolean((user as any).emailVerified),
+          twoFactorEnabled: Boolean((user as any)?.twoFactorEnabled),
+          twoFactorConfigured: Boolean((user as any)?.twoFactorConfigured),
         });
       setTwoFactorEnabled(Boolean((user as any)?.twoFactorEnabled));
       setTwoFactorConfigured(Boolean((user as any)?.twoFactorConfigured));
@@ -151,6 +200,11 @@ const ProfileSecurityPage = () => {
       });
       if (res.success) {
         toast({ title: "Profile updated", description: "Your profile has been saved." });
+        // Resync from the server so the Security Status card (and, via
+        // the invalidated cache, the dashboard strip) reflect the SAVED
+        // state — not whatever the form happened to contain.
+        invalidateAccountStatus();
+        await loadProfile();
       } else {
         toast({ title: "Update failed", description: res.message || "Could not update profile.", variant: "destructive" });
       }
@@ -192,8 +246,13 @@ const ProfileSecurityPage = () => {
     }
   };
 
-  const hasEmail = Boolean(user?.email);
-  const hasPhone = Boolean(profile.phone) || Boolean((user as any)?.phone);
+  // Status-truth (2026-10-24): the Security Status card below derives
+  // EVERY row from the shared module over the freshly loaded profile —
+  // previously `hasPhone` here also counted unsaved form input, and the
+  // email row was `Boolean(user?.email)` (presence, not verification).
+  // The 2FA toggle keeps editing the raw flag (its own state); the card
+  // shows the enrolled truth via accountStatus.twoFactorOn.
+  const accountStatus = deriveAccountStatus(profileData);
   // ── Real two-factor state ──────────────────────────────────────────
   // Only (enabled && configured) is truly on: the account is challenged
   // at login. (enabled && !configured) is the legacy fake-toggle state —
@@ -202,7 +261,7 @@ const ProfileSecurityPage = () => {
   const twoFactorOn = twoFactorEnabled && twoFactorConfigured;
   const twoFactorFlagOnly = twoFactorEnabled && !twoFactorConfigured;
   const twoFactorPending = !twoFactorEnabled && twoFactorConfigured;
-  const has2fa = twoFactorOn;
+  const has2fa = accountStatus.twoFactorOn;
 
   const resetSetupWizard = () => {
     setSetupStep("idle");
@@ -268,6 +327,11 @@ const ProfileSecurityPage = () => {
         setIssuedRecoveryCodes(res.data.recoveryCodes);
         setTwoFactorEnabled(true);
         setTwoFactorConfigured(true);
+        // Status-truth: the Security Status card derives from profileData
+        // + the shared account-status cache — refresh both here, or the
+        // card still shows "Not enabled yet" after enrollment succeeds.
+        setProfileData((prev) => (prev ? { ...prev, twoFactorEnabled: true, twoFactorConfigured: true } : prev));
+        invalidateAccountStatus();
         setSetupCode("");
         setSetupStep("codes");
         toast({ title: "2FA enabled", description: "Two-factor authentication is now protecting your account." });
@@ -337,6 +401,10 @@ const ProfileSecurityPage = () => {
         setDisableRecoveryCode("");
         setDisablePassword("");
         toast({ title: "2FA disabled", description: "Two-factor authentication is now off." });
+        // Status-truth: loadProfile refreshes profileData; invalidate the
+        // shared account-status cache too, or the card + dashboard strip
+        // keep showing the pre-disable state.
+        invalidateAccountStatus();
         await loadProfile();
       } else {
         toast({ title: "Could not disable", description: res.message || "Verification failed.", variant: "destructive" });
@@ -666,11 +734,11 @@ const ProfileSecurityPage = () => {
             </div>
             <div className="divide-y divide-[rgba(15,23,60,0.06)]">
               {[
-                { label: "Secure login", ok: true, desc: "Password-protected account" },
-                { label: "Email verified", ok: hasEmail, desc: hasEmail ? "Your email is on file" : "Add your email" },
-                { label: "Phone number", ok: hasPhone, desc: hasPhone ? "Phone on file" : "Add a phone number" },
-                { label: "Two-factor authentication", ok: has2fa, desc: has2fa ? "2FA is enabled" : twoFactorFlagOnly ? "Setup not finished \u2014 not active yet" : twoFactorPending ? "Setup started \u2014 enter a code to finish" : "Not enabled yet" },
-                { label: "Encrypted connection", ok: true, desc: "Data is encrypted in transit" },
+                { label: "Secure login", ok: accountStatus.secureLogin, desc: accountStatus.secureLogin ? "Password-protected account" : "No password set on this account" },
+                { label: "Email verified", ok: accountStatus.emailVerified, desc: accountStatus.emailVerified ? "Your email is on file" : "Not verified yet — check your inbox" },
+                { label: "Phone number", ok: accountStatus.phoneOnFile, desc: accountStatus.phoneOnFile ? "Phone on file" : "Add a phone number" },
+                { label: "Two-factor authentication", ok: accountStatus.twoFactorOn, desc: twoFactorOn ? "2FA is enabled" : twoFactorFlagOnly ? "Setup not finished \u2014 not active yet" : twoFactorPending ? "Setup started \u2014 enter a code to finish" : "Not enabled yet" },
+                { label: "Encrypted connection", ok: accountStatus.encryptedConnection, desc: accountStatus.encryptedConnection ? "Data is encrypted in transit" : "This connection is not encrypted" },
               ].map((it) => (
                 <div key={it.label} className="flex items-center gap-3 px-6 py-4">
                   {it.ok ? (
