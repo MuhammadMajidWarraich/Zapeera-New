@@ -119,6 +119,9 @@ const ENTRIES: RegistryEntry[] = [
   // Online pharmacy store (Wave C5 — gap item 5): public by design
   // (no customer accounts); branch-scoped + add-on-gated in the router.
   { prefix: '/api/store', policy: { kind: 'public' } },
+  // Self-ordering kiosk (Wave C9 — gap item 9): public by design
+  // (no customer accounts); branch-scoped + add-on-gated in the router.
+  { prefix: '/api/kiosk', policy: { kind: 'public' } },
   { prefix: '/api/ocr', policy: { kind: 'auth' } },
   { prefix: '/api/sync', policy: { kind: 'auth' } },
   { prefix: '/api/sse', policy: { kind: 'public' } },
@@ -174,6 +177,13 @@ const ENTRIES: RegistryEntry[] = [
   // through the sale-create permission they already hold; management
   // writes are additionally gated to OWNER/MANAGER in the controller.
   { prefix: '/api/promotions', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Gift cards / eWallet (Wave C9 — gap item 9): counter money, so
+  // gift cards share the sales.invoices key and wallets the
+  // sales.customers key on the same precedent as promotions/tax
+  // classes (no new submodule key). The GIFT_CARD_KIOSK_PACK add-on
+  // gate is additionally enforced in every controller handler.
+  { prefix: '/api/gift-cards', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  { prefix: '/api/wallets', policy: { kind: 'module', resourceKey: 'sales.customers' } },
   // Tax classes (Wave B5): also invoice-money rules, so they share the
   // same sales.invoices key on the same precedent; management writes
   // are additionally gated to OWNER/MANAGER in the controller.

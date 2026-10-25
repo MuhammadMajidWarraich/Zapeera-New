@@ -48,6 +48,8 @@ const TaxClassesPage = React.lazy(() => import("./pages/TaxClasses"));
 const PrescriptionsPage = React.lazy(() => import("./pages/Prescriptions"));
 const StorefrontPage = React.lazy(() => import("./pages/Storefront"));
 const OnlineStorePage = React.lazy(() => import("./pages/OnlineStore"));
+const GiftCardsPage = React.lazy(() => import("./pages/GiftCards"));
+const KioskPage = React.lazy(() => import("./pages/Kiosk"));
 const PatientsPage = React.lazy(() => import("./pages/Patients"));
 const DoctorsPage = React.lazy(() => import("./pages/Doctors"));
 const AppointmentsPage = React.lazy(() => import("./pages/Appointments"));
@@ -288,6 +290,9 @@ const AppRoutes = () => {
         {/* Public online pharmacy storefront (Wave C5 — gap item 5):
             no login — a customer opens /store/<branchId>. */}
         <Route path="/store/:branchId" element={<StorefrontPage />} />
+        {/* Public self-ordering kiosk (Wave C9 — gap item 9):
+            no login — a customer opens /kiosk/<branchId>. */}
+        <Route path="/kiosk/:branchId" element={<KioskPage />} />
 
         {/* Protected Routes - Default redirect to login if not authenticated */}
         <Route path="/" element={
@@ -376,6 +381,20 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <OnlineStorePage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        {/* Gift Cards & Wallet — staff home for gift cards, the
+            eWallet and the kiosk orders queue (Wave C9 — gap item 9).
+            Rides the sales module (same guard as /pos). */}
+        <Route path="/gift-cards" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <GiftCardsPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>

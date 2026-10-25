@@ -30,6 +30,7 @@ import {
   UserCog,
   Clock,
   Wallet,
+  Gift,
   Users,
   BarChart3,
   CreditCard,
@@ -157,6 +158,18 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         icon: Percent,
         module: 'sales',
         roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        // Gift Cards & Wallet (Wave C9 — gap item 9): sell gift cards,
+        // top up wallets, work the kiosk orders queue. Guarded via
+        // the ModuleGuard's POS mapping; voids are OWNER/MANAGER
+        // enforced by the API.
+        key: 'gift-cards',
+        label: 'Gift Cards & Wallet',
+        href: '/gift-cards',
+        icon: Gift,
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
       },
     ],
   },

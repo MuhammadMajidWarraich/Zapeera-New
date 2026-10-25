@@ -336,6 +336,9 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/create-invoice': 'sales',
   '/invoices': 'sales',
   '/refunds': 'sales',
+  // Gift Cards & Wallet (Wave C9 — gap item 9): the staff page rides
+  // the sales module — its core job is counter money.
+  '/gift-cards': 'sales',
   '/inventory-transfers': 'inventory',
   '/products': 'inventory',
   '/inventory': 'inventory',
@@ -409,6 +412,8 @@ const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
   invoices: 'sales',
   refunds: 'sales',
   pos: 'sales',
+  // Gift Cards & Wallet (Wave C9 — gap item 9): rides sales.
+  'gift-cards': 'sales',
   customers: 'sales',
   reports: 'reports',
   'advanced-reports': 'reports',
@@ -452,6 +457,10 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   // Tax classes (Wave B5): guarded by the invoicing submodule, same as
   // Promotions — writes are OWNER/MANAGER enforced by the API.
   '/tax-classes': { parentModule: 'sales', subModuleKey: 'invoices', label: 'Tax Classes' },
+  // Gift Cards & Wallet (Wave C9 — gap item 9): guarded by the POS
+  // submodule — every role that can sell can use it; voids are
+  // OWNER/MANAGER enforced by the API.
+  '/gift-cards': { parentModule: 'sales', subModuleKey: 'pos', label: 'Gift Cards & Wallet' },
   '/products': { parentModule: 'inventory', subModuleKey: 'products', label: 'Products' },
   '/inventory': { parentModule: 'inventory', subModuleKey: 'products', label: 'Products' },
   '/categories': { parentModule: 'inventory', subModuleKey: 'categories', label: 'Categories' },
@@ -490,6 +499,8 @@ const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   pos: { parentModule: 'sales', subModuleKey: 'pos', label: 'Point of Sale' },
   invoices: { parentModule: 'sales', subModuleKey: 'invoices', label: 'Invoices' },
   refunds: { parentModule: 'sales', subModuleKey: 'refunds', label: 'Refunds' },
+  // Gift Cards & Wallet (Wave C9 — gap item 9): rides the POS submodule.
+  'gift-cards': { parentModule: 'sales', subModuleKey: 'pos', label: 'Gift Cards & Wallet' },
   customers: { parentModule: 'sales', subModuleKey: 'customers', label: 'Customers' },
   products: { parentModule: 'inventory', subModuleKey: 'products', label: 'Products' },
   categories: { parentModule: 'inventory', subModuleKey: 'categories', label: 'Categories' },

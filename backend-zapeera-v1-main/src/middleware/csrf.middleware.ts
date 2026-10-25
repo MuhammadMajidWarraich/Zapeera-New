@@ -86,6 +86,11 @@ const CSRF_EXEMPT_PATHS = [
   // design (branch-scoped + add-on-gated in the router).
   '/api/store/',
   '/api/v1/store/',
+  // Public self-ordering kiosk (Wave C9 — gap item 9): customers
+  // have no account and no CSRF cookie; the kiosk is public by
+  // design (branch-scoped + add-on-gated in the router).
+  '/api/kiosk/',
+  '/api/v1/kiosk/',
   // Barcode lookup is read-only (no state mutation)
   '/api/barcodes/lookup',
   '/api/v1/barcodes/lookup',

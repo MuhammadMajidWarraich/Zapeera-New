@@ -82,7 +82,7 @@ const serializeAddon = (row: any) => ({
   updatedAt: row.updatedAt,
 });
 
-/** GET /api/subscription/addons/catalogue — the 9 add-ons with prices (ONLINE_STORE_PACK Rs 500/mo and PRESCRIPTION_UPLOAD_PACK Rs 1,000/mo, priced 2026-10-25). */
+/** GET /api/subscription/addons/catalogue — the 10 add-ons with prices (ONLINE_STORE_PACK Rs 500/mo, PRESCRIPTION_UPLOAD_PACK Rs 1,000/mo and GIFT_CARD_KIOSK_PACK Rs 1,000/mo, priced 2026-10-25). */
 export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
   return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
 };
@@ -121,6 +121,7 @@ export const getBusinessAddons = async (req: AuthRequest, res: Response) => {
           onlineStoreAllowed: limits.onlineStoreAllowed,
           // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
           prescriptionUploadAllowed: limits.prescriptionUploadAllowed,
+          giftCardKioskAllowed: limits.giftCardKioskAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         monthlyAddonSpend: limits.monthlyAddonSpend,

@@ -32,6 +32,14 @@
  *     by 20%. The gates (onlineStoreAllowed /
  *     prescriptionUploadAllowed) work off the granted rows.
  *
+ *   - GIFT_CARD_KIOSK_PACK (Wave C9 — gap item 9) is priced since
+ *     2026-10-25 at Rs 1,000/mo (Muhammad's order): no competitor
+ *     publishes a price for gift cards/eWallet/kiosk — Odoo bundles
+ *     them into POS with no separate price and CloudPOS does not
+ *     sell them — so it is anchored to Zapeera's own ladder (same as
+ *     the Finance Pack, below the HR Pack / Extra Branch at 1,500).
+ *     The gate (giftCardKioskAllowed) works off the granted row.
+ *
  * The plan-inclusion matrix below is the single source for what each
  * plan includes on its own; it MIRRORS the public pricing page
  * (zapeera.seikho.online/pricing — per-plan cards + comparison matrix).
@@ -58,6 +66,7 @@ export const ADDON_TYPES = [
   'WHATSAPP_PACK',
   'ONLINE_STORE_PACK',
   'PRESCRIPTION_UPLOAD_PACK',
+  'GIFT_CARD_KIOSK_PACK',
 ] as const;
 export type AddonType = (typeof ADDON_TYPES)[number];
 
@@ -73,9 +82,10 @@ export interface AddonCatalogueEntry {
    * True while the price is UNDECIDED: the entry is listed but cannot
    * be purchased (see checkAddonPurchasable) until the price is set.
    * Never treat priceMonthly 0 on such an entry as "free". No
-   * catalogue entry is pending today (the last two —
-   * ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK — were priced
-   * 2026-10-25); the flag is kept for any future unpriced pack.
+   * catalogue entry is pending today (the last three —
+   * ONLINE_STORE_PACK, PRESCRIPTION_UPLOAD_PACK and
+   * GIFT_CARD_KIOSK_PACK — were priced 2026-10-25); the flag is kept
+   * for any future unpriced pack.
    */
   pricingPending?: boolean;
 }
@@ -157,6 +167,18 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     // Priced 2026-10-25 (Muhammad's order, competitor-based):
     // Rs 1,000/mo. CloudPOS reference: prescription upload
     // PKR 15,000/yr (Rs 1,250/mo) — Zapeera undercuts by 20%.
+    priceMonthly: 1000,
+    stackable: false,
+  },
+  GIFT_CARD_KIOSK_PACK: {
+    type: 'GIFT_CARD_KIOSK_PACK',
+    name: 'Gift Cards, eWallet & Kiosk',
+    description:
+      'Retail counter pack: sell gift cards and redeem them at the POS, customer eWallet top-up and spend, and the in-store self-ordering kiosk screen that places orders into the POS.',
+    // Priced 2026-10-25 (Muhammad's order): Rs 1,000/mo. No
+    // competitor anchor exists — Odoo bundles these into POS,
+    // CloudPOS does not sell them — so it is anchored to Zapeera's
+    // own ladder (same as the Finance Pack at Rs 1,000/mo).
     priceMonthly: 1000,
     stackable: false,
   },
@@ -282,6 +304,14 @@ export interface EffectiveLimits {
    * priced Rs 1,000/mo since 2026-10-25.
    */
   prescriptionUploadAllowed: boolean;
+  /**
+   * Gift cards / eWallet + kiosk (Wave C9 — gap item 9): true while a
+   * GIFT_CARD_KIOSK_PACK row is effective for the business. Gates the
+   * gift-card and wallet endpoints and the kiosk screen. The pack is
+   * NOT included in any plan — it is add-on-only, priced Rs 1,000/mo
+   * since 2026-10-25.
+   */
+  giftCardKioskAllowed: boolean;
   /** Monthly voice-AI token quota: plan quota (voice-AI config) + boosters. */
   voiceTokenQuota: number;
   /** Sum of monthly add-on prices (catalogue price × quantity). */
@@ -343,6 +373,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const whatsappPack = has('WHATSAPP_PACK');
   const onlineStoreAllowed = has('ONLINE_STORE_PACK');
   const prescriptionUploadAllowed = has('PRESCRIPTION_UPLOAD_PACK');
+  const giftCardKioskAllowed = has('GIFT_CARD_KIOSK_PACK');
 
   const voiceConfig = await getVoiceAiConfig(prisma);
   const voiceTokenQuota = quotaForPlan(voiceConfig, planId) + qty('VOICE_BOOSTER') * VOICE_BOOSTER_TOKENS;
@@ -367,6 +398,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
     whatsappPack,
     onlineStoreAllowed,
     prescriptionUploadAllowed,
+    giftCardKioskAllowed,
     voiceTokenQuota,
     monthlyAddonSpend,
     addons: active,
@@ -489,6 +521,11 @@ export function checkAddonPurchasable(
       // ADDON_PRICING_PENDING branch that lived here was removed
       // with the pricing; the refusal path itself stays for any
       // future unpriced pack via entry.pricingPending.
+    case 'GIFT_CARD_KIOSK_PACK':
+      // Priced 2026-10-25 (Muhammad's order): Rs 1,000/mo —
+      // purchasable. The 409 ADDON_PRICING_PENDING branch that lived
+      // here was removed with the pricing; the refusal path itself
+      // stays for any future unpriced pack via entry.pricingPending.
       return { ok: true };
     default:
       return { ok: false, statusCode: 400, code: 'ADDON_UNKNOWN_TYPE', message: 'Unknown add-on.' };

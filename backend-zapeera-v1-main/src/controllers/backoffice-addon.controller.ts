@@ -45,12 +45,14 @@ export const listBusinessAddonsAdmin = async (req: AdminAuthRequest, res: Respon
           onlineStoreAllowed: limits.onlineStoreAllowed,
           // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
           prescriptionUploadAllowed: limits.prescriptionUploadAllowed,
+          giftCardKioskAllowed: limits.giftCardKioskAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         addons: rows.map((r: any) => ({
           ...r,
           name: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.name || r.type,
           priceMonthly: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.priceMonthly ?? null,
+          pricingPending: ADDON_CATALOGUE[r.type as keyof typeof ADDON_CATALOGUE]?.pricingPending ?? false,
         })),
       },
     });
