@@ -4,7 +4,8 @@ import {
   getPrescriptions,
   getPrescriptionById,
   updatePrescription,
-  voidPrescription
+  voidPrescription,
+  reviewPrescription
 } from '../controllers/prescription.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { checkModule, resolveBranch, resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';
@@ -34,6 +35,9 @@ router.post('/', createPrescription);
 router.get('/', getPrescriptions);
 router.get('/:id', getPrescriptionById);
 router.put('/:id', updatePrescription);
+// Pharmacist review (Wave C5 — gap item 5): approve/reject a
+// customer upload (transcribing its items); unblocks dispensing.
+router.patch('/:id/review', reviewPrescription);
 router.delete('/:id', voidPrescription);
 
 export default router;

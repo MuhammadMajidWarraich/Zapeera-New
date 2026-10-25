@@ -100,6 +100,15 @@ const createSaleSchema = Joi.object({
   // credit limit. Without it an over-limit credit sale is blocked
   // (402 CREDIT_LIMIT_EXCEEDED). Cashiers cannot override.
   creditLimitOverride: Joi.boolean().optional(),
+  // Online store (Wave C5 — gap item 5): the channel this sale came
+  // through + delivery details. POS clients never send these (the
+  // defaults below apply); the public storefront sends channel
+  // ONLINE_STORE with delivery fields. Values are validated here and
+  // stored on the sale; nothing else in the POS flow reads them.
+  channel: Joi.string().valid('POS', 'ONLINE_STORE').optional(),
+  deliveryAddress: Joi.string().trim().max(500).allow(null, '').optional(),
+  deliveryPhone: Joi.string().trim().max(40).allow(null, '').optional(),
+  deliveryNotes: Joi.string().trim().max(500).allow(null, '').optional(),
   paymentStatus: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED').optional(),
   discountAmount: Joi.number().min(0).default(0),
   discountPercentage: Joi.number().min(0).max(100).default(0),
@@ -173,7 +182,9 @@ export const getSales = async (req: AuthRequest, res: Response) => {
       endDate = '',
       branchId = '',
       customerId = '',
-      paymentMethod = ''
+      paymentMethod = '',
+      channel = '',
+      status = ''
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -194,6 +205,17 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 
     if (paymentMethod) {
       where.paymentMethod = paymentMethod;
+    }
+
+    // Online store (Wave C5 — gap item 5): the staff online-orders
+    // queue is GET /sales?channel=ONLINE_STORE&status=PENDING.
+    // Values are allow-listed so a junk filter reads as "no filter"
+    // rather than silently returning nothing.
+    if (channel === 'POS' || channel === 'ONLINE_STORE') {
+      where.channel = channel;
+    }
+    if (status === 'PENDING' || status === 'COMPLETED' || status === 'CANCELLED' || status === 'REFUNDED') {
+      where.status = status;
     }
 
     if (startDate || endDate) {
@@ -1212,6 +1234,24 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             e.code = 'PRESCRIPTION_VOIDED';
             throw e;
           }
+          // Online store (Wave C5 — gap item 5): a sale may only
+          // dispense against a REVIEWED prescription. Customer
+          // uploads sit at PENDING until a pharmacist reviews them;
+          // REJECTED uploads are refused outright. Staff-entered
+          // records are REVIEWED at entry, so counter sales are
+          // unaffected. (Pre-feature rows carry the REVIEWED default
+          // from the migration, and a missing value reads as REVIEWED.)
+          const reviewStatus = String((attached as any).reviewStatus || 'REVIEWED').toUpperCase();
+          if (reviewStatus === 'PENDING') {
+            const e: any = new HttpError(422, 'This prescription is still waiting for pharmacist review and cannot be dispensed yet');
+            e.code = 'PRESCRIPTION_NOT_REVIEWED';
+            throw e;
+          }
+          if (reviewStatus === 'REJECTED') {
+            const e: any = new HttpError(422, 'This prescription was reviewed and rejected by the pharmacist and cannot be used for a sale');
+            e.code = 'PRESCRIPTION_REJECTED';
+            throw e;
+          }
           const covered = new Set((attached.items || []).map((i: any) => i.productId));
           const missing = rxCartProducts.filter(p => !covered.has(p.id));
           if (missing.length > 0) {
@@ -1410,6 +1450,13 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Salesperson attribution (Wave C6): validated above to
           // be an ACTIVE member of this business; null = cashier.
           salespersonId: salespersonForSale ? salespersonForSale.id : null,
+          // Online store (Wave C5 — gap item 5): channel + delivery
+          // details. POS sales store the POS default; storefront
+          // checkouts send ONLINE_STORE with delivery fields.
+          channel: saleData.channel || 'POS',
+          deliveryAddress: saleData.deliveryAddress || null,
+          deliveryPhone: saleData.deliveryPhone || null,
+          deliveryNotes: saleData.deliveryNotes || null,
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1444,6 +1491,12 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               prescriptionId: saleData.prescriptionId || null,
               folioId: folioForSale ? folioForSale.id : null,
               salespersonId: salespersonForSale ? salespersonForSale.id : null,
+              // Online store (Wave C5 — gap item 5): channel + delivery
+              // details (same values as the first attempt above).
+              channel: saleData.channel || 'POS',
+              deliveryAddress: saleData.deliveryAddress || null,
+              deliveryPhone: saleData.deliveryPhone || null,
+              deliveryNotes: saleData.deliveryNotes || null,
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,

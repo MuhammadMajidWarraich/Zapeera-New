@@ -46,6 +46,8 @@ const CustomersPage = React.lazy(() => import("./pages/Customers"));
 const PromotionsPage = React.lazy(() => import("./pages/Promotions"));
 const TaxClassesPage = React.lazy(() => import("./pages/TaxClasses"));
 const PrescriptionsPage = React.lazy(() => import("./pages/Prescriptions"));
+const StorefrontPage = React.lazy(() => import("./pages/Storefront"));
+const OnlineStorePage = React.lazy(() => import("./pages/OnlineStore"));
 const PatientsPage = React.lazy(() => import("./pages/Patients"));
 const DoctorsPage = React.lazy(() => import("./pages/Doctors"));
 const AppointmentsPage = React.lazy(() => import("./pages/Appointments"));
@@ -283,6 +285,9 @@ const AppRoutes = () => {
         <Route path="/join/:slug" element={<JoinPartnerPage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        {/* Public online pharmacy storefront (Wave C5 — gap item 5):
+            no login — a customer opens /store/<branchId>. */}
+        <Route path="/store/:branchId" element={<StorefrontPage />} />
 
         {/* Protected Routes - Default redirect to login if not authenticated */}
         <Route path="/" element={
@@ -356,6 +361,21 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <PrescriptionsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        {/* Online Store — staff home for the public storefront
+            (Wave C5 — gap item 5): store links, online-orders queue
+            and the prescription review queue. Rides the prescriptions
+            module (same guard as /prescriptions). */}
+        <Route path="/online-store" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <OnlineStorePage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>

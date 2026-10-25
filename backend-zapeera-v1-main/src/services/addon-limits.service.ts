@@ -21,6 +21,16 @@
  *     paid-through extends by that many 30-day cycles. An add-on's
  *     paid-through never extends past the plan's own paid-through
  *     horizon (see computeAddonPeriodEnd).
+ *   - ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK (Wave C5 —
+ *     gap item 5, split 2026-10-25 on Muhammad's correction: the
+ *     store and the prescription upload are TWO separate packs) are
+ *     priced since 2026-10-25 (Muhammad's order, competitor-based):
+ *     the store is Rs 500/mo — CloudPOS charges PKR 5,000/yr for
+ *     the store (~Rs 417/mo annualised), rounded to a monthly-flexible
+ *     Rs 500 with no setup fee and no lock-in; prescription upload is
+ *     Rs 1,000/mo — undercutting CloudPOS's PKR 15,000/yr (Rs 1,250/mo)
+ *     by 20%. The gates (onlineStoreAllowed /
+ *     prescriptionUploadAllowed) work off the granted rows.
  *
  * The plan-inclusion matrix below is the single source for what each
  * plan includes on its own; it MIRRORS the public pricing page
@@ -46,6 +56,8 @@ export const ADDON_TYPES = [
   'FINANCE_PACK',
   'VOICE_BOOSTER',
   'WHATSAPP_PACK',
+  'ONLINE_STORE_PACK',
+  'PRESCRIPTION_UPLOAD_PACK',
 ] as const;
 export type AddonType = (typeof ADDON_TYPES)[number];
 
@@ -57,6 +69,15 @@ export interface AddonCatalogueEntry {
   priceMonthly: number;
   stackable: boolean;
   unitLabel?: string;
+  /**
+   * True while the price is UNDECIDED: the entry is listed but cannot
+   * be purchased (see checkAddonPurchasable) until the price is set.
+   * Never treat priceMonthly 0 on such an entry as "free". No
+   * catalogue entry is pending today (the last two —
+   * ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK — were priced
+   * 2026-10-25); the flag is kept for any future unpriced pack.
+   */
+  pricingPending?: boolean;
 }
 
 export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
@@ -114,6 +135,29 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     description:
       'The WhatsApp layer beyond basic receipt sharing: khata/payment reminders, customer statements on WhatsApp and bulk bill sharing.',
     priceMonthly: 800,
+    stackable: false,
+  },
+  ONLINE_STORE_PACK: {
+    type: 'ONLINE_STORE_PACK',
+    name: 'Online Pharmacy Store',
+    description:
+      'Customer-facing online pharmacy storefront for a branch (browse/search the branch catalog, cart, cash-on-delivery checkout into a real sale). Prescription upload is a separate pack.',
+    // Priced 2026-10-25 (Muhammad's order, competitor-based):
+    // Rs 500/mo. CloudPOS reference: store PKR 5,000/yr (~Rs 417/mo
+    // annualised) — Zapeera rounds to Rs 500/mo, monthly-flexible,
+    // no setup fee, no lock-in.
+    priceMonthly: 500,
+    stackable: false,
+  },
+  PRESCRIPTION_UPLOAD_PACK: {
+    type: 'PRESCRIPTION_UPLOAD_PACK',
+    name: 'Prescription Upload',
+    description:
+      'Let patients upload prescription photos from the online storefront for pharmacist review before dispensing (upload, review queue, approve/reject with transcription). Needs the Online Pharmacy Store for checkout.',
+    // Priced 2026-10-25 (Muhammad's order, competitor-based):
+    // Rs 1,000/mo. CloudPOS reference: prescription upload
+    // PKR 15,000/yr (Rs 1,250/mo) — Zapeera undercuts by 20%.
+    priceMonthly: 1000,
     stackable: false,
   },
 };
@@ -221,6 +265,23 @@ export interface EffectiveLimits {
   advancedReportsAllowed: boolean;
   multiBranchReportsAllowed: boolean;
   whatsappPack: boolean;
+  /**
+   * Online store (Wave C5 — gap item 5): true while an
+   * ONLINE_STORE_PACK row is effective for the business. Gates the
+   * public storefront (catalog / checkout) and the storefront half
+   * of the staff Online Store page. The pack is NOT included in any
+   * plan — it is add-on-only, priced Rs 500/mo since 2026-10-25.
+   */
+  onlineStoreAllowed: boolean;
+  /**
+   * Prescription upload (Wave C5 — gap item 5, split 2026-10-25):
+   * true while a PRESCRIPTION_UPLOAD_PACK row is effective for the
+   * business. Gates the public prescription upload + status check
+   * and the review-queue half of the staff Online Store page. A
+   * separate pack from the store itself — same add-on-only rule,
+   * priced Rs 1,000/mo since 2026-10-25.
+   */
+  prescriptionUploadAllowed: boolean;
   /** Monthly voice-AI token quota: plan quota (voice-AI config) + boosters. */
   voiceTokenQuota: number;
   /** Sum of monthly add-on prices (catalogue price × quantity). */
@@ -280,6 +341,8 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const advancedReportsAllowed = inclusion.advancedReports || has('REPORTS_PACK');
   const multiBranchReportsAllowed = inclusion.multiBranchReports || has('REPORTS_PACK');
   const whatsappPack = has('WHATSAPP_PACK');
+  const onlineStoreAllowed = has('ONLINE_STORE_PACK');
+  const prescriptionUploadAllowed = has('PRESCRIPTION_UPLOAD_PACK');
 
   const voiceConfig = await getVoiceAiConfig(prisma);
   const voiceTokenQuota = quotaForPlan(voiceConfig, planId) + qty('VOICE_BOOSTER') * VOICE_BOOSTER_TOKENS;
@@ -302,6 +365,8 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
     advancedReportsAllowed,
     multiBranchReportsAllowed,
     whatsappPack,
+    onlineStoreAllowed,
+    prescriptionUploadAllowed,
     voiceTokenQuota,
     monthlyAddonSpend,
     addons: active,
@@ -416,6 +481,14 @@ export function checkAddonPurchasable(
     case 'VOICE_BOOSTER':
       return { ok: true };
     case 'WHATSAPP_PACK':
+      return { ok: true };
+    case 'ONLINE_STORE_PACK':
+    case 'PRESCRIPTION_UPLOAD_PACK':
+      // Priced 2026-10-25 (Muhammad's order, competitor-based):
+      // store Rs 500/mo, upload Rs 1,000/mo — purchasable. The 409
+      // ADDON_PRICING_PENDING branch that lived here was removed
+      // with the pricing; the refusal path itself stays for any
+      // future unpriced pack via entry.pricingPending.
       return { ok: true };
     default:
       return { ok: false, statusCode: 400, code: 'ADDON_UNKNOWN_TYPE', message: 'Unknown add-on.' };

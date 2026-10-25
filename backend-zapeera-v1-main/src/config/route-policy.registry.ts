@@ -116,6 +116,9 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/affiliates', policy: { kind: 'auth' } },
   // Public read of backoffice-managed content pages (PUBLISHED only).
   { prefix: '/api/content', policy: { kind: 'public' } },
+  // Online pharmacy store (Wave C5 — gap item 5): public by design
+  // (no customer accounts); branch-scoped + add-on-gated in the router.
+  { prefix: '/api/store', policy: { kind: 'public' } },
   { prefix: '/api/ocr', policy: { kind: 'auth' } },
   { prefix: '/api/sync', policy: { kind: 'auth' } },
   { prefix: '/api/sse', policy: { kind: 'public' } },

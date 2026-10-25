@@ -1029,6 +1029,16 @@ model Sale {
   // unattributed sales keep counting for their cashier exactly as
   // before. Validated at sale time to be a member of the business.
   salespersonId         String?
+  // Online store (Wave C5 — gap item 5): the channel this sale came
+  // through. POS = counter sale (default, all history); ONLINE_STORE
+  // = a customer order placed on the branch's public storefront
+  // (checkout creates a real sale via createSale, cash on delivery,
+  // PENDING until the pharmacy accepts/fulfils it). Delivery fields
+  // are only set on online orders.
+  channel             String   @default("POS") // POS | ONLINE_STORE
+  deliveryAddress     String?
+  deliveryPhone       String?
+  deliveryNotes       String?
   totalAmount        Float
   paidAmount         Float     @default(0)
   returnedAmount     Float     @default(0)
@@ -1074,6 +1084,7 @@ model Sale {
   @@index([folioId], name: "idx_sale_folio")
   @@index([salespersonId], name: "idx_sale_salesperson")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
+  @@index([channel], name: "idx_sale_channel")
   @@index([createdAt], name: "idx_sale_createdAt")
   @@map("sales")
 }
@@ -1418,6 +1429,18 @@ model Prescription {
   doctorReg    String?
   notes        String?
   imageUrl     String?
+  // Online store (Wave C5 — gap item 5): pharmacist review of
+  // customer-uploaded prescriptions. Staff-entered records are
+  // REVIEWED at entry (recorded by staff at the counter); uploads
+  // via the public storefront start PENDING and a sale may not
+  // dispense against them until a pharmacist marks them REVIEWED
+  // (REJECTED = refused, with a note). `source` distinguishes the
+  // two origins in the register + review queue.
+  reviewStatus String   @default("REVIEWED") // PENDING | REVIEWED | REJECTED
+  source       String   @default("STAFF") // STAFF | ONLINE_UPLOAD
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  reviewNote   String?
   issuedDate   DateTime
   isActive     Boolean   @default(true)
   voidReason   String?
@@ -2103,7 +2126,7 @@ model BusinessSubscription {
 model SubscriptionAddon {
   id          String    @id @default(cuid())
   businessId  String
-  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK
+  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK | ONLINE_STORE_PACK | PRESCRIPTION_UPLOAD_PACK
   quantity    Int       @default(1) // stackable types only (EXTRA_SEAT / EXTRA_BRANCH / VOICE_BOOSTER); packs are always 1
   status      String    @default("ACTIVE") // PENDING (awaiting backoffice activation) | ACTIVE | CANCEL_PENDING (live until periodEnd) | CANCELLED
   startedAt   DateTime  @default(now())

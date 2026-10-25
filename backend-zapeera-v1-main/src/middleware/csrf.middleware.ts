@@ -81,6 +81,11 @@ const CSRF_EXEMPT_PATHS = [
   // yet — same class as register above)
   '/api/partners/apply',
   '/api/v1/partners/apply',
+  // Public online pharmacy store (Wave C5 — gap item 5): customers
+  // have no account and no CSRF cookie; the storefront is public by
+  // design (branch-scoped + add-on-gated in the router).
+  '/api/store/',
+  '/api/v1/store/',
   // Barcode lookup is read-only (no state mutation)
   '/api/barcodes/lookup',
   '/api/v1/barcodes/lookup',

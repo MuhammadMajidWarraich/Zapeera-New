@@ -82,6 +82,15 @@ const voidPrescriptionSchema = Joi.object({
   reason: Joi.string().trim().min(3).max(500).required()
 });
 
+const reviewPrescriptionSchema = Joi.object({
+  decision: Joi.string().valid('REVIEWED', 'REJECTED').required(),
+  note: Joi.string().trim().max(500).allow('', null).optional(),
+  // The pharmacist transcribes the paper prescription's medicines
+  // while reviewing an upload (uploads arrive with no items). When
+  // sent, the line set is REPLACED wholesale, like updatePrescription.
+  items: Joi.array().items(prescriptionItemSchema).min(1).optional()
+});
+
 /** Every item product must exist inside the caller's business. */
 const resolveItemProducts = async (
   prisma: any,
@@ -162,6 +171,11 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
         notes: value.notes ? String(value.notes).trim() : null,
         imageUrl: value.imageUrl || null,
         issuedDate: new Date(value.issuedDate),
+        // Staff-entered records are REVIEWED at entry (recorded by
+        // staff at the counter). Only public storefront uploads start
+        // PENDING — see uploadStorePrescription.
+        reviewStatus: 'REVIEWED',
+        source: 'STAFF',
         createdBy: req.user?.createdBy || req.user?.id || null,
         items: { create: buildItemsData(value.items, productsById) }
       },
@@ -185,10 +199,18 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
 export const getPrescriptions = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { page = 1, limit = 20, search, productId, from, to, isActive } = req.query;
+    const { page = 1, limit = 20, search, productId, from, to, isActive, reviewStatus, source } = req.query;
 
     const where: any = { companyId: resolvePrescriptionCompanyId(req) };
     if (isActive !== undefined) where.isActive = String(isActive) === 'true';
+    // Online store (Wave C5 — gap item 5): the pharmacist review
+    // queue is GET /prescriptions?reviewStatus=PENDING&source=ONLINE_UPLOAD.
+    if (reviewStatus === 'PENDING' || reviewStatus === 'REVIEWED' || reviewStatus === 'REJECTED') {
+      where.reviewStatus = String(reviewStatus);
+    }
+    if (source === 'STAFF' || source === 'ONLINE_UPLOAD') {
+      where.source = String(source);
+    }
     if (search) {
       const term = String(search);
       where.OR = [
@@ -409,6 +431,102 @@ export const voidPrescription = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Void prescription error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Pharmacist review of a prescription (Wave C5 — gap item 5).
+// OWNER/MANAGER/ADMIN only — there is no PHARMACIST role (same call
+// as the narcotics register, gap item 2). This is the step that
+// unblocks dispensing for a customer upload: a PENDING upload cannot
+// be attached to any sale (see the gate in sale.controller) until
+// this marks it REVIEWED; REJECTED refuses it with a note the patient
+// can see on the storefront status check. Approving without items is
+// allowed only when the record already has items (staff-entered or
+// previously transcribed) — an upload with no items must be
+// transcribed in the same call, otherwise the approval would unlock
+// a prescription that covers nothing and every Rx checkout against
+// it would fail PRESCRIPTION_MISMATCH.
+export const reviewPrescription = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!requireManagerRole(req, res)) return;
+    const prisma = await getPrisma();
+    const { error, value } = reviewPrescriptionSchema.validate(req.body || {});
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+
+    const companyId = resolvePrescriptionCompanyId(req);
+    const existing = await prisma.prescription.findFirst({
+      where: prescriptionScopeWhere(req, req.params.id),
+      include: { items: { select: { id: true } } }
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Prescription not found' });
+    }
+    if (!existing.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'A voided prescription can no longer be reviewed',
+        code: 'PRESCRIPTION_VOIDED'
+      });
+    }
+
+    let itemsData: ReturnType<typeof buildItemsData> | undefined;
+    if (value.items) {
+      const productsById = await resolveItemProducts(prisma, companyId, value.items);
+      if (!productsById) {
+        return res.status(400).json({
+          success: false,
+          message: 'One or more prescription items refer to a product that does not exist in this business'
+        });
+      }
+      itemsData = buildItemsData(value.items, productsById);
+    }
+    if (value.decision === 'REVIEWED' && !itemsData && (existing.items || []).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This prescription has no medicines listed yet — transcribe its items to approve it.',
+        code: 'PRESCRIPTION_NO_ITEMS'
+      });
+    }
+
+    const prescription = await prisma.$transaction(async (tx: any) => {
+      const updated = await tx.prescription.update({
+        where: { id: existing.id },
+        data: {
+          reviewStatus: value.decision,
+          reviewedBy: req.user?.id || null,
+          reviewedAt: new Date(),
+          reviewNote: value.note ? String(value.note).trim() : null
+        }
+      });
+      if (itemsData) {
+        await tx.prescriptionItem.deleteMany({ where: { prescriptionId: existing.id } });
+        await tx.prescriptionItem.createMany({
+          data: itemsData.map(item => ({ ...item, prescriptionId: existing.id }))
+        });
+      }
+      return tx.prescription.findUnique({
+        where: { id: updated.id },
+        include: prescriptionInclude
+      });
+    });
+
+    return res.json({
+      success: true,
+      data: prescription,
+      message:
+        value.decision === 'REVIEWED'
+          ? 'Prescription approved — it can now be dispensed against'
+          : 'Prescription rejected'
+    });
+  } catch (error) {
+    console.error('Review prescription error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

@@ -28,6 +28,10 @@ export interface CreateSaleData {
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
   creditLimitOverride?: boolean; // Credit limit (gap item 7): explicit owner/manager flag allowing this one credit sale to exceed the customer's credit limit
+  channel?: string | null; // Online store (Wave C5 — gap item 5): POS (default, all history) | ONLINE_STORE (customer order from the branch storefront)
+  deliveryAddress?: string | null; // Online store: delivery address for ONLINE_STORE sales
+  deliveryPhone?: string | null; // Online store: customer phone for ONLINE_STORE sales
+  deliveryNotes?: string | null; // Online store: delivery/pickup notes for ONLINE_STORE sales
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer
