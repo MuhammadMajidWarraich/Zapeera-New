@@ -99,6 +99,12 @@ const ENTRIES: RegistryEntry[] = [
 
   // ── Cross-module helpers / notifications / sync (authenticated) ──────────
   { prefix: '/api/notifications', policy: { kind: 'auth' } },
+  // Device presence (desktop check-in + the account dashboard's "Desktop
+  // Connected" count): account-level like notifications — presence belongs
+  // to the user, so there is deliberately no business-context requirement;
+  // the router enforces authentication and the check-in additionally
+  // requires the desktop client's explicit marker.
+  { prefix: '/api/devices', policy: { kind: 'auth' } },
   // Support tickets: authenticated, deliberately NOT module/billing gated —
   // support is how a locked-out tenant asks for help. Tenancy is enforced in
   // the controller (creator or ACTIVE member of the ticket's business).

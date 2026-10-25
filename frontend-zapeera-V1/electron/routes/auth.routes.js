@@ -1705,6 +1705,17 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             if (cloudAccessToken) {
               cloudApiService.setAuthToken(cloudAccessToken);
             }
+            // Register this desktop's presence with the cloud so the account
+            // dashboard's "Desktop Connected" count reflects this sign-in.
+            // Best-effort: a failed check-in must never fail provisioning
+            // (the periodic sync heartbeat retries while the app runs).
+            if (cloudAccessToken && typeof cloudApiService.checkInDevice === 'function') {
+              try {
+                await cloudApiService.checkInDevice();
+              } catch (ciErr) {
+                console.warn('[Provision] Device check-in warning:', ciErr.message);
+              }
+            }
             // Persist so the token/url survive an app restart (restored on boot).
             try {
               const existingToken = query("SELECT id FROM settings WHERE key = 'zapeera_cloud_access_token'");

@@ -1440,6 +1440,25 @@ export class ApiService {
     }>('/auth/profile');
   }
 
+  // Device presence — the account dashboard's "Desktop Connected" count.
+  // Presence is recorded on the server by the desktop app's check-ins
+  // (per user, never per this client), so this is the one source of truth
+  // on web and desktop alike. On desktop the embedded server proxies the
+  // call to the cloud with the stored cloud token.
+  async getMyDevices() {
+    return this.request<{
+      devices: Array<{
+        deviceId: string;
+        platform?: string | null;
+        hostname?: string | null;
+        status: string;
+        lastSeenAt?: string | null;
+        connected: boolean;
+      }>;
+      desktopConnected: number;
+    }>('/devices/my');
+  }
+
   // Forgot Password - Request password reset
   // Accepts either email or username (for consistency with login)
   async forgotPassword(emailOrUsername: string): Promise<{

@@ -146,6 +146,11 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   '/api/notifications',
   '/api/barcodes',
 
+  // Device presence: account-level (per-user desktop check-in + connected
+  // count for the account dashboard); no module gate — auth lives in the
+  // router and the route-policy registry classifies it 'auth'.
+  '/api/devices',
+
   // Support tickets + public content pages (no module gate; auth/public
   // handling lives in the route-policy registry and the routers)
   '/api/support',
