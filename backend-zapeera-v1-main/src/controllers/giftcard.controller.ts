@@ -11,8 +11,7 @@
 //
 // Every handler is branch/business-scoped and gated on the
 // GIFT_CARD_KIOSK_PACK add-on (isGiftCardKioskEnabled) — the pack is
-// add-on-only and unpriced (pricingPending) until Muhammad sets the
-// price, so only backoffice activation can enable it meanwhile.
+// add-on-only, priced Rs 1,000/mo since 2026-10-25.
 //
 // A gift-card purchase is a LIABILITY (prepaid value owed to the
 // holder), not a sale: no Sale row is written, and the purchase

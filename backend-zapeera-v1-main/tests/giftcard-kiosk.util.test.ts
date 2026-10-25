@@ -32,6 +32,7 @@ import {
   spendWalletAtomic,
   topUpWalletAtomic,
 } from '../src/utils/giftcard-kiosk.util';
+import { checkAddonPurchasable, ADDON_CATALOGUE } from '../src/services/addon-limits.service';
 
 type Row = Record<string, any>;
 
@@ -427,6 +428,26 @@ describe('pack gate', () => {
     expect(await isGiftCardKioskEnabled(trial.prisma, 'biz-1')).toBe(true);
     trial.setAddonRows([]);
     expect(await isGiftCardKioskEnabled(trial.prisma, 'biz-1')).toBe(false);
+  });
+});
+
+describe('pack pricing (gap item 9)', () => {
+  it('lists GIFT_CARD_KIOSK_PACK priced at Rs 1,000/mo', () => {
+    const entry = ADDON_CATALOGUE.GIFT_CARD_KIOSK_PACK;
+    expect(entry).toBeDefined();
+    expect(entry.priceMonthly).toBe(1000);
+    expect(entry.pricingPending).toBeFalsy();
+    expect(entry.stackable).toBe(false);
+  });
+
+  it('allows buying GIFT_CARD_KIOSK_PACK (no 409)', () => {
+    const limits: any = { isTrial: false, planId: 'GROWTH' };
+    expect(checkAddonPurchasable(limits, 'GIFT_CARD_KIOSK_PACK')).toEqual({ ok: true });
+  });
+
+  it('still refuses on trial (trial rule precedes the pricing rule)', () => {
+    const limits: any = { isTrial: true, planId: 'TRIAL' };
+    expect(checkAddonPurchasable(limits, 'GIFT_CARD_KIOSK_PACK').ok).toBe(false);
   });
 });
 

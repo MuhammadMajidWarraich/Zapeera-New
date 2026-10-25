@@ -82,7 +82,7 @@ const serializeAddon = (row: any) => ({
   updatedAt: row.updatedAt,
 });
 
-/** GET /api/subscription/addons/catalogue — the 8 add-ons with prices (GIFT_CARD_KIOSK_PACK is listed with pricingPending until Muhammad prices it; ONLINE_STORE_PACK is item 5's, same treatment). */
+/** GET /api/subscription/addons/catalogue — the 8 add-ons with prices (GIFT_CARD_KIOSK_PACK Rs 1,000/mo, priced 2026-10-25). */
 export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
   return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
 };

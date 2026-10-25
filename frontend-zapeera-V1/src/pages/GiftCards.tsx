@@ -175,7 +175,6 @@ const GiftCards = () => {
   const [tab, setTab] = useState<"cards" | "wallet" | "kiosk">("cards");
   const [loading, setLoading] = useState(true);
   const [packEnabled, setPackEnabled] = useState(false);
-  const [pricingPending, setPricingPending] = useState(false);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [copied, setCopied] = useState("");
 
@@ -245,15 +244,8 @@ const GiftCards = () => {
         setSellBranchId((prev) => prev || list[0]?.id || "");
       }
       if (selectedBusinessId) {
-        const [addonsRes, catalogueRes] = await Promise.all([
-          apiService.getBusinessAddons(selectedBusinessId),
-          apiService.getAddonCatalogue(),
-        ]);
+        const addonsRes = await apiService.getBusinessAddons(selectedBusinessId);
         if (addonsRes.success && addonsRes.data) setPackEnabled(!!addonsRes.data.limits?.giftCardKioskAllowed);
-        if (catalogueRes.success && catalogueRes.data) {
-          const entry = catalogueRes.data.find((a) => a.type === "GIFT_CARD_KIOSK_PACK");
-          setPricingPending(!!entry?.pricingPending);
-        }
       }
       await Promise.all([loadCards(), loadWallets(), loadKioskOrders()]);
     } catch {
@@ -420,9 +412,7 @@ const GiftCards = () => {
       {!loading && !packEnabled && (
         <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <strong>Gift Cards, eWallet &amp; Kiosk is not enabled for this business.</strong>{" "}
-          {pricingPending
-            ? "The add-on has no price yet — it is being decided. Until then only backoffice activation can enable it."
-            : "Enable the add-on to sell gift cards, top up wallets and open the kiosk."}
+          Enable the add-on to sell gift cards, top up wallets and open the kiosk.
         </div>
       )}
 
