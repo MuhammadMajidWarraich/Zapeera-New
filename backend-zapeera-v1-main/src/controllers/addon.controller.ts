@@ -82,7 +82,7 @@ const serializeAddon = (row: any) => ({
   updatedAt: row.updatedAt,
 });
 
-/** GET /api/subscription/addons/catalogue — the 9 add-ons with prices (ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK are listed with pricingPending until Muhammad prices them). */
+/** GET /api/subscription/addons/catalogue — the 9 add-ons with prices (ONLINE_STORE_PACK Rs 500/mo and PRESCRIPTION_UPLOAD_PACK Rs 1,000/mo, priced 2026-10-25). */
 export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
   return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
 };

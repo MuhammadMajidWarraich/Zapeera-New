@@ -8,10 +8,11 @@
 //   · stock — an order beyond live (unexpired, qty > 0) stock is refused
 //   · review gate — a PENDING/REJECTED prescription can never be
 //     dispensed against; REVIEWED (and pre-feature rows) can
-//   · gating — ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK
-//     cannot be bought while unpriced (409 ADDON_PRICING_PENDING),
-//     so no price is ever silently set (the two packs are separate
-//     since 2026-10-25)
+//   · gating — ONLINE_STORE_PACK (Rs 500/mo) and
+//     PRESCRIPTION_UPLOAD_PACK (Rs 1,000/mo) are priced since
+//     2026-10-25 (Muhammad's order, competitor-based) and can be
+//     bought; trial still cannot buy add-ons (the two packs are
+//     separate since 2026-10-25)
 // They also pin the schema fields + route classification the feature
 // depends on.
 
@@ -220,39 +221,28 @@ describe('prescription review gate (gap item 5)', () => {
 });
 
 describe('online store add-on gating (gap item 5)', () => {
-  it('lists the store and prescription-upload packs as separate, unpriced entries', () => {
+  it('lists the store and prescription-upload packs as separate, priced entries', () => {
     const store = ADDON_CATALOGUE.ONLINE_STORE_PACK;
     const upload = ADDON_CATALOGUE.PRESCRIPTION_UPLOAD_PACK;
     expect(store).toBeDefined();
     expect(upload).toBeDefined();
     expect(store.type).not.toBe(upload.type);
+    expect(store.priceMonthly).toBe(500);
+    expect(upload.priceMonthly).toBe(1000);
     for (const entry of [store, upload]) {
-      expect(entry.priceMonthly).toBe(0);
-      expect(entry.pricingPending).toBe(true);
+      expect(entry.pricingPending).toBeFalsy();
       expect(entry.stackable).toBe(false);
     }
   });
 
-  it('refuses to sell ONLINE_STORE_PACK while its price is undecided', () => {
+  it('allows buying ONLINE_STORE_PACK at Rs 500/mo (no 409)', () => {
     const limits: any = { isTrial: false, planId: 'GROWTH' };
-    const check = checkAddonPurchasable(limits, 'ONLINE_STORE_PACK');
-    expect(check).toEqual({
-      ok: false,
-      statusCode: 409,
-      code: 'ADDON_PRICING_PENDING',
-      message: expect.stringContaining('not priced yet'),
-    });
+    expect(checkAddonPurchasable(limits, 'ONLINE_STORE_PACK')).toEqual({ ok: true });
   });
 
-  it('refuses to sell PRESCRIPTION_UPLOAD_PACK while its price is undecided', () => {
+  it('allows buying PRESCRIPTION_UPLOAD_PACK at Rs 1,000/mo (no 409)', () => {
     const limits: any = { isTrial: false, planId: 'GROWTH' };
-    const check = checkAddonPurchasable(limits, 'PRESCRIPTION_UPLOAD_PACK');
-    expect(check).toEqual({
-      ok: false,
-      statusCode: 409,
-      code: 'ADDON_PRICING_PENDING',
-      message: expect.stringContaining('not priced yet'),
-    });
+    expect(checkAddonPurchasable(limits, 'PRESCRIPTION_UPLOAD_PACK')).toEqual({ ok: true });
   });
 
   it('still refuses on trial (trial rule precedes the pricing rule)', () => {

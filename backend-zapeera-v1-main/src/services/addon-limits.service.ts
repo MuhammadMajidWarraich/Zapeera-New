@@ -24,18 +24,13 @@
  *   - ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK (Wave C5 —
  *     gap item 5, split 2026-10-25 on Muhammad's correction: the
  *     store and the prescription upload are TWO separate packs) are
- *     the exceptions to "every catalogue entry has a price": both
- *     prices are UNDECIDED (CloudPOS charges PKR 5,000/yr for the
- *     store + PKR 15,000/yr for prescription upload; Zapeera's
- *     add-ons are monthly, so no direct conversion exists). Each
- *     entry carries priceMonthly 0 + pricingPending: true and
- *     checkAddonPurchasable REFUSES to sell it (409
- *     ADDON_PRICING_PENDING) until Muhammad sets the price. The
- *     gates themselves (onlineStoreAllowed /
- *     prescriptionUploadAllowed) work off the granted rows, so
- *     backoffice activation / a priced catalogue entry is all a
- *     future deploy needs — no code change at pricing time beyond
- *     the catalogue price + removing the pending flag.
+ *     priced since 2026-10-25 (Muhammad's order, competitor-based):
+ *     the store is Rs 500/mo — CloudPOS charges PKR 5,000/yr for
+ *     the store (~Rs 417/mo annualised), rounded to a monthly-flexible
+ *     Rs 500 with no setup fee and no lock-in; prescription upload is
+ *     Rs 1,000/mo — undercutting CloudPOS's PKR 15,000/yr (Rs 1,250/mo)
+ *     by 20%. The gates (onlineStoreAllowed /
+ *     prescriptionUploadAllowed) work off the granted rows.
  *
  * The plan-inclusion matrix below is the single source for what each
  * plan includes on its own; it MIRRORS the public pricing page
@@ -75,11 +70,12 @@ export interface AddonCatalogueEntry {
   stackable: boolean;
   unitLabel?: string;
   /**
-   * True while the price is UNDECIDED (ONLINE_STORE_PACK and
-   * PRESCRIPTION_UPLOAD_PACK only): the entry is listed but cannot
-   * be purchased (see checkAddonPurchasable) until Muhammad sets
-   * the price. Never treat priceMonthly 0 on such an entry as
-   * "free".
+   * True while the price is UNDECIDED: the entry is listed but cannot
+   * be purchased (see checkAddonPurchasable) until the price is set.
+   * Never treat priceMonthly 0 on such an entry as "free". No
+   * catalogue entry is pending today (the last two —
+   * ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK — were priced
+   * 2026-10-25); the flag is kept for any future unpriced pack.
    */
   pricingPending?: boolean;
 }
@@ -146,12 +142,11 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     name: 'Online Pharmacy Store',
     description:
       'Customer-facing online pharmacy storefront for a branch (browse/search the branch catalog, cart, cash-on-delivery checkout into a real sale). Prescription upload is a separate pack.',
-    // PRICE UNDECIDED — see the file header. 0 here is a placeholder,
-    // NOT a free price: pricingPending blocks purchase (409) until
-    // Muhammad sets the monthly price. CloudPOS reference: store
-    // PKR 5,000/yr.
-    priceMonthly: 0,
-    pricingPending: true,
+    // Priced 2026-10-25 (Muhammad's order, competitor-based):
+    // Rs 500/mo. CloudPOS reference: store PKR 5,000/yr (~Rs 417/mo
+    // annualised) — Zapeera rounds to Rs 500/mo, monthly-flexible,
+    // no setup fee, no lock-in.
+    priceMonthly: 500,
     stackable: false,
   },
   PRESCRIPTION_UPLOAD_PACK: {
@@ -159,12 +154,10 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     name: 'Prescription Upload',
     description:
       'Let patients upload prescription photos from the online storefront for pharmacist review before dispensing (upload, review queue, approve/reject with transcription). Needs the Online Pharmacy Store for checkout.',
-    // PRICE UNDECIDED — see the file header. 0 here is a placeholder,
-    // NOT a free price: pricingPending blocks purchase (409) until
-    // Muhammad sets the monthly price. CloudPOS reference:
-    // prescription upload PKR 15,000/yr.
-    priceMonthly: 0,
-    pricingPending: true,
+    // Priced 2026-10-25 (Muhammad's order, competitor-based):
+    // Rs 1,000/mo. CloudPOS reference: prescription upload
+    // PKR 15,000/yr (Rs 1,250/mo) — Zapeera undercuts by 20%.
+    priceMonthly: 1000,
     stackable: false,
   },
 };
@@ -274,9 +267,7 @@ export interface EffectiveLimits {
    * ONLINE_STORE_PACK row is effective for the business. Gates the
    * public storefront (catalog / checkout) and the storefront half
    * of the staff Online Store page. The pack is NOT included in any
-   * plan — it is add-on-only, and unpriced (pricingPending) until
-   * Muhammad sets the price, so it can only be granted by backoffice
-   * activation in the meantime.
+   * plan — it is add-on-only, priced Rs 500/mo since 2026-10-25.
    */
   onlineStoreAllowed: boolean;
   /**
@@ -284,8 +275,8 @@ export interface EffectiveLimits {
    * true while a PRESCRIPTION_UPLOAD_PACK row is effective for the
    * business. Gates the public prescription upload + status check
    * and the review-queue half of the staff Online Store page. A
-   * separate pack from the store itself — same add-on-only,
-   * pricingPending-until-priced rule.
+   * separate pack from the store itself — same add-on-only rule,
+   * priced Rs 1,000/mo since 2026-10-25.
    */
   prescriptionUploadAllowed: boolean;
   /** Monthly voice-AI token quota: plan quota (voice-AI config) + boosters. */
@@ -489,27 +480,13 @@ export function checkAddonPurchasable(
     case 'WHATSAPP_PACK':
       return { ok: true };
     case 'ONLINE_STORE_PACK':
-    case 'PRESCRIPTION_UPLOAD_PACK': {
-      // Price UNDECIDED (Wave C5 — gap item 5; split 2026-10-25):
-      // the pack is listed but cannot be bought until Muhammad sets
-      // the monthly price. Backoffice activation can still grant it
-      // (that path does not go through this check); the gates read
-      // the row, not the price. Remove the pricingPending branch
-      // (fall through to ok) when the catalogue price is set.
-      const entry = ADDON_CATALOGUE[type];
-      if (entry.pricingPending) {
-        return {
-          ok: false,
-          statusCode: 409,
-          code: 'ADDON_PRICING_PENDING',
-          message:
-            type === 'ONLINE_STORE_PACK'
-              ? 'The Online Pharmacy Store is not priced yet — the price is being decided. Please check back soon, or contact support.'
-              : 'Prescription Upload is not priced yet — the price is being decided. Please check back soon, or contact support.',
-        };
-      }
+    case 'PRESCRIPTION_UPLOAD_PACK':
+      // Priced 2026-10-25 (Muhammad's order, competitor-based):
+      // store Rs 500/mo, upload Rs 1,000/mo — purchasable. The 409
+      // ADDON_PRICING_PENDING branch that lived here was removed
+      // with the pricing; the refusal path itself stays for any
+      // future unpriced pack via entry.pricingPending.
       return { ok: true };
-    }
     default:
       return { ok: false, statusCode: 400, code: 'ADDON_UNKNOWN_TYPE', message: 'Unknown add-on.' };
   }
