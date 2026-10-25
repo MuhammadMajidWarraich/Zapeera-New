@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import PosProductCard from './PosProductCard';
 import { BurstTracker } from '@/lib/barcode-scan';
+import { Kbd } from '@/components/ui/kbd';
 import type { ProductVariantLite } from '@/utils/variants';
 
 interface Product {
@@ -150,11 +151,25 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
       if (code && scanningEnabled && onScanSubmit) {
         e.preventDefault();
         onScanSubmit(code);
+        return;
+      }
+      // Plain Enter (typed query, not a scanner burst): add the first
+      // matching product — the keyboard path to a sale without the mouse.
+      // The query is cleared so the next item can be typed straight away.
+      if (searchQuery.trim() && filteredProducts.length > 0) {
+        e.preventDefault();
+        onAddToCart(filteredProducts[0], 1, filteredProducts[0].unitType);
+        onSearchChange('');
       }
       return;
     }
     if (e.key === 'Escape') {
       tracker.invalidate();
+      if (searchQuery) {
+        onSearchChange('');
+      } else {
+        inputRef.current?.blur();
+      }
       return;
     }
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -232,7 +247,8 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8c95b0]">
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs text-[#8c95b0]">
+              <Kbd>F2</Kbd>
               Enter ↵
             </div>
           )}

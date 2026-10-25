@@ -25,6 +25,7 @@ import {
   LifeBuoy,
   HandCoins,
   Store,
+  Keyboard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranding } from "@/contexts/BrandingContext";
@@ -39,6 +40,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { openShortcutsHelp } from "@/lib/keyboard-shortcuts";
+import { Kbd } from "@/components/ui/kbd";
 import { whatsappUrl } from "@/lib/support-links";
 import { SidebarUserWidget } from "@/components/layout/SidebarUserWidget";
 
@@ -370,6 +373,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
             <div ref={searchRef} className="relative hidden md:block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
               <input
+                id="global-search-input"
                 type="search"
                 value={searchQuery}
                 onChange={(e) => {
@@ -379,8 +383,11 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 onFocus={() => setSearchOpen(true)}
                 placeholder="Search businesses, invitations, support…"
                 aria-label="Search"
-                className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#fbfcfe] pl-9 pr-3 text-[13px] text-[#0a1128] outline-none transition-all focus:w-80 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-[330px]"
+                className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#fbfcfe] pl-9 pr-9 text-[13px] text-[#0a1128] outline-none transition-all focus:w-80 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-[330px]"
               />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                <Kbd>/</Kbd>
+              </span>
               {searchOpen && searchQuery.trim() && (
                 <div className="absolute right-0 top-11 z-[120] w-[340px] overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
                   {searchResults.length === 0 ? (
@@ -406,6 +413,17 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 </div>
               )}
             </div>
+
+            {/* Keyboard shortcuts help */}
+            <button
+              type="button"
+              onClick={() => openShortcutsHelp()}
+              title="Keyboard shortcuts (?)"
+              aria-label="Keyboard shortcuts"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+            >
+              <Keyboard className="h-5 w-5" />
+            </button>
 
             {/* Notifications */}
             <DropdownMenu>

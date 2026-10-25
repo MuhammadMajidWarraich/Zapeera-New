@@ -662,6 +662,8 @@ const ProfileSecurityPage = () => {
                   <Button
                     onClick={handleSaveProfile}
                     disabled={savingProfile}
+                    data-shortcut-save
+                    title="Save (Ctrl+S)"
                     className="h-11 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
                   >
                     <Save className="mr-2 h-4 w-4" />
