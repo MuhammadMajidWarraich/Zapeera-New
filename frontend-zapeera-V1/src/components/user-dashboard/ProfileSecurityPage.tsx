@@ -39,6 +39,12 @@ const ProfileSecurityPage = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [toggling2FA, setToggling2FA] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // The avatar must render the freshest known picture: the one returned by
+  // GET /auth/profile (seeded in loadProfile) or by the update call itself.
+  // Rendering only the AuthContext user is what made a saved picture look
+  // lost — on web that snapshot is written at login and was never refreshed
+  // after a profile update, so the page re-rendered the old value forever.
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -61,6 +67,7 @@ const ProfileSecurityPage = () => {
           dateOfBirth: res.data.dateOfBirth ? String(res.data.dateOfBirth).slice(0, 10) : "",
           bio: res.data.bio || "",
         });
+        setProfileImage(res.data.profileImage || null);
         setTwoFactorEnabled(Boolean(res.data.twoFactorEnabled));
       } else if (user) {
         setProfile({
@@ -230,6 +237,9 @@ const ProfileSecurityPage = () => {
         });
         const res = await apiService.updateProfile({ profileImage: base64String });
         if (res.success) {
+          // Show the picture the server just saved (the response carries
+          // it), not the stale context snapshot.
+          setProfileImage((res.data && res.data.profileImage) || base64String);
           toast({ title: "Photo updated", description: "Your profile picture has been saved." });
           setTimeout(() => window.location.reload(), 800);
         } else {
@@ -269,8 +279,8 @@ const ProfileSecurityPage = () => {
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative">
                   <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-[18px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-2xl font-extrabold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)]">
-                    {user?.profileImage ? (
-                      <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
+                    {profileImage || user?.profileImage ? (
+                      <img src={(profileImage || user?.profileImage) as string} alt="" className="h-full w-full object-cover" />
                     ) : (
                       (profile.name?.charAt(0) || user?.name?.charAt(0) || "U").toUpperCase()
                     )}

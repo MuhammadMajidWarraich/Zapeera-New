@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { normalizeAppRole, type AppUserRole } from '../utils/app-role';
 import { toast } from '../hooks/use-toast';
@@ -279,6 +279,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initializeAuth();
   }, []);
+
+  // Web-only: refresh the profile fields of the restored session snapshot
+  // from the server, once per app load. The snapshot is written at login
+  // and was never refreshed afterwards, so profile changes saved later —
+  // most visibly a new profile picture (including saves whose code path
+  // bypasses apiService.updateProfile, e.g. the business Settings page) —
+  // never reached the avatar/header even though the server had them; the
+  // UI rendered the login-time values until the next login. Desktop
+  // already refreshes via sessionLogin during init, so it is skipped
+  // there. Only profile fields are merged (role/membership untouched) and
+  // failures are silent: the snapshot remains the fallback.
+  const profileRefreshAttempted = useRef(false);
+  useEffect(() => {
+    if (!isInitialized || !user || profileRefreshAttempted.current) return;
+    if (typeof window !== 'undefined' && window.electronAPI) return;
+    profileRefreshAttempted.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiService.getProfile();
+        if (cancelled || !res.success || !res.data || String(res.data.id) !== String(user.id)) return;
+        const fresh = res.data as unknown as Record<string, unknown>;
+        setUser((prev) => {
+          if (!prev || String(prev.id) !== String(fresh.id)) return prev;
+          const merged = { ...(prev as unknown as Record<string, unknown>) };
+          let changed = false;
+          for (const key of [
+            'name', 'username', 'email', 'profileImage', 'phone', 'address',
+            'city', 'country', 'dateOfBirth', 'bio', 'twoFactorEnabled',
+          ]) {
+            if (fresh[key] !== undefined && merged[key] !== fresh[key]) {
+              merged[key] = fresh[key];
+              changed = true;
+            }
+          }
+          if (!changed) return prev;
+          const nextUser = merged as unknown as User;
+          try {
+            writeStoredUser(nextUser);
+          } catch {
+            // ignore — in-memory user is already updated
+          }
+          return nextUser;
+        });
+      } catch {
+        // Silent: the restored snapshot stays as the fallback.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, user]);
 
 
   const login = useCallback((userData: User) => {
