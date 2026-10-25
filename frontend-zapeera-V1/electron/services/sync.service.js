@@ -7,11 +7,16 @@ const { SYNC_CONFIG } = require('../config/sync.config');
 let query = null;
 let run = null;
 let saveDatabase = null;
+// v1.0.8 fixup: real DB error text for per-record apply failures.
+// Optional — older callers (and test harnesses) pass only query/run/
+// saveDatabase, and the failure entry falls back to the generic string.
+let getLastDbError = null;
 
 function initDatabaseFunctions(dbService) {
   query = dbService.query;
   run = dbService.run;
   saveDatabase = dbService.saveDatabase;
+  getLastDbError = typeof dbService.getLastDbError === 'function' ? dbService.getLastDbError : null;
 }
 
 const QUEUE_PATH = path.join(getDataDir(), 'sync-queue.json');
@@ -22,6 +27,10 @@ let _connectionState = 'OFFLINE';
 let _syncInProgress = false;
 let _lastSyncTime = null;
 let _syncResult = null;
+// v1.0.8 (RC-1a): last pull's apply failures, surfaced to Settings →
+// Device Status via the get-sync-status IPC. Null when the last pull
+// applied cleanly (or no pull has run yet).
+let _lastApplyFailures = null;
 let syncInterval = null;
 let pullInterval = null;
 let fullSyncCounter = 0;
@@ -399,22 +408,76 @@ async function pullChangesFromCloud() {
   try {
     const businesses = getLocalBusinessIds();
     let totalDownloaded = 0;
+    let totalFailed = 0;
+    const failuresByEntity = {};
+    // v1.0.8 fixup (RC-1c): records quarantined off a poison batch on
+    // this tick — surfaced in _lastApplyFailures below, not dropped.
+    const quarantinedRecords = [];
+    // v1.0.8 fixup (RC-1c observability): per-record failures with the
+    // underlying DB error text, so the surfaced object names the failing
+    // column instead of only the console lines doing so.
+    const allFailures = [];
     for (const businessId of businesses) {
       try {
         const cursor = getSyncCursor(businessId);
         const result = await cloudApi.pullChanges(businessId, cursor);
-        if (result.success !== false && result.changes && result.changes.length > 0) {
-          applyChanges(result.changes);
-          setSyncCursor(businessId, result.nextCursor);
-          totalDownloaded += result.changes.length;
+        if (result && result.success === false) {
+          console.log(`[Sync] Pull rejected for ${businessId}: ${result.message || 'cloud error'}`);
+          continue;
+        }
+        // v1.0.8 (RC-1a): the cloud envelopes the payload —
+        // {success, data:{changes, nextCursor}} — NOT top-level
+        // result.changes / result.nextCursor. Reading the top level
+        // made every pull "succeed" with 0 rows and the cursor stuck
+        // at epoch (901 epoch pulls in the v1.0.7 forensics).
+        const payload = result && result.data ? result.data : result;
+        const changes = payload && Array.isArray(payload.changes) ? payload.changes : [];
+        if (changes.length === 0) {
+          // Nothing behind this cursor — a previously failing batch is
+          // gone (e.g. removed server-side); drop the consecutive-
+          // failure count so a later batch starts fresh.
+          clearPullFailState(businessId);
+          continue;
+        }
+        const applied = applyChanges(changes);
+        totalDownloaded += applied.applied;
+        totalFailed += applied.failed;
+        for (const f of applied.failures) {
+          failuresByEntity[f.entityType] = (failuresByEntity[f.entityType] || 0) + 1;
+        }
+        if (applied.failed === 0) {
+          // Clean batch: any earlier consecutive-failure count for
+          // this business is stale — clear it, then advance.
+          clearPullFailState(businessId);
+          // Advance the cursor ONLY when every row landed. Advancing
+          // past failures silently drops those records forever — the
+          // next pull starts after them and they are never retried.
+          // A stuck cursor re-pulls instead, which is visible (the
+          // failure count below) rather than silent data loss.
+          if (payload.nextCursor) setSyncCursor(businessId, payload.nextCursor);
+        } else {
+          const outcome = recordPullApplyFailure(businessId, cursor, payload.nextCursor, applied.failures);
+          for (const f of applied.failures) allFailures.push({ ...f, businessId });
+          if (outcome.quarantined) {
+            for (const s of outcome.skipped) quarantinedRecords.push({ ...s, businessId });
+          }
         }
       } catch (e) {
         console.log(`[Sync] Pull failed for ${businessId}: ${e.message}`);
       }
     }
     _syncInProgress = false;
-    setConnectionState('SYNCED');
-    return { status: 'SUCCESS', downloaded: totalDownloaded };
+    // `failures` is capped at 10: a systematic failure could fail a
+    // whole batch, and this object rides the polled get-sync-status IPC
+    // — the tile/log only need the first few, while total/byEntity
+    // carry the full counts. `skipped` is NOT capped (a quarantine
+    // batch is small by construction).
+    _lastApplyFailures = totalFailed > 0
+      ? { at: now(), total: totalFailed, byEntity: failuresByEntity, failures: allFailures.slice(0, 10), ...(quarantinedRecords.length > 0 ? { skipped: quarantinedRecords } : {}) }
+      : null;
+    setConnectionState(totalFailed > 0 && totalDownloaded === 0 ? 'ERROR' : 'SYNCED');
+    // downloaded = rows that ACTUALLY landed, not changes.length.
+    return { status: totalFailed > 0 ? 'PARTIAL' : 'SUCCESS', downloaded: totalDownloaded, failed: totalFailed };
   } catch (e) {
     _syncInProgress = false;
     setConnectionState('ERROR');
@@ -652,14 +715,103 @@ function setSyncCursor(businessId, cursor) {
   saveDatabase();
 }
 
+// v1.0.8 fixup (RC-1c): bounded quarantine for a poison pull batch.
+// A record that fails to apply on every pull used to wedge the whole
+// business's cursor forever — the same batch re-pulled every tick and
+// every newer change behind it never delivered. The consecutive-failure
+// count + the failing batch's cursor live in settings (no new table):
+//   sync_pull_fail_<businessId> = { count, cursor, nextCursor, at }
+// Ticks 1–3 of the same failing batch behave exactly as before (cursor
+// held, PARTIAL, visible failure) so transient DB errors still retry.
+// On the 4th consecutive failure of the SAME batch, the batch is
+// quarantined: the cursor advances past it (to the batch's nextCursor)
+// and the skipped records are returned so the caller can surface them
+// in _lastApplyFailures — the skip is VISIBLE, not silent. The next
+// tick then proceeds to newer changes. If the batch carries no usable
+// nextCursor there is nothing safe to advance to, so the cursor stays
+// held (and the failure stays visible) and quarantine is retried on
+// the next tick.
+const PULL_FAIL_STATE_KEY_PREFIX = 'sync_pull_fail_';
+const MAX_CONSECUTIVE_PULL_FAILURES = 3;
+
+function getPullFailState(businessId) {
+  if (!query) return null;
+  try {
+    const rows = query('SELECT value FROM settings WHERE key = ?', [`${PULL_FAIL_STATE_KEY_PREFIX}${businessId}`]);
+    if (!rows || rows.length === 0 || !rows[0].value) return null;
+    const state = JSON.parse(rows[0].value);
+    return state && typeof state === 'object' ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+function setPullFailState(businessId, state) {
+  if (!run) return;
+  const key = `${PULL_FAIL_STATE_KEY_PREFIX}${businessId}`;
+  const value = JSON.stringify(state);
+  const existing = query('SELECT id FROM settings WHERE key = ?', [key]);
+  if (existing && existing.length > 0) {
+    run('UPDATE settings SET value = ?, updatedAt = ? WHERE key = ?', [value, now(), key]);
+  } else {
+    run('INSERT INTO settings (id, key, value, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
+      [uuid(), key, value, now(), now()]);
+  }
+  saveDatabase();
+}
+
+function clearPullFailState(businessId) {
+  if (!run) return;
+  try {
+    run('DELETE FROM settings WHERE key = ?', [`${PULL_FAIL_STATE_KEY_PREFIX}${businessId}`]);
+    saveDatabase();
+  } catch (e) {
+    console.log(`[Sync] Clear pull-fail state error for ${businessId}: ${e.message}`);
+  }
+}
+
+function recordPullApplyFailure(businessId, cursor, nextCursor, failures) {
+  const prev = getPullFailState(businessId);
+  const sameBatch = prev && prev.cursor === cursor;
+  const priorCount = sameBatch ? (prev.count || 0) : 0;
+  if (priorCount >= MAX_CONSECUTIVE_PULL_FAILURES) {
+    // 4th consecutive failure of the same batch — quarantine it.
+    if (!nextCursor || nextCursor === cursor) {
+      console.log(`[Sync] Pull for ${businessId}: batch failed ${priorCount + 1}× consecutively but no usable nextCursor — cursor held, will retry quarantine next tick`);
+      return { quarantined: false, count: priorCount + 1 };
+    }
+    const skipped = (failures || []).map(f => ({
+      entityType: f.entityType,
+      entityId: f.entityId,
+      error: f.error || 'Database write failed',
+      skippedAt: now()
+    }));
+    setSyncCursor(businessId, nextCursor);
+    clearPullFailState(businessId);
+    console.log(`[Sync] QUARANTINED ${skipped.length} record(s) for ${businessId} after ${priorCount + 1} consecutive failed pulls of the same batch — cursor advanced past batch to ${nextCursor}; skipped: ${skipped.map(s => `${s.entityType}:${s.entityId} (${s.error})`).join(', ')}`);
+    return { quarantined: true, count: priorCount + 1, skipped };
+  }
+  const count = priorCount + 1;
+  setPullFailState(businessId, { count, cursor, nextCursor: nextCursor || null, at: now() });
+  console.log(`[Sync] Pull for ${businessId}: ${failures ? failures.length : 0} row(s) failed to apply — cursor NOT advanced, will retry next tick (consecutive failure ${count}/${MAX_CONSECUTIVE_PULL_FAILURES})`);
+  return { quarantined: false, count };
+}
+
+// v1.0.8 (RC-1a): returns what actually landed. run() returns false
+// (never throws) on a failed write, so the old fire-and-forget shape hid
+// 397 failed rows behind a SUCCESS pull — only '[DB Run Error]' console
+// lines marked them. Failures are now counted per entity and kept on
+// _lastApplyFailures for the Settings → Device Status surface.
 function applyChanges(changes) {
-  if (!run || !query || !saveDatabase) return;
+  const stats = { applied: 0, failed: 0, failures: [] };
+  if (!run || !query || !saveDatabase) return stats;
   for (const change of changes) {
     try {
       const { entityType, entityId, operation, data } = change;
       const table = resolveLocalTable(entityType);
+      let ok = false;
       if (operation === 'DELETE') {
-        run(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
+        ok = run(`DELETE FROM ${table} WHERE id = ?`, [entityId]);
       } else {
         const columns = Object.keys(data);
         // Json-typed fields (e.g. product_variants.attributes) arrive as
@@ -674,19 +826,72 @@ function applyChanges(changes) {
           const setClause = columns.filter(c => c !== 'id').map(c => `${c} = ?`).join(', ');
           const updateValues = columns.filter(c => c !== 'id').map(c => values[columns.indexOf(c)]);
           if (setClause) {
-            run(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...updateValues, entityId]);
+            ok = run(`UPDATE ${table} SET ${setClause} WHERE id = ?`, [...updateValues, entityId]);
+          } else {
+            ok = true; // nothing to update — row already matches
           }
         } else {
           const placeholders = columns.map(() => '?').join(', ');
           const columnList = columns.join(', ');
-          run(`INSERT INTO ${table} (${columnList}) VALUES (${placeholders})`, values);
+          ok = run(`INSERT INTO ${table} (${columnList}) VALUES (${placeholders})`, values);
         }
       }
+      if (ok) {
+        stats.applied++;
+      } else {
+        stats.failed++;
+        // v1.0.8 fixup: surface the underlying DB error (e.g. the
+        // missing column name) instead of only a generic string — the
+        // column name used to live only in the console lines.
+        const dbError = (typeof getLastDbError === 'function' && getLastDbError()) || 'Database write failed';
+        stats.failures.push({ entityType, entityId, error: dbError });
+        console.log(`[Sync] Apply failed for ${entityType} ${entityId}: ${dbError}`);
+      }
     } catch (e) {
+      stats.failed++;
+      stats.failures.push({ entityType: change && change.entityType, entityId: change && change.entityId, error: e.message });
       console.log(`[Sync] Apply change error: ${e.message}`);
     }
   }
   saveDatabase();
+  return stats;
+}
+
+function getLastApplyFailures() {
+  return _lastApplyFailures;
+}
+
+// v1.0.8 (RC-3): retry a profile update that was saved locally while the
+// cloud was unreachable. The pending payload lives in settings (written
+// by the embedded PUT /api/auth/update-profile); the cloud endpoint is
+// PUT /api/auth/update-profile with the same cloud JWT the sync engine
+// already holds. Best-effort and never throws.
+const PENDING_PROFILE_PUSH_KEY = 'pending_cloud_profile_push';
+
+async function pushPendingProfileUpdate() {
+  if (!query || !run || !cloudApi || typeof cloudApi.updateProfile !== 'function') return { attempted: false };
+  try {
+    const rows = query('SELECT value FROM settings WHERE key = ?', [PENDING_PROFILE_PUSH_KEY]);
+    if (!rows || rows.length === 0 || !rows[0].value) return { attempted: false };
+    let pending = null;
+    try { pending = JSON.parse(rows[0].value); } catch { pending = null; }
+    if (!pending || typeof pending !== 'object') {
+      run('DELETE FROM settings WHERE key = ?', [PENDING_PROFILE_PUSH_KEY]);
+      return { attempted: false };
+    }
+    const result = await cloudApi.updateProfile(pending);
+    if (result && result.success !== false) {
+      run('DELETE FROM settings WHERE key = ?', [PENDING_PROFILE_PUSH_KEY]);
+      saveDatabase();
+      console.log('[Sync] Pending profile push delivered to cloud');
+      return { attempted: true, success: true };
+    }
+    console.log(`[Sync] Pending profile push still failing: ${(result && result.message) || 'cloud rejected'}`);
+    return { attempted: true, success: false };
+  } catch (e) {
+    console.log(`[Sync] Pending profile push error: ${e.message}`);
+    return { attempted: true, success: false, error: e.message };
+  }
 }
 
 async function syncBidirectional() {
@@ -699,6 +904,16 @@ async function syncBidirectional() {
     return { status: state === 'OFFLINE' ? 'OFFLINE' : 'AUTH_REQUIRED', uploaded: 0, downloaded: 0 };
   }
   console.log('[Sync] Starting synchronization');
+  // v1.0.8 fixup (RC-3): retry a profile update parked while the cloud
+  // was unreachable — BEFORE the pull, so a stale cloud avatar cannot
+  // overwrite the newer local one on the way down. Best-effort: the
+  // function never throws, and a failed retry must never fail the tick
+  // (the row stays parked for the next tick).
+  try {
+    await pushPendingProfileUpdate();
+  } catch (e) {
+    console.log(`[Sync] Pending profile push retry error (ignored): ${e.message}`);
+  }
   // Membership recovery: with zero local memberships the provision/pull
   // steps below iterate zero rows forever — re-seed first (throttled).
   if (getLocalBusinessIds().length === 0) {
@@ -770,6 +985,15 @@ function startPeriodicSync() {
         if (provisionResult.provisioned > 0) console.log(`[Sync] Provisioned ${provisionResult.provisioned} business(es)`);
       } catch (e) {
         console.log(`[Sync] Provision pass error: ${e.message}`);
+      }
+      // v1.0.8 fixup (RC-3): this pull interval runs without
+      // syncBidirectional, so retry the parked profile push here too —
+      // before the pull, for the same stale-avatar reason. Best-effort,
+      // never fails the tick.
+      try {
+        await pushPendingProfileUpdate();
+      } catch (e) {
+        console.log(`[Sync] Pending profile push retry error (ignored): ${e.message}`);
       }
       await pullChangesFromCloud();
     }, SYNC_CONFIG.POLL_INTERVAL);
@@ -949,6 +1173,8 @@ module.exports = {
   recoverMissingMemberships,
   syncBidirectional,
   getSyncResult,
+  getLastApplyFailures,
+  pushPendingProfileUpdate,
   SYNC_CONFIG,
   REMOTE_DATABASE_URL: null
 };

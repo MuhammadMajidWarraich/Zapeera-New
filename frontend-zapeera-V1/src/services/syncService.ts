@@ -16,6 +16,16 @@ export interface SyncStatus {
   // download" (2026-10-24 trap).
   localBusinessCount: number;
   accountSyncError: string | null;
+  // Desktop only (v1.0.8, RC-1a): last pull's apply failures — rows the
+  // cloud sent that the local DB could not store (null when the last
+  // pull applied cleanly). Shown in Settings → Device Status.
+  // v1.0.8 fixup (RC-1c): `skipped` lists records quarantined off a
+  // poison batch after 3 consecutive failed pulls — the cursor was
+  // advanced past them, so they are named here rather than dropped
+  // silently. `failures` lists the per-record failures of the last pull
+  // with the underlying DB error text (capped at 10), so the surface
+  // names the failing column instead of only the console lines doing so.
+  applyFailures: { at: string; total: number; byEntity: Record<string, number>; failures?: Array<{ entityType: string; entityId: string; error: string; businessId: string }>; skipped?: Array<{ entityType: string; entityId: string; error: string; skippedAt: string; businessId: string }> } | null;
 }
 
 export type SyncStateListener = (status: SyncStatus) => void;
@@ -71,6 +81,7 @@ class SyncService {
       inProgress: false,
       localBusinessCount: 0,
       accountSyncError: null,
+      applyFailures: null,
     };
   }
 
@@ -186,6 +197,7 @@ class SyncService {
             inProgress: result.inProgress || false,
             localBusinessCount: localBusinessCount < 0 ? 0 : localBusinessCount,
             accountSyncError,
+            applyFailures: result.applyFailures || null,
           });
           return this.status;
         }

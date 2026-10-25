@@ -152,12 +152,14 @@ async function initDatabase() {
       unitsPerStrip INTEGER, reorderQuantity INTEGER, pctCode TEXT,
       reorderLevel INTEGER DEFAULT 20, requiresPrescription INTEGER DEFAULT 0, unitType TEXT DEFAULT 'PIECE',
       manufacturerId TEXT, supplierId TEXT, shelfId TEXT, expiryDate TEXT, manufacturingDate TEXT, batchNumber TEXT,
+      additionalBarcodes TEXT, barcodeType TEXT, isGenerated INTEGER DEFAULT 0, isControlled INTEGER DEFAULT 0,
+      controlledSchedule TEXT, taxClassId TEXT, isService INTEGER DEFAULT 0, uuid TEXT, syncStatus TEXT DEFAULT 'PENDING',
       isActive INTEGER DEFAULT 1, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, address TEXT, branchId TEXT, companyId TEXT,
-      loyaltyPoints INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1, createdBy TEXT,
+      loyaltyPoints INTEGER DEFAULT 0, creditLimit REAL, isActive INTEGER DEFAULT 1, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS suppliers (
@@ -188,6 +190,12 @@ async function initDatabase() {
       totalAmount REAL DEFAULT 0, discount REAL DEFAULT 0, tax REAL DEFAULT 0, grandTotal REAL DEFAULT 0,
       paidAmount REAL DEFAULT 0, returnedAmount REAL DEFAULT 0,
       paymentMethod TEXT DEFAULT 'CASH', paymentStatus TEXT DEFAULT 'PAID', status TEXT DEFAULT 'COMPLETED',
+      channel TEXT DEFAULT 'POS', saleDate TEXT, subtotal REAL DEFAULT 0, taxAmount REAL DEFAULT 0,
+      provincialTaxAmount REAL DEFAULT 0, discountAmount REAL DEFAULT 0, discountPercentage REAL DEFAULT 0,
+      loyaltyDiscount REAL, loyaltyPointsEarned INTEGER, loyaltyPointsRedeemed INTEGER, promotionDiscount REAL,
+      giftCardAmount REAL, walletAmount REAL, membershipId TEXT, externalOrderId TEXT,
+      postexTrackingNumber TEXT, postexShipmentStatus TEXT, deliveryAddress TEXT, deliveryPhone TEXT,
+      deliveryNotes TEXT, userId TEXT, uuid TEXT, syncStatus TEXT DEFAULT 'PENDING',
       notes TEXT, employeeId TEXT, prescriptionId TEXT, folioId TEXT, salespersonId TEXT, fbrInvoiceNumber TEXT, fbrStatus TEXT, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -199,7 +207,7 @@ async function initDatabase() {
     )`,
     `CREATE TABLE IF NOT EXISTS purchases (
       id TEXT PRIMARY KEY, purchaseNumber TEXT, invoiceNo TEXT, supplierId TEXT, branchId TEXT, companyId TEXT,
-      totalAmount REAL DEFAULT 0, paidAmount REAL DEFAULT 0, discount REAL DEFAULT 0, tax REAL DEFAULT 0, grandTotal REAL DEFAULT 0,
+      totalAmount REAL DEFAULT 0, paidAmount REAL DEFAULT 0, outstanding REAL DEFAULT 0, discount REAL DEFAULT 0, tax REAL DEFAULT 0, grandTotal REAL DEFAULT 0,
       paymentStatus TEXT DEFAULT 'PENDING', status TEXT DEFAULT 'PENDING', notes TEXT, purchaseDate TEXT, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -347,7 +355,7 @@ async function initDatabase() {
       id TEXT PRIMARY KEY, companyId TEXT, customerId TEXT, type TEXT, points INTEGER, saleId TEXT, refundId TEXT, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS prescriptions (
-      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, patientName TEXT, patientPhone TEXT, doctorName TEXT, doctorReg TEXT, notes TEXT, imageUrl TEXT, issuedDate TEXT, isActive INTEGER, voidReason TEXT, voidedAt TEXT, voidedBy TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, patientName TEXT, patientPhone TEXT, doctorName TEXT, doctorReg TEXT, notes TEXT, imageUrl TEXT, issuedDate TEXT, reviewNote TEXT, reviewStatus TEXT DEFAULT 'REVIEWED', reviewedAt TEXT, reviewedBy TEXT, source TEXT DEFAULT 'STAFF', isActive INTEGER, voidReason TEXT, voidedAt TEXT, voidedBy TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS prescription_items (
       id TEXT PRIMARY KEY, prescriptionId TEXT, productId TEXT, productName TEXT, quantity REAL, dosage TEXT, durationDays INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
@@ -407,6 +415,87 @@ async function initDatabase() {
       }
     }
   });
+
+  // ── v1.0.8 sync-schema upgrade (RC-1b) ──────────────────────────────
+  // Columns the cloud has been sending in /api/sync/changes that the
+  // local tables never had — computed from the real Medicos pull
+  // (733 records, 2026-10-25): 39 missing columns across 5 tables, which
+  // made applyChanges fail 397/733 rows silently. The CREATE TABLEs above
+  // carry the same columns for fresh installs; existing DBs need ALTERs
+  // (CREATE TABLE IF NOT EXISTS never upgrades them). Each ALTER is
+  // guarded by a PRAGMA table_info check, so re-runs are no-ops.
+  // If ANY column was added, the sync cursors are reset (DELETE
+  // sync_cursor_*): pre-fix pulls advanced the cursor past the failed
+  // rows, so without a reset the first corrected pull would start after
+  // them and skip them forever — the workspace would stay empty.
+  const SYNC_SCHEMA_UPGRADES_V108 = [
+    // products (9)
+    { table: 'products', column: 'additionalBarcodes', definition: 'TEXT' },
+    { table: 'products', column: 'barcodeType', definition: 'TEXT' },
+    { table: 'products', column: 'isGenerated', definition: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'isControlled', definition: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'controlledSchedule', definition: 'TEXT' },
+    { table: 'products', column: 'taxClassId', definition: 'TEXT' },
+    { table: 'products', column: 'isService', definition: 'INTEGER DEFAULT 0' },
+    { table: 'products', column: 'uuid', definition: 'TEXT' },
+    { table: 'products', column: 'syncStatus', definition: "TEXT DEFAULT 'PENDING'" },
+    // customers (1)
+    { table: 'customers', column: 'creditLimit', definition: 'REAL' },
+    // sales (23)
+    { table: 'sales', column: 'channel', definition: "TEXT DEFAULT 'POS'" },
+    { table: 'sales', column: 'deliveryAddress', definition: 'TEXT' },
+    { table: 'sales', column: 'deliveryNotes', definition: 'TEXT' },
+    { table: 'sales', column: 'deliveryPhone', definition: 'TEXT' },
+    { table: 'sales', column: 'discountAmount', definition: 'REAL DEFAULT 0' },
+    { table: 'sales', column: 'discountPercentage', definition: 'REAL DEFAULT 0' },
+    { table: 'sales', column: 'externalOrderId', definition: 'TEXT' },
+    { table: 'sales', column: 'giftCardAmount', definition: 'REAL' },
+    { table: 'sales', column: 'loyaltyDiscount', definition: 'REAL' },
+    { table: 'sales', column: 'loyaltyPointsEarned', definition: 'INTEGER' },
+    { table: 'sales', column: 'loyaltyPointsRedeemed', definition: 'INTEGER' },
+    { table: 'sales', column: 'membershipId', definition: 'TEXT' },
+    { table: 'sales', column: 'postexShipmentStatus', definition: 'TEXT' },
+    { table: 'sales', column: 'postexTrackingNumber', definition: 'TEXT' },
+    { table: 'sales', column: 'promotionDiscount', definition: 'REAL' },
+    { table: 'sales', column: 'provincialTaxAmount', definition: 'REAL DEFAULT 0' },
+    { table: 'sales', column: 'saleDate', definition: 'TEXT' },
+    { table: 'sales', column: 'subtotal', definition: 'REAL' },
+    { table: 'sales', column: 'syncStatus', definition: "TEXT DEFAULT 'PENDING'" },
+    { table: 'sales', column: 'taxAmount', definition: 'REAL DEFAULT 0' },
+    { table: 'sales', column: 'userId', definition: 'TEXT' },
+    { table: 'sales', column: 'uuid', definition: 'TEXT' },
+    { table: 'sales', column: 'walletAmount', definition: 'REAL' },
+    // purchases (1)
+    { table: 'purchases', column: 'outstanding', definition: 'REAL DEFAULT 0' },
+    // prescriptions (5)
+    { table: 'prescriptions', column: 'reviewNote', definition: 'TEXT' },
+    { table: 'prescriptions', column: 'reviewStatus', definition: "TEXT DEFAULT 'REVIEWED'" },
+    { table: 'prescriptions', column: 'reviewedAt', definition: 'TEXT' },
+    { table: 'prescriptions', column: 'reviewedBy', definition: 'TEXT' },
+    { table: 'prescriptions', column: 'source', definition: "TEXT DEFAULT 'STAFF'" }
+  ];
+  let v108ColumnsAdded = 0;
+  for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V108) {
+    try {
+      const cols = query(`PRAGMA table_info(${table})`);
+      if (cols && cols.some((c) => c.name === column)) continue;
+    } catch { /* fall through and attempt the ALTER */ }
+    try {
+      db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] v1.0.8 migration: added ${table}.${column}`);
+      v108ColumnsAdded++;
+    } catch (e) {
+      console.log(`[DB] v1.0.8 migration skipped ${table}.${column}: ${e.message}`);
+    }
+  }
+  if (v108ColumnsAdded > 0) {
+    try {
+      db.run(`DELETE FROM settings WHERE key LIKE 'sync_cursor_%'`);
+      console.log(`[DB] v1.0.8 migration: ${v108ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
+    } catch (e) {
+      console.log('[DB] v1.0.8 migration: cursor reset skipped:', e.message);
+    }
+  }
 
   saveDatabase();
   console.log(`[DB] ✅ Database initialized: ${tablesCreated}/${tables.length} tables ready`);
@@ -719,6 +808,14 @@ function run(sql, params = []) {
     lastDbError = errorMsg;
     return false;
   }
+}
+
+// v1.0.8 fixup (RC-1c observability): the last error string from run()
+// (null after a successful write). Lets the sync engine surface the real
+// DB error — e.g. the missing column name — in the per-record failure
+// entry instead of a generic 'Database write failed'.
+function getLastDbError() {
+  return lastDbError;
 }
 
 async function getActiveDatabase() {
@@ -1361,6 +1458,7 @@ module.exports = {
   saveDatabase,
   query,
   run,
+  getLastDbError,
   getDatabase,
   getSQL,
   insertIntoSqlite,

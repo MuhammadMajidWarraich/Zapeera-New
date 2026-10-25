@@ -265,6 +265,15 @@ const Settings = () => {
         ? `${syncStatus.accountSyncError.slice(0, 57)}…`
         : syncStatus.accountSyncError)
       : null,
+    // Last pull's apply failures (v1.0.8, RC-1a): rows the cloud sent
+    // that the local DB could not store. Same single-line truncation.
+    applyFailures: syncStatus.applyFailures && syncStatus.applyFailures.total > 0
+      ? (() => {
+          const skipped = syncStatus.applyFailures.skipped || [];
+          const label = `${syncStatus.applyFailures.total} record${syncStatus.applyFailures.total === 1 ? '' : 's'} failed to save (${Object.entries(syncStatus.applyFailures.byEntity).map(([k, v]) => `${k} ${v}`).join(', ')})${skipped.length > 0 ? `; skipped ${skipped.length} (${skipped.map((s) => `${s.entityType} ${s.entityId}`).join(', ')})` : ''}`;
+          return label.length > 60 ? `${label.slice(0, 57)}…` : label;
+        })()
+      : null,
   };
 
   useEffect(() => {
@@ -1223,9 +1232,12 @@ toast({
               // User data caching disabled
 
               // Safe to reload — auth is handled by httpOnly cookies
+              // v1.0.8 (RC-3): the picture is saved locally first; if the
+              // cloud push did not confirm, say so — the sync engine
+              // retries it on its next tick.
               toast({
                 title: "✅ Success",
-                description: "Profile picture updated successfully!",
+                description: result.cloudSynced === false ? "Profile picture updated on this device — cloud sync will retry automatically." : "Profile picture updated successfully!",
                 variant: "success",
                 duration: 2000,
               });
@@ -1320,6 +1332,14 @@ toast({
                 iconClass="bg-amber-500/10 text-amber-600"
                 value={deviceStatus.syncSetupError}
                 label="Sync setup"
+              />
+            )}
+            {deviceStatus.applyFailures && (
+              <ZV3DeviceStat
+                icon={AlertTriangle}
+                iconClass="bg-red-500/10 text-red-600"
+                value={deviceStatus.applyFailures}
+                label="Sync errors"
               />
             )}
             <ZV3DeviceStat

@@ -1717,12 +1717,15 @@ function setupIPC() {
           // "online but nothing will ever download", plus the last
           // account-sync outcome so a failure is visible, not just logged.
           localBusinessCount: syncService.getLocalMembershipCount ? syncService.getLocalMembershipCount() : 0,
-          accountSync: syncService.getLastAccountSync ? syncService.getLastAccountSync() : null
+          accountSync: syncService.getLastAccountSync ? syncService.getLastAccountSync() : null,
+          // v1.0.8 (RC-1a): last pull's apply failures (null when the last
+          // pull applied cleanly). Rendered in Settings → Device Status.
+          applyFailures: syncService.getLastApplyFailures ? syncService.getLastApplyFailures() : null
         };
       }
-      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null, applyFailures: null };
     } catch (e) {
-      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null, error: e.message };
+      return { connectionState: 'OFFLINE', syncState: 'offline', isOnline: false, lastSyncAt: null, pendingChanges: 0, failedChanges: 0, syncInProgress: false, inProgress: false, queueLength: 0, localBusinessCount: 0, accountSync: null, applyFailures: null, error: e.message };
     }
   });
 
