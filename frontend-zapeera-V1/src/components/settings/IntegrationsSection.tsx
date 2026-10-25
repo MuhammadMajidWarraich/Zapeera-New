@@ -353,7 +353,11 @@ export function IntegrationsSection({
 
   const handleConnectSave = async () => {
     if (!dialogProvider) return;
-    const missing = dialogProvider.credentialFields.filter((f) => !credValues[f.key]?.trim());
+    // Optional credential fields (e.g. the WooCommerce webhook secret,
+    // only needed once webhooks are registered) may be left empty.
+    const missing = dialogProvider.credentialFields.filter(
+      (f) => !f.optional && !credValues[f.key]?.trim()
+    );
     if (missing.length > 0) {
       toast({
         title: "Missing credentials",
@@ -531,6 +535,7 @@ export function IntegrationsSection({
                   <div key={field.key}>
                     <Label htmlFor={`int-cred-${field.key}`} className="mb-2 block text-sm font-bold text-[#0a1128]">
                       {field.label}
+                      {field.optional ? " (optional)" : ""}
                     </Label>
                     <Input
                       id={`int-cred-${field.key}`}

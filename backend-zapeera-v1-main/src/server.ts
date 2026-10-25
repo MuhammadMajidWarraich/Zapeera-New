@@ -85,6 +85,12 @@ import integrationsRoutes from './routes/integrations.routes';
 // landed provider handler (side effect). The barrel is empty until the
 // six provider builders add their lines.
 import './integrations/providers';
+import { woocommerceWebhookRouter } from './integrations/woocommerce/webhook';
+// WooCommerce webhook receiver (feature/integration-woocommerce): the
+// router needs the RAW request body to verify the HMAC signature, so it
+// is mounted with express.raw BEFORE the JSON parsers below (see the
+// mount after the rate limiter). No session/CSRF/module gate applies —
+// the HMAC signature IS the authentication.
 import prescriptionRoutes from './routes/prescription.routes';
 import controlledMedicinesRoutes from './routes/controlled-medicines.routes';
 import storeRoutes from './routes/store.routes';
@@ -529,6 +535,30 @@ const limiter = rateLimit({
   validate: false,
 });
 app.use('/api/', limiter);
+
+// WooCommerce webhooks (feature/integration-woocommerce) — mounted
+// BEFORE the JSON body parsers and BEFORE CSRF / the universal module
+// protection: the receiver must see the RAW body to verify the HMAC
+// signature, and a webhook carries no session (the signature is the
+// authentication). The mount path sits under /api/integrations, so the
+// route-inventory test still resolves it to the existing
+// business_management.settings policy. Delivery URL the merchant
+// registers in WooCommerce:
+//   POST /api/v1/integrations/webhooks/woocommerce/:businessId
+// (and the unversioned /api/... twin, per the repo dual-prefix rule).
+// express.raw runs instead of express.json here — body-parser skips a
+// body that is already parsed, so the later JSON parsers leave these
+// requests alone.
+app.use(
+  '/api/v1/integrations/webhooks',
+  express.raw({ type: 'application/json', limit: '1mb' }),
+  woocommerceWebhookRouter
+);
+app.use(
+  '/api/integrations/webhooks',
+  express.raw({ type: 'application/json', limit: '1mb' }),
+  woocommerceWebhookRouter
+);
 
 // Body parsing middleware — tiered limits (QA A-15).
 // The old config parsed 10 MB JSON on EVERY route, including /api/auth/login.

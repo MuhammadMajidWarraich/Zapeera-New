@@ -39,12 +39,17 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     raw.direction === 'in' || raw.direction === 'out' || raw.direction === 'both'
       ? raw.direction
       : DEFAULT_SYNC_CONFIG.direction;
+  // WooCommerce branch binding (feature/integration-woocommerce): kept
+  // only when it is a non-empty string; anything else drops to unset
+  // (the handler then auto-picks a sole branch or fails loudly).
+  const branchId = typeof raw.branchId === 'string' && raw.branchId.trim() !== '' ? raw.branchId.trim() : undefined;
   return {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
     syncOrders: bool(raw.syncOrders),
     syncCustomers: bool(raw.syncCustomers),
-    direction
+    direction,
+    ...(branchId ? { branchId } : {})
   };
 }
 
