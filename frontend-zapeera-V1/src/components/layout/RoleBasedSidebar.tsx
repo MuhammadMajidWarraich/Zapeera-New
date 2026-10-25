@@ -9,12 +9,13 @@
  */
 import React, { useMemo, useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Globe, Zap, Lock, Circle, Settings, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Zap, Lock, Circle, Settings, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useAdmin } from '@/contexts/useAdmin';
 import { useSidebarContext } from '@/components/layout/sidebar-context';
+import { SidebarUserWidget } from '@/components/layout/SidebarUserWidget';
 import { cn } from '@/lib/utils';
 import { normalizeAppRole, type AppUserRole } from '@/utils/app-role';
 import { withBusinessSlug } from '@/utils/business-routes';
@@ -330,7 +331,8 @@ export const RoleBasedSidebar: React.FC = () => {
   const { branding } = useBranding();
   const location = useLocation();
   const { selectedCompanyId, selectedCompany, allCompanies } = useAdmin();
-  const { isCollapsed, setIsCollapsed, mobileOpen } = useSidebarContext();
+  const { isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen } = useSidebarContext();
+  const navigate = useNavigate();
   // On mobile the sidebar is a full-width drawer: when it is open it always
   // renders expanded (labels visible), regardless of the desktop collapse state.
   const effectiveCollapsed = isCollapsed && !mobileOpen;
@@ -392,6 +394,26 @@ export const RoleBasedSidebar: React.FC = () => {
   const canAccessBusinessSettings = ['ADMIN', 'OWNER', 'MANAGER'].includes(
     String(effectiveRole || '').toUpperCase(),
   );
+
+  // Footer user widget — the same card + account dropdown as the account
+  // dashboard sidebar (ZapeeraLayout), via the shared SidebarUserWidget.
+  // Navigation closes the mobile drawer first; logout mirrors the
+  // dashboard widget's flow (logout, then /login).
+  const handleWidgetNavigate = useCallback(
+    (path: string) => {
+      setMobileOpen(false);
+      navigate(path);
+    },
+    [navigate, setMobileOpen],
+  );
+  const handleWidgetLogout = useCallback(async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }, [logout, navigate]);
 
   // ── Dynamic Module Hierarchy from Backend ─────────────────────────────────
   // Convert dynamic hierarchy from backend to ModuleGroup format
@@ -720,36 +742,25 @@ export const RoleBasedSidebar: React.FC = () => {
                 : 'text-white/50 hover:bg-white/[0.04] hover:text-white/85',
               effectiveCollapsed && 'justify-center px-2',
             )}
-            title={effectiveCollapsed ? 'Settings' : undefined}
+            title={effectiveCollapsed ? 'Business Settings' : undefined}
           >
             <ActiveIndicator active={isSettingsActive} />
             <Settings className="h-5 w-5 shrink-0 stroke-[1.8]" />
-            {!effectiveCollapsed && <span>Settings</span>}
+            {!effectiveCollapsed && <span>Business Settings</span>}
           </Link>
         )}
-        <Link
-          to="/zapeera"
-          className={cn(
-            'flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-            effectiveCollapsed && 'justify-center px-2',
-          )}
-          title={effectiveCollapsed ? 'Zapeera' : undefined}
-        >
-          <Globe className="h-5 w-5 shrink-0 stroke-[1.8]" />
-          {!effectiveCollapsed && <span>{branding.productName}</span>}
-        </Link>
-        <button
-          type="button"
-          onClick={logout}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium text-white/50 transition-colors hover:bg-white/[0.04] hover:text-white/85',
-            effectiveCollapsed && 'justify-center px-2',
-          )}
-          title={effectiveCollapsed ? 'Log Out' : undefined}
-        >
-          <LogOut className="h-5 w-5 shrink-0 stroke-[1.8]" />
-          {!effectiveCollapsed && <span>Log Out</span>}
-        </button>
+        {/* User widget — the same card + account dropdown as the account
+            dashboard sidebar (shared SidebarUserWidget). Its menu covers
+            the old standalone "Zapeera" and "Log Out" footer rows
+            (Back to Dashboard / Logout), so those rows are removed. */}
+        <div className="pt-2">
+          <SidebarUserWidget
+            user={user}
+            onNavigate={handleWidgetNavigate}
+            onLogout={handleWidgetLogout}
+            collapsed={effectiveCollapsed}
+          />
+        </div>
       </div>
     </div>
   );
