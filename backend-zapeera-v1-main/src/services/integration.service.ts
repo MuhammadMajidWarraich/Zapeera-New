@@ -313,7 +313,6 @@ export interface TriggerSyncOptions {
   /** Sale id OR invoice number for entity 'shipment'. */
   saleRef?: string;
   /** Payment initiation payload — required when entity is 'payment'. */
-/** Payment initiation payload — required when entity is 'payment'. */
   payment?: IntegrationPaymentRequest;
 }
 
