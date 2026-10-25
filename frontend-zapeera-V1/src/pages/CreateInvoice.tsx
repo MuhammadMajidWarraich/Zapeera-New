@@ -348,6 +348,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [rxDosages, setRxDosages] = useState<Record<string, { dosage: string; durationDays: string }>>({});
   const [rxCreating, setRxCreating] = useState(false);
   const [rxBlock, setRxBlock] = useState<{ message: string; products: Array<{ id: string; name: string }> } | null>(null);
+  // Credit limit (khata, gap item 7): the selected customer's khata
+  // balance + limit for the payment dialog warning, the 402 block
+  // the server returns for an over-limit credit sale, and the one-shot
+  // manager override that re-submits with creditLimitOverride: true.
+  const [khataCredit, setKhataCredit] = useState<{ balance: number; creditLimit: number | null; availableCredit: number | null } | null>(null);
+  const [creditLimitBlock, setCreditLimitBlock] = useState<{ message: string; balance: number; creditLimit: number; projectedBalance: number; overBy: number; dueAmount: number } | null>(null);
+  const [creditLimitOverrideArmed, setCreditLimitOverrideArmed] = useState(false);
   // Promotions (Wave B4): the coupon code the cashier typed and, once
   // validated against the live cart, the server-estimated promotion
   // discount. Only the CODE is ever sent with the sale — the server
@@ -373,6 +380,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const membershipRole = useMembershipRole();
   const canCreateProducts =
     membershipRole === "OWNER" || membershipRole === "MANAGER" || user?.role === "OWNER";
+  // Credit-limit override (gap item 7): only owner/manager/admin may
+  // approve an over-limit credit sale — cashiers see the block, never
+  // the override button. Mirrors the server's override roles.
+  const canOverrideCreditLimit =
+    membershipRole === "OWNER" || membershipRole === "MANAGER" || user?.role === "OWNER" || user?.role === "ADMIN";
   const [isLoading, setIsLoading] = useState(false);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
@@ -422,20 +434,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     loadProducts();
   }, []);
 
-  // Salesperson attribution (Wave C6): the staff list for the
-  // checkout picker. Best-effort — without it the picker simply
+  // Salesperson attribution (Wave C6 → gap item 7): the designated
+  // SALESMEN for the checkout picker (StaffProfile.isSalesman) — not
+  // the whole staff list. Best-effort — without it the picker simply
   // stays hidden and sales attribute to the cashier, as before.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await apiService.getStaff({ page: 1, limit: 100, isActive: true });
+        const response = await apiService.getSalesmen();
         if (cancelled || !response.success) return;
-        const staff = ((response.data as any)?.staff || []) as any[];
-        const people = staff
+        const people = ((response.data as any[]) || [])
           .map((s: any) => ({
-            userId: s.membership?.userId || s.membership?.user?.id || '',
-            name: s.membership?.user?.name || s.membership?.user?.username || 'Staff',
+            userId: s.userId || '',
+            name: s.name || 'Salesman',
           }))
           .filter((p: any) => p.userId && p.userId !== user?.id);
         if (!cancelled) setSalesStaff(people);
@@ -1400,8 +1412,30 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     setLoyaltyPointsInput("");
   }, [posCustomer?.id]);
 
+  // Credit limit (khata, gap item 7): the selected customer's khata
+  // balance + limit, so the payment dialog can warn before the sale
+  // is rung and the server blocks it with 402. A new customer clears
+  // any stale over-limit block from the previous one.
+  useEffect(() => {
+    setCreditLimitBlock(null);
+    if (!posCustomer?.id) { setKhataCredit(null); return; }
+    let cancelled = false;
+    apiService.getCustomerLedger(posCustomer.id, { page: 1, limit: 1 })
+      .then((response) => {
+        if (cancelled || !response.success || !response.data) return;
+        const s = response.data.summary;
+        setKhataCredit({ balance: s.balance, creditLimit: s.creditLimit ?? null, availableCredit: s.availableCredit ?? null });
+      })
+      .catch(() => { if (!cancelled) setKhataCredit(null); });
+    return () => { cancelled = true; };
+  }, [posCustomer?.id]);
+
   const splitAllocated = splitPayments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   const splitRemaining = Math.round((mainTotalAfterLoyalty - splitAllocated) * 100) / 100;
+
+  // Credit limit (khata, gap item 7): the udhaar this sale would add
+  // on top of the customer's khata balance.
+  const creditDue = Math.round((mainTotalAfterLoyalty - (splitEnabled ? splitAllocated : (paidAmount || 0))) * 100) / 100;
 
   const updateSplitRow = (index: number, patch: Partial<SplitPaymentRow>) => {
     setSplitPayments(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -2520,6 +2554,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // credited with this sale when it is not the cashier —
         // commissions aggregate on salespersonId ?? cashier.
         salespersonId: salespersonId || undefined,
+        // Credit-limit override (gap item 7): set only by the
+        // manager override button after a 402 block; the flag is
+        // disarmed in the finally below so it applies to exactly
+        // one submission and can never leak into the next sale.
+        creditLimitOverride: creditLimitOverrideArmed || undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -2545,6 +2584,22 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             products: ((saleResponse as any).data?.products as Array<{ id: string; name: string }>) || [],
           });
           setIsPaymentDialogOpen(false);
+          return;
+        }
+        // Credit limit (gap item 7): an over-limit credit sale is
+        // blocked by the server (402) — surface the block INSIDE the
+        // payment dialog (which stays open) instead of a bare toast,
+        // so an owner/manager can approve the override right there.
+        if (saleErrorCode === 'CREDIT_LIMIT_EXCEEDED') {
+          const d = (saleResponse as any).data || {};
+          setCreditLimitBlock({
+            message: saleResponse.message || "This sale exceeds the customer's credit limit.",
+            balance: d.balance ?? 0,
+            creditLimit: d.creditLimit ?? 0,
+            projectedBalance: d.projectedBalance ?? 0,
+            overBy: d.overBy ?? 0,
+            dueAmount: d.dueAmount ?? 0,
+          });
           return;
         }
         const errorMessage = (saleResponse as any).errors ?
@@ -2668,6 +2723,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       // Salesperson attribution (Wave C6): each sale starts
       // un-attributed (the cashier) again.
       setSalespersonId('');
+      // Credit limit (gap item 7): a completed sale clears any
+      // over-limit block.
+      setCreditLimitBlock(null);
       setRxSearch("");
       setRxResults([]);
       setShowRxCreate(false);
@@ -2691,6 +2749,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       });
     } finally {
       setIsLoading(false);
+      // Credit limit (gap item 7): the override flag is one-shot —
+      // disarm it after every submission so it can never leak into
+      // the next sale.
+      setCreditLimitOverrideArmed(false);
     }
   };
 
@@ -5014,9 +5076,60 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
-                    {/* Salesperson attribution (Wave C6): credit this
-                        sale to a salesperson other than the cashier.
-                        Hidden when no staff list is available. */}
+                    {/* Credit limit (khata, gap item 7): the selected
+                        customer's khata position, plus a warning when
+                        this sale's credit would exceed what is left
+                        of their limit. The server still enforces it
+                        (402) — this is the early warning, not the
+                        gate. */}
+                    {posCustomer && khataCredit && (
+                      <div className="mt-3 space-y-1.5">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Khata (Credit)</Label>
+                        <div className="rounded-[10px] bg-[#f4f6fa] px-3 py-2 text-[13px] font-medium text-[#3d4356]">
+                          Balance PKR {khataCredit.balance.toFixed(2)}
+                          {khataCredit.creditLimit != null ? (
+                            <> • Limit PKR {khataCredit.creditLimit.toFixed(2)} • Available PKR {Math.max(0, khataCredit.availableCredit ?? 0).toFixed(2)}</>
+                          ) : (
+                            <> • No limit set</>
+                          )}
+                        </div>
+                        {khataCredit.creditLimit != null && creditDue > 0 && creditDue > (khataCredit.availableCredit ?? 0) && (
+                          <p className="text-xs font-bold text-red-600">
+                            This sale adds PKR {creditDue.toFixed(2)} of credit — PKR {(creditDue - (khataCredit.availableCredit ?? 0)).toFixed(2)} over the available limit. It will be blocked unless an owner/manager approves it.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Over-limit block (gap item 7): the server's 402
+                        lands here, inside the payment dialog, so an
+                        owner/manager can approve the override without
+                        losing the sale. Cashiers only see the ask. */}
+                    {creditLimitBlock && (
+                      <div className="mt-3 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2.5">
+                        <p className="text-[13px] font-bold text-red-700">Credit limit exceeded</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-red-600">
+                          Balance PKR {creditLimitBlock.balance.toFixed(2)} • Limit PKR {creditLimitBlock.creditLimit.toFixed(2)} • This sale would reach PKR {creditLimitBlock.projectedBalance.toFixed(2)} (over by PKR {creditLimitBlock.overBy.toFixed(2)}).
+                        </p>
+                        {canOverrideCreditLimit ? (
+                          <Button
+                            type="button"
+                            onClick={() => { setCreditLimitOverrideArmed(true); createInvoice(); }}
+                            disabled={isLoading}
+                            className="mt-2 h-9 rounded-[8px] bg-red-600 px-3 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                          >
+                            Approve over-limit sale
+                          </Button>
+                        ) : (
+                          <p className="mt-1 text-xs font-semibold text-red-600">Ask an owner or manager to approve this sale, or collect a payment first.</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Salesperson attribution (Wave C6 → gap item 7):
+                        credit this sale to a designated salesman
+                        other than the cashier. Hidden when no
+                        salesmen are designated. */}
                     {salesStaff.length > 0 && (
                       <div className="mt-3 space-y-1.5">
                         <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Salesperson</Label>

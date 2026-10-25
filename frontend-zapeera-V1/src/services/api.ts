@@ -2442,6 +2442,7 @@ export class ApiService {
         totalPurchases: number;
         loyaltyPoints: number;
         isVIP: boolean;
+        creditLimit?: number | null;
         lastVisit?: string;
         isActive: boolean;
         // Khata balance (Wave B2): SUM of the customer's ledger rows —
@@ -2465,6 +2466,9 @@ export class ApiService {
     email?: string;
     address?: string;
     branchId: string;
+    // Credit limit (khata, gap item 7): max outstanding udhaar in PKR.
+    // Null/absent = no limit.
+    creditLimit?: number | null;
   }) {
     return this.request<{
       id: string;
@@ -2476,6 +2480,7 @@ export class ApiService {
       totalPurchases: number;
       loyaltyPoints: number;
       isVIP: boolean;
+      creditLimit?: number | null;
       lastVisit?: string;
       isActive: boolean;
       createdAt: string;
@@ -2493,6 +2498,8 @@ export class ApiService {
     address?: string;
     isVIP?: boolean;
     isActive?: boolean;
+    // Credit limit (khata, gap item 7): null clears the limit.
+    creditLimit?: number | null;
   }) {
     return this.request<{
       id: string;
@@ -2504,6 +2511,7 @@ export class ApiService {
       totalPurchases: number;
       loyaltyPoints: number;
       isVIP: boolean;
+      creditLimit?: number | null;
       lastVisit?: string;
       isActive: boolean;
       createdAt: string;
@@ -2536,6 +2544,10 @@ export class ApiService {
         totalDue: number;
         totalPaid: number;
         entryCount: number;
+        // Credit limit (gap item 7): null = no limit; availableCredit
+        // is what more udhaar the customer may still take.
+        creditLimit?: number | null;
+        availableCredit?: number | null;
       };
       entries: Array<{
         id: string;
@@ -3539,6 +3551,9 @@ export class ApiService {
     // with the sale when it is not the cashier. Commissions read
     // salespersonId ?? cashier; omit for a cashier's own sale.
     salespersonId?: string;
+    // Credit-limit override (gap item 7): explicit owner/manager flag
+    // allowing this one credit sale to exceed the customer's limit.
+    creditLimitOverride?: boolean;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -3556,6 +3571,7 @@ export class ApiService {
         totalPurchases: number;
         loyaltyPoints: number;
         isVIP: boolean;
+        creditLimit?: number | null;
         lastVisit?: string;
       };
       items: Array<{
@@ -6495,6 +6511,9 @@ export class ApiService {
     emergencyContactName?: string;
     emergencyContactPhone?: string;
     isNewUser?: boolean;
+    // Salesman flag (gap item 7): designate this staff member as a
+    // salesman — they appear in the POS picker + performance views.
+    isSalesman?: boolean;
     newUserData?: {
       name: string;
       email: string;
@@ -6538,6 +6557,8 @@ export class ApiService {
     joiningDate?: string;
     status?: string;
     isActive?: boolean;
+    // Salesman flag (gap item 7).
+    isSalesman?: boolean;
   }) {
     return this.request<{
       id: string;
@@ -6586,6 +6607,84 @@ export class ApiService {
       terminatedStaff: number;
       onLeaveStaff: number;
     }>(`/staff/stats?${params.toString()}`);
+  }
+
+  // ─── Salesmen (gap item 7) ─────────────────────────────────────────
+  // Staff designated as salesmen (StaffProfile.isSalesman). The POS
+  // picker reads this roster — not the whole staff list — and the
+  // performance views read the sales attributed to each salesman.
+  async getSalesmen(params?: { branchId?: string; q?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.branchId) queryParams.append('branchId', params.branchId);
+    if (params?.q) queryParams.append('q', params.q);
+    const query = queryParams.toString();
+    return this.request<Array<{
+      staffProfileId: string;
+      employeeId: string;
+      userId: string;
+      name: string;
+      email: string;
+      phone: string;
+      designation?: string | null;
+      department?: string | null;
+      isActive: boolean;
+      isSalesman: boolean;
+    }>>(`/salesmen${query ? `?${query}` : ''}`);
+  }
+
+  async getSalesmenPerformance(params?: { startDate?: string; endDate?: string; branchId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.branchId) queryParams.append('branchId', params.branchId);
+    const query = queryParams.toString();
+    return this.request<{
+      range: { startDate: string; endDate: string };
+      salesmen: Array<{
+        staffProfileId: string;
+        employeeId: string;
+        userId: string;
+        name: string;
+        email: string;
+        designation?: string | null;
+        totalSales: number;
+        transactions: number;
+        averageSale: number;
+        commissions: { periods: number; totalAmount: number; totalCommission: number; totalBonus: number };
+      }>;
+      totals: { totalSales: number; transactions: number; totalCommission: number };
+    }>(`/salesmen/performance${query ? `?${query}` : ''}`);
+  }
+
+  async getSalesmanPerformance(id: string, params?: { startDate?: string; endDate?: string; branchId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.branchId) queryParams.append('branchId', params.branchId);
+    const query = queryParams.toString();
+    return this.request<{
+      staffProfileId: string;
+      employeeId: string;
+      userId: string;
+      name: string;
+      email: string;
+      designation?: string | null;
+      range: { startDate: string; endDate: string };
+      totalSales: number;
+      totalPaid: number;
+      transactions: number;
+      averageSale: number;
+      recentSales: Array<{
+        id: string;
+        invoiceNumber?: string | null;
+        totalAmount: number;
+        paidAmount: number;
+        paymentStatus: string;
+        createdAt: string;
+        customer?: { id: string; name: string } | null;
+        branch?: { id: string; name: string } | null;
+      }>;
+    }>(`/salesmen/${id}/performance${query ? `?${query}` : ''}`);
   }
 
   // Attendance Management
