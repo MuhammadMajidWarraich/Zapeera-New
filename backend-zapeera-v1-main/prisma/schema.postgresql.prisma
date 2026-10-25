@@ -164,6 +164,7 @@ model Business {
   billingProfiles           BillingProfile[]         @relation("businessBillingProfiles")
   paymentProofs             PaymentProof[]           @relation("businessPaymentProofs")
   fbrConfig                 FbrConfig?
+  provincialTaxConfigs      ProvincialTaxConfig[]
   fbrInvoiceQueue           FbrInvoiceQueue[]
   prescriptions             Prescription[]
   patients                  Patient[]
@@ -233,6 +234,7 @@ model Branch {
   shelves            Shelf[]
   company            Business           @relation(fields: [companyId], references: [id])
   membershipBranches MembershipBranch[] @relation("membershipBranches")
+  provincialTaxConfigs ProvincialTaxConfig[]
 
   @@unique([name, companyId], name: "branch_name_per_company")
   @@index([companyId], name: "idx_branch_company")
@@ -825,6 +827,13 @@ model Sale {
   createdBy          String?
   subtotal           Float
   taxAmount          Float
+  // Provincial tax (Gap item 1): charged alongside the FBR/general
+  // tax on the same post-discount base, but stored SEPARATELY — never
+  // folded into taxAmount, so FBR payloads (which read taxAmount /
+  // SaleTaxLine rows only) are byte-identical with or without it.
+  // 0 on every sale created before this feature or with no provincial
+  // config. The per-authority breakdown lives in provincialTaxLines.
+  provincialTaxAmount Float @default(0)
   discountAmount     Float     @default(0)
   discountPercentage Float?    @default(0)
   // Loyalty redemption (Wave B3): points spent on this sale and the PKR
@@ -888,6 +897,7 @@ model Sale {
   payments SalePayment[]
   promotions SalePromotion[]
   taxLines SaleTaxLine[]
+  provincialTaxLines SaleProvincialTaxLine[]
   fbrInvoices FbrInvoiceQueue[]
   ledgerEntries CustomerLedgerEntry[]
   loyaltyTransactions LoyaltyTransaction[]
@@ -1091,6 +1101,62 @@ model SaleTaxLine {
   @@index([saleId], name: "idx_sale_tax_line_sale")
   @@index([taxClassId], name: "idx_sale_tax_line_class")
   @@map("sale_tax_lines")
+}
+
+// Provincial tax (Gap program item 1): PRA / SRB / KPRA / BRA alongside
+// FBR. One config row per business (branchId null) or per branch
+// (branchId set — the branch row overrides the business row for that
+// branch's sales). `authority` is one of PRA | SRB | KPRA | BRA. At
+// most one ENABLED config per (companyId, branchId) scope is enforced
+// by the API, so sale-time resolution is unambiguous: the branch row
+// wins, else the business row. Registration numbers and rates are
+// snapshotted onto each sale's SaleProvincialTaxLine rows, so later
+// edits never rewrite history. Provincial tax is computed on the SAME
+// post-discount base as the FBR/general tax but stored SEPARATELY
+// (Sale.provincialTaxAmount, never inside Sale.taxAmount) — FBR
+// payloads read taxAmount/SaleTaxLine rows only, so enabling
+// provincial tax cannot change any FBR number or QR.
+model ProvincialTaxConfig {
+  id                 String   @id @default(cuid())
+  companyId          String
+  branchId           String?
+  authority          String // PRA | SRB | KPRA | BRA
+  registrationNumber String?
+  rate               Float // percent: 5 means 5%
+  enabled            Boolean  @default(true)
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  company            Business @relation(fields: [companyId], references: [id])
+  branch             Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([companyId], name: "idx_prov_tax_config_company")
+  @@index([branchId], name: "idx_prov_tax_config_branch")
+  @@map("provincial_tax_configs")
+}
+
+// One row per provincial authority charged on a sale (Gap program
+// item 1): normally exactly one — the authority resolved for the
+// sale's branch. authority/authorityName/registrationNumber/rate are
+// snapshots taken at sale creation. Sale.provincialTaxAmount stores
+// the SUM of these rows' taxAmount. Provincial lines are NEVER part
+// of Sale.taxAmount or of the FBR payload (FBR reads SaleTaxLine
+// rows only).
+model SaleProvincialTaxLine {
+  id                 String   @id @default(cuid())
+  saleId             String
+  authority          String // PRA | SRB | KPRA | BRA
+  authorityName      String // snapshot, e.g. "Punjab Revenue Authority"
+  registrationNumber String?
+  rate               Float // percent snapshot
+  taxableAmount      Float
+  taxAmount          Float
+  createdAt          DateTime @default(now())
+  sale               Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId], name: "idx_sale_prov_tax_line_sale")
+  @@index([authority], name: "idx_sale_prov_tax_line_authority")
+  @@map("sale_provincial_tax_lines")
 }
 
 // Prescriptions register (Wave C1 — Pharmacy pack): the record of a

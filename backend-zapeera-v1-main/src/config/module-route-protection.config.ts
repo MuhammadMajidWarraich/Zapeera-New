@@ -63,6 +63,10 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/parked-sales': { module: 'sales', page: 'pos' },
   '/api/refunds': { module: 'sales', page: 'refunds' },
   '/api/customers': { module: 'sales', page: 'customers' },
+  // Provincial tax (Gap item 1): invoice-money rules sharing the
+  // sales.invoices page, the same precedent as tax classes / FBR
+  // (which the registry maps to sales.invoices).
+  '/api/provincial-tax': { module: 'sales', page: 'invoices' },
 
   // Purchases
   '/api/purchases': { module: 'purchases', page: 'order-purchase' },

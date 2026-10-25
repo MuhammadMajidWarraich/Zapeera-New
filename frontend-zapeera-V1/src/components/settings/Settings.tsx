@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
+import type { ProvincialTaxConfigRecord, ProvincialTaxAuthorityInfo, ProvincialAuthority } from "@/services/api";
 import { syncService, type SyncStatus } from "@/services/syncService";
 import { config } from "@/lib/config";
 import { toast } from "@/hooks/use-toast";
@@ -117,6 +118,17 @@ const Settings = () => {
   const [isSavingFbr, setIsSavingFbr] = useState(false);
   const [isTestingFbr, setIsTestingFbr] = useState(false);
   const canManageFbr = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
+  // Provincial tax (Gap item 1): PRA / SRB / KPRA / BRA alongside FBR.
+  // Config writes are OWNER-only (the server enforces it too); the
+  // list below is readable by owner/manager/admin. Unlike FBR this
+  // has no external posting, so it works in the desktop app as well.
+  const isProvTaxOwner = (user?.membership?.roleName || user?.role || "") === "OWNER";
+  const [provTaxConfigs, setProvTaxConfigs] = useState<ProvincialTaxConfigRecord[]>([]);
+  const [provTaxAuthorities, setProvTaxAuthorities] = useState<ProvincialTaxAuthorityInfo[]>([]);
+  const [provTaxBranches, setProvTaxBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [provTaxForm, setProvTaxForm] = useState({ authority: "PRA" as ProvincialAuthority, registrationNumber: "", rate: "", branchId: "", enabled: true });
+  const [provTaxEditingId, setProvTaxEditingId] = useState<string | null>(null);
+  const [isSavingProvTax, setIsSavingProvTax] = useState(false);
   // Backup & Restore: owner-only (the server enforces it too) — a
   // backup carries the business's entire dataset.
   const isBackupOwner = ["OWNER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
@@ -368,6 +380,80 @@ const Settings = () => {
       setFbrTestResult({ ok: false, message: e.message || "Connection test failed." });
     } finally {
       setIsTestingFbr(false);
+    }
+  };
+
+  // Provincial tax (Gap item 1) ──────────────────────────────────────
+  const loadProvTax = async () => {
+    try {
+      const [cfgRes, brRes] = await Promise.all([apiService.getProvincialTaxConfigs(), apiService.getBranches()]);
+      if (cfgRes.success && cfgRes.data) {
+        setProvTaxConfigs(cfgRes.data);
+        if (cfgRes.authorities) setProvTaxAuthorities(cfgRes.authorities);
+      }
+      if (brRes.success && brRes.data) setProvTaxBranches(brRes.data.branches || []);
+    } catch { /* section simply stays at defaults */ }
+  };
+
+  useEffect(() => { loadProvTax(); }, [selectedCompanyId]);
+
+  const handleProvTaxSave = async () => {
+    if (!isProvTaxOwner) return;
+    const rate = parseFloat(provTaxForm.rate);
+    if (!provTaxForm.authority || Number.isNaN(rate) || rate < 0 || rate > 100) {
+      toast({ title: "Check the provincial tax values", description: "Pick an authority and a rate between 0 and 100%.", variant: "destructive" });
+      return;
+    }
+    setIsSavingProvTax(true);
+    try {
+      const payload = {
+        authority: provTaxForm.authority,
+        registrationNumber: provTaxForm.registrationNumber.trim() || null,
+        rate,
+        branchId: provTaxForm.branchId || null,
+        enabled: provTaxForm.enabled,
+      };
+      const res = provTaxEditingId
+        ? await apiService.updateProvincialTaxConfig(provTaxEditingId, payload)
+        : await apiService.createProvincialTaxConfig(payload);
+      if (res.success) {
+        toast({ title: "Provincial tax saved", description: provTaxEditingId ? "Configuration updated — future sales use the new rate." : "Provincial tax is now charged on new sales, alongside FBR." });
+        setProvTaxForm({ authority: "PRA", registrationNumber: "", rate: "", branchId: "", enabled: true });
+        setProvTaxEditingId(null);
+        loadProvTax();
+      } else {
+        toast({ title: "Could not save provincial tax", description: res.message || "Please check the values and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not save provincial tax", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSavingProvTax(false);
+    }
+  };
+
+  const handleProvTaxEdit = (cfg: ProvincialTaxConfigRecord) => {
+    setProvTaxEditingId(cfg.id);
+    setProvTaxForm({
+      authority: cfg.authority,
+      registrationNumber: cfg.registrationNumber || "",
+      rate: String(cfg.rate),
+      branchId: cfg.branchId || "",
+      enabled: cfg.enabled,
+    });
+  };
+
+  const handleProvTaxRetire = async (cfg: ProvincialTaxConfigRecord) => {
+    if (!isProvTaxOwner) return;
+    try {
+      const res = await apiService.deleteProvincialTaxConfig(cfg.id);
+      if (res.success) {
+        toast({ title: "Provincial tax retired", description: `${cfg.authorityName} will no longer be charged on new sales. Past invoices keep their provincial lines.` });
+        loadProvTax();
+      } else {
+        toast({ title: "Could not retire provincial tax", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not retire provincial tax", description: e.message || "Please try again.", variant: "destructive" });
     }
   };
 
@@ -1760,6 +1846,156 @@ toast({
               The connection test never posts an invoice — in TEST mode it only checks this configuration;
               in SANDBOX/PRODUCTION it checks the FBR endpoint is reachable.
             </p>
+          </div>
+        </section>
+        {/* Provincial Tax — PRA / SRB / KPRA / BRA (Gap item 1) */}
+        <section
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          style={{ animationDelay: "225ms" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+              Provincial Tax — PRA / SRB / KPRA / BRA
+            </div>
+            <div className="text-xs font-medium text-[#8c95b0]">Owner only</div>
+          </div>
+          <div className="flex flex-col px-[30px] py-[30px]">
+            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+              Provincial sales tax on services, charged on each invoice alongside FBR — on the same
+              post-discount amount, but as its own line (never inside the FBR tax and never sent to
+              FBR). Pick the authority for your province; a branch in another province can have its
+              own row. With nothing configured here, invoices are exactly as they are today.
+            </p>
+            {!isProvTaxOwner && (
+              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                Only the business owner can change provincial tax settings.
+              </p>
+            )}
+            {isProvTaxOwner && (
+              <>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-authority" className="mb-2 block text-sm font-bold text-[#0a1128]">Provincial Authority</Label>
+                  <select
+                    id="prov-tax-authority"
+                    value={provTaxForm.authority}
+                    onChange={(e) => setProvTaxForm({ ...provTaxForm, authority: e.target.value as ProvincialAuthority })}
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  >
+                    {(provTaxAuthorities.length > 0 ? provTaxAuthorities : [
+                      { authority: "PRA" as ProvincialAuthority, name: "Punjab Revenue Authority", province: "Punjab" },
+                      { authority: "SRB" as ProvincialAuthority, name: "Sindh Revenue Board", province: "Sindh" },
+                      { authority: "KPRA" as ProvincialAuthority, name: "Khyber Pakhtunkhwa Revenue Authority", province: "Khyber Pakhtunkhwa" },
+                      { authority: "BRA" as ProvincialAuthority, name: "Balochistan Revenue Authority", province: "Balochistan" },
+                    ]).map((a) => (
+                      <option key={a.authority} value={a.authority}>{a.name} ({a.province})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-reg" className="mb-2 block text-sm font-bold text-[#0a1128]">Registration Number (optional)</Label>
+                  <Input
+                    id="prov-tax-reg"
+                    value={provTaxForm.registrationNumber}
+                    onChange={(e) => setProvTaxForm({ ...provTaxForm, registrationNumber: e.target.value })}
+                    placeholder="e.g. the PRA / SRB registration number printed on invoices"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-rate" className="mb-2 block text-sm font-bold text-[#0a1128]">Rate (%)</Label>
+                  <Input
+                    id="prov-tax-rate"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={provTaxForm.rate}
+                    onChange={(e) => setProvTaxForm({ ...provTaxForm, rate: e.target.value })}
+                    placeholder="e.g. 5"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                  <select
+                    id="prov-tax-branch"
+                    value={provTaxForm.branchId}
+                    onChange={(e) => setProvTaxForm({ ...provTaxForm, branchId: e.target.value })}
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  >
+                    <option value="">All branches (business-wide)</option>
+                    {provTaxBranches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name} only</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    A branch row overrides the business-wide row for that branch&apos;s sales.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#0a1128]">Enabled</h4>
+                    <p className="text-[13px] text-[#8c95b0]">Charge this provincial tax on new sales</p>
+                  </div>
+                  <Switch
+                    id="prov-tax-enabled"
+                    className={ZV3_POS_SWITCH}
+                    checked={provTaxForm.enabled}
+                    onCheckedChange={(checked) => setProvTaxForm({ ...provTaxForm, enabled: checked })}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-[22px]">
+                  <Button
+                    type="button"
+                    onClick={handleProvTaxSave}
+                    disabled={isSavingProvTax}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSavingProvTax ? "Saving…" : provTaxEditingId ? "Update Provincial Tax" : "Save Provincial Tax"}
+                  </Button>
+                  {provTaxEditingId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => { setProvTaxEditingId(null); setProvTaxForm({ authority: "PRA", registrationNumber: "", rate: "", branchId: "", enabled: true }); }}
+                      className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                    >
+                      Cancel Edit
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+            {provTaxConfigs.length > 0 && (
+              <div className="pt-[22px]">
+                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                {provTaxConfigs.map((cfg) => (
+                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                    <div className="text-[13px] leading-relaxed">
+                      <span className="font-bold text-[#0a1128]">{cfg.authorityName} ({cfg.authority}) — {Number(cfg.rate)}%</span>
+                      <span className="text-[#8c95b0]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
+                      {cfg.registrationNumber && <span className="text-[#8c95b0]"> · Reg: {cfg.registrationNumber}</span>}
+                      {!cfg.enabled && <span className="ml-2 font-semibold text-red-600">Disabled</span>}
+                    </div>
+                    {isProvTaxOwner && (
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={() => handleProvTaxEdit(cfg)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        {cfg.enabled && (
+                          <Button type="button" variant="outline" onClick={() => handleProvTaxRetire(cfg)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Retire</Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {provTaxConfigs.length === 0 && (
+              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+                No provincial tax configured — invoices charge FBR/general tax only, as today.
+              </p>
+            )}
           </div>
         </section>
         {/* Backup & Restore (owner only) */}

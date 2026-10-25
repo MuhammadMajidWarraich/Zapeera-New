@@ -175,6 +175,10 @@ const ENTRIES: RegistryEntry[] = [
   // same sales.invoices key on the same precedent; management writes
   // are additionally gated to OWNER/MANAGER in the controller.
   { prefix: '/api/tax-classes', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Provincial tax (Gap item 1): also invoice-money rules, so they
+  // share the same sales.invoices key on the same precedent; config
+  // writes are additionally gated to OWNER in the controller.
+  { prefix: '/api/provincial-tax', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
   // FBR POS fiscal integration (Wave B7): fiscalizes invoices, so it
   // shares the sales.invoices key on the same precedent; config writes
   // and manual retries are additionally gated to OWNER/MANAGER in the

@@ -11,6 +11,7 @@ import { isMissingTableError } from '../utils/membership-bridge.util';
 import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/loyalty.util';
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
+import { computeProvincialTax, resolveProvincialTaxConfig, serializeProvincialTaxBreakdown, ProvincialTaxLine } from '../utils/provincial-tax.util';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
@@ -266,6 +267,7 @@ export const getSales = async (req: AuthRequest, res: Response) => {
             },
             payments: true,
             taxLines: true,
+            provincialTaxLines: true,
             // Prescriptions (Wave C1): the invoice list/detail shows
             // the linked register summary when present.
             prescription: {
@@ -370,7 +372,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
             }
           },
           payments: true,
-          taxLines: true
+          taxLines: true,
+          provincialTaxLines: true
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -386,7 +389,7 @@ export const getSales = async (req: AuthRequest, res: Response) => {
       data: {
         // Tax classes (Wave B5): every sale carries its per-class
         // breakdown alongside the stored tax lines.
-        sales: sales.map((s: any) => ({ ...s, taxBreakdown: serializeTaxBreakdown(s) })),
+        sales: sales.map((s: any) => ({ ...s, taxBreakdown: serializeTaxBreakdown(s), provincialTaxBreakdown: serializeProvincialTaxBreakdown(s) })),
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -478,6 +481,7 @@ export const getSale = async (req: AuthRequest, res: Response) => {
         },
         payments: true,
         taxLines: true,
+        provincialTaxLines: true,
         promotions: {
           include: {
             promotion: {
@@ -514,7 +518,7 @@ export const getSale = async (req: AuthRequest, res: Response) => {
 
     return res.json({
       success: true,
-      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale) }
+      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale), provincialTaxBreakdown: serializeProvincialTaxBreakdown(sale) }
     });
   } catch (error) {
     console.error('Get sale error:', error);
@@ -602,7 +606,8 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
           }
         },
         payments: true,
-        taxLines: true
+        taxLines: true,
+        provincialTaxLines: true
       }
     });
 
@@ -615,7 +620,7 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
 
     return res.json({
       success: true,
-      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale) }
+      data: { ...sale, taxBreakdown: serializeTaxBreakdown(sale), provincialTaxBreakdown: serializeProvincialTaxBreakdown(sale) }
     });
   } catch (error) {
     console.error('Get sale by receipt number error:', error);
@@ -948,7 +953,48 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         }];
       }
     }
-    const totalAmount = subtotalAfterDiscount + taxAmount;
+    // Provincial tax (Gap item 1): PRA / SRB / KPRA / BRA alongside
+    // FBR, on the SAME post-discount base — but as a SEPARATE amount,
+    // never folded into taxAmount (see provincial-tax.util.ts). The
+    // branch row wins, else the business row; no config (or a disabled
+    // one) → 0, so the invoice is byte-identical to today. A failure
+    // resolving the config never fails the sale (the FBR pattern):
+    // it logs and the sale proceeds without provincial tax.
+    let provincialTaxAmount = 0;
+    let provincialTaxGroups: ProvincialTaxLine[] = [];
+    {
+      let provCompanyId: string | null = null;
+      let provBranchId: string | null = null;
+      if (req.user?.selectedCompanyId && req.user?.selectedBranchId) {
+        provCompanyId = req.user.selectedCompanyId;
+        provBranchId = req.user.selectedBranchId;
+      } else if (saleData.branchId) {
+        const provBranchRow = await prisma.branch.findUnique({
+          where: { id: saleData.branchId },
+          select: { companyId: true }
+        });
+        provCompanyId = provBranchRow?.companyId || null;
+        provBranchId = saleData.branchId;
+      }
+      if (provCompanyId) {
+        try {
+          const provConfigs = await prisma.provincialTaxConfig.findMany({
+            where: { companyId: provCompanyId }
+          });
+          const provResult = computeProvincialTax({
+            taxableBase: subtotalAfterDiscount,
+            config: resolveProvincialTaxConfig(provConfigs, provBranchId)
+          });
+          provincialTaxAmount = provResult.provincialTaxAmount;
+          provincialTaxGroups = provResult.lines;
+        } catch (provincialTaxError) {
+          console.warn('Could not compute provincial tax, skipping:', provincialTaxError);
+          provincialTaxAmount = 0;
+          provincialTaxGroups = [];
+        }
+      }
+    }
+    const totalAmount = subtotalAfterDiscount + taxAmount + provincialTaxAmount;
 
     // Points this sale earns — the long-standing rule, unchanged:
     // 1 point per full PKR 100 of the FINAL total (so a redemption
@@ -1282,6 +1328,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
           subtotal,
           taxAmount,
+          provincialTaxAmount,
           discountAmount: discountAmount,
           discountPercentage: saleData.discountPercentage || 0,
           // Loyalty (Wave B3): redemption facts + points earned, so
@@ -1326,6 +1373,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id',
               subtotal,
               taxAmount,
+              provincialTaxAmount,
               discountAmount: discountAmount,
               discountPercentage: saleData.discountPercentage || 0,
               loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
@@ -1473,6 +1521,25 @@ export const createSale = async (req: AuthRequest, res: Response) => {
             saleId: sale.id,
             taxClassId: g.taxClassId,
             className: g.className,
+            rate: g.rate,
+            taxableAmount: g.taxableAmount,
+            taxAmount: g.taxAmount
+          }))
+        });
+      }
+
+      // Provincial tax (Gap item 1): persist the per-authority lines
+      // the engine computed, in the same transaction. The rows snapshot
+      // authority/registration/rate, so later config edits never rewrite
+      // this sale's provincial history; Sale.provincialTaxAmount above
+      // is their sum. No config → no rows, exactly like today.
+      if (provincialTaxGroups.length > 0) {
+        await tx.saleProvincialTaxLine.createMany({
+          data: provincialTaxGroups.map(g => ({
+            saleId: sale.id,
+            authority: g.authority,
+            authorityName: g.authorityName,
+            registrationNumber: g.registrationNumber,
             rate: g.rate,
             taxableAmount: g.taxableAmount,
             taxAmount: g.taxAmount
@@ -2010,6 +2077,7 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         },
         payments: true,
         taxLines: true,
+        provincialTaxLines: true,
         promotions: {
           include: {
             promotion: {
@@ -2109,6 +2177,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         // Tax classes (Wave B5): the per-class breakdown behind
         // taxAmount (one implicit "Default" group for classless sales).
         taxBreakdown: serializeTaxBreakdown(completeSale),
+        // Provincial tax (Gap item 1): the per-authority breakdown
+        // behind provincialTaxAmount (empty when no config applied).
+        provincialTaxBreakdown: serializeProvincialTaxBreakdown(completeSale),
+        provincialTaxAmount: completeSale.provincialTaxAmount ?? 0,
         // FBR POS (Wave B7): fiscal status at response time (the
         // number itself is filled in asynchronously by the worker).
         fbrStatus,
@@ -2173,6 +2245,7 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       include: {
         items: true,
         taxLines: true,
+        provincialTaxLines: true,
         customer: true,
         user: true,
         branch: true,
@@ -2205,10 +2278,15 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
     let newDiscountAmount = existingSale.discountAmount;
     let newTaxAmount = existingSale.taxAmount;
     let newTotalAmount = existingSale.totalAmount;
+    let newProvincialTaxAmount = Number((existingSale as any).provincialTaxAmount || 0);
     // Tax classes (Wave B5): the per-class groups behind newTaxAmount
     // when a discount edit recomputes it (null = tax untouched, the
     // stored breakdown stays as created).
     let newTaxGroups: TaxGroup[] | null = null;
+    // Provincial tax (Gap item 1): the fresh groups when a discount
+    // edit recomputes it (null = provincial tax untouched, the stored
+    // lines stay as created).
+    let newProvincialTaxGroups: ProvincialTaxLine[] | null = null;
 
     if (discountPercentage !== undefined && discountPercentage !== existingSale.discountPercentage) {
       newDiscountAmount = (existingSale.subtotal * discountPercentage) / 100;
@@ -2296,7 +2374,27 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
           taxAmount: newTaxAmount
         }];
       }
-      newTotalAmount = subtotalAfterDiscount + newTaxAmount;
+      // Provincial tax (Gap item 1): recompute through the same
+      // engine createSale uses, on the new discounted base, resolving
+      // the CURRENT config for the sale's branch — the same "current
+      // rules" basis the legacy code applied by re-reading the current
+      // defaultTax. No config → 0, and the stored lines are replaced
+      // with none (a retired config stops charging future edits).
+      try {
+        const provConfigsForUpdate = await prisma.provincialTaxConfig.findMany({
+          where: { companyId: existingSale.companyId }
+        });
+        const provResultForUpdate = computeProvincialTax({
+          taxableBase: subtotalAfterDiscount,
+          config: resolveProvincialTaxConfig(provConfigsForUpdate, existingSale.branchId)
+        });
+        newProvincialTaxAmount = provResultForUpdate.provincialTaxAmount;
+        newProvincialTaxGroups = provResultForUpdate.lines;
+      } catch (provincialTaxError) {
+        console.warn('Could not recompute provincial tax for sale update, keeping stored value:', provincialTaxError);
+        newProvincialTaxGroups = null;
+      }
+      newTotalAmount = subtotalAfterDiscount + newTaxAmount + newProvincialTaxAmount;
     }
 
     // Determine new payment status and sale status
@@ -2312,6 +2410,7 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
         discountPercentage: discountPercentage !== undefined ? discountPercentage : existingSale.discountPercentage,
         discountAmount: newDiscountAmount,
         taxAmount: newTaxAmount,
+        provincialTaxAmount: newProvincialTaxAmount,
         totalAmount: newTotalAmount,
         paymentStatus: newPaymentStatus,
         status: newSaleStatus,
@@ -2354,6 +2453,31 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
         }
       } catch (taxLineError) {
         console.error('[Tax] Failed to refresh tax lines for sale', id, taxLineError);
+      }
+    }
+
+    // Provincial tax (Gap item 1): same replace-the-rows pattern as
+    // the tax lines above, so the breakdown always sums to the sale's
+    // provincialTaxAmount. newProvincialTaxGroups is null only when
+    // the recompute itself failed — then the stored lines stay.
+    if (newProvincialTaxGroups) {
+      try {
+        await prisma.saleProvincialTaxLine.deleteMany({ where: { saleId: id } });
+        if (newProvincialTaxGroups.length > 0) {
+          await prisma.saleProvincialTaxLine.createMany({
+            data: newProvincialTaxGroups.map(g => ({
+              saleId: id,
+              authority: g.authority,
+              authorityName: g.authorityName,
+              registrationNumber: g.registrationNumber,
+              rate: g.rate,
+              taxableAmount: g.taxableAmount,
+              taxAmount: g.taxAmount
+            }))
+          });
+        }
+      } catch (provTaxLineError) {
+        console.error('[Provincial Tax] Failed to refresh provincial tax lines for sale', id, provTaxLineError);
       }
     }
 
@@ -2400,6 +2524,7 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       customerId: updatedSale.customerId?.toString() || null,
       subtotal: Number(updatedSale.subtotal),
       taxAmount: Number(updatedSale.taxAmount),
+      provincialTaxAmount: Number((updatedSale as any).provincialTaxAmount || 0),
       discountAmount: Number(updatedSale.discountAmount),
       discountPercentage: updatedSale.discountPercentage ? Number(updatedSale.discountPercentage) : null,
       totalAmount: Number(updatedSale.totalAmount),
@@ -2483,7 +2608,19 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
           taxableAmount: g.taxableAmount,
           taxAmount: g.taxAmount
         }))
-        : serializeTaxBreakdown(existingSale)
+        : serializeTaxBreakdown(existingSale),
+      // Provincial tax (Gap item 1): the fresh lines when the edit
+      // recomputed them, else the breakdown stored at creation.
+      provincialTaxBreakdown: newProvincialTaxGroups
+        ? newProvincialTaxGroups.map(g => ({
+          authority: g.authority,
+          authorityName: g.authorityName,
+          registrationNumber: g.registrationNumber,
+          rate: g.rate,
+          taxableAmount: g.taxableAmount,
+          taxAmount: g.taxAmount
+        }))
+        : serializeProvincialTaxBreakdown(existingSale)
     };
 
     // Notify about the update

@@ -54,7 +54,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
-import type { TaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } from "@/services/api";
+import type { TaxBreakdownLine, ProvincialTaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
@@ -191,6 +191,12 @@ interface Receipt {
   // Receipts render them only when shouldShowTaxBreakdown() is true;
   // single-default receipts render exactly as before (no tax line).
   taxBreakdown?: TaxBreakdownLine[];
+  // Provincial tax (Gap item 1): the server's per-authority lines
+  // (PRA / SRB / KPRA / BRA). Rendered as their own receipt lines,
+  // separate from the FBR/general tax above; empty when no provincial
+  // config applied, so old receipts render exactly as before.
+  provincialTaxAmount?: number;
+  provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
   // FBR POS (Wave B7): fiscal invoice number + status from the server.
   // The number usually lands asynchronously (worker), so it is often
   // absent on this just-created receipt and present on reprints.
@@ -262,6 +268,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
     for (const line of receipt.taxBreakdown || []) {
       lines.push(`Tax — ${line.className} (${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
     }
+  }
+  for (const line of receipt.provincialTaxBreakdown || []) {
+    lines.push(`Provincial tax — ${line.authorityName} (${line.authority}, ${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
   }
   if (receipt.prescription) {
     lines.push(`Rx: ${receipt.prescription.patientName}${receipt.prescription.doctorName ? ` (Dr. ${receipt.prescription.doctorName})` : ''}`);
@@ -2606,6 +2615,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           : undefined,
         // Tax classes (Wave B5): per-class groups from the server.
         taxBreakdown: saleResponse.data.taxBreakdown || [],
+        // Provincial tax (Gap item 1): per-authority lines from the
+        // server (empty when no provincial config applied).
+        provincialTaxBreakdown: saleResponse.data.provincialTaxBreakdown || [],
+        provincialTaxAmount: saleResponse.data.provincialTaxAmount || 0,
         // FBR POS (Wave B7): fiscal fields from the server (status is
         // PENDING at this point when FBR is enabled; the number is
         // filled in by the worker and shows on reprints).
@@ -3212,6 +3225,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
             </div>
             `).join('') : ''}
+            ${(currentReceipt.provincialTaxBreakdown || []).map((line) => `
+            <div class="total-line">
+              <span>Provincial tax — ${escapeHtml(line.authorityName)} (${escapeHtml(line.authority)}, ${Number(line.rate)}%):</span>
+              <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
+            </div>
+            `).join('')}
             <div class="total-line total-final">
               <span>TOTAL:</span>
               <span>PKR ${currentReceipt.total.toFixed(2)}</span>
@@ -5544,6 +5563,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
                     <p key={line.className} className="flex justify-between gap-2">
                       <span>Tax — {line.className} ({Number(line.rate)}%):</span>
+                      <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
+                    </p>
+                  ))}
+                  {(currentReceipt.provincialTaxBreakdown || []).map((line) => (
+                    <p key={line.authority} className="flex justify-between gap-2">
+                      <span>Provincial tax — {line.authorityName} ({line.authority}, {Number(line.rate)}%):</span>
                       <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
                     </p>
                   ))}
