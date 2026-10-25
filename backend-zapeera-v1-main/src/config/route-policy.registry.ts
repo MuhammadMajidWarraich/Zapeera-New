@@ -197,6 +197,11 @@ const ENTRIES: RegistryEntry[] = [
   // and manual retries are additionally gated to OWNER/MANAGER in the
   // controller.
   { prefix: '/api/fbr', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Integrations framework: lives in Settings, so it shares the
+  // business_management.settings key with /api/settings on the same
+  // precedent; the router additionally gates every route to
+  // OWNER/MANAGER.
+  { prefix: '/api/integrations', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
 
   // ── Customers (sub-module of Sales in the canonical V2 hierarchy) ───────
   // There is no standalone 'customers' module in module_definitions; the

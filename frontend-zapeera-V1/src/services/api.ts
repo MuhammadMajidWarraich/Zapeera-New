@@ -952,6 +952,90 @@ export interface FbrStatusRecord {
   }>;
 }
 
+// Integrations framework (feature/integration-framework) — mirrors the
+// backend registry (src/integrations/types.ts + registry.ts). The
+// provider list is static registry data; `connectable` is true only
+// once a provider's sync-handler module is registered server-side.
+// Credentials are write-only and never appear in these shapes.
+export type IntegrationCategory =
+  | 'sales-channel'
+  | 'payments'
+  | 'logistics'
+  | 'accounting'
+  | 'productivity'
+  | 'messaging';
+
+export type IntegrationSyncDirection = 'in' | 'out' | 'both';
+
+export type IntegrationSyncEntity = 'product' | 'stock' | 'order' | 'customer' | 'payment' | 'shipment';
+
+export interface IntegrationSyncConfig {
+  syncProducts: boolean;
+  syncStock: boolean;
+  syncOrders: boolean;
+  syncCustomers: boolean;
+  direction: IntegrationSyncDirection;
+}
+
+export interface IntegrationCredentialField {
+  key: string;
+  label: string;
+  secret: boolean;
+  placeholder?: string;
+}
+
+export interface IntegrationProviderInfo {
+  id: string;
+  displayName: string;
+  category: IntegrationCategory;
+  capabilities: string[];
+  authType: string;
+  docsUrl: string | null;
+  sandboxAvailable: boolean;
+  limitation?: string;
+  tier: 1 | 2;
+  credentialFields: IntegrationCredentialField[];
+  connectable: boolean;
+  status: 'connected' | 'disconnected' | 'error';
+  hasCredentials: boolean;
+  config: IntegrationSyncConfig | null;
+  lastSyncAt: string | null;
+  lastError: string | null;
+}
+
+export interface IntegrationConnectionView {
+  provider: string;
+  status: 'connected' | 'disconnected' | 'error';
+  hasCredentials: boolean;
+  config: IntegrationSyncConfig;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  updatedAt: string | null;
+}
+
+export interface IntegrationConnectPayload {
+  credentials: Record<string, string>;
+  config?: Partial<IntegrationSyncConfig>;
+}
+
+export interface IntegrationSyncLogRecord {
+  id: string;
+  provider: string;
+  direction: string;
+  entity: string;
+  status: 'success' | 'partial' | 'failed';
+  recordsProcessed: number;
+  recordsFailed: number;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface IntegrationSyncResult {
+  log: IntegrationSyncLogRecord;
+  result: { recordsProcessed: number; recordsFailed: number; message?: string };
+}
+
 export interface BillingProfileRecord {
   id: string;
   userId: string;
@@ -3479,6 +3563,20 @@ export class ApiService {
     });
   }
 
+  // Integrations framework (feature/integration-framework)
+  // Credentials are write-only: connect sends them, no response ever
+  // contains them (reads expose hasCredentials only).
+  async getIntegrations() {
+    return this.request<{ providers: IntegrationProviderInfo[] }>('/integrations');
+  }
+
+  async connectIntegration(provider: string, data: IntegrationConnectPayload) {
+    return this.request<IntegrationConnectionView>(`/integrations/${provider}/connect`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateProvincialTaxConfig(configId: string, data: Partial<ProvincialTaxConfigPayload>) {
     return this.request<ProvincialTaxConfigRecord>(`/provincial-tax/${configId}`, {
       method: 'PUT',
@@ -3502,6 +3600,34 @@ export class ApiService {
     }
     const query = queryParams.toString();
     return this.request<ProvincialTaxSummary>(`/provincial-tax/summary${query ? `?${query}` : ''}`);
+  }
+
+  async disconnectIntegration(provider: string) {
+    return this.request<IntegrationConnectionView>(`/integrations/${provider}/disconnect`, {
+      method: 'POST',
+    });
+  }
+
+  async getIntegrationStatus(provider: string) {
+    return this.request<IntegrationConnectionView & { remoteOk: boolean | null; remoteMessage: string | null }>(
+      `/integrations/${provider}/status`
+    );
+  }
+
+  async triggerIntegrationSync(
+    provider: string,
+    data?: { entity?: IntegrationSyncEntity; direction?: 'in' | 'out' }
+  ) {
+    return this.request<IntegrationSyncResult>(`/integrations/${provider}/sync`, {
+      method: 'POST',
+      body: JSON.stringify(data ?? {}),
+    });
+  }
+
+  async getIntegrationLogs(provider: string, limit = 20, offset = 0) {
+    return this.request<{ logs: IntegrationSyncLogRecord[]; total: number }>(
+      `/integrations/${provider}/logs?limit=${limit}&offset=${offset}`
+    );
   }
 
   // Backup & Restore (owner only). Exports are file downloads (the
