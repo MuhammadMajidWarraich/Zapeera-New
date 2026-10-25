@@ -1816,7 +1816,7 @@ model BusinessSubscription {
 model SubscriptionAddon {
   id          String    @id @default(cuid())
   businessId  String
-  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK | ONLINE_STORE_PACK
+  type        String // HR_PACK | EXTRA_SEAT | EXTRA_BRANCH | REPORTS_PACK | FINANCE_PACK | VOICE_BOOSTER | WHATSAPP_PACK | ONLINE_STORE_PACK | PRESCRIPTION_UPLOAD_PACK
   quantity    Int       @default(1) // stackable types only (EXTRA_SEAT / EXTRA_BRANCH / VOICE_BOOSTER); packs are always 1
   status      String    @default("ACTIVE") // PENDING (awaiting backoffice activation) | ACTIVE | CANCEL_PENDING (live until periodEnd) | CANCELLED
   startedAt   DateTime  @default(now())

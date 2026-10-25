@@ -5,8 +5,11 @@
 //   1. The branch id in the path is the store key — a cuid, unguessable,
 //      and every query is scoped to that ONE branch (a customer never
 //      sees another branch's catalog, stock or prescriptions).
-//   2. The ONLINE_STORE_PACK add-on gate — the whole storefront answers
-//      403 STORE_NOT_ENABLED until the business holds the pack.
+//   2. The add-on gates — the storefront + checkout answer 403
+//      STORE_NOT_ENABLED until the business holds ONLINE_STORE_PACK,
+//      and the prescription upload + status check answer 403
+//      PRESCRIPTION_UPLOAD_NOT_ENABLED until it holds the separate
+//      PRESCRIPTION_UPLOAD_PACK (split 2026-10-25).
 //   3. Server-side pricing — checkout resolves prices/stock from the
 //      branch's batches (online-store.util); client-sent prices are
 //      never read, let alone trusted.
@@ -34,6 +37,7 @@ import { getPrisma } from '../utils/db.util';
 import { createSearchConditions } from '../utils/query-helper';
 import {
   isOnlineStoreEnabled,
+  isPrescriptionUploadEnabled,
   resolveStoreBranch,
   resolveStoreCart,
   prescriptionReviewBlock,
@@ -49,7 +53,13 @@ const STORE_NOT_ENABLED = {
   message: 'This branch does not have the Online Pharmacy Store enabled yet.',
 };
 
-/** Resolve the store branch + gate; answers 404/403 directly. Returns null when answered. */
+const UPLOAD_NOT_ENABLED = {
+  success: false,
+  code: 'PRESCRIPTION_UPLOAD_NOT_ENABLED',
+  message: 'This branch does not have prescription upload enabled yet.',
+};
+
+/** Resolve the store branch + store gate; answers 404/403 directly. Returns null when answered. */
 const requireStore = async (
   req: Request,
   res: Response
@@ -62,6 +72,29 @@ const requireStore = async (
   }
   if (!(await isOnlineStoreEnabled(prisma, branch.companyId))) {
     res.status(403).json(STORE_NOT_ENABLED);
+    return null;
+  }
+  return branch;
+};
+
+/**
+ * Resolve the store branch + prescription-upload gate; answers
+ * 404/403 directly. Returns null when answered. The upload flow is
+ * its own pack (PRESCRIPTION_UPLOAD_PACK) — a branch can sell online
+ * without accepting uploads, and vice versa.
+ */
+const requirePrescriptionUpload = async (
+  req: Request,
+  res: Response
+): Promise<StoreBranch | null> => {
+  const prisma = await getPrisma();
+  const branch = await resolveStoreBranch(prisma, String(req.params.branchId || ''));
+  if (!branch) {
+    res.status(404).json({ success: false, message: 'Store not found' });
+    return null;
+  }
+  if (!(await isPrescriptionUploadEnabled(prisma, branch.companyId))) {
+    res.status(403).json(UPLOAD_NOT_ENABLED);
     return null;
   }
   return branch;
@@ -87,12 +120,16 @@ export const getStoreInfo = async (req: Request, res: Response) => {
   try {
     const branch = await requireStore(req, res);
     if (!branch) return;
+    const prisma = await getPrisma();
     return res.json({
       success: true,
       data: {
         business: { id: branch.company.id, name: branch.company.name, slug: branch.company.slug },
         branch: { id: branch.id, name: branch.name, address: branch.address, phone: branch.phone, email: branch.email },
         onlineStoreEnabled: true,
+        // Upload is its own pack — the storefront hides the upload
+        // section when the business does not hold it.
+        prescriptionUploadEnabled: await isPrescriptionUploadEnabled(prisma, branch.companyId),
         currency: 'PKR',
         paymentMethods: ['CASH_ON_DELIVERY'],
       },
@@ -243,7 +280,7 @@ const uploadPrescriptionSchema = Joi.object({
  */
 export const uploadStorePrescription = async (req: Request, res: Response) => {
   try {
-    const branch = await requireStore(req, res);
+    const branch = await requirePrescriptionUpload(req, res);
     if (!branch) return;
     const { error, value } = uploadPrescriptionSchema.validate(req.body);
     if (error) {
@@ -297,7 +334,7 @@ export const uploadStorePrescription = async (req: Request, res: Response) => {
  */
 export const getStorePrescriptionStatus = async (req: Request, res: Response) => {
   try {
-    const branch = await requireStore(req, res);
+    const branch = await requirePrescriptionUpload(req, res);
     if (!branch) return;
     const prisma = await getPrisma();
     const prescription = await prisma.prescription.findFirst({

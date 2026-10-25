@@ -14,8 +14,10 @@ const router = Router();
 // authentication middleware on this router: customers have no
 // account. The branch id in the path is the store key (a cuid);
 // every handler re-resolves it, scopes all reads/writes to that one
-// branch, and enforces the ONLINE_STORE_PACK add-on gate before
-// doing anything else. CSRF-exempt by design (see
+// branch, and enforces the add-on gates before doing anything
+// else: ONLINE_STORE_PACK for the storefront + checkout,
+// PRESCRIPTION_UPLOAD_PACK (a separate pack since 2026-10-25) for
+// the prescription upload + status check. CSRF-exempt by design (see
 // csrf.middleware.ts CSRF_EXEMPT_PATHS — same class as the public
 // partner application): there is no cookie session to forge.
 //

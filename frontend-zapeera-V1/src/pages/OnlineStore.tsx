@@ -140,6 +140,9 @@ const OnlineStore = () => {
   const [loading, setLoading] = useState(true);
   const [storeEnabled, setStoreEnabled] = useState(false);
   const [pricingPending, setPricingPending] = useState(false);
+  // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
+  const [uploadEnabled, setUploadEnabled] = useState(false);
+  const [uploadPricingPending, setUploadPricingPending] = useState(false);
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [uploads, setUploads] = useState<PrescriptionRecord[]>([]);
@@ -168,10 +171,15 @@ const OnlineStore = () => {
           apiService.getBusinessAddons(selectedBusinessId),
           apiService.getAddonCatalogue(),
         ]);
-        if (addonsRes.success && addonsRes.data) setStoreEnabled(!!addonsRes.data.limits?.onlineStoreAllowed);
+        if (addonsRes.success && addonsRes.data) {
+          setStoreEnabled(!!addonsRes.data.limits?.onlineStoreAllowed);
+          setUploadEnabled(!!addonsRes.data.limits?.prescriptionUploadAllowed);
+        }
         if (catalogueRes.success && catalogueRes.data) {
           const entry = catalogueRes.data.find((a) => a.type === "ONLINE_STORE_PACK");
           setPricingPending(!!entry?.pricingPending);
+          const uploadEntry = catalogueRes.data.find((a) => a.type === "PRESCRIPTION_UPLOAD_PACK");
+          setUploadPricingPending(!!uploadEntry?.pricingPending);
         }
       }
     } catch {
@@ -267,7 +275,12 @@ const OnlineStore = () => {
           )}
         </div>
         {storeEnabled ? (
-          <p className="mt-1 text-sm text-[#5b6b8c]">Customers can browse, order (cash on delivery) and upload prescriptions from these links — one per branch:</p>
+          <p className="mt-1 text-sm text-[#5b6b8c]">
+            Customers can browse and order (cash on delivery) from these links — one per branch.
+            {uploadEnabled
+              ? " Prescription upload is enabled too."
+              : " Prescription upload is a separate add-on (PRESCRIPTION_UPLOAD_PACK) and is not enabled."}
+          </p>
         ) : (
           <p className="mt-1 text-sm text-[#5b6b8c]">
             The storefront is gated on the Online Pharmacy Store add-on (ONLINE_STORE_PACK).
@@ -324,6 +337,13 @@ const OnlineStore = () => {
       <section className="rounded-[10px] border bg-white p-4">
         <h2 className="text-base font-bold text-[#0a1128]">Prescription uploads waiting for review ({uploads.length})</h2>
         <p className="mt-1 text-sm text-[#5b6b8c]">Patients cannot check out with these until a pharmacist approves them. Approval needs the medicines transcribed from the photo.</p>
+        {!uploadEnabled ? (
+          <p className="mt-1 text-sm text-[#5b6b8c]">
+            New uploads are gated on the Prescription Upload add-on (PRESCRIPTION_UPLOAD_PACK).
+            {uploadPricingPending ? " Its price is not set yet, so it cannot be bought from the add-ons page — ask the backoffice to activate it, or wait for the price to be set." : " Enable it from the add-ons page to accept uploads."}
+            {" "}Uploads already received can still be reviewed below.
+          </p>
+        ) : null}
         {uploads.length === 0 ? (
           <p className="mt-3 text-sm text-[#5b6b8c]">No uploads waiting.</p>
         ) : (

@@ -258,6 +258,8 @@ export interface StoreInfo {
   business: { id: string; name: string; slug?: string | null };
   branch: { id: string; name: string; address?: string | null; phone?: string | null; email?: string | null };
   onlineStoreEnabled: boolean;
+  // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
+  prescriptionUploadEnabled: boolean;
   currency: string;
   paymentMethods: string[];
 }
@@ -7108,6 +7110,8 @@ export class ApiService {
         whatsappPack: boolean;
         // Online store (Wave C5 — gap item 5)
         onlineStoreAllowed: boolean;
+        // Prescription upload is its own pack (split 2026-10-25)
+        prescriptionUploadAllowed: boolean;
         voiceTokenQuota: number;
       };
     }>(`/subscription/addons?businessId=${encodeURIComponent(businessId)}`);

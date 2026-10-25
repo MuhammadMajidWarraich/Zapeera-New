@@ -154,8 +154,9 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   // Online pharmacy store (Wave C5 — gap item 5): PUBLIC BY DESIGN.
   // Customers browse/check out/upload prescriptions with no account;
   // the branch id in the path is the unguessable store key, every
-  // read/write is branch-scoped in the router, and the whole
-  // storefront is gated on the ONLINE_STORE_PACK add-on.
+  // read/write is branch-scoped in the router, and the storefront
+  // is gated on the ONLINE_STORE_PACK add-on (prescription uploads
+  // on the separate PRESCRIPTION_UPLOAD_PACK add-on).
   '/api/store',
 
   // Affiliate program self-service (account-level; an affiliate may own

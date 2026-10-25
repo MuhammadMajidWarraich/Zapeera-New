@@ -2,7 +2,9 @@
 //
 // Pure helpers over a Prisma-shaped client so the money/stock rules
 // are unit-testable with a stubbed DB (tests/online-store.util.test.ts):
-//   · the store gate (ONLINE_STORE_PACK add-on — see addon-limits.service)
+//   · the store gate (ONLINE_STORE_PACK add-on) and the upload gate
+//     (PRESCRIPTION_UPLOAD_PACK add-on — see addon-limits.service);
+//     the two packs are separate since 2026-10-25
 //   · branch resolution — the branch id in the public path IS the store key
 //   · cart resolution — prices and stock come from the server, NEVER from
 //     the client payload (a public caller must not be able to set prices)
@@ -17,6 +19,9 @@
 import { getEffectiveLimits, isAddonRowEffective } from '../services/addon-limits.service';
 
 export const ONLINE_STORE_ADDON = 'ONLINE_STORE_PACK' as const;
+
+/** Gates the public prescription upload + status check (separate pack since 2026-10-25). */
+export const PRESCRIPTION_UPLOAD_ADDON = 'PRESCRIPTION_UPLOAD_PACK' as const;
 
 /** Review states a prescription can be in (Prescription.reviewStatus). */
 export const PRESCRIPTION_REVIEW_STATUSES = ['PENDING', 'REVIEWED', 'REJECTED'] as const;
@@ -44,17 +49,32 @@ export class StoreError extends Error {
 }
 
 /**
- * THE store gate. Every public store route must call this (via
- * requireStoreEnabled in the controller) — never re-derive the add-on
- * check inline. The single source is getEffectiveLimits.
+ * THE store gate. Every public storefront/checkout route must call
+ * this (via requireStore in the controller) — never re-derive the
+ * add-on check inline. The single source is getEffectiveLimits.
+ * Prescription upload has its own gate below.
  */
 export async function isOnlineStoreEnabled(prisma: any, businessId: string): Promise<boolean> {
   const limits = await getEffectiveLimits(prisma, businessId);
   return limits.onlineStoreAllowed;
 }
 
+/**
+ * THE prescription-upload gate. The public upload + status-check
+ * routes must call this (via requirePrescriptionUpload in the
+ * controller) — never re-derive the add-on check inline. The single
+ * source is getEffectiveLimits.
+ */
+export async function isPrescriptionUploadEnabled(prisma: any, businessId: string): Promise<boolean> {
+  const limits = await getEffectiveLimits(prisma, businessId);
+  return limits.prescriptionUploadAllowed;
+}
+
 /** True while an ONLINE_STORE_PACK row is effective (re-export for callers that already hold rows). */
 export const isOnlineStoreRowEffective = isAddonRowEffective;
+
+/** True while a PRESCRIPTION_UPLOAD_PACK row is effective (re-export for callers that already hold rows). */
+export const isPrescriptionUploadRowEffective = isAddonRowEffective;
 
 export interface StoreBranch {
   id: string;

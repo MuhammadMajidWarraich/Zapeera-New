@@ -82,7 +82,7 @@ const serializeAddon = (row: any) => ({
   updatedAt: row.updatedAt,
 });
 
-/** GET /api/subscription/addons/catalogue — the 8 add-ons with prices (ONLINE_STORE_PACK is listed with pricingPending until Muhammad prices it). */
+/** GET /api/subscription/addons/catalogue — the 9 add-ons with prices (ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK are listed with pricingPending until Muhammad prices them). */
 export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
   return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
 };
@@ -119,6 +119,8 @@ export const getBusinessAddons = async (req: AuthRequest, res: Response) => {
           multiBranchReportsAllowed: limits.multiBranchReportsAllowed,
           whatsappPack: limits.whatsappPack,
           onlineStoreAllowed: limits.onlineStoreAllowed,
+          // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
+          prescriptionUploadAllowed: limits.prescriptionUploadAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         monthlyAddonSpend: limits.monthlyAddonSpend,

@@ -21,15 +21,19 @@
  *     paid-through extends by that many 30-day cycles. An add-on's
  *     paid-through never extends past the plan's own paid-through
  *     horizon (see computeAddonPeriodEnd).
- *   - ONLINE_STORE_PACK (Wave C5 — gap item 5) is the ONE exception
- *     to "every catalogue entry has a price": its price is UNDECIDED
- *     (CloudPOS charges PKR 5,000/yr for the store + PKR 15,000/yr
- *     for prescription upload; Zapeera's add-ons are monthly, so no
- *     direct conversion exists). The entry carries priceMonthly 0 +
- *     pricingPending: true and checkAddonPurchasable REFUSES to sell
- *     it (409 ADDON_PRICING_PENDING) until Muhammad sets the price.
- *     The gate itself (onlineStoreAllowed) works off the granted row,
- *     so backoffice activation / a priced catalogue entry is all a
+ *   - ONLINE_STORE_PACK and PRESCRIPTION_UPLOAD_PACK (Wave C5 —
+ *     gap item 5, split 2026-10-25 on Muhammad's correction: the
+ *     store and the prescription upload are TWO separate packs) are
+ *     the exceptions to "every catalogue entry has a price": both
+ *     prices are UNDECIDED (CloudPOS charges PKR 5,000/yr for the
+ *     store + PKR 15,000/yr for prescription upload; Zapeera's
+ *     add-ons are monthly, so no direct conversion exists). Each
+ *     entry carries priceMonthly 0 + pricingPending: true and
+ *     checkAddonPurchasable REFUSES to sell it (409
+ *     ADDON_PRICING_PENDING) until Muhammad sets the price. The
+ *     gates themselves (onlineStoreAllowed /
+ *     prescriptionUploadAllowed) work off the granted rows, so
+ *     backoffice activation / a priced catalogue entry is all a
  *     future deploy needs — no code change at pricing time beyond
  *     the catalogue price + removing the pending flag.
  *
@@ -58,6 +62,7 @@ export const ADDON_TYPES = [
   'VOICE_BOOSTER',
   'WHATSAPP_PACK',
   'ONLINE_STORE_PACK',
+  'PRESCRIPTION_UPLOAD_PACK',
 ] as const;
 export type AddonType = (typeof ADDON_TYPES)[number];
 
@@ -70,10 +75,11 @@ export interface AddonCatalogueEntry {
   stackable: boolean;
   unitLabel?: string;
   /**
-   * True while the price is UNDECIDED (ONLINE_STORE_PACK only): the
-   * entry is listed but cannot be purchased (see
-   * checkAddonPurchasable) until Muhammad sets the price. Never
-   * treat priceMonthly 0 on such an entry as "free".
+   * True while the price is UNDECIDED (ONLINE_STORE_PACK and
+   * PRESCRIPTION_UPLOAD_PACK only): the entry is listed but cannot
+   * be purchased (see checkAddonPurchasable) until Muhammad sets
+   * the price. Never treat priceMonthly 0 on such an entry as
+   * "free".
    */
   pricingPending?: boolean;
 }
@@ -139,11 +145,24 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     type: 'ONLINE_STORE_PACK',
     name: 'Online Pharmacy Store',
     description:
-      'Customer-facing online pharmacy storefront for a branch (browse/search the branch catalog, cart, cash-on-delivery checkout into a real sale) plus prescription upload with pharmacist review before dispensing.',
+      'Customer-facing online pharmacy storefront for a branch (browse/search the branch catalog, cart, cash-on-delivery checkout into a real sale). Prescription upload is a separate pack.',
     // PRICE UNDECIDED — see the file header. 0 here is a placeholder,
     // NOT a free price: pricingPending blocks purchase (409) until
     // Muhammad sets the monthly price. CloudPOS reference: store
-    // PKR 5,000/yr + prescription upload PKR 15,000/yr.
+    // PKR 5,000/yr.
+    priceMonthly: 0,
+    pricingPending: true,
+    stackable: false,
+  },
+  PRESCRIPTION_UPLOAD_PACK: {
+    type: 'PRESCRIPTION_UPLOAD_PACK',
+    name: 'Prescription Upload',
+    description:
+      'Let patients upload prescription photos from the online storefront for pharmacist review before dispensing (upload, review queue, approve/reject with transcription). Needs the Online Pharmacy Store for checkout.',
+    // PRICE UNDECIDED — see the file header. 0 here is a placeholder,
+    // NOT a free price: pricingPending blocks purchase (409) until
+    // Muhammad sets the monthly price. CloudPOS reference:
+    // prescription upload PKR 15,000/yr.
     priceMonthly: 0,
     pricingPending: true,
     stackable: false,
@@ -253,13 +272,22 @@ export interface EffectiveLimits {
   /**
    * Online store (Wave C5 — gap item 5): true while an
    * ONLINE_STORE_PACK row is effective for the business. Gates the
-   * public storefront (catalog / checkout / prescription upload) and
-   * the staff Online Store page. The pack is NOT included in any
+   * public storefront (catalog / checkout) and the storefront half
+   * of the staff Online Store page. The pack is NOT included in any
    * plan — it is add-on-only, and unpriced (pricingPending) until
    * Muhammad sets the price, so it can only be granted by backoffice
    * activation in the meantime.
    */
   onlineStoreAllowed: boolean;
+  /**
+   * Prescription upload (Wave C5 — gap item 5, split 2026-10-25):
+   * true while a PRESCRIPTION_UPLOAD_PACK row is effective for the
+   * business. Gates the public prescription upload + status check
+   * and the review-queue half of the staff Online Store page. A
+   * separate pack from the store itself — same add-on-only,
+   * pricingPending-until-priced rule.
+   */
+  prescriptionUploadAllowed: boolean;
   /** Monthly voice-AI token quota: plan quota (voice-AI config) + boosters. */
   voiceTokenQuota: number;
   /** Sum of monthly add-on prices (catalogue price × quantity). */
@@ -320,6 +348,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const multiBranchReportsAllowed = inclusion.multiBranchReports || has('REPORTS_PACK');
   const whatsappPack = has('WHATSAPP_PACK');
   const onlineStoreAllowed = has('ONLINE_STORE_PACK');
+  const prescriptionUploadAllowed = has('PRESCRIPTION_UPLOAD_PACK');
 
   const voiceConfig = await getVoiceAiConfig(prisma);
   const voiceTokenQuota = quotaForPlan(voiceConfig, planId) + qty('VOICE_BOOSTER') * VOICE_BOOSTER_TOKENS;
@@ -343,6 +372,7 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
     multiBranchReportsAllowed,
     whatsappPack,
     onlineStoreAllowed,
+    prescriptionUploadAllowed,
     voiceTokenQuota,
     monthlyAddonSpend,
     addons: active,
@@ -458,21 +488,24 @@ export function checkAddonPurchasable(
       return { ok: true };
     case 'WHATSAPP_PACK':
       return { ok: true };
-    case 'ONLINE_STORE_PACK': {
-      // Price UNDECIDED (Wave C5 — gap item 5): the pack is listed
-      // but cannot be bought until Muhammad sets the monthly price.
-      // Backoffice activation can still grant it (that path does not
-      // go through this check); the storefront gate reads the row,
-      // not the price. Remove this case (fall through to ok) when
-      // the catalogue price is set.
-      const entry = ADDON_CATALOGUE.ONLINE_STORE_PACK;
+    case 'ONLINE_STORE_PACK':
+    case 'PRESCRIPTION_UPLOAD_PACK': {
+      // Price UNDECIDED (Wave C5 — gap item 5; split 2026-10-25):
+      // the pack is listed but cannot be bought until Muhammad sets
+      // the monthly price. Backoffice activation can still grant it
+      // (that path does not go through this check); the gates read
+      // the row, not the price. Remove the pricingPending branch
+      // (fall through to ok) when the catalogue price is set.
+      const entry = ADDON_CATALOGUE[type];
       if (entry.pricingPending) {
         return {
           ok: false,
           statusCode: 409,
           code: 'ADDON_PRICING_PENDING',
           message:
-            'The Online Pharmacy Store is not priced yet — the price is being decided. Please check back soon, or contact support.',
+            type === 'ONLINE_STORE_PACK'
+              ? 'The Online Pharmacy Store is not priced yet — the price is being decided. Please check back soon, or contact support.'
+              : 'Prescription Upload is not priced yet — the price is being decided. Please check back soon, or contact support.',
         };
       }
       return { ok: true };

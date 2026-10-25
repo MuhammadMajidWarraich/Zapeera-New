@@ -43,6 +43,8 @@ export const listBusinessAddonsAdmin = async (req: AdminAuthRequest, res: Respon
           multiBranchReportsAllowed: limits.multiBranchReportsAllowed,
           whatsappPack: limits.whatsappPack,
           onlineStoreAllowed: limits.onlineStoreAllowed,
+          // Prescription upload is its own pack (Wave C5 — gap item 5, split 2026-10-25)
+          prescriptionUploadAllowed: limits.prescriptionUploadAllowed,
           voiceTokenQuota: limits.voiceTokenQuota,
         },
         addons: rows.map((r: any) => ({

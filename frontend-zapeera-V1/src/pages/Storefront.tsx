@@ -352,7 +352,9 @@ const Storefront = () => {
               <p className="border-t pt-2 text-right text-base font-bold text-[#0a1128]">Total {pkr(cartTotal)}</p>
               {cartHasRx ? (
                 <p className="rounded-[10px] bg-[#fff7e0] px-3 py-2 text-xs text-[#7a5b00]">
-                  Your cart has prescription-only medicines. Upload a prescription below and paste its approved id here — the pharmacy must approve it before you can check out.
+                  {info.prescriptionUploadEnabled
+                    ? "Your cart has prescription-only medicines. Upload a prescription below and paste its approved id here — the pharmacy must approve it before you can check out."
+                    : "Your cart has prescription-only medicines. This store does not accept prescription uploads yet — please contact the pharmacy for these medicines."}
                 </p>
               ) : null}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -369,6 +371,7 @@ const Storefront = () => {
           )}
         </section>
 
+        {info.prescriptionUploadEnabled ? (
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-[10px] border bg-white p-4">
             <h2 className="flex items-center gap-2 text-base font-bold text-[#0a1128]">
@@ -435,6 +438,13 @@ const Storefront = () => {
             </div>
           </div>
         </section>
+        ) : (
+        <section className="grid grid-cols-1 gap-4">
+          <div className="rounded-[10px] border bg-white p-4">
+            <p className="text-sm text-[#5b6b8c]">Prescription upload is not enabled for this store yet — please contact the pharmacy for prescription medicines.</p>
+          </div>
+        </section>
+        )}
       </main>
     </div>
   );
