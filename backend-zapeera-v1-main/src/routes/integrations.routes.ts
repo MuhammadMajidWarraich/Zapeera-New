@@ -14,6 +14,7 @@ import {
 import { authenticate } from '../middleware/auth.middleware';
 import { resolveBusiness, resolveMembership } from '../middleware/multitenancy.middleware';
 import { requireRole } from '../middleware/role.middleware';
+import { startGoogleSheetsOAuthHandler } from '../integrations/google-sheets/oauth-routes';
 
 const router = Router();
 
@@ -32,6 +33,11 @@ router.use(resolveMembership());
 router.use(requireRole('OWNER', 'MANAGER'));
 
 router.get('/', listIntegrationsHandler);
+// Google Sheets OAuth start (authenticated, OWNER/MANAGER — the router
+// gate above). The callback lives in server.ts, before the universal
+// module protection middleware: Google redirects the browser there with
+// no Zapeera session, so it cannot go through this router's auth.
+router.get('/google-sheets/oauth/start', startGoogleSheetsOAuthHandler);
 router.post('/:provider/connect', connectIntegrationHandler);
 router.post('/:provider/disconnect', disconnectIntegrationHandler);
 router.get('/:provider/status', getIntegrationStatusHandler);

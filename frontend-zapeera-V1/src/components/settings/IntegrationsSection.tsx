@@ -340,9 +340,21 @@ function IntegrationProviderCard({
             ? "Payments are recorded on sales, not synced"
             : "Connect to take payments at checkout"
           : connected
-            ? `Last synced ${formatRelative(provider.lastSyncAt)}`
+            ? `Last ${provider.id === "google-sheets" ? "exported" : "synced"} ${formatRelative(provider.lastSyncAt)}`
+            : provider.id === "google-sheets"
+              ? "Not exported yet"
             : "Not synced yet"}
       </div>
+      {provider.id === "google-sheets" && provider.config?.spreadsheetId && (
+        <a
+          href={`https://docs.google.com/spreadsheets/d/${provider.config.spreadsheetId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#1a52c5] hover:underline"
+        >
+          Open spreadsheet <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
       {provider.status === "error" && provider.lastError && (
         <p className="mt-2 rounded-[10px] bg-red-50 px-3 py-2 text-[12px] leading-relaxed text-red-700">
           {provider.lastError}
@@ -373,7 +385,13 @@ function IntegrationProviderCard({
                     className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white"
                   >
                     <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
-                    {syncing ? "Syncing…" : "Sync now"}
+                    {provider.id === "google-sheets"
+                      ? syncing
+                        ? "Exporting…"
+                        : "Export now"
+                      : syncing
+                        ? "Syncing…"
+                        : "Sync now"}
                   </Button>
                 )}
                 {confirmingDisconnect ? (
@@ -513,6 +531,7 @@ export function IntegrationsSection({
   const [logsByProvider, setLogsByProvider] = useState<Record<string, IntegrationSyncLogRecord[]>>({});
   const [logsOpenId, setLogsOpenId] = useState<string | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [sheetBranches, setSheetBranches] = useState<Array<{ id: string; name: string }>>([]);
 
   const load = useCallback(async () => {
     try {
@@ -529,6 +548,29 @@ export function IntegrationsSection({
   useEffect(() => {
     load();
   }, [load, selectedCompanyId]);
+
+  // Google Sheets OAuth return: the callback redirects here with
+  // ?integration=google-sheets&oauth=connected|error. Surface the
+  // outcome once, then clean the URL so a refresh does not re-toast.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("integration") !== "google-sheets" || !params.get("oauth")) return;
+    if (params.get("oauth") === "connected") {
+      toast({
+        title: "Google Sheets connected",
+        description: "Your Google account is linked. Use Export now to send your first export.",
+      });
+    } else {
+      toast({
+        title: "Google Sheets was not connected",
+        description: params.get("oauthMessage") || "Please try again.",
+        variant: "destructive",
+      });
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openConnectDialog = (provider: IntegrationProviderInfo) => {
     setCredValues({});
@@ -558,6 +600,54 @@ export function IntegrationsSection({
           // Picker simply stays on the default; the server resolves it.
         })
         .finally(() => setBranchesLoading(false));
+    }
+    // Google Sheets needs the branch list for its branch picker.
+    if (provider.id === "google-sheets") {
+      apiService
+        .getBranches()
+        .then((res) => {
+          if (res.success && res.data) {
+            setSheetBranches(
+              res.data.branches
+                .filter((b) => b.isActive)
+                .map((b) => ({ id: b.id, name: b.name }))
+            );
+          }
+        })
+        .catch(() => {
+          // Branch picker simply falls back to "All branches".
+        });
+    }
+  };
+
+  // Google Sheets connects via OAuth, not the generic credential save:
+  // fetch the Google consent URL (with the merchant's spreadsheet +
+  // branch picks) and navigate the whole page to it.
+  const handleGoogleSheetsConnect = async () => {
+    if (!dialogProvider) return;
+    setIsSaving(true);
+    try {
+      const res = await apiService.startGoogleSheetsOAuth({
+        spreadsheetId: configDraft.spreadsheetId?.trim() || undefined,
+        branchId: configDraft.branchId || undefined,
+      });
+      if (res.success && res.data?.authUrl) {
+        window.location.href = res.data.authUrl;
+      } else {
+        toast({
+          title: "Could not start Google sign-in",
+          description: res.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Could not start Google sign-in",
+        description: e.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -607,17 +697,25 @@ export function IntegrationsSection({
   const handleSync = async (provider: IntegrationProviderInfo) => {
     setSyncingId(provider.id);
     try {
-      const res = await apiService.triggerIntegrationSync(provider.id, {});
+      // Google Sheets is export-only: "Export now" runs the generic
+      // export (entity 'export'), not a per-entity sync.
+      const isSheets = provider.id === "google-sheets";
+      const res = await apiService.triggerIntegrationSync(
+        provider.id,
+        isSheets ? { entity: "export" } : {}
+      );
       if (res.success && res.data) {
         toast({
-          title: `${provider.displayName} sync finished`,
-          description: `${res.data.result.recordsProcessed} records processed, ${res.data.result.recordsFailed} failed.`,
+          title: `${provider.displayName} ${isSheets ? "export" : "sync"} finished`,
+          description:
+            res.data.result.message ||
+            `${res.data.result.recordsProcessed} records processed, ${res.data.result.recordsFailed} failed.`,
         });
         setLogsByProvider((prev) => ({ ...prev, [provider.id]: [res.data.log, ...(prev[provider.id] ?? [])] }));
         load();
       } else {
         toast({
-          title: `${provider.displayName} sync failed`,
+          title: `${provider.displayName} ${isSheets ? "export" : "sync"} failed`,
           description: res.message || "Please try again.",
           variant: "destructive",
         });
@@ -813,12 +911,67 @@ export function IntegrationsSection({
                   )}
                 </div>
               )}
+
+              {dialogProvider.id === "google-sheets" && (
+                <>
+                  <div>
+                    <Label htmlFor="int-sheets-spreadsheet" className="mb-2 block text-sm font-bold text-[#0a1128]">
+                      Spreadsheet ID (optional)
+                    </Label>
+                    <Input
+                      id="int-sheets-spreadsheet"
+                      type="text"
+                      autoComplete="off"
+                      value={configDraft.spreadsheetId ?? ""}
+                      onChange={(e) => setConfigDraft({ ...configDraft, spreadsheetId: e.target.value })}
+                      placeholder="Leave blank to create a new spreadsheet"
+                      className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+                    />
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                      The ID in the sheet&apos;s URL: docs.google.com/spreadsheets/d/
+                      <span className="font-semibold text-[#4a5578]">this-part</span>/edit
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Branch</Label>
+                    <Select
+                      value={configDraft.branchId ?? "all"}
+                      onValueChange={(v) =>
+                        setConfigDraft({ ...configDraft, branchId: v === "all" ? undefined : v })
+                      }
+                    >
+                      <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All branches</SelectItem>
+                        {sheetBranches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                      Every exported row carries its branch, so “All branches” never mixes them silently.
+                    </p>
+                  </div>
+                  <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                    Export only — Google Sheets has no webhooks, so Zapeera exports on demand instead of
+                    live-syncing. Each export appends Sales, Stock, Customers and Khata rows to their own
+                    tabs; previous exports are kept.
+                  </p>
+                </>
+              )}
+
               {dialogProvider.category === "payments" ? (
                 <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
                   {dialogProvider.displayName} is a payment rail, not a sync — no products, stock,
                   orders or customers sync. Once connected, payments are taken at checkout and land on
                   the sale&apos;s record.
                 </p>
+              ) : dialogProvider.id === "google-sheets" ? (
+                null
               ) : (
                 <div>
                   <Label className="mb-2 block text-sm font-bold text-[#0a1128]">What syncs</Label>
@@ -829,7 +982,7 @@ export function IntegrationsSection({
                       ["syncStock", "Stock levels"],
                       ["syncOrders", "Orders"],
                       ["syncCustomers", "Customers"],
-                    ] as Array<[keyof Omit<IntegrationSyncConfig, "direction">, string]>
+                    ] as Array<["syncProducts" | "syncStock" | "syncOrders" | "syncCustomers", string]>
                   ).map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between gap-3">
                       <span className="text-[13px] font-medium text-[#0a1128]">{label}</span>
@@ -865,14 +1018,25 @@ export function IntegrationsSection({
                 connection is verified against {dialogProvider.displayName} before anything is saved.
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={handleConnectSave}
-                  disabled={isSaving}
-                  className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white"
-                >
-                  {isSaving ? "Connecting…" : "Connect"}
-                </Button>
+                {dialogProvider.id === "google-sheets" ? (
+                  <Button
+                    type="button"
+                    onClick={handleGoogleSheetsConnect}
+                    disabled={isSaving}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white"
+                  >
+                    {isSaving ? "Redirecting…" : "Connect with Google"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={handleConnectSave}
+                    disabled={isSaving}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white"
+                  >
+                    {isSaving ? "Connecting…" : "Connect"}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"

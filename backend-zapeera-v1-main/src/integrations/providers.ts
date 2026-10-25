@@ -17,3 +17,4 @@ import './jazzcash';
 import './postex';
 
 export {};
+import './google-sheets';

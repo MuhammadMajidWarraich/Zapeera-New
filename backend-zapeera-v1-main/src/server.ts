@@ -94,6 +94,7 @@ import { woocommerceWebhookRouter } from './integrations/woocommerce/webhook';
 // is mounted with express.raw BEFORE the JSON parsers below (see the
 // mount after the rate limiter). No session/CSRF/module gate applies —
 // the HMAC signature IS the authentication.
+import { googleSheetsOAuthCallbackHandler } from './integrations/google-sheets/oauth-routes';
 import prescriptionRoutes from './routes/prescription.routes';
 import controlledMedicinesRoutes from './routes/controlled-medicines.routes';
 import storeRoutes from './routes/store.routes';
@@ -635,6 +636,18 @@ app.use(sanitizeErrorResponses);
 // Health checks, info routes, and favicon — extracted to dedicated module
 import { registerHealthChecks } from './middleware/health-checks';
 registerHealthChecks(app);
+
+// Google Sheets OAuth callback — registered BEFORE the universal module
+// protection middleware on purpose. Google redirects the merchant's
+// browser here with no Zapeera session, so the request cannot carry auth
+// and the protection middleware would 401 it. The callback is
+// self-authenticating instead: `state` is an AES-256-GCM blob minted at
+// flow start (business id + picks, 10-minute expiry) and the
+// authorization code is single-use and bound to the registered redirect
+// URI. Both prefixes are mounted; the redirect URI registered in Google
+// Cloud Console is the /api/v1 one (canonical).
+app.get('/api/v1/integrations/google-sheets/oauth/callback', googleSheetsOAuthCallbackHandler);
+app.get('/api/integrations/google-sheets/oauth/callback', googleSheetsOAuthCallbackHandler);
 
 // Apply universal module protection before protected API route handlers.
 // Public/auth/backoffice routes are skipped by the middleware config.

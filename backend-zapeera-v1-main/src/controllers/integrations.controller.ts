@@ -72,11 +72,16 @@ const connectSchema = Joi.object({
     // store maps to (WooCommerce refuses to sync when unset with
     // several active branches; Shopify resolves the first active
     // branch when absent; Daraz resolves the single active branch
-    // and fails loudly on multi-branch businesses).
+    // and fails loudly on multi-branch businesses; Google Sheets
+    // exports one branch when set, all branches when absent).
     branchId: Joi.string().allow(null, '').optional(),
     // Daraz: the Daraz category id used when creating listings
     // (optional; see IntegrationSyncConfig).
-    darazCategoryId: Joi.string().optional()
+    darazCategoryId: Joi.string().optional(),
+    // Provider-specific config (google-sheets, 2026-10-24): target
+    // spreadsheet id. Preserved verbatim by normalizeSyncConfig;
+    // other providers ignore this key.
+    spreadsheetId: Joi.string().trim().max(200).optional()
   }).optional()
 });
 
@@ -97,7 +102,7 @@ const paymentSchema = Joi.object({
 
 const syncSchema = Joi.object({
   entity: Joi.string()
-    .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment')
+    .valid('product', 'stock', 'order', 'customer', 'payment', 'shipment', 'export')
     .optional(),
   direction: Joi.string().valid('in', 'out').optional(),
   // Sale id or invoice number — required only for entity 'shipment'
@@ -198,7 +203,7 @@ export const triggerIntegrationSyncHandler = async (req: AuthRequest, res: Respo
       return res.status(400).json({
         success: false,
         code: 'VALIDATION_ERROR',
-        message: 'Invalid sync request: entity must be product|stock|order|customer|payment|shipment and direction in|out.'
+        message: 'Invalid sync request: entity must be product|stock|order|customer|payment|shipment|export and direction in|out.'
       });
     }
     const prisma = await getPrisma();

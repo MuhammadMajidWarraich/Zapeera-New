@@ -56,6 +56,10 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     typeof raw.darazCategoryId === 'string' && raw.darazCategoryId.trim()
       ? raw.darazCategoryId.trim()
       : undefined;
+  const spreadsheetId =
+    typeof raw.spreadsheetId === 'string' && raw.spreadsheetId.trim()
+      ? raw.spreadsheetId.trim()
+      : undefined;
   const normalized: IntegrationSyncConfig = {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
@@ -63,7 +67,8 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     syncCustomers: bool(raw.syncCustomers),
     direction,
     ...(branchId ? { branchId } : {}),
-    ...(darazCategoryId ? { darazCategoryId } : {})
+    ...(darazCategoryId ? { darazCategoryId } : {}),
+    ...(spreadsheetId ? { spreadsheetId } : {})
   };
   // Branch mapping (feature/integration-shopify): carried through only
   // when set, so stored configs without a branch keep their exact shape.
@@ -409,7 +414,7 @@ export async function buildCreateShipmentInput(
 
 const ENTITY_TO_METHOD: Record<
   IntegrationSyncEntity,
-  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | 'processPayment' | null
+  'syncProducts' | 'syncStock' | 'importOrders' | 'createShipment' | 'processPayment' | 'exportData' | null
 > = {
   product: 'syncProducts',
   stock: 'syncStock',
@@ -419,7 +424,11 @@ const ENTITY_TO_METHOD: Record<
   // the generic processPayment handler method — money moves at checkout,
   // not on a schedule, but the attempt gets the same audit log row.
   payment: 'processPayment',
-  shipment: 'createShipment' // Generic fulfilment step (PostEx shape): triggerSync builds CreateShipmentInput from opts.saleId/saleRef.
+  shipment: 'createShipment', // Generic fulfilment step (PostEx shape): triggerSync builds CreateShipmentInput from opts.saleId/saleRef.
+  // Generic export run (added 2026-10-24, google-sheets): dispatches to
+  // IntegrationSyncHandler.exportData. Direction defaults to 'out'
+  // (see triggerSync below — every non-'order' entity defaults 'out').
+  export: 'exportData'
 };
 
 /**

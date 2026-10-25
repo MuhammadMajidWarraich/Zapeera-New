@@ -64,7 +64,15 @@ export type IntegrationSyncEntity =
   | 'order'
   | 'customer'
   | 'payment'
-  | 'shipment';
+  | 'shipment'
+  // Generic export run (added by the google-sheets builder, 2026-10-24):
+  // an export-only provider (Sheets, QuickBooks, Xero) pushes Zapeera
+  // data OUT to the vendor in one run instead of syncing one entity.
+  // Maps to IntegrationSyncHandler.exportData (see below) and to the
+  // 'export' row in ENTITY_TO_METHOD (integration.service.ts). The
+  // IntegrationSyncLog.entity column is a free string, so no schema
+  // change was needed for this.
+  | 'export';
 
 /** What syncs for one connection (stored as JSON in IntegrationConnection.config). */
 export interface IntegrationSyncConfig {
@@ -87,7 +95,8 @@ export interface IntegrationSyncConfig {
    * branch when unset and fails loudly on multi-branch businesses
    * instead of guessing; set via the connect payload's config (the
    * Settings dialog does not collect it yet — wave follow-up:
-   * branch picker).
+   * branch picker). Google Sheets exports one branch when set, every
+   * branch (rows branch-labelled) when absent.
    */
   branchId?: string | null;
   /**
@@ -96,6 +105,13 @@ export interface IntegrationSyncConfig {
    * Without it, unlisted products are reported (not created).
    */
   darazCategoryId?: string;
+  /**
+   * Google Sheets target spreadsheet (the merchant picks it, or the
+   * Sheets handler creates one and records its id here). Other export
+   * providers reuse this shape for their target. Preserved verbatim by
+   * normalizeSyncConfig; meaningless to providers that do not use it.
+   */
+  spreadsheetId?: string;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {
@@ -296,6 +312,13 @@ export interface TrackingResult {
  *   through the EXISTING sale ledger (SalePayment rows, method
  *   'JAZZCASH'/'EASYPAYSA', reference = vendor transaction id) — a
  *   handler must never build a parallel ledger.
+ * - exportData: optional, generic export run (added 2026-10-24 for the
+ *   google-sheets builder; QuickBooks/Xero reuse the shape later).
+ *   Dispatched when triggerSync is called with entity 'export'.
+ *   Direction is always 'out'. An export provider implements this
+ *   INSTEAD of the per-entity sync methods — it exports every entity
+ *   it supports in one run (Sheets: sales, stock, customers, khata —
+ *   one tab per entity, appended rows).
  */
 export interface IntegrationSyncHandler {
   provider: IntegrationProviderId;
@@ -309,9 +332,10 @@ export interface IntegrationSyncHandler {
   processPayment?(ctx: IntegrationSyncContext, request: IntegrationPaymentRequest): Promise<IntegrationPaymentResult>;
   refundPayment?(ctx: IntegrationSyncContext, request: IntegrationRefundRequest): Promise<IntegrationRefundResult>;
   inquirePayment?(ctx: IntegrationSyncContext, txnRefNo: string): Promise<IntegrationPaymentInquiryResult>;
-getTracking?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<TrackingResult>;
+  getTracking?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<TrackingResult>;
   cancelShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<IntegrationSyncResult>;
   createReturnShipment?(ctx: IntegrationSyncContext, trackingNumber: string): Promise<ShipmentResult>;
+exportData?(ctx: IntegrationSyncContext): Promise<IntegrationSyncResult>;
 }
 
 // ─── Payment rails (generic — added for JazzCash; Easypaisa reuses this
