@@ -32,7 +32,6 @@ import {
   Smartphone,
   MapPin,
   User,
-  Building2,
   CheckCircle2,
   Copy,
   Info,
@@ -4007,9 +4006,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           branding + cashier context pill + live clock + register
           actions. Everything shown is real: the signed-in user, the
           active branch/business, and the user's own active register
-          shift when one exists — nothing is invented. */}
-      <div className="z-20 shrink-0 bg-[#0a1128] px-4 py-3 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+          shift when one exists — nothing is invented.
+          SINGLE ROW by design (Muhammad 2026-10-25): the row never
+          wraps — action labels stay icon-only below 2xl so Back,
+          brand, branch select, cashier pill, clock and all actions
+          fit at 1280/1440. Order (Muhammad 2026-10-25 23:14): Back |
+          brand | Branch select | Cashier | clock | actions. The Back
+          button is kept unless the row cannot fit; only then it
+          becomes a right-corner ×. */}
+      <div className="relative z-20 shrink-0 bg-[#0a1128] px-3 py-2.5 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-4 lg:px-5">
+        <div className="flex min-w-0 flex-nowrap items-center gap-x-2">
           <Button
             type="button"
             variant="ghost"
@@ -4026,7 +4032,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
             <span className="hidden sm:inline">Back</span>
           </Button>
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 shrink items-center gap-2">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-[#28c2ce] text-white shadow-[0_4px_14px_rgba(26,82,197,0.45)]">
               <Zap className="h-5 w-5" strokeWidth={2.2} />
             </span>
@@ -4045,19 +4051,51 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </div>
           </div>
 
+          {/* Branch select FIRST, cashier pill after it (Muhammad 2026-10-25 23:14):
+              Back | brand | Branch | Cashier | clock | actions. */}
+          {user?.role === 'OWNER' && companyBranches.length > 0 && (
+            <Select
+              value={selectedBranchId || ""}
+              onValueChange={(value) => setSelectedBranchId(value)}
+            >
+              <SelectTrigger
+                aria-label="Active branch"
+                // The app's global CSS forces select triggers to a
+                // white background (!important), so on the dark bar
+                // this reads as a deliberate white pill with dark
+                // text rather than fighting the rule.
+                className="h-10 w-[148px] rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] sm:w-[168px] [&>svg]:text-[#4a5578]"
+              >
+                <SelectValue placeholder="Select branch" />
+              </SelectTrigger>
+              <SelectContent>
+                {companyBranches.map((branch: any) => (
+                  <SelectItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {user?.role !== 'OWNER' && selectedBranch?.name && (
+            <span className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white">
+              <MapPin className="h-4 w-4 text-white/70" strokeWidth={2} />
+              {selectedBranch.name}
+            </span>
+          )}
           {/* Center context pill — cashier / branch / real shift */}
-          <div className="order-3 hidden w-full items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-xs font-medium text-white/85 ring-1 ring-white/10 lg:order-none lg:flex lg:w-auto">
+          <div className="hidden min-w-0 shrink items-center gap-3 truncate rounded-full bg-white/10 px-3.5 py-2 text-xs font-medium text-white/85 ring-1 ring-white/10 lg:flex">
             <span className="inline-flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               </span>
-              Cashier:&nbsp;<span className="font-bold text-white">{user?.name || "—"}</span>
+              Cashier:&nbsp;<span className="max-w-[150px] truncate font-bold text-white">{user?.name || "—"}</span>
             </span>
             <span className="h-4 w-px bg-white/15" />
             <span>Branch:&nbsp;<span className="font-bold text-white">{selectedBranch?.name || "—"}</span></span>
             {activeShift && (
-              <>
+              <span className="hidden items-center gap-3 2xl:inline-flex">
                 <span className="h-4 w-px bg-white/15" />
                 <span>
                   Shift:&nbsp;
@@ -4072,44 +4110,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     PKR {(Number(activeShift.openingBalance || 0) + Number(activeShift.cashIn || 0) - Number(activeShift.cashOut || 0)).toFixed(2)}
                   </span>
                 </span>
-              </>
+              </span>
             )}
           </div>
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {user?.role === 'OWNER' && companyBranches.length > 0 && (
-              <Select
-                value={selectedBranchId || ""}
-                onValueChange={(value) => setSelectedBranchId(value)}
-              >
-                <SelectTrigger
-                  aria-label="Active branch"
-                  // The app's global CSS forces select triggers to a
-                  // white background (!important), so on the dark bar
-                  // this reads as a deliberate white pill with dark
-                  // text rather than fighting the rule.
-                  className="h-10 w-[168px] rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] sm:w-[196px] [&>svg]:text-[#4a5578]"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <Building2 className="h-4 w-4 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-                    <SelectValue placeholder="Select branch" />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {companyBranches.map((branch: any) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {user?.role !== 'OWNER' && selectedBranch?.name && (
-              <span className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white">
-                <MapPin className="h-4 w-4 text-white/70" strokeWidth={2} />
-                {selectedBranch.name}
-              </span>
-            )}
+          <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1.5">
             <span className="hidden items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 font-mono text-xs font-semibold tabular-nums text-white ring-1 ring-white/10 md:inline-flex">
               <Clock className="h-3.5 w-3.5 text-white/60" strokeWidth={2} />
               {clockNow.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -4125,7 +4130,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <PauseCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden xl:inline">{isParking ? "Holding…" : "Hold"}</span>
+              <span className="hidden 2xl:inline">{isParking ? "Holding…" : "Hold"}</span>
             </Button>
             <Button
               type="button"
@@ -4134,7 +4139,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <History className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden xl:inline">Transactions</span>
+              <span className="hidden 2xl:inline">Transactions</span>
             </Button>
             <Button
               type="button"
@@ -4143,16 +4148,19 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden xl:inline">Shift Report</span>
+              <span className="hidden 2xl:inline">Shift Report</span>
             </Button>
             {scanFeedback && (
               <span
                 role="status"
                 className={cn(
-                  "flex h-10 items-center gap-2 rounded-[10px] border px-3 text-[13px] font-semibold",
+                  // Floating toast under the header (absolute) so the 4s
+                  // feedback never widens the single header row and pushes
+                  // actions off-screen at 1280/1440.
+                  "absolute right-3 top-[calc(100%+8px)] z-30 flex h-10 items-center gap-2 whitespace-nowrap rounded-[10px] border px-3 text-[13px] font-semibold shadow-lg",
                   scanFeedback.kind === "success"
-                    ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-50"
-                    : "border-red-300/40 bg-red-400/15 text-red-50"
+                    ? "border-emerald-500 bg-emerald-600 text-white"
+                    : "border-red-500 bg-red-600 text-white"
                 )}
               >
                 {scanFeedback.kind === "success" ? (
@@ -4181,7 +4189,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] px-4 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium"
             >
               <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
-              <span className="hidden sm:inline">Scan Barcode</span>
+              <span className="hidden 2xl:inline">Scan Barcode</span>
             </Button>
             <Button
               type="button"
@@ -4190,7 +4198,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden xl:inline">Refunds &amp; returns</span>
+              <span className="hidden 2xl:inline">Refunds &amp; returns</span>
             </Button>
             <Button
               type="button"
@@ -4199,57 +4207,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" strokeLinecap="round" />
-              <span className="hidden xl:inline">New Invoice</span>
+              <span className="hidden 2xl:inline">New Invoice</span>
             </Button>
           </div>
         </div>
       </div>
-
-      {/* Branch gate: an OWNER must pick a branch before selling */}
-      {requiresBranchSelection && (
-      <div className="w-full shrink-0 px-4 pt-3 sm:px-5 lg:px-6">
-          <Card className="overflow-hidden rounded-[18px] border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_2px_16px_rgba(15,23,60,0.04)]">
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-3 sm:items-center">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-100/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                      <Building2 className="h-5 w-5 text-blue-700" strokeWidth={2} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-base font-bold tracking-tight text-[#0a1128] sm:text-[17px]">Select a branch</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-[#8c95b0]">
-                        Choose a branch to continue with the sale
-                      </p>
-                    </div>
-                  </div>
-                  {allBranches && allBranches.length > 0 ? (
-                    <div className="mt-2">
-                      <Select
-                        value={selectedBranchId || ""}
-                        onValueChange={(value) => setSelectedBranchId(value)}
-                      >
-                        <SelectTrigger className="w-full rounded-[10px] border-[rgba(15,23,60,0.08)] bg-white">
-                          <SelectValue placeholder="Select a branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allBranches
-                            .filter(branch => branch.companyId === selectedCompanyId)
-                            .map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-[#8c95b0]">No branches available for this company</p>
-                  )}
-                </div>
-            </CardContent>
-          </Card>
-      </div>
-      )}
 
       <main className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3 sm:px-5 lg:px-6 lg:pb-5">
         <div className="flex min-h-0 flex-1 flex-col gap-5 lg:flex-row lg:items-stretch">
