@@ -43,7 +43,7 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
   // only when it is a non-empty string; anything else drops to unset
   // (the handler then auto-picks a sole branch or fails loudly).
   const branchId = typeof raw.branchId === 'string' && raw.branchId.trim() !== '' ? raw.branchId.trim() : undefined;
-  return {
+  const normalized: IntegrationSyncConfig = {
     syncProducts: bool(raw.syncProducts),
     syncStock: bool(raw.syncStock),
     syncOrders: bool(raw.syncOrders),
@@ -51,6 +51,12 @@ export function normalizeSyncConfig(input: unknown): IntegrationSyncConfig {
     direction,
     ...(branchId ? { branchId } : {})
   };
+  // Branch mapping (feature/integration-shopify): carried through only
+  // when set, so stored configs without a branch keep their exact shape.
+  if (typeof raw.branchId === 'string' && raw.branchId.trim() !== '') {
+    normalized.branchId = raw.branchId.trim();
+  }
+  return normalized;
 }
 
 function parseStoredConfig(stored: string | null | undefined): IntegrationSyncConfig {

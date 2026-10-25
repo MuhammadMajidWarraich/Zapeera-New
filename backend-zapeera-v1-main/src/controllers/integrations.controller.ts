@@ -64,9 +64,11 @@ const connectSchema = Joi.object({
     syncOrders: Joi.boolean(),
     syncCustomers: Joi.boolean(),
     direction: Joi.string().valid('in', 'out', 'both'),
-    // WooCommerce branch binding (feature/integration-woocommerce):
-    // the id of the ONE branch the store maps to.
-    branchId: Joi.string().optional()
+    // One store maps to one branch: the id of the ONE branch the
+    // store maps to (WooCommerce refuses to sync when unset with
+    // several active branches; Shopify resolves the first active
+    // branch when absent).
+    branchId: Joi.string().allow(null, '').optional()
   }).optional()
 });
 

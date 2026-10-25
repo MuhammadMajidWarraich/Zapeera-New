@@ -28,10 +28,16 @@ export interface CreateSaleData {
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
   creditLimitOverride?: boolean; // Credit limit (gap item 7): explicit owner/manager flag allowing this one credit sale to exceed the customer's credit limit
-  channel?: string | null; // Online store (Wave C5 — gap item 5) + gift cards / eWallet + kiosk (Wave C9 — gap item 9): POS (default, all history) | ONLINE_STORE (customer order from the branch storefront) | KIOSK (in-store self-ordering order, pay at counter)
+  channel?: string | null; // Online store (Wave C5 — gap item 5) + gift cards / eWallet + kiosk (Wave C9 — gap item 9) + sales-channel imports (Shopify/Daraz/WooCommerce): POS (default, all history) | ONLINE_STORE (customer order from the branch storefront) | KIOSK (in-store self-ordering order, pay at counter) | 'shopify' | 'daraz' | 'woocommerce' (imported vendor order)
   deliveryAddress?: string | null; // Online store: delivery address for ONLINE_STORE sales
   deliveryPhone?: string | null; // Online store: customer phone for ONLINE_STORE sales
   deliveryNotes?: string | null; // Online store: delivery/pickup notes for ONLINE_STORE sales
+  // Sales-channel import tag: the vendor's order id. Written inside the
+  // sale transaction so the tag and the sale can never disagree; the
+  // (companyId, channel, externalOrderId) unique index makes a
+  // re-imported order collide instead of duplicating. Absent (null) on
+  // every POS/manual sale.
+  externalOrderId?: string | null;
   discountAmount?: number;
   discountPercentage?: number;
   paidAmount?: number; // Amount paid by customer

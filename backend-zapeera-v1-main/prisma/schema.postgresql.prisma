@@ -1165,6 +1165,14 @@ model Sale {
   membershipId       String?
   uuid               String?   @unique
   syncStatus         String    @default("PENDING")
+  // Sales-channel import tag (Shopify integration, feature/integration-shopify):
+  // the channel an imported sale came from ('shopify') and the vendor's
+  // order id, used for idempotent order import — the same external order
+  // id must never create a second sale. Null on every POS/manual sale.
+  // The composite unique below is the backstop: Postgres/SQLite treat
+  // NULLs as distinct in unique indexes, so untagged sales never collide.
+  channel            String?
+  externalOrderId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -1202,6 +1210,7 @@ model Sale {
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
   @@index([channel], name: "idx_sale_channel")
   @@index([createdAt], name: "idx_sale_createdAt")
+  @@unique([companyId, channel, externalOrderId], name: "uq_sale_company_channel_external")
   @@map("sales")
 }
 

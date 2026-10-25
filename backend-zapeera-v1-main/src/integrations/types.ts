@@ -74,12 +74,17 @@ export interface IntegrationSyncConfig {
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
   /**
-   * WooCommerce (feature/integration-woocommerce): the ONE branch the
-   * store is bound to. A store maps to exactly one branch — the handler
-   * refuses to sync when this is unset and the business has several
-   * active branches. Other providers ignore it.
+   * The ONE Zapeera branch this connection maps to. A sales-channel
+   * store maps to exactly one branch: every product/stock read and
+   * every imported sale is scoped to it, so another branch's stock can
+   * never leak into the store. Optional — when absent the provider
+   * resolves the business's first active branch (documented per
+   * provider). Only present in the object when set, so existing
+   * exact-shape config expectations keep passing. WooCommerce
+   * (feature/integration-woocommerce) refuses to sync when this is
+   * unset and the business has several active branches.
    */
-  branchId?: string;
+  branchId?: string | null;
 }
 
 export const DEFAULT_SYNC_CONFIG: IntegrationSyncConfig = {

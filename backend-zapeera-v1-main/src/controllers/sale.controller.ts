@@ -111,14 +111,15 @@ const createSaleSchema = Joi.object({
   // credit limit. Without it an over-limit credit sale is blocked
   // (402 CREDIT_LIMIT_EXCEEDED). Cashiers cannot override.
   creditLimitOverride: Joi.boolean().optional(),
-  // Online store (Wave C5 — gap item 5) + gift cards / eWallet +
-  // kiosk (Wave C9 — gap item 9): the channel this sale came
-  // through + delivery details. POS clients never send these (the
-  // defaults below apply); the public storefront sends channel
-  // ONLINE_STORE with delivery fields, the kiosk sends KIOSK. Values
-  // are validated here and stored on the sale; nothing else in the
-  // POS flow reads them.
-  channel: Joi.string().valid('POS', 'ONLINE_STORE', 'KIOSK').optional(),
+  // Channel (converged: gap items 5/9 + sales-channel imports):
+  // POS / ONLINE_STORE / KIOSK for counter, storefront and kiosk
+  // sales; 'shopify' / 'daraz' / 'woocommerce' for imported vendor
+  // orders (paired with externalOrderId — the (companyId, channel,
+  // externalOrderId) unique index makes re-imports collide instead
+  // of duplicating). Delivery details ride with ONLINE_STORE orders.
+  // POS clients never send these (the defaults below apply).
+  channel: Joi.string().valid('POS', 'ONLINE_STORE', 'KIOSK', 'shopify', 'daraz', 'woocommerce').optional(),
+  externalOrderId: Joi.string().trim().max(128).allow(null, '').optional(),
   deliveryAddress: Joi.string().trim().max(500).allow(null, '').optional(),
   deliveryPhone: Joi.string().trim().max(40).allow(null, '').optional(),
   deliveryNotes: Joi.string().trim().max(500).allow(null, '').optional(),
@@ -1406,6 +1407,27 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           : `Rx ${prescriptionRow.id}`;
       }
     }
+    // Sales-channel import tag (Shopify integration): the channel +
+    // vendor order id for an imported sale, or an empty object for a
+    // POS/manual sale. Spread into BOTH tx.sale.create calls below
+    // (main + invoice-collision retry) via `as any`: the generated
+    // Prisma client in this sandbox predates the Sale.channel /
+    // Sale.externalOrderId columns (prisma generate cannot run here —
+    // CDN failure; the client is regenerated in the VM assembly
+    // container at deploy time), so the typed create input does not
+    // know these fields yet. The cast keeps tsc green without
+    // changing runtime behaviour — at runtime the columns exist and
+    // the tag lands inside the sale transaction, atomically with the
+    // sale itself, so a re-imported order collides on the
+    // (companyId, channel, externalOrderId) unique index instead of
+    // duplicating. Never set for POS/manual sales.
+    const channelTag =
+      saleData.channel || saleData.externalOrderId
+        ? {
+            channel: saleData.channel ? String(saleData.channel) : null,
+            externalOrderId: saleData.externalOrderId ? String(saleData.externalOrderId) : null
+          }
+        : {};
 
     // Use transaction to ensure data consistency
     // Wrap in try-catch to handle transaction errors gracefully
@@ -1532,6 +1554,10 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           deliveryAddress: saleData.deliveryAddress || null,
           deliveryPhone: saleData.deliveryPhone || null,
           deliveryNotes: saleData.deliveryNotes || null,
+          // Sales-channel import tag (Shopify integration) — see
+          // channelTag above; {} for POS/manual sales. Spread after
+          // the explicit channel so an imported order's tag wins.
+          ...(channelTag as any),
           totalAmount,
           paidAmount: paidAmount,
           returnedAmount: returnedAmount,
@@ -1572,6 +1598,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               deliveryAddress: saleData.deliveryAddress || null,
               deliveryPhone: saleData.deliveryPhone || null,
               deliveryNotes: saleData.deliveryNotes || null,
+              // Sales-channel import tag (Shopify integration) — see
+              // channelTag above; {} for POS/manual sales.
+              ...(channelTag as any),
               totalAmount,
               paidAmount: paidAmount,
               returnedAmount: returnedAmount,
