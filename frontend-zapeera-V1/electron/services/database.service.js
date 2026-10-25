@@ -379,7 +379,7 @@ async function initDatabase() {
       id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, roomTypeId TEXT, number TEXT, floor TEXT, status TEXT, isActive INTEGER, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS reservations (
-      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, guestName TEXT, guestPhone TEXT, guestCnic TEXT, roomId TEXT, checkInDate TEXT, checkOutDate TEXT, adults INTEGER, children INTEGER, source TEXT, status TEXT, folioId TEXT, notes TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+      id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, guestName TEXT, guestPhone TEXT, guestCnic TEXT, cnicDocumentUrl TEXT, guestPhotoUrls TEXT, roomId TEXT, checkInDate TEXT, checkOutDate TEXT, adults INTEGER, children INTEGER, source TEXT, status TEXT, folioId TEXT, notes TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS folios (
       id TEXT PRIMARY KEY, companyId TEXT, branchId TEXT, reservationId TEXT, roomId TEXT, guestName TEXT, guestPhone TEXT, rateSnapshot REAL, status TEXT, openedAt TEXT, closedAt TEXT, saleId TEXT, writeOffAmount REAL, writeOffNote TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
@@ -494,6 +494,47 @@ async function initDatabase() {
       console.log(`[DB] v1.0.8 migration: ${v108ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
     } catch (e) {
       console.log('[DB] v1.0.8 migration: cursor reset skipped:', e.message);
+    }
+  }
+
+  // ── v1.0.9 sync-schema upgrade (RC-1b follow-up) ───────────────────
+  // Found by the v1.0.8 laptop verification (2026-10-26): the C5 Probe
+  // Hotel epoch pull quarantined after 3 failed ticks on exactly ONE
+  // record — reservation cmvjbh1md00vjnl0169babc7d — because the cloud
+  // sends two Reservation columns the local table never had:
+  // cnicDocumentUrl (guest CNIC scan URL) and guestPhotoUrls (JSON array
+  // of guest photo refs). The v1.0.8 allowlist was computed from the
+  // Medicos pull only, which contains no reservations, so these were
+  // missed. Verified against the Prisma Reservation model: these are the
+  // ONLY two fields missing (all other hotel tables match Prisma
+  // exactly). Same pattern as v1.0.8: PRAGMA-guarded ALTERs, and a cursor
+  // reset when anything is added so the quarantined batch re-pulls and
+  // the skipped reservation lands.
+  const SYNC_SCHEMA_UPGRADES_V109 = [
+    // reservations (2)
+    { table: 'reservations', column: 'cnicDocumentUrl', definition: 'TEXT' },
+    { table: 'reservations', column: 'guestPhotoUrls', definition: 'TEXT' }
+  ];
+  let v109ColumnsAdded = 0;
+  for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V109) {
+    try {
+      const cols = query(`PRAGMA table_info(${table})`);
+      if (cols && cols.some((c) => c.name === column)) continue;
+    } catch { /* fall through and attempt the ALTER */ }
+    try {
+      db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] v1.0.9 migration: added ${table}.${column}`);
+      v109ColumnsAdded++;
+    } catch (e) {
+      console.log(`[DB] v1.0.9 migration skipped ${table}.${column}: ${e.message}`);
+    }
+  }
+  if (v109ColumnsAdded > 0) {
+    try {
+      db.run(`DELETE FROM settings WHERE key LIKE 'sync_cursor_%'`);
+      console.log(`[DB] v1.0.9 migration: ${v109ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
+    } catch (e) {
+      console.log('[DB] v1.0.9 migration: cursor reset skipped:', e.message);
     }
   }
 
