@@ -828,13 +828,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // Server-side product search (debounced) to avoid loading 1000 products on tab open.
   // POS redesign: an empty query reloads the browse catalog — the
   // product grid is the register's home view now, not just results.
+  // New Invoice modal (2026-10-26): while the modal is open ITS query
+  // drives the search, exactly like the main search box. The modal
+  // previously filtered only the already-loaded browse page, so
+  // products outside the first 50 (e.g. Desi Ghee) were unfindable
+  // from the modal even though the server has them. Closing the modal
+  // re-runs this with the main query, restoring the browse grid.
   useEffect(() => {
+    const effectiveQuery = isNewSaleDialogOpen ? modalSearchQuery : searchQuery;
     const timer = setTimeout(() => {
-      loadProducts();
+      loadProducts(effectiveQuery);
     }, 250);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedBranchId, selectedCompanyId]);
+  }, [searchQuery, modalSearchQuery, isNewSaleDialogOpen, selectedBranchId, selectedCompanyId]);
 
   // POS redesign: live clock for the register header bar.
   useEffect(() => {
@@ -1610,11 +1617,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     return null;
   };
 
-  const loadProducts = async () => {
+  const loadProducts = async (queryOverride?: string) => {
     try {
       setIsLoading(true);
 
-      const q = searchQuery.trim();
+      const q = (queryOverride ?? searchQuery).trim();
       // POS redesign: the register grid is a BROWSE catalog — an
       // empty query loads the branch's catalog (first page) instead of
       // an empty screen; typing still runs the same server search.
@@ -6249,7 +6256,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           setModalSearchQuery("");
         }
       }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-6xl max-h-[90vh] overflow-y-auto"
+          onOpenAutoFocus={(e) => {
+            // Wedge scanners type wherever focus is: pin it to the
+            // modal search box so a scan lands in the input (its
+            // BurstTracker owns the scan), never in a customer field.
+            e.preventDefault();
+            document.getElementById('modal-search-input')?.focus();
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Receipt className="w-5 h-5 text-primary" />
@@ -6262,6 +6278,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <div className="space-y-4">
               {/* Product Search Section */}
               <ProductSearchSection
+                inputId="modal-search-input"
                 searchQuery={modalSearchQuery}
                 onSearchChange={setModalSearchQuery}
                 filteredProducts={modalFilteredProducts}
@@ -6277,6 +6294,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 onAddToCart={addToModalCart}
                 onScanSubmit={(code) => { void handleBarcodeScanned(code, "modal"); }}
                 scanningEnabled={barcodeScanningEnabled}
+                onScanClick={() => {
+                  setScanTarget("modal");
+                  setIsCameraScannerOpen(true);
+                }}
                 showStripOption={showStripOption}
               />
 

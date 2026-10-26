@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, ScanBarcode, Building2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ProductCard from './ProductCard';
 import PosProductCard from './PosProductCard';
 import { BurstTracker } from '@/lib/barcode-scan';
 import { Kbd } from '@/components/ui/kbd';
@@ -64,6 +63,17 @@ interface ProductSearchSectionProps {
   onScanSubmit?: (barcode: string) => void;
   /** Barcode scanning switch for this business (default true). */
   scanningEnabled?: boolean;
+  /**
+   * New Invoice modal (2026-10-26): when provided, a "Scan Barcode"
+   * button renders in the header and opens the camera scanner (the
+   * caller sets the scan target). The wedge path needs no button —
+   * a burst typed into the focused search input is caught by the
+   * input's own BurstTracker — but the modal had no visible scan
+   * affordance at all, so cashiers never knew scanning was possible.
+   */
+  onScanClick?: () => void;
+  /** Stable id for the search input (the modal pins focus to it on open). */
+  inputId?: string;
   /** Hide the strip-selling option on product cards (L-10 fix, 2026-10-26):
    *  strip selling only applies to product-selling business types.
    *  Defaults to shown, so existing usages are unaffected. */
@@ -121,6 +131,8 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   onSelectVariant,
   onScanSubmit,
   scanningEnabled = true,
+  onScanClick,
+  inputId,
   showStripOption = true,
   layout = 'default',
   className,
@@ -264,6 +276,24 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                 Scan barcode or type to search by name, barcode, or SKU
               </p>
             </div>
+            {onScanClick && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (scanningEnabled) onScanClick();
+                  else inputRef.current?.focus();
+                }}
+                title={
+                  scanningEnabled
+                    ? 'Scan with the camera — a USB/Bluetooth scanner works anytime without this window'
+                    : 'Barcode scanning is turned off for this business (Settings → POS)'
+                }
+                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[#1a52c5] px-3.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#1746b0]"
+              >
+                <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+                Scan Barcode
+              </button>
+            )}
           </div>
         )}
 
@@ -274,7 +304,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           />
           <Input
             ref={inputRef}
-            id={isSplit ? 'pos-search-input' : undefined}
+            id={inputId ?? (isSplit ? 'pos-search-input' : undefined)}
             placeholder={isSplit ? 'Search by brand, generic, or category…' : 'Scan barcode or search products...'}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -405,13 +435,15 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
 
               const highlighted =
                 searchQuery.trim() !== '' && index === highlightedIndex;
-              const card = isSplit ? (
+              // New Invoice modal (2026-10-26): the default rail used to
+              // render the legacy horizontal ProductCard, whose right
+              // control cluster (~480px min-content) squeezed the name
+              // block to ~90px inside the modal's ~485px column and
+              // overlapped the price (measured 88x21px). Both rails now
+              // render the current PosProductCard — vertical, min-w-0,
+              // line-clamped, container-proof at any width.
+              const card = (
                 <PosProductCard
-                  {...sharedProps}
-                  onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
-                />
-              ) : (
-                <ProductCard
                   {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
                 />
