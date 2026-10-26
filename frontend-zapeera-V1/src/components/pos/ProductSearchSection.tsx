@@ -125,6 +125,18 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
 }) => {
   const isSplit = layout === 'split';
   const inputRef = useRef<HTMLInputElement>(null);
+  const pillsRef = useRef<HTMLDivElement>(null);
+  // Pills fade (2026-10-26): at rest the last pill was half-cut at the
+  // viewport edge. The row scrolls; a fade on the right edge marks the
+  // cut as scroll affordance, and it lifts at max scroll so the last
+  // pill (with its pr-4 end padding) lands crisp and fully visible.
+  const [pillsCanScrollRight, setPillsCanScrollRight] = useState(false);
+  const updatePillsFade = () => {
+    const el = pillsRef.current;
+    if (!el) return;
+    setPillsCanScrollRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+  };
+  useEffect(updatePillsFade, [categories]);
   const burstTrackerRef = useRef<BurstTracker | null>(null);
   if (!burstTrackerRef.current) {
     burstTrackerRef.current = new BurstTracker();
@@ -231,7 +243,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
       <CardContent
         className={cn(
           'relative z-[1] p-5 sm:p-6',
-          isSplit && 'flex min-h-0 flex-1 flex-col',
+          isSplit && 'flex min-h-0 min-w-0 flex-1 flex-col',
         )}
       >
         {!isSplit && (
@@ -258,7 +270,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           <Input
             ref={inputRef}
             id={isSplit ? 'pos-search-input' : undefined}
-            placeholder={isSplit ? 'Search by brand name, generic name, or category — or scan a barcode…' : 'Scan barcode or search products...'}
+            placeholder={isSplit ? 'Search by brand, generic, or category…' : 'Scan barcode or search products...'}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -267,9 +279,13 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
             className={cn(
               'border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
               'transition-[border-color,box-shadow] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/15',
-              isSplit ? 'h-14 rounded-2xl pr-12 text-[15px]' : 'h-[52px] rounded-[12px] pr-11 text-[15px]',
+              isSplit ? 'h-14 rounded-2xl pr-14 text-[15px]' : 'h-[52px] rounded-[12px] pr-11 text-[15px]',
             )}
           />
+          {/* "Enter ↵" hint (2026-10-26): hidden below sm — at 360px the
+              placeholder measured 653px against 192px of visible width,
+              so the hint sat on top of it ("gEnter"). The hint returns
+              at sm+ where pr-14 keeps it clear of the text. */}
           {isSplit && searchQuery ? (
             <button
               type="button"
@@ -280,7 +296,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs text-[#8c95b0]">
+            <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 text-xs text-[#8c95b0] sm:flex">
               <Kbd>F2</Kbd>
               Enter ↵
             </div>
@@ -290,13 +306,18 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
         {/* Category pills (split layout): the business's real product
             categories; "All Products" clears the filter. */}
         {isSplit && categories && categories.length > 0 && (
-          <div className="mb-4 flex shrink-0 items-center gap-2 overflow-x-auto pb-1" role="group" aria-label="Filter by category">
+          <div
+            ref={pillsRef}
+            onScroll={updatePillsFade}
+            style={pillsCanScrollRight ? { maskImage: 'linear-gradient(to right, black 88%, transparent 99%)', WebkitMaskImage: 'linear-gradient(to right, black 88%, transparent 99%)' } : undefined}
+            className="mb-4 flex shrink-0 snap-x snap-proximity items-center gap-2 overflow-x-auto pb-1 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="group" aria-label="Filter by category">
             <button
               type="button"
               onClick={() => onSelectCategory?.(null)}
               aria-pressed={!activeCategoryId}
               className={cn(
-                'whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+                'snap-start whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
                 !activeCategoryId
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
@@ -313,7 +334,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                   onClick={() => onSelectCategory?.(isActive ? null : category.id)}
                   aria-pressed={isActive}
                   className={cn(
-                    'whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
+                    'snap-start whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
@@ -330,7 +351,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           className={cn(
             'overflow-y-auto p-0.5',
             isSplit
-              ? 'grid min-h-0 flex-1 grid-cols-1 content-start gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+              ? 'grid min-h-0 min-w-0 flex-1 grid-cols-1 content-start gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
               : 'max-h-80 space-y-3',
           )}
         >

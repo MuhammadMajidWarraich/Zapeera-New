@@ -127,7 +127,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
   return (
     <div
       className={cn(
-        'group relative flex flex-col rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white p-3.5 shadow-[0_1px_4px_rgba(15,23,60,0.05)] transition-all',
+        'group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.12)] bg-white p-3.5 shadow-[0_1px_4px_rgba(15,23,60,0.05)] transition-all',
         !addDisabled && 'cursor-pointer hover:border-primary/40 hover:shadow-[0_6px_20px_rgba(15,23,60,0.09)]',
       )}
       onClick={handleQuickAdd}
@@ -226,7 +226,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-3 border-t border-dashed border-[rgba(15,23,60,0.1)] pt-3" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 min-w-0 space-y-3 border-t border-dashed border-[rgba(15,23,60,0.1)] pt-3" onClick={(e) => e.stopPropagation()}>
           {/* Variants */}
           {(variants || []).length > 0 && onSelectVariant && (
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Choose variant">
@@ -300,12 +300,12 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                     <span className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-full border', isSelected ? 'border-transparent bg-primary text-primary-foreground' : 'border-[rgba(15,23,60,0.25)] text-transparent')}>
                       <Check className="h-3 w-3" />
                     </span>
-                    <span className="font-bold text-[#0a1128]">{batch.batchNo}</span>
-                    <span className="tabular-nums text-[#4a5578]">Qty {batch.quantity}</span>
-                    <span className="ml-auto tabular-nums text-[#4a5578]">
+                    <span className="min-w-0 truncate font-bold text-[#0a1128]">{batch.batchNo}</span>
+                    <span className="shrink-0 tabular-nums text-[#4a5578]">Qty {batch.quantity}</span>
+                    <span className="ml-auto shrink-0 tabular-nums text-[#4a5578]">
                       {batch.expireDate ? new Date(batch.expireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                     </span>
-                    <span className="font-bold tabular-nums text-[#0a1128]">PKR {batch.sellingPrice.toFixed(2)}</span>
+                    <span className="shrink-0 font-bold tabular-nums text-[#0a1128]">PKR {batch.sellingPrice.toFixed(2)}</span>
                   </button>
                 );
               })}

@@ -4269,7 +4269,17 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           button is kept unless the row cannot fit; only then it
           becomes a right-corner ×. */}
       <div className="relative z-20 shrink-0 bg-[#0a1128] px-3 py-2.5 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-4 lg:px-5">
-        <div className="flex min-w-0 flex-nowrap items-center gap-x-1.5 2xl:gap-x-2">
+        {/*
+          Mobile header (2026-10-26): below xl the bar is TWO rows —
+          row 1 Back | brand | Branch | Cashier, row 2 the actions in a
+          horizontally scrollable strip — because the single nowrap row
+          measured 494px wide at a 360px viewport and pushed the Scan /
+          Refunds / New Invoice buttons 146px off-screen. At xl+ the
+          row is EXACTLY the verified single row (Branch first,
+          Cashier after, no wrap): the xl: classes below restore it.
+        */}
+        <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:flex-nowrap xl:items-center xl:gap-x-1.5 2xl:gap-x-2">
+          <div className="flex min-w-0 flex-nowrap items-center gap-x-1.5 2xl:gap-x-2">
           <Button
             type="button"
             variant="ghost"
@@ -4389,7 +4399,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             )}
           </div>
 
-          <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1.5">
+          </div>
+          {/* Row 2 on phones (row 1's continuation at xl+): all actions
+              icon-only below 2xl as before; the strip scrolls
+              horizontally (scrollbar hidden) instead of pushing the
+              last buttons off the viewport. */}
+          <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:ml-auto xl:shrink-0 xl:flex-nowrap xl:overflow-visible">
             <span className="hidden items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 font-mono text-xs font-semibold tabular-nums text-white ring-1 ring-white/10 md:inline-flex">
               <Clock className="h-3.5 w-3.5 text-white/60" strokeWidth={2} />
               {clockNow.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -5426,7 +5441,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
           </div>
 
-          <div className="flex shrink-0 gap-2 border-t border-[rgba(15,23,60,0.08)] px-5 py-4">
+          {/* Payment footer (2026-10-26): stacked below sm — side by
+              side the two buttons need ~408px (min-content) against a
+              328px dialog, so "Complete Sale & Print Receipt" was cut
+              off mid-label at 360px. Stacked, both labels fit in full;
+              sm+ keeps the verified side-by-side row. The Ctrl+Enter
+              chip is hidden below sm (rebase find): with it, the button
+              content measured 315px against 286px available and the chip
+              was cut to "Ctrl+E…". */}
+          <div className="flex shrink-0 flex-col gap-2 border-t border-[rgba(15,23,60,0.08)] px-5 py-4 sm:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -5446,7 +5469,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 <>
                   <Receipt className="mr-2 h-5 w-5" />
                   Complete Sale &amp; Print Receipt
-                  <Kbd className="ml-2 border-white/25 bg-white/15 text-white">Ctrl+Enter</Kbd>
+                  <Kbd className="ml-2 hidden border-white/25 bg-white/15 text-white sm:inline-flex">Ctrl+Enter</Kbd>
                 </>
               )}
             </Button>

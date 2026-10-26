@@ -307,6 +307,245 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     return <div className="safe-bars min-h-screen w-full bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">{children}</div>;
   }
 
+  // Context switchers (2026-10-26): the SAME two dropdowns render in
+  // the desktop header AND in the mobile context bar below — one
+  // definition, two placements. Below md the header had no room for
+  // them, so they used to be `hidden … md:inline-flex`, which left
+  // pages like Purchase Orders stuck on "Choose a branch in the
+  // header" with no way to choose. The trigger is always inline-flex;
+  // the wrappers below carry the breakpoint visibility.
+  const branchSwitcher = (
+    <>
+{/* Branch Selection Dropdown for Admins */}
+{/* CRITICAL FIX: Show dropdown when company is selected, even if branches haven't loaded yet */}
+{canShowContextSwitchers && selectedCompanyId && (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button
+        type="button"
+        className="inline-flex max-w-[128px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:max-w-[160px] md:px-4"
+      >
+        <Building2 className="sel-icon h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
+        <span className="max-w-[160px] truncate">
+        {(() => {
+          // CRITICAL FIX: Get branch name from allBranches or cache IMMEDIATELY
+          // This prevents "Loading..." from showing on refresh
+          if (selectedBranchId) {
+            // Try to find branch in allBranches first
+            const branch = allBranches?.find((b: any) => b.id === selectedBranchId);
+            if (branch) {
+              return branch.name;
+            }
+            
+            // If not found in allBranches, try cache IMMEDIATELY (for refresh scenario)
+            try {
+              const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
+              const cacheKey = `cached_branches_${currentUserData.id || 'default'}_${selectedCompanyId || 'all'}`;
+              const cachedData = localStorage.getItem(cacheKey);
+              if (cachedData) {
+                const parsed = JSON.parse(cachedData);
+                const cachedBranch = parsed.branches?.find((b: any) => b.id === selectedBranchId);
+                if (cachedBranch) {
+                  return cachedBranch.name;
+                }
+              }
+            } catch (e) {
+              // Ignore cache read errors
+            }
+            
+            // Last resort: try to get from saved branch selection
+            try {
+              const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
+              const savedBranchId = localStorage.getItem(`selected_branch_${currentUserData.id}`);
+              if (savedBranchId === selectedBranchId) {
+                // Branch ID matches saved selection, but name not found
+                // Return a generic name instead of "Loading..."
+                return 'Branch';
+              }
+            } catch (e) {
+              // Ignore
+            }
+            
+            // Only show "Loading..." if we truly don't have the branch name
+            return 'Loading...';
+          }
+          return 'All branches';
+        })()}
+        </span>
+        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-48 rounded-2xl border border-black/5">
+      {(() => {
+        // CRITICAL FIX: Get branches from allBranches OR cache if not loaded yet
+        let branchesToUse = allBranches || [];
+        
+        // If branches not loaded yet, try to get from cache IMMEDIATELY
+        if (!branchesToUse || branchesToUse.length === 0) {
+          try {
+            const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
+            const cacheKey = `cached_branches_${currentUserData.id || 'default'}_${selectedCompanyId || 'all'}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            if (cachedData) {
+              const parsed = JSON.parse(cachedData);
+              if (parsed.branches && parsed.branches.length > 0) {
+                branchesToUse = parsed.branches;
+              }
+            }
+          } catch (e) {
+            // Ignore cache read errors
+          }
+        }
+        
+        // CRITICAL FIX: Filter branches based on user's allowed branch IDs
+        // This ensures managers/cashiers only see branches shared with them
+  const effectiveRole = (membershipRole || user?.role || '').toString().toUpperCase();
+        let allowedBranchIds: string[] = [];
+        
+        if (effectiveRole !== 'OWNER' && effectiveRole !== 'ADMIN' && effectiveRole !== 'USER') {
+          allowedBranchIds = Array.isArray(user?.membership?.branchIds)
+            ? user.membership.branchIds.map((id: any) => String(id))
+            : (user?.branchId ? [String(user.branchId)] : []);
+          
+          if (allowedBranchIds.length > 0) {
+            branchesToUse = branchesToUse.filter((branch: any) => allowedBranchIds.includes(String(branch.id)));
+          }
+        }
+        
+        // CRITICAL FIX: Handle both branch.companyId and branch.company?.id
+        // If no company selected, show all branches
+        let filteredBranches = branchesToUse;
+        if (selectedCompanyId) {
+          filteredBranches = branchesToUse.filter((branch: any) => {
+            const branchCompanyId = branch.companyId || branch.company?.id;
+            const matches = branchCompanyId === selectedCompanyId;
+            return matches;
+          });
+        }
+
+        // Show "All branches" only if there are multiple branches
+        const showAllBranchesOption = filteredBranches.length > 1;
+
+        return (
+          <>
+            {showAllBranchesOption && (
+              <DropdownMenuItem
+                onClick={() => handleBranchSwitch('all')}
+                className="cursor-pointer"
+              >
+                <Building2 className="w-4 h-4 mr-2 text-amber-600" />
+                <span>All branches</span>
+              </DropdownMenuItem>
+            )}
+            {filteredBranches.length > 0 ? (
+              filteredBranches.map((branch: any) => (
+                <DropdownMenuItem
+                  key={branch.id}
+                  onClick={() => handleBranchSwitch(branch.id)}
+                  className="cursor-pointer"
+                >
+                  <Building2 className="w-4 h-4 mr-2 text-amber-600" />
+                  <span>{branch.name}</span>
+                </DropdownMenuItem>
+              ))
+            ) : branchesToUse && branchesToUse.length > 0 ? (
+              // Branches loaded but none match the selected company
+              <DropdownMenuItem disabled className="text-gray-400">
+                <span>No branches found for this business</span>
+              </DropdownMenuItem>
+            ) : (
+              // Branches not loaded yet - show message
+              <DropdownMenuItem disabled className="text-gray-400">
+                <span>Loading branches...</span>
+              </DropdownMenuItem>
+            )}
+          </>
+        );
+      })()}
+    </DropdownMenuContent>
+  </DropdownMenu>
+)}
+    </>
+  );
+  const businessSwitcher = (
+    <>
+{/* Switch Business Button for Admins */}
+{canShowContextSwitchers && allCompanies && allCompanies.length > 0 && (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <button
+        type="button"
+        className="inline-flex max-w-[140px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground md:max-w-[220px] md:px-4"
+      >
+        <Building className="sel-icon h-4 w-4 shrink-0 opacity-60" />
+        <span className="truncate">
+          {selectedCompanyId
+            ? allCompanies.find((c: any) => c.id === selectedCompanyId)?.name || 'Business'
+            : 'Business'}
+        </span>
+        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-black/5">
+      {ownedCompanies.length > 0 && (
+        <>
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">My Businesses</DropdownMenuLabel>
+          {ownedCompanies
+            .map((company: any) => (
+            <DropdownMenuItem
+              key={company.id}
+              onClick={() => handleCompanySwitch(company.id)}
+              className="cursor-pointer"
+            >
+              <Building className="w-4 h-4 mr-2 text-blue-600" />
+              <span className="truncate">{company.name}</span>
+            </DropdownMenuItem>
+          ))}
+        </>
+      )}
+
+      {sharedCompanies.length > 0 && (
+        <>
+          {ownedCompanies.length > 0 && <DropdownMenuSeparator />}
+          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Shared Businesses</DropdownMenuLabel>
+          {sharedCompanies
+            .map((company: any) => (
+            <DropdownMenuItem
+              key={company.id}
+              onClick={() => handleCompanySwitch(company.id)}
+              className="cursor-pointer"
+            >
+              <Building className="w-4 h-4 mr-2 text-blue-600" />
+              <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                <span className="truncate">{company.name}</span>
+                {company.memberRole && (
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {String(company.memberRole)}
+                  </span>
+                )}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </>
+      )}
+
+      {(!ownedCompanies?.length && !sharedCompanies?.length) &&
+        allCompanies.map((company: any) => (
+          <DropdownMenuItem
+            key={company.id}
+            onClick={() => handleCompanySwitch(company.id)}
+            className="cursor-pointer"
+          >
+            <Building className="w-4 h-4 mr-2 text-blue-600" />
+            <span className="truncate">{company.name}</span>
+          </DropdownMenuItem>
+        ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+)}
+    </>
+  );
+
   return (
     <SidebarProvider>
       <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }}>
@@ -352,229 +591,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               </div>
               <div className="flex items-center gap-2.5">
 
-                {/* Branch Selection Dropdown for Admins */}
-                {/* CRITICAL FIX: Show dropdown when company is selected, even if branches haven't loaded yet */}
-                {canShowContextSwitchers && selectedCompanyId && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="hidden items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:inline-flex"
-                      >
-                        <Building2 className="sel-icon h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
-                        <span className="max-w-[160px] truncate">
-                        {(() => {
-                          // CRITICAL FIX: Get branch name from allBranches or cache IMMEDIATELY
-                          // This prevents "Loading..." from showing on refresh
-                          if (selectedBranchId) {
-                            // Try to find branch in allBranches first
-                            const branch = allBranches?.find((b: any) => b.id === selectedBranchId);
-                            if (branch) {
-                              return branch.name;
-                            }
-                            
-                            // If not found in allBranches, try cache IMMEDIATELY (for refresh scenario)
-                            try {
-                              const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
-                              const cacheKey = `cached_branches_${currentUserData.id || 'default'}_${selectedCompanyId || 'all'}`;
-                              const cachedData = localStorage.getItem(cacheKey);
-                              if (cachedData) {
-                                const parsed = JSON.parse(cachedData);
-                                const cachedBranch = parsed.branches?.find((b: any) => b.id === selectedBranchId);
-                                if (cachedBranch) {
-                                  return cachedBranch.name;
-                                }
-                              }
-                            } catch (e) {
-                              // Ignore cache read errors
-                            }
-                            
-                            // Last resort: try to get from saved branch selection
-                            try {
-                              const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
-                              const savedBranchId = localStorage.getItem(`selected_branch_${currentUserData.id}`);
-                              if (savedBranchId === selectedBranchId) {
-                                // Branch ID matches saved selection, but name not found
-                                // Return a generic name instead of "Loading..."
-                                return 'Branch';
-                              }
-                            } catch (e) {
-                              // Ignore
-                            }
-                            
-                            // Only show "Loading..." if we truly don't have the branch name
-                            return 'Loading...';
-                          }
-                          return 'All branches';
-                        })()}
-                        </span>
-                        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 rounded-2xl border border-black/5">
-                      {(() => {
-                        // CRITICAL FIX: Get branches from allBranches OR cache if not loaded yet
-                        let branchesToUse = allBranches || [];
-                        
-                        // If branches not loaded yet, try to get from cache IMMEDIATELY
-                        if (!branchesToUse || branchesToUse.length === 0) {
-                          try {
-                            const currentUserData = JSON.parse(localStorage.getItem('zapeera_user') || '{}');
-                            const cacheKey = `cached_branches_${currentUserData.id || 'default'}_${selectedCompanyId || 'all'}`;
-                            const cachedData = localStorage.getItem(cacheKey);
-                            if (cachedData) {
-                              const parsed = JSON.parse(cachedData);
-                              if (parsed.branches && parsed.branches.length > 0) {
-                                branchesToUse = parsed.branches;
-                              }
-                            }
-                          } catch (e) {
-                            // Ignore cache read errors
-                          }
-                        }
-                        
-                        // CRITICAL FIX: Filter branches based on user's allowed branch IDs
-                        // This ensures managers/cashiers only see branches shared with them
-  const effectiveRole = (membershipRole || user?.role || '').toString().toUpperCase();
-                        let allowedBranchIds: string[] = [];
-                        
-                        if (effectiveRole !== 'OWNER' && effectiveRole !== 'ADMIN' && effectiveRole !== 'USER') {
-                          allowedBranchIds = Array.isArray(user?.membership?.branchIds)
-                            ? user.membership.branchIds.map((id: any) => String(id))
-                            : (user?.branchId ? [String(user.branchId)] : []);
-                          
-                          if (allowedBranchIds.length > 0) {
-                            branchesToUse = branchesToUse.filter((branch: any) => allowedBranchIds.includes(String(branch.id)));
-                          }
-                        }
-                        
-                        // CRITICAL FIX: Handle both branch.companyId and branch.company?.id
-                        // If no company selected, show all branches
-                        let filteredBranches = branchesToUse;
-                        if (selectedCompanyId) {
-                          filteredBranches = branchesToUse.filter((branch: any) => {
-                            const branchCompanyId = branch.companyId || branch.company?.id;
-                            const matches = branchCompanyId === selectedCompanyId;
-                            return matches;
-                          });
-                        }
-
-                        // Show "All branches" only if there are multiple branches
-                        const showAllBranchesOption = filteredBranches.length > 1;
-
-                        return (
-                          <>
-                            {showAllBranchesOption && (
-                              <DropdownMenuItem
-                                onClick={() => handleBranchSwitch('all')}
-                                className="cursor-pointer"
-                              >
-                                <Building2 className="w-4 h-4 mr-2 text-amber-600" />
-                                <span>All branches</span>
-                              </DropdownMenuItem>
-                            )}
-                            {filteredBranches.length > 0 ? (
-                              filteredBranches.map((branch: any) => (
-                                <DropdownMenuItem
-                                  key={branch.id}
-                                  onClick={() => handleBranchSwitch(branch.id)}
-                                  className="cursor-pointer"
-                                >
-                                  <Building2 className="w-4 h-4 mr-2 text-amber-600" />
-                                  <span>{branch.name}</span>
-                                </DropdownMenuItem>
-                              ))
-                            ) : branchesToUse && branchesToUse.length > 0 ? (
-                              // Branches loaded but none match the selected company
-                              <DropdownMenuItem disabled className="text-gray-400">
-                                <span>No branches found for this business</span>
-                              </DropdownMenuItem>
-                            ) : (
-                              // Branches not loaded yet - show message
-                              <DropdownMenuItem disabled className="text-gray-400">
-                                <span>Loading branches...</span>
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {/* Switch Business Button for Admins */}
-                {canShowContextSwitchers && allCompanies && allCompanies.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="hidden max-w-[220px] items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground md:inline-flex"
-                      >
-                        <Building className="sel-icon h-4 w-4 shrink-0 opacity-60" />
-                        <span className="truncate">
-                          {selectedCompanyId
-                            ? allCompanies.find((c: any) => c.id === selectedCompanyId)?.name || 'Business'
-                            : 'Business'}
-                        </span>
-                        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-black/5">
-                      {ownedCompanies.length > 0 && (
-                        <>
-                          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">My Businesses</DropdownMenuLabel>
-                          {ownedCompanies
-                            .map((company: any) => (
-                            <DropdownMenuItem
-                              key={company.id}
-                              onClick={() => handleCompanySwitch(company.id)}
-                              className="cursor-pointer"
-                            >
-                              <Building className="w-4 h-4 mr-2 text-blue-600" />
-                              <span className="truncate">{company.name}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </>
-                      )}
-
-                      {sharedCompanies.length > 0 && (
-                        <>
-                          {ownedCompanies.length > 0 && <DropdownMenuSeparator />}
-                          <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Shared Businesses</DropdownMenuLabel>
-                          {sharedCompanies
-                            .map((company: any) => (
-                            <DropdownMenuItem
-                              key={company.id}
-                              onClick={() => handleCompanySwitch(company.id)}
-                              className="cursor-pointer"
-                            >
-                              <Building className="w-4 h-4 mr-2 text-blue-600" />
-                              <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                                <span className="truncate">{company.name}</span>
-                                {company.memberRole && (
-                                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    {String(company.memberRole)}
-                                  </span>
-                                )}
-                              </span>
-                            </DropdownMenuItem>
-                          ))}
-                        </>
-                      )}
-
-                      {(!ownedCompanies?.length && !sharedCompanies?.length) &&
-                        allCompanies.map((company: any) => (
-                          <DropdownMenuItem
-                            key={company.id}
-                            onClick={() => handleCompanySwitch(company.id)}
-                            className="cursor-pointer"
-                          >
-                            <Building className="w-4 h-4 mr-2 text-blue-600" />
-                            <span className="truncate">{company.name}</span>
-                          </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                {/* Branch + business switchers — desktop slot (hidden below md; the mobile bar below renders the same elements). */}
+                <div className="hidden md:block">{branchSwitcher}</div>
+                <div className="hidden md:block">{businessSwitcher}</div>
 
                 {membershipRole && (
                   <div className="hidden flex-col items-end sm:flex">
@@ -628,6 +647,18 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 </DropdownMenu>
               </div>
             </header>
+            {/* Mobile context bar (2026-10-26): business + branch
+                switchers on phones. The empty states (e.g. Purchase
+                Orders: "Choose a branch in the header") point at the
+                header, so the switchers live here — a second header
+                row — not hidden in the hamburger drawer. md+ hides
+                this row; the desktop header above is unchanged. */}
+            {canShowContextSwitchers && (
+              <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-black/[0.04] bg-white/70 px-4 py-2 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden">
+                {branchSwitcher}
+                {businessSwitcher}
+              </div>
+            )}
 
             {subscriptionGate === 'grace' && (
               <div className="flex items-center gap-2.5 bg-amber-50 border-b border-amber-200 px-5 py-2.5 text-sm text-amber-800">
