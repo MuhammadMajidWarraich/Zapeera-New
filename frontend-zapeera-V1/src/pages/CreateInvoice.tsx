@@ -4515,8 +4515,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
       <main className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3 sm:px-5 lg:px-6 lg:pb-5">
         <div className="flex min-h-0 flex-1 flex-col gap-5 lg:flex-row lg:items-stretch">
-          {/* Products column — search + results */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:basis-0">
+          {/* Products column — search + results.
+              Mobile floor (2026-10-26, mobile POS search fix): the POS page
+              is a fixed-height flex column and the cart rail below is
+              content-sized, so without a floor this flex-1 column collapsed
+              to ~0px on phones — the results grid shrank to 4px (results in
+              the DOM but invisible) and after a barcode scan the search box
+              itself was clipped away. 480px guarantees ~320px of visible,
+              internally-scrollable results below lg; lg:min-h-0 restores the
+              desktop behaviour exactly. */}
+          <div className="flex min-h-[480px] min-w-0 flex-1 flex-col lg:min-h-0 lg:basis-0">
             <ProductSearchSection
               layout="split"
               searchQuery={searchQuery}
