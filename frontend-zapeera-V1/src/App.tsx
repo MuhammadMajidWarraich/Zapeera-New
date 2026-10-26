@@ -22,6 +22,7 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ModuleGuard, AutoModuleGuard } from "./components/auth/ModuleGuard";
 import { RuntimeProvider } from "./contexts/RuntimeProvider";
 import { BrandingProvider } from "./contexts/BrandingContext";
+import { GlobalShortcuts } from "./components/GlobalShortcuts";
 import JoinPartnerPage from "./components/auth/JoinPartnerPage";
 import { SyncProvider } from "./contexts/SyncProvider";
 import { NotificationProvider } from "./contexts/NotificationContext";
@@ -276,6 +277,7 @@ const AppRoutes = () => {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <GlobalShortcuts />
       <ErrorBoundary>
       <React.Suspense fallback={<RouteFallback />}>
       <Routes>

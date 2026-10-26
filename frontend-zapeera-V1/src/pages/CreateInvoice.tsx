@@ -42,6 +42,7 @@ import {
   Stethoscope,
   Zap,
   History,
+  Keyboard,
   ClipboardList,
   ScanBarcode,
   Clock,
@@ -57,6 +58,8 @@ import { apiService } from "@/services/api";
 import type { TaxBreakdownLine, ProvincialTaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcuts, openShortcutsHelp, isTypingTarget } from "@/lib/keyboard-shortcuts";
+import { Kbd } from "@/components/ui/kbd";
 import ProductSearchSection from "@/components/pos/ProductSearchSection";
 import { useWedgeScanner } from "@/hooks/useWedgeScanner";
 import { useMembershipRole } from "@/hooks/useMembershipRole";
@@ -4018,6 +4021,239 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const businessType = (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
   const isPharmacyBusiness = businessType === "PHARMACY";
 
+  // Keyboard shortcuts (POS) — revised map (research, 2026-10-26):
+  // tender moved off Alt+digits (Alt+C cash / Alt+B card), so the
+  // old capture-phase exception that owned Alt+1/Alt+2 is gone —
+  // Alt+1–6 are navigation-only everywhere and the global listener
+  // handles them (this listener runs in the normal bubble phase).
+  // The matcher skips every binding while the user is typing, except
+  // the allowWhileTyping ones (function keys, Alt/Ctrl combos, Ctrl+S),
+  // which cannot type characters. Esc is left to Radix dialogs.
+  const getCartLineQuantityStep = (line: (typeof invoiceItems)[number]) => {
+    const lineProduct = products.find((p: any) => p.id === line.productId);
+    const batchForLine = productBatches[line.productId || ""]?.find(
+      (batch: any) => batch.id === line.batchId,
+    );
+    const inferred = batchForLine?.totalBoxes && batchForLine?.quantity
+      ? Math.round(batchForLine.quantity / batchForLine.totalBoxes)
+      : 0;
+    const unitsPerBox =
+      line.unitsPerBox && line.unitsPerBox > 1
+        ? line.unitsPerBox
+        : batchForLine?.unitsPerBox && batchForLine?.unitsPerBox > 1
+          ? batchForLine.unitsPerBox
+          : inferred || lineProduct?.unitsPerBox || lineProduct?.unitsPerPack || 1;
+    const isBox = line.unitType === "pack" || line.unitType === "box";
+    return line.unitLevel ? line.unitFactor || 1 : isBox ? unitsPerBox : 1;
+  };
+  const adjustLastLineQuantity = (direction: 1 | -1) => {
+    const last = invoiceItems[invoiceItems.length - 1];
+    if (!last) return;
+    updateInvoiceQuantity(
+      last.id,
+      last.quantity + direction * getCartLineQuantityStep(last),
+    );
+  };
+  const isAnyDialogOpen = () =>
+    Boolean(document.querySelector('[role="dialog"]'));
+  // The payment dialog is NOT blocking for the tender keys: Alt+C/Alt+B
+  // select the method INSIDE it. Every other dialog (receipt, help,
+  // transactions, …) blocks all POS shortcuts.
+  const isBlockingDialogOpen = () =>
+    !isPaymentDialogOpen && Boolean(document.querySelector('[role="dialog"]'));
+  // Quantity keys work while the search box is focused ONLY when it is
+  // empty — the state right after Enter adds an item, when the cashier's
+  // hands are on the keyboard and the next action is a quantity tweak.
+  // With a query typed, +/− type normally; in any other text field they
+  // never hijack typed text.
+  const qtyKeyAllowed = () => {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement && active.id === "pos-search-input") {
+      return active.value === "";
+    }
+    return !isTypingTarget(active);
+  };
+  const isPlainKey = (e: KeyboardEvent) =>
+    !e.ctrlKey && !e.metaKey && !e.altKey;
+  useKeyboardShortcuts(
+    [
+      {
+        combo: { key: "F2" },
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          const input = document.getElementById(
+            "pos-search-input",
+          ) as HTMLInputElement | null;
+          input?.focus();
+          input?.select();
+        },
+        allowWhileTyping: true,
+      },
+      {
+        test: (e) =>
+          (e.key === "+" || e.key === "=") && isPlainKey(e) && qtyKeyAllowed(),
+        handler: () => adjustLastLineQuantity(1),
+        allowWhileTyping: true,
+      },
+      {
+        test: (e) =>
+          (e.key === "-" || e.key === "_") && isPlainKey(e) && qtyKeyAllowed(),
+        handler: () => adjustLastLineQuantity(-1),
+        allowWhileTyping: true,
+      },
+      {
+        // F4 = discount (pharmacy standard, Medishelf): focus the
+        // invoice discount field. It is a number input, so focus
+        // only — select() throws on number inputs.
+        combo: { key: "F4" },
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          if (invoiceItems.length === 0) return;
+          document.getElementById("global-discount")?.focus();
+        },
+        allowWhileTyping: true,
+      },
+      {
+        combo: { key: "F8" },
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          if (!isParking) handleParkSale();
+        },
+        allowWhileTyping: true,
+      },
+      {
+        combo: { key: "t", alt: true },
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          fetchTodaySales();
+          fetchParkedSales();
+          setIsTxnDialogOpen(true);
+        },
+        allowWhileTyping: true,
+      },
+      {
+        combo: { key: "c", alt: true },
+        handler: () => {
+          if (isBlockingDialogOpen()) return;
+          if (invoiceItems.length === 0) return;
+          setPaymentMethod("CASH");
+          setIsPaymentDialogOpen(true);
+        },
+        allowWhileTyping: true,
+      },
+      {
+        combo: { key: "b", alt: true },
+        handler: () => {
+          if (isBlockingDialogOpen()) return;
+          if (invoiceItems.length === 0) return;
+          setPaymentMethod("CARD");
+          setIsPaymentDialogOpen(true);
+        },
+        allowWhileTyping: true,
+      },
+      {
+        test: (e) =>
+          isPaymentDialogOpen &&
+          /^[1-8]$/.test(e.key) &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey,
+        handler: (e) => {
+          const option = PAYMENT_METHOD_OPTIONS[Number(e.key) - 1];
+          if (option) selectPaymentMethod(option.key);
+        },
+      },
+      {
+        // Ctrl+Enter is context-sensitive — one "advance the sale"
+        // key: payment dialog closed → Proceed to Payment; dialog
+        // open → Complete Sale (same guards as the button).
+        combo: { key: "Enter", ctrl: true },
+        handler: () => {
+          if (isPaymentDialogOpen) {
+            if (
+              invoiceItems.length === 0 ||
+              isLoading ||
+              (splitEnabled &&
+                (splitRemaining < 0 ||
+                  (paymentStatus === "COMPLETED" && splitRemaining !== 0)))
+            ) {
+              return;
+            }
+            void createInvoice();
+            return;
+          }
+          if (isAnyDialogOpen()) return;
+          if (invoiceItems.length > 0) setIsPaymentDialogOpen(true);
+        },
+        allowWhileTyping: true,
+      },
+      {
+        // Ctrl+P is context-scoped, never global: the `test` only
+        // matches when there is a receipt to print — the open
+        // receipt dialog, or the last sale's receipt on the register
+        // with no dialog open (reprint). When it does not match, the
+        // matcher never preventDefaults, so the browser's own print
+        // works as normal everywhere else.
+        test: (e) =>
+          e.key.toLowerCase() === "p" &&
+          e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey &&
+          (isReceiptDialogOpen || (!isAnyDialogOpen() && !!currentReceipt)),
+        handler: () => {
+          if (isReceiptDialogOpen) {
+            printReceipt();
+          } else if (currentReceipt) {
+            setIsReceiptDialogOpen(true);
+          }
+        },
+        allowWhileTyping: true,
+      },
+      {
+        // Delete removes the last line (Amber/Odoo behaviour). It is
+        // test-gated on qtyKeyAllowed() — the same guard as +/−: it
+        // fires from the register state (search focused, query empty)
+        // but never steals the key while the user is editing a query
+        // or any other text field (there it deletes characters, as
+        // normal). Without the gate Delete could never fire at all:
+        // focus sits in the search box after every Enter-add.
+        test: (e) =>
+          e.key === "Delete" &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          qtyKeyAllowed(),
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          const last = invoiceItems[invoiceItems.length - 1];
+          if (last) updateInvoiceQuantity(last.id, 0);
+        },
+        allowWhileTyping: true,
+      },
+      {
+        // Ctrl+U = add / set customer (Shopify): focus the customer
+        // name field — the same target as the "Change Patient" button.
+        combo: { key: "u", ctrl: true },
+        handler: () => {
+          if (isAnyDialogOpen()) return;
+          const input = document.getElementById(
+            "customerName",
+          ) as HTMLInputElement | null;
+          input?.focus();
+          input?.select();
+        },
+        allowWhileTyping: true,
+      },
+      {
+        combo: { key: "n" },
+        handler: () => {
+          if (isReceiptDialogOpen) setIsReceiptDialogOpen(false);
+        },
+      },
+    ],
+  );
+
   return (
     <div className={cn("flex w-full flex-col bg-[#f0f2f7]", registerLayout && "h-full")}>
       {/* POS header — dark register bar (Muhammad's reference layout):
@@ -4169,7 +4405,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <PauseCircle className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden 2xl:inline">{isParking ? "Holding…" : "Hold"}</span>
+              <span className="hidden items-center gap-1.5 2xl:inline-flex">{isParking ? "Holding…" : "Hold"}<Kbd className="border-white/25 bg-white/15 text-white">F8</Kbd></span>
             </Button>
             <Button
               type="button"
@@ -4178,7 +4414,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <History className="h-4 w-4 shrink-0" strokeWidth={2} />
-              <span className="hidden 2xl:inline">Transactions</span>
+              <span className="hidden items-center gap-1.5 2xl:inline-flex">Transactions<Kbd className="border-white/25 bg-white/15 text-white">Alt+T</Kbd></span>
             </Button>
             <Button
               type="button"
@@ -4188,6 +4424,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             >
               <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
               <span className="hidden 2xl:inline">Shift Report</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => openShortcutsHelp()}
+              title="Keyboard shortcuts (?)"
+              className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
+            >
+              <Keyboard className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="hidden items-center gap-1.5 2xl:inline-flex">Shortcuts<Kbd className="border-white/25 bg-white/15 text-white">?</Kbd></span>
             </Button>
             {scanFeedback && (
               <span
@@ -4854,6 +5100,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
                         {label}
+                        <Kbd>{key === "CASH" ? "Alt+C" : "Alt+B"}</Kbd>
                       </button>
                     ))}
                   </div>
@@ -4873,6 +5120,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     {invoiceItems.length > 0
                       ? `Proceed to Payment • PKR ${mainTotalAfterLoyalty.toFixed(2)}`
                       : "Proceed to Payment"}
+                    <Kbd className="ml-2 border-white/25 bg-white/15 text-white">Ctrl+Enter</Kbd>
                   </Button>
                   {invoiceItems.length > 0 && (
                     <button
@@ -4925,7 +5173,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <>
                 <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Payment method</p>
                 <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
-                  {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }) => (
+                  {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }, index) => (
                     <button
                       key={key}
                       type="button"
@@ -4939,7 +5187,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       )}
                     >
                       <Icon className="h-5 w-5" strokeWidth={2} />
-                      {label}
+                      <span className="flex items-center gap-1.5">{label}<Kbd>{index + 1}</Kbd></span>
                     </button>
                   ))}
                 </div>
@@ -5198,6 +5446,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 <>
                   <Receipt className="mr-2 h-5 w-5" />
                   Complete Sale &amp; Print Receipt
+                  <Kbd className="ml-2 border-white/25 bg-white/15 text-white">Ctrl+Enter</Kbd>
                 </>
               )}
             </Button>
@@ -5762,6 +6011,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             >
               <Printer className="mr-2 h-4 w-4" />
               Print Receipt
+              <Kbd className="ml-2">Ctrl+P</Kbd>
             </Button>
             <Button
               type="button"
@@ -5769,6 +6019,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               className="h-12 flex-1 rounded-[12px] text-sm font-bold"
             >
               New Sale
+              <Kbd className="ml-2 border-white/25 bg-white/15 text-white">N</Kbd>
             </Button>
           </div>
         </DialogContent>

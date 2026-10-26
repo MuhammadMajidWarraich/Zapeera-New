@@ -1294,6 +1294,8 @@ toast({
             <Button
               type="button"
               onClick={handleSaveSettings}
+              data-shortcut-save
+              title="Save (Ctrl+S)"
               className="h-11 gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(26,82,197,0.35)]"
             >
               <Save className="h-[17px] w-[17px]" strokeWidth={2} />

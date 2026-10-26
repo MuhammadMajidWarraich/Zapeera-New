@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, ScanBarcode, Building2, X } from 'lucide-react';
@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import PosProductCard from './PosProductCard';
 import { BurstTracker } from '@/lib/barcode-scan';
+import { Kbd } from '@/components/ui/kbd';
 import type { ProductVariantLite } from '@/utils/variants';
 
 interface Product {
@@ -129,6 +130,19 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
     burstTrackerRef.current = new BurstTracker();
   }
 
+  // Keyboard navigation of search results (revised map, 2026-10-26):
+  // ↑/↓ move a highlighted row; Enter adds the highlighted product
+  // instead of always the first. The ring only shows while a query
+  // is typed (in browse mode Enter does nothing).
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+  const resultCount = filteredProducts.length;
+  useEffect(() => {
+    setHighlightedIndex((i) => Math.min(i, Math.max(0, resultCount - 1)));
+  }, [resultCount]);
+
   // Auto-focus the search input
   useEffect(() => {
     if (inputRef.current) {
@@ -146,15 +160,49 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
     const now = e.timeStamp || performance.now();
 
     if (e.key === 'Enter') {
+      // Ctrl+Enter belongs to the register (Proceed to Payment), not
+      // to the search box — let it bubble to the POS listener.
+      if (e.ctrlKey || e.metaKey) {
+        return;
+      }
       const code = tracker.pushEnter(now);
       if (code && scanningEnabled && onScanSubmit) {
         e.preventDefault();
         onScanSubmit(code);
+        return;
       }
+      // Plain Enter (typed query, not a scanner burst): add the
+      // HIGHLIGHTED product — the keyboard path to a sale without
+      // the mouse. The query is cleared so the next item can be
+      // typed straight away.
+      if (searchQuery.trim() && filteredProducts.length > 0) {
+        e.preventDefault();
+        const idx = Math.min(highlightedIndex, filteredProducts.length - 1);
+        const target = filteredProducts[Math.max(0, idx)];
+        onAddToCart(target, 1, target.unitType);
+        onSearchChange('');
+      }
+      return;
+    }
+    // ↑/↓ navigate the search results (revised map). preventDefault
+    // keeps the text cursor from moving inside the input.
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (filteredProducts.length === 0) return;
+      e.preventDefault();
+      setHighlightedIndex((i) =>
+        e.key === 'ArrowDown'
+          ? Math.min(i + 1, filteredProducts.length - 1)
+          : Math.max(i - 1, 0),
+      );
       return;
     }
     if (e.key === 'Escape') {
       tracker.invalidate();
+      if (searchQuery) {
+        onSearchChange('');
+      } else {
+        inputRef.current?.blur();
+      }
       return;
     }
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -232,7 +280,8 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#8c95b0]">
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-xs text-[#8c95b0]">
+              <Kbd>F2</Kbd>
               Enter ↵
             </div>
           )}
@@ -302,7 +351,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               />
             </div>
           ) : Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => {
+            filteredProducts.map((product, index) => {
               const allBatches = productBatches[product.id] || [];
               const batches = getBatchesForProduct ? getBatchesForProduct(product.id) : allBatches;
               const selectedBatch = getSelectedBatch(product.id);
@@ -327,18 +376,30 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                 onSelectVariant: onSelectVariant ? (variantId: string | null) => onSelectVariant(product.id, variantId) : undefined,
               };
 
-              return isSplit ? (
+              const highlighted =
+                searchQuery.trim() !== '' && index === highlightedIndex;
+              const card = isSplit ? (
                 <PosProductCard
-                  key={product.id}
                   {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
                 />
               ) : (
                 <ProductCard
-                  key={product.id}
                   {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
                 />
+              );
+              return (
+                <div
+                  key={product.id}
+                  className={
+                    highlighted
+                      ? 'rounded-2xl ring-2 ring-[#1a52c5] ring-offset-1'
+                      : undefined
+                  }
+                >
+                  {card}
+                </div>
               );
             })
           ) : searchQuery.trim() ? (
