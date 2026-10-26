@@ -638,6 +638,9 @@ class SyncService {
 
       if (!sqliteClient) {
         console.log('[Sync] ⚠️  SQLite client not available');
+        // Same leak class as syncAllTablesFromSQLiteToPostgreSQL: the raw
+        // client opened above must be released before returning.
+        await pgClient.end();
         return result;
       }
 
@@ -2198,12 +2201,31 @@ class SyncService {
       errors: [] as string[]
     };
 
+    // Website mode (PostgreSQL direct) has no local SQLite to push from, so
+    // this sync is a no-op here — return BEFORE opening a raw pg client.
+    // The old code opened the client first and returned below when
+    // getSQLiteClient() is null (always true on the web backend), leaking one
+    // connection per call. backupSync runs this every 5 minutes, which is
+    // exactly the leak that pinned the pool at 100/100 (one idle connection
+    // per tick, same second as the sync log line). The sibling functions
+    // (syncUsersFromPostgreSQL, syncAllTablesFromPostgreSQL) already guard
+    // this way; this one was missed.
+    if (process.env.USE_POSTGRESQL === 'true') {
+      console.log('[Sync] ℹ️  Using PostgreSQL directly - no SQLite → PostgreSQL sync needed');
+      return result;
+    }
+
     const dbService = getDatabaseService();
     const sqliteClient = dbService.getSQLiteClient();
     const pgClient = await dbService.getRawPostgreSQLClient();
 
     if (!sqliteClient || !pgClient) {
       result.errors.push('Database clients not available');
+      // Release the client we just opened before returning — otherwise its
+      // connection stays open in PostgreSQL with nothing left to close it.
+      if (pgClient) {
+        try { await pgClient.end(); } catch { /* already closed */ }
+      }
       return result;
     }
 
@@ -2417,6 +2439,12 @@ class SyncService {
     } catch (error: any) {
       console.error('[Sync] ❌ SQLite → PostgreSQL failed:', error.message);
       result.errors.push(error.message);
+      // The success path ends pgClient above; a throw anywhere in the loop
+      // would otherwise leave its connection open (same leak as the early
+      // return fixed above). end() is safe to call twice (guarded).
+      if (pgClient) {
+        try { await pgClient.end(); } catch { /* already closed */ }
+      }
     }
 
     return result;
@@ -2515,6 +2543,11 @@ class SyncService {
 
       if (!pgClient || !sqliteClient) {
         console.log(`[Sync] ⚠️ Database clients not available`);
+        // Same leak class as syncAllTablesFromSQLiteToPostgreSQL: release
+        // the raw client opened above before returning.
+        if (pgClient) {
+          try { await pgClient.end(); } catch { /* already closed */ }
+        }
         return result;
       }
 
@@ -2677,6 +2710,11 @@ class SyncService {
       const sqliteClient = dbService.getSQLiteClient();
 
       if (!pgClient || !sqliteClient) {
+        // Same leak class as syncAllTablesFromSQLiteToPostgreSQL: release
+        // the raw client opened above before returning.
+        if (pgClient) {
+          try { await pgClient.end(); } catch { /* already closed */ }
+        }
         return false;
       }
 

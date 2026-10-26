@@ -10,6 +10,13 @@ import { isPostgreSQLMode, isSQLiteMode } from '../config/database-mode';
 import { buildPrismaUrl } from '../config/prisma-url';
 
 let cachedClient: PrismaClient | null = null;
+// True only when cachedClient was created by getPrismaSync() below (db.util
+// owns its lifecycle). Clients borrowed from DatabaseService are owned by
+// the service and must never be disconnected from here.
+// (Port of the Oct 24 connfix, which was committed but never merged to
+// release — the live backend still drops a dead cached client without
+// disconnecting it, leaking its whole pool.)
+let cachedClientOwnedByDbUtil = false;
 
 /**
  * Check if we're using SQLite
@@ -37,6 +44,15 @@ export async function getPrisma(): Promise<PrismaClient> {
         return cachedClient;
       } catch (verifyError: any) {
         console.warn('[DB Util] ⚠️ Cached client disconnected, reconnecting...');
+        // If db.util created this client itself (getPrismaSync), disconnect
+        // it before dropping the reference — otherwise its connection pool
+        // leaks: the connections stay open in PostgreSQL with nothing left
+        // that can close them. A DatabaseService client is only uncached
+        // here; the service owns it and disconnects before recreating.
+        if (cachedClientOwnedByDbUtil) {
+          try { await cachedClient.$disconnect(); } catch { /* already closed */ }
+          cachedClientOwnedByDbUtil = false;
+        }
         cachedClient = null;
       }
     }
@@ -51,6 +67,7 @@ export async function getPrisma(): Promise<PrismaClient> {
     }
 
     cachedClient = client;
+    cachedClientOwnedByDbUtil = false;
     console.log('[DB Util] ✅ Connected to database');
 
     return client;
@@ -88,8 +105,10 @@ export function getPrismaSync(): PrismaClient {
     return cachedClient;
   }
 
-  // Create new client
+  // Create new client (owned by db.util — see the reconnect path in
+  // getPrisma(), which disconnects it before dropping the reference)
   cachedClient = new PrismaClient({ datasources: { db: { url: buildPrismaUrl() } } });
+  cachedClientOwnedByDbUtil = true;
   return cachedClient;
 }
 
@@ -100,6 +119,7 @@ export async function disconnectPrisma(): Promise<void> {
   if (cachedClient) {
     await cachedClient.$disconnect();
     cachedClient = null;
+    cachedClientOwnedByDbUtil = false;
     console.log('[DB Util] 🔌 Disconnected from database');
   }
 }
