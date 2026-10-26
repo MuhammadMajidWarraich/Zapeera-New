@@ -83,6 +83,14 @@ function getDataFilter(user, requestedBranchId, requestedCompanyId) {
     // ADMIN can see all branches in their company
     companyFilter = requestedCompanyId || selectedCompanyId || user?.companyId;
     branchFilter = requestedBranchId || selectedBranchId || null;
+  } else if (role === 'OWNER') {
+    // OWNER sees their selected company (from headers) across all its branches.
+    // Mirrors the cloud's buildBranchWhereClause (OWNER || ADMIN). Without this
+    // an OWNER fell into the CASHIER branch below and lost the selected company
+    // entirely — their assigned companyId is null (multi-business via membership),
+    // so every embedded endpoint came back unscoped.
+    companyFilter = requestedCompanyId || selectedCompanyId || user?.companyId;
+    branchFilter = requestedBranchId || selectedBranchId || null;
   } else if (role === 'MANAGER') {
     // MANAGER can see their branch only
     branchFilter = requestedBranchId || selectedBranchId || user?.branchId;

@@ -104,7 +104,13 @@ function registerSalesRoutes(app, authMiddleware, deps) {
               discountAmount: s.discount,
               paidAmount: s.paidAmount || 0,
               returnedAmount: s.returnedAmount || 0,
-              totalAmount: s.grandTotal,
+              // Money truth differs by creation path (see RC-D2): cloud-pulled
+              // sales carry the real total in totalAmount and grandTotal is 0
+              // (the cloud never sets it); desktop-made sales store the real
+              // total in grandTotal and totalAmount holds the subtotal.
+              // Prefer grandTotal when set, else totalAmount — so pulled sales
+              // show their real amount and desktop-made sales keep theirs.
+              totalAmount: s.grandTotal || s.totalAmount,
               customer,
               branch: branch || { id: '', name: 'Default', address: '' },
               user: user || { id: '', name: 'Unknown', username: 'unknown' },

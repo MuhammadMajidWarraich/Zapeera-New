@@ -50,9 +50,9 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
             totalProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere}`)[0]?.c || 0,
             totalCustomers: query(`SELECT COUNT(*) as c FROM customers ${customerWhere}`)[0]?.c || 0,
             totalSales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere}`)[0]?.c || 0,
-            totalRevenue: query(`SELECT SUM(grandTotal) as t FROM sales ${salesWhere}`)[0]?.t || 0,
+            totalRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere}`)[0]?.t || 0,
             todaySales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere} AND DATE(createdAt) = '${today}'`)[0]?.c || 0,
-            todayRevenue: query(`SELECT SUM(grandTotal) as t FROM sales ${salesWhere} AND DATE(createdAt) = '${today}'`)[0]?.t || 0,
+            todayRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere} AND DATE(createdAt) = '${today}'`)[0]?.t || 0,
             lowStockProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity <= minStock`)[0]?.c || 0,
             outOfStock: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity = 0`)[0]?.c || 0,
             pendingOrders: query(`SELECT COUNT(*) as c FROM purchases ${purchaseWhere} AND status = 'PENDING'`)[0]?.c || 0
@@ -117,7 +117,7 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           // Generate data points
           for (let i = Math.min(days, 30) - 1; i >= 0; i--) {
             const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const result = query(`SELECT SUM(grandTotal) as total, COUNT(*) as count FROM sales ${whereClause} AND DATE(createdAt) = '${date}'`)[0];
+            const result = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${whereClause} AND DATE(createdAt) = '${date}'`)[0];
     
             data.push({
               date,
@@ -129,7 +129,7 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           }
     
           // Summary for the period
-          const summary = query(`SELECT SUM(grandTotal) as totalRevenue, COUNT(*) as totalOrders FROM sales ${whereClause} AND DATE(createdAt) >= '${startDate}'`)[0];
+          const summary = query(`SELECT SUM(totalAmount) as totalRevenue, COUNT(*) as totalOrders FROM sales ${whereClause} AND DATE(createdAt) >= '${startDate}'`)[0];
     
           console.log('[Dashboard/Chart] Returning', data.length, 'data points, Summary:', summary);
     

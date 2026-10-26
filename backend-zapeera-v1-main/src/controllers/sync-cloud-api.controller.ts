@@ -582,6 +582,28 @@ function encodePullCursor(ms: number, id: string | null): string {
   return id ? `${iso}|${id}` : iso;
 }
 
+// Map a cloud SaleItem row to the desktop sale_items shape. The local
+// table's money column is `total` (not `totalPrice`); columns the local
+// table lacks (createdBy, unitsDeducted, unitsPerBox, saleType,
+// batchNumber, expiryDate) are dropped so applyChanges never sees an
+// unknown column — an unmapped totalPrice would fail every row, hold the
+// cursor, and freeze all later pulls (v1.0.9 lesson).
+function mapSaleItemForSQLite(item: any): any {
+  return {
+    id: item.id,
+    saleId: item.saleId,
+    productId: item.productId,
+    batchId: item.batchId ?? null,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    total: item.totalPrice ?? null,
+    unitLevel: item.unitLevel ?? null,
+    unitFactor: item.unitFactor ?? null,
+    variantId: item.variantId ?? null,
+    variantName: item.variantName ?? null
+  };
+}
+
 export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -616,12 +638,17 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
 
     // Tables served by the cursor pull. Only companyId-scoped PARENT tables
     // can be served here (the query filters by companyId + a timestamp).
-    // Child tables without companyId (saleItem, purchaseItem — and the
-    // maturity-program children stockTransferItem, prescriptionItem,
-    // salePromotion, saleTaxLine, folioCharge, folioPayment, stockTakeLine,
-    // salePayment) are NOT cursor-pulled, by the same precedent: they move
-    // with their parents via operations push and the full-table replication
-    // in sync.service.ts.
+    // Child tables without companyId (purchaseItem — and the maturity-program
+    // children stockTransferItem, prescriptionItem, salePromotion, saleTaxLine,
+    // folioCharge, folioPayment, stockTakeLine, salePayment) are NOT
+    // cursor-pulled, by the same precedent: they move with their parents via
+    // operations push and the full-table replication in sync.service.ts.
+    // EXCEPTION — saleItem (2026-10-26): the desktop dashboard aggregates
+    // most-selling products from local sale_items, and the cursor pull is
+    // the only download path, so sale_items stayed empty on every desktop
+    // (see ZAPEERA_DESKTOP_SYNC_DIAGNOSIS_2026-10-26.md, RC-D3). saleItem
+    // rows are served below, keyed on the parent sale's updatedAt +
+    // companyId (SaleItem has no timestamp or companyId of its own).
     //
     // Maturity-program additions (Waves A2–C6):
     // - Two-way parents: stockTransfer, promotion, taxClass, prescription,
@@ -686,6 +713,51 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
         }
       } catch { }
     }
+
+    // saleItem — child rows keyed on the parent sale. SaleItem has no
+    // companyId and no timestamp of its own, so the filter + cursor run on
+    // the parent sale's updatedAt/id (the same (ts, id) resume rule as the
+    // parent tables; upserts are idempotent, so re-fetches are safe).
+    try {
+      const saleTsCondition = cursorLastId
+        ? {
+            OR: [
+              { updatedAt: { gt: sinceDate } },
+              { updatedAt: sinceDate, id: { gt: cursorLastId } }
+            ]
+          }
+        : { updatedAt: { gte: sinceDate } };
+      const salesWithItems = await prisma.sale.findMany({
+        where: {
+          companyId: businessId,
+          ...saleTsCondition
+        },
+        orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+        take: PULL_PAGE_SIZE,
+        include: { items: true }
+      });
+      if (salesWithItems.length === PULL_PAGE_SIZE) {
+        const lastSale = salesWithItems[salesWithItems.length - 1];
+        truncatedFrontiers.push({ ms: new Date(lastSale.updatedAt).getTime(), id: String(lastSale.id) });
+      }
+      for (const sale of salesWithItems) {
+        const saleMs = new Date(sale.updatedAt).getTime();
+        for (const item of sale.items ?? []) {
+          changes.push({
+            entityType: 'saleItem',
+            entityId: item.id,
+            operation: 'UPSERT',
+            data: mapSaleItemForSQLite(item),
+            timestamp: sale.updatedAt
+          });
+        }
+        // Cursor id namespace: the parent sale's id (not the item id), so
+        // the (ts, id) frontier stays comparable with the sale table.
+        if (!maxSeen || saleMs > maxSeen.ms || (saleMs === maxSeen.ms && String(sale.id) > maxSeen.id)) {
+          maxSeen = { ms: saleMs, id: String(sale.id) };
+        }
+      }
+    } catch { }
 
     // Soft-deleted rows (isActive=false, voided/cancelled statuses) are
     // ordinary updates in this feed — nothing above filters them out, so

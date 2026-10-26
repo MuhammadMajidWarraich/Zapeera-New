@@ -37,6 +37,26 @@ function registerReportsRoutes(app, authMiddleware, deps) {
       });
 
   // GET /api/reports/dashboard (line 11209)
+      app.get('/api/reports/sales', authMiddleware, (req, res) => {
+        try {
+          // Redirect to the proper implementation below
+          // This endpoint is implemented at line 8091 with full backend logic
+          console.log('[Reports/Sales] Using placeholder - proper implementation at line 8091');
+          res.json({ success: true, data: query('SELECT * FROM sales ORDER BY createdAt DESC LIMIT 100') });
+        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+      });
+
+  // GET /api/reports/inventory (line 10219)
+      app.get('/api/reports/inventory', authMiddleware, (req, res) => {
+        try {
+          // Redirect to the proper implementation below
+          // This endpoint is implemented at line 8176 with full backend logic
+          console.log('[Reports/Inventory] Using placeholder - proper implementation at line 8176');
+          res.json({ success: true, data: query('SELECT * FROM products WHERE isActive = 1 ORDER BY quantity ASC') });
+        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+      });
+
+  // GET /api/reports/dashboard (line 11209)
       app.get('/api/reports/dashboard', authMiddleware, (req, res) => {
         try {
           console.log('[Reports/Dashboard] User:', req.user?.email, 'Role:', req.user?.role, 'Branch:', req.user?.branchId);
@@ -53,24 +73,31 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role
           const { branchFilter, companyFilter } = getDataFilter(req.user, selectedBranchId, selectedCompanyId);
     
-          let salesWhere = 'WHERE (status IS NULL OR status != \'REFUNDED\')';
-          if (branchFilter) salesWhere += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) salesWhere += ` AND companyId = '${companyFilter}'`;
+          // Columns qualified with the sales alias: the recent-sales query
+          // JOINs customers (which also has companyId/branchId), so an
+          // unqualified filter 500s with "ambiguous column name" the moment
+          // scoping returns a real company/branch.
+          let salesWhere = 'WHERE (s.status IS NULL OR s.status != \'REFUNDED\')';
+          if (branchFilter) salesWhere += ` AND s.branchId = '${branchFilter}'`;
+          if (companyFilter) salesWhere += ` AND s.companyId = '${companyFilter}'`;
     
           // Get the most recent day with sales data (for "today" display)
-          const mostRecentSale = query(`SELECT createdAt FROM sales ${salesWhere} ORDER BY createdAt DESC LIMIT 1`)[0];
+          const mostRecentSale = query(`SELECT createdAt FROM sales s ${salesWhere} ORDER BY createdAt DESC LIMIT 1`)[0];
     
+          // "Today" is the UTC-calendar day of the most recent sale, matching
+          // the cloud (the server runs UTC). Local-midnight boundaries made
+          // the desktop count the previous evening's sales as "today".
           let today, tomorrow;
           if (mostRecentSale) {
             today = new Date(mostRecentSale.createdAt);
-            today.setHours(0, 0, 0, 0);
+            today.setUTCHours(0, 0, 0, 0);
             tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
           } else {
             today = new Date();
-            today.setHours(0, 0, 0, 0);
+            today.setUTCHours(0, 0, 0, 0);
             tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
           }
     
           const todayStart = today.toISOString();
@@ -80,40 +107,40 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Get today's sales summary
           const todaySales = query(`SELECT
             COUNT(*) as count,
-            COALESCE(SUM(grandTotal), 0) as revenue,
+            COALESCE(SUM(totalAmount), 0) as revenue,
             COALESCE(SUM(subtotal), 0) as subtotal,
             COALESCE(SUM(taxAmount), 0) as taxAmount,
             COALESCE(SUM(discountAmount), 0) as discountAmount
-            FROM sales ${todayWhere}`)[0] || { count: 0, revenue: 0, subtotal: 0, taxAmount: 0, discountAmount: 0 };
+            FROM sales s ${todayWhere}`)[0] || { count: 0, revenue: 0, subtotal: 0, taxAmount: 0, discountAmount: 0 };
     
           // Get yesterday's sales for comparison
           const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
+          yesterday.setUTCDate(yesterday.getUTCDate() - 1);
           const yesterdayEnd = new Date(tomorrow);
-          yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+          yesterdayEnd.setUTCDate(yesterdayEnd.getUTCDate() - 1);
           const yesterdayStart = yesterday.toISOString();
           const yesterdayEndStr = yesterdayEnd.toISOString();
           const yesterdayWhere = `${salesWhere} AND createdAt >= '${yesterdayStart}' AND createdAt < '${yesterdayEndStr}'`;
     
           const yesterdaySales = query(`SELECT
-            COALESCE(SUM(grandTotal), 0) as revenue
-            FROM sales ${yesterdayWhere}`)[0] || { revenue: 0 };
+            COALESCE(SUM(totalAmount), 0) as revenue
+            FROM sales s ${yesterdayWhere}`)[0] || { revenue: 0 };
     
           // Get month's sales
-          const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+          const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString();
           const monthWhere = `${salesWhere} AND createdAt >= '${monthStart}'`;
           const monthSales = query(`SELECT
             COUNT(*) as count,
-            COALESCE(SUM(grandTotal), 0) as revenue
-            FROM sales ${monthWhere}`)[0] || { count: 0, revenue: 0 };
+            COALESCE(SUM(totalAmount), 0) as revenue
+            FROM sales s ${monthWhere}`)[0] || { count: 0, revenue: 0 };
     
           // Get last month's sales for comparison
-          const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString();
-          const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+          const lastMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1)).toISOString();
+          const lastMonthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString();
           const lastMonthWhere = `${salesWhere} AND createdAt >= '${lastMonthStart}' AND createdAt < '${lastMonthEnd}'`;
           const lastMonthSales = query(`SELECT
-            COALESCE(SUM(grandTotal), 0) as revenue
-            FROM sales ${lastMonthWhere}`)[0] || { revenue: 0 };
+            COALESCE(SUM(totalAmount), 0) as revenue
+            FROM sales s ${lastMonthWhere}`)[0] || { revenue: 0 };
     
           // Calculate profits (30% margin)
           const todayProfit = (parseFloat(todaySales.revenue) || 0) * 0.3;
@@ -128,18 +155,21 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             ? ((parseFloat(monthSales.revenue) || 0) - parseFloat(lastMonthSales.revenue)) / parseFloat(lastMonthSales.revenue) * 100
             : 0;
     
-          // Get recent sales
+          // Recent sales: latest across all time in scope (matches the cloud),
+          // not just the "today" window — the today-scoped version showed the
+          // tail of another business's seed batch once scoping was fixed.
           const recentSales = query(`SELECT s.*,
             c.name as customer_name, c.phone as customer_phone
             FROM sales s
             LEFT JOIN customers c ON s.customerId = c.id
-            ${todayWhere}
+            ${salesWhere}
             ORDER BY s.createdAt DESC
             LIMIT 5`);
     
           const formattedRecentSales = recentSales.map(sale => ({
             id: sale.id,
-            totalAmount: parseFloat(sale.grandTotal) || 0,
+            invoiceNumber: sale.invoiceNumber,
+            totalAmount: parseFloat(sale.totalAmount) || 0,
             createdAt: sale.createdAt,
             customer: sale.customer_name ? {
               name: sale.customer_name,
@@ -147,7 +177,33 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             } : null,
             items: [] // Items would need a separate query
           }));
-    
+
+          // Most / slow selling products, from local sale_items via the parent
+          // sale (sale_items has no company/branch of its own). Shape matches
+          // the cloud's topProducts: {id, name, sku, salesCount, revenue}.
+          // Revenue sums si.total — the local money column (the sync feed maps
+          // the cloud's totalPrice to `total`, so the two agree).
+          const sellingWhere = `WHERE (s.status IS NULL OR s.status != 'REFUNDED')` +
+            (branchFilter ? ` AND s.branchId = '${branchFilter}'` : '') +
+            (companyFilter ? ` AND s.companyId = '${companyFilter}'` : '');
+          const sellingSelect = `SELECT p.id, p.name, p.sku,
+              COALESCE(SUM(si.quantity), 0) as salesCount,
+              COALESCE(SUM(si.total), 0) as revenue
+            FROM sale_items si
+            JOIN sales s ON si.saleId = s.id
+            JOIN products p ON si.productId = p.id
+            ${sellingWhere}
+            GROUP BY si.productId`;
+          const formatSelling = (row) => ({
+            id: row.id,
+            name: row.name,
+            sku: row.sku,
+            salesCount: Number(row.salesCount) || 0,
+            revenue: parseFloat(row.revenue) || 0
+          });
+          const mostSellingProducts = query(`${sellingSelect} ORDER BY salesCount DESC LIMIT 5`).map(formatSelling);
+          const slowSellingProducts = query(`${sellingSelect} ORDER BY salesCount ASC LIMIT 5`).map(formatSelling);
+
           res.json({
             success: true,
             data: {
@@ -163,7 +219,9 @@ function registerReportsRoutes(app, authMiddleware, deps) {
                 transactions: parseInt(monthSales.count) || 0,
                 growth: monthGrowth
               },
-              recentSales: formattedRecentSales
+              recentSales: formattedRecentSales,
+              mostSellingProducts,
+              slowSellingProducts
             }
           });
         } catch (e) {
