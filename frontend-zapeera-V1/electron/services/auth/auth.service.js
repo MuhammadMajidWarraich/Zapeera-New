@@ -283,7 +283,7 @@ function createAuthMiddleware(query) {
               req.session = session;
               // Extract header-based branch/company selection
               const headerBranchId = req.headers['x-branch-id'];
-              const headerCompanyId = req.headers['x-company-id'];
+              const headerCompanyId = req.headers['x-company-id'] || req.headers['x-business-id']; // frontend sends X-Business-ID
               if (headerBranchId !== undefined) req.user.selectedBranchId = headerBranchId || null;
               if (headerCompanyId !== undefined) req.user.selectedCompanyId = headerCompanyId || null;
               return enforcePasswordChangeGate(req, res, next);
@@ -317,7 +317,7 @@ function createAuthMiddleware(query) {
               req.user = { ...userRecord[0], mustChangePassword: lookupMustChangePassword(session.userId) };
               req.session = session;
               const headerBranchId = req.headers['x-branch-id'];
-              const headerCompanyId = req.headers['x-company-id'];
+              const headerCompanyId = req.headers['x-company-id'] || req.headers['x-business-id']; // frontend sends X-Business-ID
               if (headerBranchId !== undefined) req.user.selectedBranchId = headerBranchId || null;
               if (headerCompanyId !== undefined) req.user.selectedCompanyId = headerCompanyId || null;
               return enforcePasswordChangeGate(req, res, next);
@@ -358,7 +358,7 @@ function createAuthMiddleware(query) {
 
     // Extract selectedBranchId and selectedCompanyId from headers
     const headerBranchId = req.headers['x-branch-id'];
-    const headerCompanyId = req.headers['x-company-id'];
+    const headerCompanyId = req.headers['x-company-id'] || req.headers['x-business-id']; // frontend sends X-Business-ID
     const selectedBranchId = headerBranchId || req.user?.selectedBranchId;
     const selectedCompanyId = headerCompanyId || req.user?.selectedCompanyId;
 
