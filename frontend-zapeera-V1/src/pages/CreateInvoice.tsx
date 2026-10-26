@@ -65,7 +65,7 @@ import { useWedgeScanner } from "@/hooks/useWedgeScanner";
 import { useMembershipRole } from "@/hooks/useMembershipRole";
 import { CameraScannerDialog } from "@/components/barcode/CameraScannerDialog";
 import { UnknownBarcodeDialog } from "@/components/barcode/UnknownBarcodeDialog";
-import { resolveBarcodeScanningEnabled, resolveScanLookup } from "@/lib/barcode-scan";
+import { isBarcodeApplicableBusinessType, resolveBarcodeScanningEnabled, resolveScanLookup } from "@/lib/barcode-scan";
 import { playScanFailureSound, playScanSuccessSound } from "@/lib/scan-sound";
 
 // Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAISA
@@ -4021,6 +4021,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const businessType = (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
   const isPharmacyBusiness = businessType === "PHARMACY";
 
+  // L-10 fix (2026-10-26): strip selling only applies to product-selling
+  // business types (pharmacy / general store / retail) — the strip
+  // selector is hidden on POS cards and cart lines for other types.
+  const showStripOption = isBarcodeApplicableBusinessType(businessType);
+
   // Keyboard shortcuts (POS) — revised map (research, 2026-10-26):
   // tender moved off Alt+digits (Alt+C cash / Alt+B card), so the
   // old capture-phase exception that owned Alt+1/Alt+2 is gone —
@@ -4550,6 +4555,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onAddToCart={addToInvoiceCart}
               onScanSubmit={(code) => { void handleBarcodeScanned(code, "main"); }}
               scanningEnabled={barcodeScanningEnabled}
+              showStripOption={showStripOption}
             />
           </div>
 
@@ -4718,7 +4724,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               aria-label="Selling level"
                             >
                               <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
-                              {item.unitsPerStrip ? (
+                              {item.unitsPerStrip && showStripOption ? (
                                 <option value="STRIP">Strip ({item.unitsPerStrip} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
                               ) : null}
                               <option value="UNIT">Tablet — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
@@ -6271,6 +6277,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 onAddToCart={addToModalCart}
                 onScanSubmit={(code) => { void handleBarcodeScanned(code, "modal"); }}
                 scanningEnabled={barcodeScanningEnabled}
+                showStripOption={showStripOption}
               />
 
               {/* Customer Details Section */}

@@ -3,6 +3,7 @@ import { AdminAuthRequest } from '../middleware/admin-auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { loadPricingPlans } from '../utils/subscription-entitlements.util';
 import { invalidateModuleCache, moduleAccessCache, clearModuleCache } from '../utils/modules-v2.util';
+import { isModuleApplicableToBusinessType } from '../utils/module-applicability.util';
 import { invalidateEntitlementsCache } from '../middleware/multitenancy.middleware';
 import {
   planEntitlementsToPermissionShape,
@@ -1044,6 +1045,16 @@ export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Resp
       if (!moduleDef) return res.status(400).json({ success: false, message: `Unknown module key: ${moduleKey}` });
       if (seenModules.has(moduleKey)) return res.status(400).json({ success: false, message: `Duplicate module: ${moduleKey}` });
       seenModules.add(moduleKey);
+      // L-7 fix (2026-10-26): a module that does not apply to this business
+      // type must not be enabled here — it would be hard-denied at runtime
+      // anyway, and the row would be a lie in the policy.
+      if (mod.enabled && !isModuleApplicableToBusinessType(moduleKey, businessType.name)) {
+        return res.status(400).json({
+          success: false,
+          message: `Module ${moduleKey} is not available for business type ${businessType.name}`,
+          details: { code: 'MODULE_NOT_APPLICABLE_TO_BUSINESS_TYPE', rejected: [moduleKey] },
+        });
+      }
       moduleRows.push({ businessTypeId, moduleId: moduleDef.id, isEnabled: !!mod.enabled });
 
       if (Array.isArray(mod.pages)) {
@@ -1058,6 +1069,19 @@ export const publishBusinessTypePolicy = async (req: AdminAuthRequest, res: Resp
             return res.status(400).json({
               success: false,
               message: `Page ${moduleKey}.${pageKey} cannot be enabled while module ${moduleKey} is disabled`,
+            });
+          }
+          // L-7 fix (2026-10-26): same for pages — an enabled page under a
+          // denied module (or a denied page key) is rejected.
+          if (
+            page.enabled &&
+            (!isModuleApplicableToBusinessType(moduleKey, businessType.name) ||
+              !isModuleApplicableToBusinessType(`${moduleKey}::${pageKey}`, businessType.name))
+          ) {
+            return res.status(400).json({
+              success: false,
+              message: `Page ${moduleKey}.${pageKey} is not available for business type ${businessType.name}`,
+              details: { code: 'MODULE_NOT_APPLICABLE_TO_BUSINESS_TYPE', rejected: [`${moduleKey}.${pageKey}`] },
             });
           }
           pageRows.push({ businessTypeId, pageId, isEnabled: !!page.enabled });

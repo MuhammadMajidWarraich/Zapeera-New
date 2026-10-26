@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
+import { buildBranchWhereClause } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
@@ -106,9 +107,17 @@ export const endShift = async (req: Request, res: Response) => {
     }
 
     const { shiftId, endTime, actualBalance, notes } = req.body;
-    const shift = await prisma.shift.findUnique({ where: { id: shiftId }, include: staffInclude });
+    const shift = await prisma.shift.findUnique({
+      where: { id: shiftId },
+      include: { ...staffInclude, membership: { select: { businessId: true } } },
+    });
 
     if (!shift) return res.status(404).json({ success: false, message: 'Shift not found' });
+    // Business-type scoping (L-5 fix, 2026-10-26): a shift from another
+    // business must not be endable by id — cross-tenant write.
+    if ((shift as any).membership?.businessId !== buildBranchWhereClause(req as any, {}).companyId) {
+      return res.status(404).json({ success: false, message: 'Shift not found' });
+    }
     if (shift.status !== 'ACTIVE') return res.status(400).json({ success: false, message: 'Shift is not active' });
 
     const expectedBalance = shift.openingBalance + shift.cashIn - shift.cashOut;
@@ -140,6 +149,11 @@ export const getShifts = async (req: Request, res: Response) => {
     if (branchId) where.branchId = branchId;
     if (status) where.status = status;
 
+    // Business-type scoping (L-5 fix, 2026-10-26): shifts belong to the
+    // SELECTED business only. Without this there was no business filter at
+    // all, so every business listed the same shifts.
+    where.membership = { businessId: buildBranchWhereClause(req as any, {}).companyId };
+
     if (startDate || endDate) {
       where.shiftDate = {};
       if (startDate) where.shiftDate.gte = new Date(startDate as string);
@@ -166,7 +180,12 @@ export const getActiveShift = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
     const { staffProfileId } = req.params;
-    const activeShift = await prisma.shift.findFirst({ where: { staffProfileId, status: 'ACTIVE' }, include: staffInclude });
+    // Business-type scoping (L-5 fix, 2026-10-26): an active shift from
+    // another business must not be visible through this business's POS.
+    const activeShift = await prisma.shift.findFirst({
+      where: { staffProfileId, status: 'ACTIVE', membership: { businessId: buildBranchWhereClause(req as any, {}).companyId } },
+      include: staffInclude,
+    });
     return res.json({ success: true, data: activeShift });
   } catch (error) {
     console.error('Error fetching active shift:', error);
@@ -184,8 +203,16 @@ export const updateShift = async (req: Request, res: Response) => {
     }
 
     const updateData = req.body;
-    const existingShift = await prisma.shift.findUnique({ where: { id } });
+    const existingShift = await prisma.shift.findUnique({
+      where: { id },
+      include: { membership: { select: { businessId: true } } },
+    });
     if (!existingShift) return res.status(404).json({ success: false, message: 'Shift not found' });
+    // Business-type scoping (L-5 fix, 2026-10-26): a shift from another
+    // business must not be mutable by id — cross-tenant write.
+    if (existingShift.membership?.businessId !== buildBranchWhereClause(req as any, {}).companyId) {
+      return res.status(404).json({ success: false, message: 'Shift not found' });
+    }
     if (existingShift.status !== 'ACTIVE') return res.status(400).json({ success: false, message: 'Shift is not active' });
 
     const newCashIn = updateData.cashIn !== undefined ? updateData.cashIn : existingShift.cashIn;
@@ -205,6 +232,9 @@ export const getShiftStats = async (req: Request, res: Response) => {
     const prisma = await getPrisma();
     const { branchId, startDate, endDate } = req.query;
     const where: any = {};
+    // Business-type scoping (L-5 fix, 2026-10-26): stats are for the
+    // SELECTED business only.
+    where.membership = { businessId: buildBranchWhereClause(req as any, {}).companyId };
     if (branchId) where.branchId = branchId;
     if (startDate || endDate) {
       where.shiftDate = {};

@@ -31,6 +31,7 @@ import {
   checkAddonPurchasable,
   computeAddonPeriod,
   getEffectiveLimits,
+  isAddonApplicableToBusinessType,
   isAddonType,
   normalizeMonths,
 } from '../services/addon-limits.service';
@@ -83,8 +84,28 @@ const serializeAddon = (row: any) => ({
 });
 
 /** GET /api/subscription/addons/catalogue — the 10 add-ons with prices (ONLINE_STORE_PACK Rs 500/mo, PRESCRIPTION_UPLOAD_PACK Rs 1,000/mo and GIFT_CARD_KIOSK_PACK Rs 1,000/mo, priced 2026-10-25). */
-export const getAddonCatalogue = async (_req: AuthRequest, res: Response) => {
-  return res.json({ success: true, data: Object.values(ADDON_CATALOGUE) });
+export const getAddonCatalogue = async (req: AuthRequest, res: Response) => {
+  const businessId = resolveBusinessId(req);
+  let entries = Object.values(ADDON_CATALOGUE);
+  if (businessId) {
+    // L-2 fix (2026-10-26): hide packs that do not apply to this business
+    // type (e.g. the pharmacy packs for a hotel/clinic). Without a business
+    // context the full catalogue is returned; purchase stays gated in
+    // applyAddonPurchase regardless.
+    try {
+      const prisma = await getPrisma();
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { businessType: true },
+      });
+      if (business) {
+        entries = entries.filter((e) => isAddonApplicableToBusinessType(e.type, business.businessType));
+      }
+    } catch {
+      // Catalogue stays unfiltered on lookup failure.
+    }
+  }
+  return res.json({ success: true, data: entries });
 };
 
 /** GET /api/subscription/addons?businessId= — the business's add-ons + effective limits. */
@@ -170,6 +191,24 @@ export async function applyAddonPurchase(
   });
   if (!sub) {
     return { ok: false, statusCode: 404, code: 'ADDON_NO_SUBSCRIPTION', message: 'No subscription found for this business.' };
+  }
+
+  // L-2 fix (2026-10-26): a business may only buy add-ons that apply to
+  // its type. A hotel/clinic must not be able to buy the Online Pharmacy
+  // Store or Prescription Upload packs — this gate sits in the shared
+  // purchase core, so it covers the tenant purchase route AND the
+  // Backoffice assignment route. No row is created and no money moves.
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { businessType: true },
+  });
+  if (!isAddonApplicableToBusinessType(type, business?.businessType)) {
+    return {
+      ok: false,
+      statusCode: 403,
+      code: 'ADDON_NOT_APPLICABLE_TO_BUSINESS_TYPE',
+      message: `${entry.name} is not available for this business type.`,
+    };
   }
 
   if (params.enforcePurchasable) {

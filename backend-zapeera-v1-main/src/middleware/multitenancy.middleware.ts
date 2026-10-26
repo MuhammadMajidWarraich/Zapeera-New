@@ -528,6 +528,49 @@ export const checkPermission = (permissionName: string) => {
   };
 };
 
+/**
+ * Business-type gate (L-1 fix, 2026-10-26): hard-deny a route unless the
+ * SELECTED business is one of the allowed types. Unlike checkModule, which
+ * gates by module name, this gates a single feature that has no module of
+ * its own — the controlled / narcotics register is PHARMACY-only even
+ * though it lives under the (type-neutral) reports module. A business with
+ * no resolvable type, or a type outside the allowlist, gets 403; a missing
+ * business context passes through so the route's own required-context
+ * handling (or the later checkPermission) decides.
+ */
+export const requireBusinessTypes = (allowedTypes: string[]) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const businessId = req.business_id
+        || (req as any).membership?.business_id
+        || req.user?.selectedCompanyId
+        || req.user?.companyId;
+      if (!businessId) {
+        return next();
+      }
+
+      const prisma = await getPrisma();
+      const company = await prisma.business.findUnique({
+        where: { id: String(businessId) },
+        select: { businessType: true },
+      });
+      const typeKey = String(company?.businessType || '').toUpperCase().replace(/[\s-]+/g, '_');
+      const allowed = allowedTypes.map((t) => String(t).toUpperCase());
+      if (!allowed.includes(typeKey)) {
+        return res.status(403).json({
+          success: false,
+          message: `This feature is available only for ${allowed.join(', ')} businesses.`,
+          details: { code: 'FEATURE_NOT_APPLICABLE_TO_BUSINESS_TYPE', businessType: company?.businessType ?? null },
+        });
+      }
+      return next();
+    } catch (error) {
+      console.error('[requireBusinessTypes] error:', error);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  };
+};
+
 export const checkModule = (moduleName: string) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

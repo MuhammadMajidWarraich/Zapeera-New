@@ -47,7 +47,11 @@ function getWeekNumber(date: Date): number {
 const Reports = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { selectedBranchId, selectedBranch, selectedCompanyId, getMembershipRole } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany, getMembershipRole } = useAdmin();
+  // L-1 fix (2026-10-26): the Controlled Register is PHARMACY-only — the
+  // button is hidden for every other business type (the API is hard-denied
+  // for non-pharmacy too, so this is the UI half of the gate).
+  const isPharmacyBusiness = (selectedCompany as any)?.businessType === 'PHARMACY';
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [selectedReport, setSelectedReport] = useState("sales");
   const [loading, setLoading] = useState(false); // Don't show loading initially
@@ -1038,6 +1042,7 @@ const Reports = () => {
           {/* Export and Refresh for Managers */}
           {(user?.role === 'OWNER' || user?.role === 'MANAGER') && (
             <>
+              {isPharmacyBusiness && (
               <button
                 onClick={() => navigate('/controlled-register')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 font-medium rounded-xl border border-red-200 hover:bg-red-100 transition"
@@ -1045,6 +1050,7 @@ const Reports = () => {
                 <ShieldAlert className="w-4 h-4" />
                 Controlled Register
               </button>
+              )}
               <button 
                 onClick={() => exportReports()}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition"

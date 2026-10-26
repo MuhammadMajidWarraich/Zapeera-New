@@ -3,6 +3,20 @@ import { useLocation } from 'react-router-dom';
 import { apiService } from '@/services/api';
 import { useAdmin } from '@/contexts/useAdmin';
 
+// L-6 fix (2026-10-26): normalize composite sub-module keys (hyphens and
+// spaces → underscores, lowercased) the same way the backend V2 resolver
+// does. Without this, a hyphenated page (sales::tax-classes) never matches
+// the state map / disabled set (keyed sales::tax_classes) and the guard
+// treats the denied page as visible.
+const normalizeCompositeKey = (value: string): string => {
+  const raw = String(value || '').toLowerCase();
+  const parts = raw.split('::');
+  if (parts.length === 2) {
+    return `${parts[0].replace(/[\s-]+/g, '_')}::${parts[1].replace(/[\s-]+/g, '_')}`;
+  }
+  return raw.replace(/[\s-]+/g, '_');
+};
+
 // Dynamic hierarchy types
 export interface SubModuleConfig {
   key: string;
@@ -293,16 +307,7 @@ export const useBusinessModules = (companyId?: string) => {
 
           const disabled = new Set<string>(
             Array.isArray(modulesResponse.disabledSubModules)
-              ? modulesResponse.disabledSubModules.map((s: string) => {
-                  const raw = String(s || '').toLowerCase();
-                  const parts = raw.split('::');
-                  if (parts.length === 2) {
-                    const mod = parts[0].replace(/[\s-]+/g, '_');
-                    const sub = parts[1];
-                    return `${mod}::${sub}`;
-                  }
-                  return raw.replace(/[\s-]+/g, '_');
-                })
+              ? modulesResponse.disabledSubModules.map((s: string) => normalizeCompositeKey(s))
               : []
           );
           setDisabledSubModules(disabled);
@@ -311,7 +316,7 @@ export const useBusinessModules = (companyId?: string) => {
           const newStateMap = new Map<string, SubModuleState>();
           if (Array.isArray(modulesResponse.subModuleResults)) {
             for (const smr of modulesResponse.subModuleResults) {
-              const compositeKey = `${String(smr.module || '').toLowerCase()}::${String(smr.key || '').toLowerCase()}`;
+              const compositeKey = normalizeCompositeKey(`${smr.module}::${smr.key}`);
               newStateMap.set(compositeKey, {
                 enabled: Boolean(smr.enabled),
                 disabledReason: smr.primaryDenialReason || null,
@@ -427,7 +432,7 @@ export const useBusinessModules = (companyId?: string) => {
     () => (moduleKey: string, subModuleKey: string) => {
       if (!moduleKey || !subModuleKey) return false;
       if (loading) return false;
-      const compositeKey = `${moduleKey.toLowerCase()}::${subModuleKey.toLowerCase()}`;
+      const compositeKey = normalizeCompositeKey(`${moduleKey}::${subModuleKey}`);
       // Sub-module is "locked" (showing upgrade prompt) only if denied by subscription plan
       const state = subModuleStateMap.get(compositeKey);
       if (state) return !state.enabled && state.disabledReason === 'SUBSCRIPTION_PLAN';
@@ -441,7 +446,7 @@ export const useBusinessModules = (companyId?: string) => {
     () => (moduleKey: string, subModuleKey: string) => {
       if (!moduleKey || !subModuleKey) return false;
       if (loading) return false;
-      const compositeKey = `${moduleKey.toLowerCase()}::${subModuleKey.toLowerCase()}`;
+      const compositeKey = normalizeCompositeKey(`${moduleKey}::${subModuleKey}`);
       // Sub-module is "hidden" (not shown at all) if denied by business type, role, or parent
       const state = subModuleStateMap.get(compositeKey);
       if (state) {
@@ -456,7 +461,7 @@ export const useBusinessModules = (companyId?: string) => {
   const getSubModuleDisabledReason = useMemo(
     () => (moduleKey: string, subModuleKey: string): SubModuleState['disabledReason'] => {
       if (!moduleKey || !subModuleKey) return null;
-      const compositeKey = `${moduleKey.toLowerCase()}::${subModuleKey.toLowerCase()}`;
+      const compositeKey = normalizeCompositeKey(`${moduleKey}::${subModuleKey}`);
       return subModuleStateMap.get(compositeKey)?.disabledReason || null;
     },
     [subModuleStateMap],

@@ -11,6 +11,7 @@ import { SidebarContext } from "@/components/layout/sidebar-context";
 import { apiService } from "@/services/api";
 import { withBusinessSlug } from "@/utils/business-routes";
 import { useMembershipRole } from "@/hooks/useMembershipRole";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { selectedBranch, selectedBranchId, selectedCompanyId, selectedCompany, setSelectedCompanyId, setSelectedBranchId, allCompanies, ownedCompanies, sharedCompanies, allBranches, refreshBranches } = useAdmin();
+  // L-6 fix (2026-10-26): hide "+ New Sale" when the POS page is denied for
+  // the selected business type (e.g. HOTEL) — it used to link to a page
+  // that 403s. isSubModuleHidden returns false while the modules are
+  // loading, so the button never flickers out for legitimate users.
+  const { isSubModuleHidden } = useBusinessModules(selectedCompanyId);
   const membershipRole = useMembershipRole();
 
   // Backwards-compatible alias: some components expect `allBusinesses`
@@ -578,6 +584,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 >
                   <Menu className="h-5 w-5" />
                 </button>
+                {!isSubModuleHidden('sales', 'pos') && (
                 <button
                   type="button"
                   onClick={() => navigate(withBusinessSlug(businessSlug || null, "/point-of-sale"))}
@@ -586,6 +593,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   <Plus className="h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
                   New Sale
                 </button>
+                )}
 
                 <SyncStatusBadge />
               </div>

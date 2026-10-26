@@ -700,6 +700,23 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // L-8 fix (2026-10-26): business creation allowlists the type against
+    // the BusinessType table — the same check the update path already
+    // applies. Any other string used to be accepted and stored, producing
+    // a business the type gates then fail-closed on every module.
+    const allowedBusinessTypes = await (prisma.businessType as any).findMany({
+      select: { name: true },
+    });
+    const allowedTypeNames = allowedBusinessTypes.map((t: any) => String(t.name).toUpperCase());
+    if (!allowedTypeNames.includes(String(normalizedBody.businessType).toUpperCase())) {
+      res.status(400).json({
+        success: false,
+        message: `Invalid business type "${normalizedBody.businessType}". Allowed types: ${allowedTypeNames.join(', ')}`,
+        details: { code: 'INVALID_BUSINESS_TYPE', allowedTypes: allowedTypeNames },
+      });
+      return;
+    }
+
     const userId = req.user.id;
     const { name, description, address, phone, email, businessType, createdByUserId, refCode } = normalizedBody as any;
     const createdById = userId;
