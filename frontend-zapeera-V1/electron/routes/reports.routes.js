@@ -16,46 +16,6 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
           saveDatabase, initDatabase } = deps;
 
-// GET /api/reports/sales (line 10209)
-      app.get('/api/reports/sales', authMiddleware, (req, res) => {
-        try {
-          // Redirect to the proper implementation below
-          // This endpoint is implemented at line 8091 with full backend logic
-          console.log('[Reports/Sales] Using placeholder - proper implementation at line 8091');
-          res.json({ success: true, data: query('SELECT * FROM sales ORDER BY createdAt DESC LIMIT 100') });
-        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-      });
-
-  // GET /api/reports/inventory (line 10219)
-      app.get('/api/reports/inventory', authMiddleware, (req, res) => {
-        try {
-          // Redirect to the proper implementation below
-          // This endpoint is implemented at line 8176 with full backend logic
-          console.log('[Reports/Inventory] Using placeholder - proper implementation at line 8176');
-          res.json({ success: true, data: query('SELECT * FROM products WHERE isActive = 1 ORDER BY quantity ASC') });
-        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-      });
-
-  // GET /api/reports/dashboard (line 11209)
-      app.get('/api/reports/sales', authMiddleware, (req, res) => {
-        try {
-          // Redirect to the proper implementation below
-          // This endpoint is implemented at line 8091 with full backend logic
-          console.log('[Reports/Sales] Using placeholder - proper implementation at line 8091');
-          res.json({ success: true, data: query('SELECT * FROM sales ORDER BY createdAt DESC LIMIT 100') });
-        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-      });
-
-  // GET /api/reports/inventory (line 10219)
-      app.get('/api/reports/inventory', authMiddleware, (req, res) => {
-        try {
-          // Redirect to the proper implementation below
-          // This endpoint is implemented at line 8176 with full backend logic
-          console.log('[Reports/Inventory] Using placeholder - proper implementation at line 8176');
-          res.json({ success: true, data: query('SELECT * FROM products WHERE isActive = 1 ORDER BY quantity ASC') });
-        } catch (e) { res.status(500).json({ success: false, message: e.message }); }
-      });
-
   // GET /api/reports/dashboard (line 11209)
       app.get('/api/reports/dashboard', authMiddleware, (req, res) => {
         try {
