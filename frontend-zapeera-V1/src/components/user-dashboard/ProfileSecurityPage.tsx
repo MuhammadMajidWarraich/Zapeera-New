@@ -191,12 +191,17 @@ const ProfileSecurityPage = () => {
     try {
       const res = await apiService.updateProfile({
         name: profile.name.trim(),
-        phone: profile.phone.trim() || null,
-        address: profile.address.trim() || null,
-        city: profile.city.trim() || null,
-        country: profile.country.trim() || null,
+        // The cloud schema requires strings for these optional fields
+        // (Joi.string().allow('') — null is rejected with
+        // '"address" must be a string'). Send "" when empty; the server
+        // stores "" as NULL. dateOfBirth keeps null: the schema
+        // explicitly allows it (isoDate().allow(null)).
+        phone: profile.phone.trim() || "",
+        address: profile.address.trim() || "",
+        city: profile.city.trim() || "",
+        country: profile.country.trim() || "",
         dateOfBirth: profile.dateOfBirth || null,
-        bio: profile.bio.trim() || null,
+        bio: profile.bio.trim() || "",
       });
       if (res.success) {
         // v1.0.8 (RC-3): same cloud-sync note as the photo upload below.

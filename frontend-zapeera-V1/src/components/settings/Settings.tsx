@@ -1137,7 +1137,11 @@ toast({
         body: JSON.stringify({
           name: settings.user.name,
           email: settings.user.email,
-          profileImage: user?.profileImage
+          // Same bug class as the ProfileSecurityPage save: the cloud
+          // schema is Joi.string().uri() for profileImage, so a null
+          // avatar (user without a photo) 400s. Omit the field when
+          // empty — JSON.stringify drops undefined keys.
+          profileImage: user?.profileImage || undefined
         })
       });
 
