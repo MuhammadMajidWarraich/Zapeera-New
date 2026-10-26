@@ -279,8 +279,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
     
           // Match backend: Use totalAmount instead of grandTotal, subtotal, taxAmount, discountAmount
           const sales = query(`SELECT * FROM sales ${whereClause} ORDER BY createdAt DESC LIMIT 100`);
-          const totalRevenue = query(`SELECT SUM(totalAmount) as total FROM sales ${whereClause}`)[0]?.total ||
-                              query(`SELECT SUM(grandTotal) as total FROM sales ${whereClause}`)[0]?.total || 0;
+          const totalRevenue = query(`SELECT SUM(totalAmount) as total FROM sales ${whereClause}`)[0]?.total || 0;
           const totalSales = query(`SELECT COUNT(*) as count FROM sales ${whereClause}`)[0]?.count || 0;
           const totalDiscount = query(`SELECT SUM(discountAmount) as total FROM sales ${whereClause}`)[0]?.total ||
                                query(`SELECT SUM(discount) as total FROM sales ${whereClause}`)[0]?.total || 0;
@@ -333,11 +332,11 @@ function registerReportsRoutes(app, authMiddleware, deps) {
               hourEnd.setHours(hour, 59, 59, 999);
     
               const hourWhere = trendWhere + ` AND createdAt >= '${hourStart.toISOString()}' AND createdAt <= '${hourEnd.toISOString()}'`;
-              const hourData = query(`SELECT SUM(totalAmount) as total, SUM(grandTotal) as grandTotal, COUNT(*) as count FROM sales ${hourWhere}`)[0];
+              const hourData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${hourWhere}`)[0];
     
               salesTrend.push({
                 createdAt: hourStart,
-                _sum: { totalAmount: parseFloat(hourData?.total || hourData?.grandTotal || 0) },
+                _sum: { totalAmount: parseFloat(hourData?.total || 0) },
                 _count: { id: parseInt(hourData?.count || 0) }
               });
             }
@@ -353,11 +352,11 @@ function registerReportsRoutes(app, authMiddleware, deps) {
               const dateStr = currentDate.toISOString().split('T')[0];
     
               const dayWhere = trendWhere + ` AND DATE(createdAt) = '${dateStr}'`;
-              const dayData = query(`SELECT SUM(totalAmount) as total, SUM(grandTotal) as grandTotal, COUNT(*) as count FROM sales ${dayWhere}`)[0];
+              const dayData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${dayWhere}`)[0];
     
               salesTrend.push({
                 createdAt: new Date(dateStr + 'T00:00:00'),
-                _sum: { totalAmount: parseFloat(dayData?.total || dayData?.grandTotal || 0) },
+                _sum: { totalAmount: parseFloat(dayData?.total || 0) },
                 _count: { id: parseInt(dayData?.count || 0) }
               });
             }
@@ -582,8 +581,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             salesWhere += ` AND createdAt <= '${endDateWithTime.toISOString()}'`;
           }
     
-          const totalSpent = query(`SELECT SUM(totalAmount) as total FROM sales ${salesWhere}`)[0]?.total ||
-                             query(`SELECT SUM(grandTotal) as total FROM sales ${salesWhere}`)[0]?.total || 0;
+          const totalSpent = query(`SELECT SUM(totalAmount) as total FROM sales ${salesWhere}`)[0]?.total || 0;
           const totalLoyaltyPoints = query(`SELECT SUM(loyaltyPoints) as total FROM customers ${whereClause}`)[0]?.total || 0;
     
           // Customers by VIP status - Match backend
