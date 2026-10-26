@@ -16,6 +16,7 @@ import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service'
 import { appendControlledDispenseEntries, ControlledDispenseLineInput } from '../services/controlled-medicines.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
 import { resolveSaleLineUnits } from '../utils/unit.util';
+import { isWeightSellingAllowedForBusinessType } from '../utils/module-applicability.util';
 import { allocateFefo } from '../utils/fefo.util';
 import { checkCreditLimit, CREDIT_LIMIT_EXCEEDED, CREDIT_LIMIT_OVERRIDE_ROLES } from '../utils/credit-limit.util';
 import { variantBatchWhere } from '../utils/variant.util';
@@ -45,7 +46,16 @@ const createSaleSchema = Joi.object({
   items: Joi.array().items(
     Joi.object({
       productId: Joi.string().required(),
-      quantity: Joi.number().min(1).required(),
+      // Loose / by-weight selling (Stage 1): a C2 line's `quantity` is
+      // the LEVEL quantity, so a kilo line may send 0.5 (kg) — the
+      // resolver below still requires quantity x factor to land on a
+      // whole number of base units (0.5 x 1000 = 500 g). Lines with no
+      // unitLevel keep the historical rule (whole pieces, min 1).
+      quantity: Joi.number().when('unitLevel', {
+        is: Joi.exist(),
+        then: Joi.number().positive().required(),
+        otherwise: Joi.number().min(1).required()
+      }),
       saleType: Joi.string().valid('UNIT', 'BOX', 'unit', 'box').optional(),
       // Unit engine (Wave C2): the selling level `quantity` is
       // expressed in. Absent = the historical UNIT/BOX contract.
@@ -315,6 +325,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
                   select: {
                     id: true,
                     name: true,
+                    // Loose / by-weight selling (Stage 1): see above.
+                    ...( { unitType: true } as any )
                   }
                 }
               }
@@ -527,7 +539,12 @@ export const getSale = async (req: AuthRequest, res: Response) => {
               select: {
                 id: true,
                 name: true,
-                barcode: true
+                barcode: true,
+                // Loose / by-weight selling (Stage 1): nested product
+                // unitType lets stored-line renderers (Invoices /
+                // Refunds / reprints) show "0.500 kg", never "tablets".
+                // Cast until the Prisma client is regenerated.
+                ...( { unitType: true } as any )
               }
             }
           }
@@ -681,7 +698,12 @@ export const getSaleByReceiptNumber = async (req: AuthRequest, res: Response) =>
               select: {
                 id: true,
                 name: true,
-                barcode: true
+                barcode: true,
+                // Loose / by-weight selling (Stage 1): nested product
+                // unitType lets stored-line renderers (Invoices /
+                // Refunds / reprints) show "0.500 kg", never "tablets".
+                // Cast until the Prisma client is regenerated.
+                ...( { unitType: true } as any )
               }
             }
           }
@@ -807,7 +829,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
     const promoProductIds = [...new Set(saleData.items.map(item => item.productId))];
     const promoProducts = await prisma.product.findMany({
       where: { id: { in: promoProductIds } },
-      select: { id: true, name: true, categoryId: true, taxClassId: true, requiresPrescription: true, unitsPerPack: true, unitsPerStrip: true }
+      // NOTE: unitType is cast until the Prisma client is regenerated
+      // for the new Product.unitType field (regen is a deploy-time
+      // step; the sandbox proxy blocks generate) — same pattern as the
+      // isControlled casts elsewhere in this codebase.
+      select: { id: true, name: true, categoryId: true, taxClassId: true, requiresPrescription: true, unitsPerPack: true, unitsPerStrip: true, ...( { unitType: true } as any ) }
     });
     const categoryByProductId = new Map<string, string | null>(
       promoProducts.map((p: any) => [p.id, p.categoryId || null])
@@ -824,6 +850,35 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       promoProducts.map((p: any) => [p.id, { unitsPerPack: p.unitsPerPack ?? null, unitsPerStrip: p.unitsPerStrip ?? null }])
     );
     const promoLines: PromoLineInput[] = [];
+
+    // Loose / by-weight selling (Stage 1) — business-type gate
+    // (standing rule 2026-10-26): weight lines belong to general
+    // retail only. Any line whose product is a KG product is denied
+    // for a pharmacy, clinic, hotel or any other type with a clean
+    // 400 here — before totals, promotions or any write happen. The
+    // sale's company is resolved the way the promotion phase below
+    // does (selected context, else the sale branch's company).
+    if (saleData.items.some((item) => {
+      const p = promoProducts.find((pp: any) => pp.id === item.productId);
+      return (p as any)?.unitType === 'KG';
+    })) {
+      let weightCompanyId: string | null = null;
+      if (req.user?.selectedCompanyId && req.user?.selectedBranchId) {
+        weightCompanyId = req.user.selectedCompanyId;
+      } else if (saleData.branchId) {
+        const branchRow = await prisma.branch.findUnique({
+          where: { id: saleData.branchId },
+          select: { companyId: true }
+        });
+        weightCompanyId = branchRow?.companyId || null;
+      }
+      const weightCompany = weightCompanyId
+        ? await prisma.business.findUnique({ where: { id: weightCompanyId }, select: { businessType: true } })
+        : null;
+      if (!isWeightSellingAllowedForBusinessType(weightCompany?.businessType)) {
+        throw new HttpError(400, `Weight selling is not available for ${weightCompany?.businessType || 'this'} business type — loose/by-weight products belong to general retail (departmental / retail) stores only`);
+      }
+    }
 
     // Calculate totals with item-level discounts — ALWAYS computed
     // server-side (A-04): a client-sent totalPrice is never trusted. Each
@@ -2452,7 +2507,12 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               select: {
                 id: true,
                 name: true,
-                barcode: true
+                barcode: true,
+                // Loose / by-weight selling (Stage 1): nested product
+                // unitType lets stored-line renderers (Invoices /
+                // Refunds / reprints) show "0.500 kg", never "tablets".
+                // Cast until the Prisma client is regenerated.
+                ...( { unitType: true } as any )
               }
             }
           }

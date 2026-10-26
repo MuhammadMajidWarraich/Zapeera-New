@@ -29,6 +29,7 @@ export interface CreateProductData {
     reorderQuantity?: number | null; // Wave C3 - fixed reorder qty; null = derive from reorderLevel
     unitsPerPack?: number;
     unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
+    unitType?: string | null; // Loose / by-weight selling (Stage 1): 'KG' = sold by the kilo (stock in grams, unitsPerPack forced to 1000); null = sold by pieces
   }
 
   export interface UpdateProductData {
@@ -59,6 +60,7 @@ export interface CreateProductData {
     reorderQuantity?: number | null; // Wave C3
     unitsPerPack?: number;
     unitsPerStrip?: number | null; // Wave C2 - tablets per strip; null = not sold by the strip
+    unitType?: string | null; // Loose / by-weight selling (Stage 1): 'KG' = sold by the kilo; null clears to pieces
   }
 
   export interface StockMovementData {

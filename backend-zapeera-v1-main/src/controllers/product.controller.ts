@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { getPrisma, isPostgreSQL } from '../utils/db.util';
 import { normalizePctCode } from '../utils/fbr.util';
 import { validateUnitStructure, breakdownStock } from '../utils/unit.util';
+import { isWeightSellingAllowedForBusinessType } from '../utils/module-applicability.util';
 import { normalizeControlledSchedule } from '../services/controlled-medicines.service';
 import { CreateProductData, UpdateProductData } from '../models/product.model';
 import { validate } from '../middleware/validation.middleware';
@@ -75,7 +76,8 @@ const createProductSchema = Joi.object({
   reorderLevel: Joi.number().integer().min(0).allow(null).optional(), // Wave C3 - opt-in reorder point
   reorderQuantity: Joi.number().integer().min(1).allow(null).optional(), // Wave C3 - fixed reorder qty
   unitsPerPack: Joi.number().min(1).default(1).optional(),
-  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
+  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional(), // Wave C2 - tablets per strip; null = not sold by the strip
+  unitType: Joi.string().valid('KG').allow(null, '').optional() // Loose / by-weight selling (Stage 1) - 'KG' = sold by the kilo; null/'' = sold by pieces
 });
 
 const updateProductSchema = Joi.object({
@@ -101,7 +103,8 @@ const updateProductSchema = Joi.object({
   reorderLevel: Joi.number().integer().min(0).allow(null).optional(), // Wave C3 - null clears the reorder point
   reorderQuantity: Joi.number().integer().min(1).allow(null).optional(), // Wave C3 - null clears the fixed qty
   unitsPerPack: Joi.number().min(1).default(1).optional(),
-  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional() // Wave C2 - tablets per strip; null = not sold by the strip
+  unitsPerStrip: Joi.number().integer().min(1).allow(null).optional(), // Wave C2 - tablets per strip; null = not sold by the strip
+  unitType: Joi.string().valid('KG').allow(null, '').optional() // Loose / by-weight selling (Stage 1) - 'KG' = sold by the kilo; null/'' clears to pieces
 });
 
 // ─── Tenancy scope (QA A-02) ────────────────────────────────────────────────
@@ -460,6 +463,17 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
 
     const productData: CreateProductData = req.body;
 
+    // Loose / by-weight selling (Stage 1): normalize the unit type
+    // first ('KG' or null — anything else is pieces), then force the
+    // kilo's structure: unitsPerPack = 1000 grams, no strips. This
+    // runs BEFORE the structure validation below so a KG product can
+    // never fail it on a client-sent pack/strip size.
+    productData.unitType = (productData.unitType === 'KG') ? 'KG' : null;
+    if (productData.unitType === 'KG') {
+      productData.unitsPerPack = 1000;
+      productData.unitsPerStrip = null;
+    }
+
     // Unit engine (Wave C2): a strip size is only meaningful when it
     // divides the pack evenly — reject anything else with a 400.
     const createStructureError = validateUnitStructure({
@@ -641,6 +655,24 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       validTaxClassId = taxClass.id;
     }
 
+    // Loose / by-weight selling (Stage 1) — business-type gate
+    // (standing rule 2026-10-26): KG products belong to general
+    // retail only. A pharmacy, clinic, hotel or any other type gets
+    // a clean 400 here; the frontend hides the KG option there too.
+    if (productData.unitType === 'KG') {
+      const targetCompany = await prisma.business.findUnique({
+        where: { id: targetCompanyId },
+        select: { businessType: true }
+      });
+      if (!isWeightSellingAllowedForBusinessType(targetCompany?.businessType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to general retail (departmental / retail) stores only`]
+        });
+      }
+    }
+
     // Build product data object
     const productCreateData: any = {
       name: productData.name,
@@ -663,6 +695,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       reorderQuantity: productData.reorderQuantity ?? null, // Wave C3
       unitsPerPack: productData.unitsPerPack || 1,
       unitsPerStrip: productData.unitsPerStrip || null, // Wave C2
+      unitType: productData.unitType || null, // Loose / by-weight selling (Stage 1) - 'KG' or null
       supplierId: validSupplierId, // Set to null if invalid/empty
       taxClassId: validTaxClassId, // Wave B5 - null = company default handling
       pctCode: normalizePctCode(productData.pctCode) // Wave B7 - digits-only wire format, null = FBR fallback
@@ -775,9 +808,22 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     // Unit engine (Wave C2): validate the MERGED structure — a strip
     // size sent alone must divide the product's stored pack size, and
     // a new pack size must stay divisible by the stored strip size.
+    // Loose / by-weight selling (Stage 1): the merged unit type
+    // decides the structure — a KG product is a kilo of grams
+    // (unitsPerPack forced to 1000, no strips), whatever the client
+    // sent for pack/strip.
+    const mergedUnitType = updateData.unitType !== undefined
+      ? (updateData.unitType === 'KG' ? 'KG' : null)
+      : ((existingProduct as any).unitType ?? null);
+    const mergedUnitsPerPack = mergedUnitType === 'KG'
+      ? 1000
+      : (updateData.unitsPerPack !== undefined ? updateData.unitsPerPack : existingProduct.unitsPerPack);
+    const mergedUnitsPerStrip = mergedUnitType === 'KG'
+      ? null
+      : (updateData.unitsPerStrip !== undefined ? (updateData.unitsPerStrip || null) : existingProduct.unitsPerStrip);
     const updateStructureError = validateUnitStructure({
-      unitsPerPack: updateData.unitsPerPack !== undefined ? updateData.unitsPerPack : existingProduct.unitsPerPack,
-      unitsPerStrip: updateData.unitsPerStrip !== undefined ? (updateData.unitsPerStrip || null) : existingProduct.unitsPerStrip
+      unitsPerPack: mergedUnitsPerPack,
+      unitsPerStrip: mergedUnitsPerStrip
     });
     if (updateStructureError) {
       return res.status(400).json({
@@ -785,6 +831,25 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         message: 'Validation error',
         errors: [updateStructureError]
       });
+    }
+
+    // Loose / by-weight selling (Stage 1) — business-type gate
+    // (standing rule 2026-10-26): a product may only BECOME (or stay)
+    // a KG product in a general-retail business. Editing any other
+    // field of a KG product in an ineligible type is refused too —
+    // no KG product can exist there in the first place.
+    if (mergedUnitType === 'KG') {
+      const targetCompany = await prisma.business.findUnique({
+        where: { id: existingProduct.companyId },
+        select: { businessType: true }
+      });
+      if (!isWeightSellingAllowedForBusinessType(targetCompany?.businessType)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to general retail (departmental / retail) stores only`]
+        });
+      }
     }
 
     // Check if barcode already exists for this admin (if being updated)
@@ -822,6 +887,13 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     if (updateData.reorderQuantity !== undefined) updateFields.reorderQuantity = updateData.reorderQuantity !== null ? Number(updateData.reorderQuantity) : null; // Wave C3
     if (updateData.unitsPerPack !== undefined) updateFields.unitsPerPack = updateData.unitsPerPack;
     if (updateData.unitsPerStrip !== undefined) updateFields.unitsPerStrip = updateData.unitsPerStrip || null; // Wave C2 - null clears the strip size
+    if (updateData.unitType !== undefined) updateFields.unitType = mergedUnitType; // Loose / by-weight selling (Stage 1) - 'KG' or null
+    if (mergedUnitType === 'KG') {
+      // A kilo's structure is forced, even when the client sent a
+      // pack/strip size (or nothing at all) for this update.
+      updateFields.unitsPerPack = 1000;
+      updateFields.unitsPerStrip = null;
+    }
     if (updateData.barcode !== undefined) updateFields.barcode = updateData.barcode || null;
     if (updateData.additionalBarcodes !== undefined) {
       updateFields.additionalBarcodes = Array.isArray(updateData.additionalBarcodes)

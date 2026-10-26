@@ -876,7 +876,7 @@ const Refunds = () => {
                               <div>
                                 <p className="text-sm font-medium text-[#0a1128]">{item.product?.name || "Product"}</p>
                                 <p className="text-xs text-[#8c95b0]">
-                                  {describeStoredLine(item) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
+                                  {describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
                                 </p>
                               </div>
                               <p className="text-sm font-semibold text-[#0a1128]">PKR {item.totalPrice?.toFixed?.(2) || "0.00"}</p>

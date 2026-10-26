@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Minus, Loader2, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { breakdownStock, isStructured, levelPriceFromUnitPrice } from '@/utils/units';
+import { breakdownStock, isStructured, levelPriceFromUnitPrice, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType } from '@/utils/units';
 import { variantUnitPrice, type ProductVariantLite } from '@/utils/variants';
 
 // POS redesign (Muhammad's reference layout): compact catalog card for
@@ -51,6 +51,10 @@ interface PosProductCardProps {
   requiresBranchSelection: boolean;
   onSelectBatch: (batchId: string) => void;
   onAddToCart: (quantity: number, unitType: string) => void;
+  // Loose / by-weight selling (Stage 1): the KG level button,
+  // decimal KG qty and per-kg prices render only when the business
+  // type allows weight selling (the parent gates on businessType).
+  isWeightSellingAllowed?: boolean;
   variants?: ProductVariantLite[];
   selectedVariant?: ProductVariantLite | null;
   hasBaseStock?: boolean;
@@ -67,13 +71,18 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
   requiresBranchSelection,
   onSelectBatch,
   onAddToCart,
+  isWeightSellingAllowed,
   variants,
   selectedVariant,
   hasBaseStock,
   onSelectVariant,
   showStripOption = true,
 }) => {
-  const [selectedUnitType, setSelectedUnitType] = useState<string>('unit');
+  // Loose / by-weight selling (Stage 1): a KG product sells by the
+  // kilo only (the pack IS the kilo, 1000 g). The card is keyed by
+  // product.id, so the lazy initial level is safe per product.
+  const isWeight = isWeightSellingAllowed === true && isWeightUnitType(product.unitType);
+  const [selectedUnitType, setSelectedUnitType] = useState<string>(() => (isWeight ? 'kg' : 'unit'));
   const [quantity, setQuantity] = useState<number>(1);
   const [expanded, setExpanded] = useState(false);
 
@@ -87,15 +96,17 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
     product.unitsPerPack ||
     computedUnitsFromBatch ||
     1;
-  const structure = { unitsPerPack: unitsPerBox, unitsPerStrip: product.unitsPerStrip ?? null };
+  const structure = { unitsPerPack: unitsPerBox, unitsPerStrip: product.unitsPerStrip ?? null, unitType: product.unitType };
   const unitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
   const stockOnHand = selectedBatch?.quantity ?? product.stock;
   const maxQuantity =
-    selectedUnitType === 'box'
-      ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerBox))
-      : selectedUnitType === 'strip' && unitsPerStrip
-        ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerStrip))
-        : selectedBatch?.quantity || product.stock;
+    isWeight
+      ? Math.max(0.1, stockOnHand / KG_GRAMS_PER_KG)
+      : selectedUnitType === 'box'
+        ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerBox))
+        : selectedUnitType === 'strip' && unitsPerStrip
+          ? Math.max(1, Math.floor((selectedBatch?.quantity || product.stock) / unitsPerStrip))
+          : selectedBatch?.quantity || product.stock;
 
   const displayUnitPrice = selectedBatch
     ? variantUnitPrice(Number(selectedBatch.sellingPrice || 0), selectedVariant?.priceDelta)
@@ -124,6 +135,8 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
   const handleQuickAdd = () => {
     if (addDisabled) return;
     onAddToCart(quantity, selectedUnitType);
+    // Loose / by-weight selling (Stage 1): a kilo add resets to
+    // 1 kg (the card's quantity state is in kg for KG products).
     setQuantity(1);
   };
 
@@ -150,7 +163,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
           )}
         </div>
         <span className="shrink-0 font-mono text-[11px] font-semibold text-[#8c95b0]">
-          Stock: {stockOnHand}
+          Stock: {isWeight ? formatKgFromGrams(stockOnHand) : stockOnHand}
         </span>
       </div>
 
@@ -164,8 +177,8 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
       ) : null}
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         <span className="inline-flex items-center rounded-md bg-[#f4f6fa] px-2 py-0.5 text-[11px] font-medium text-[#4a5578]">
-          {product.unitType || 'unit'}
-          {unitsPerBox > 1 ? ` • Box of ${unitsPerBox}` : ''}
+          {isWeight ? 'kg' : (product.unitType || 'unit')}
+          {!isWeight && unitsPerBox > 1 ? ` • Box of ${unitsPerBox}` : ''}
         </span>
         {selectedBatch?.expireDate && (
           <span
@@ -194,10 +207,12 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
           {selectedBatch ? (
             <>
               <p className="font-mono text-[15px] font-bold leading-tight tabular-nums text-[#0a1128]">
-                PKR {displayUnitPrice.toFixed(2)}
+                PKR {isWeight ? (displayUnitPrice * KG_GRAMS_PER_KG).toFixed(2) : displayUnitPrice.toFixed(2)}
               </p>
               <p className="truncate text-[11px] leading-tight text-[#8c95b0]">
-                per unit{unitsPerBox > 1 ? ` • PKR ${(displayUnitPrice * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(displayUnitPrice, 'STRIP', structure).toFixed(2)} / strip` : ''}
+                {isWeight
+                  ? `PKR ${(displayUnitPrice * KG_GRAMS_PER_KG).toFixed(2)} / kg`
+                  : <>per unit{unitsPerBox > 1 ? ` • PKR ${(displayUnitPrice * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(displayUnitPrice, 'STRIP', structure).toFixed(2)} / strip` : ''}</>}
               </p>
             </>
           ) : (
@@ -304,11 +319,11 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                       <Check className="h-3 w-3" />
                     </span>
                     <span className="min-w-0 truncate font-bold text-[#0a1128]">{batch.batchNo}</span>
-                    <span className="shrink-0 tabular-nums text-[#4a5578]">Qty {batch.quantity}</span>
+                    <span className="shrink-0 tabular-nums text-[#4a5578]">Qty {isWeight ? formatKgFromGrams(batch.quantity) : batch.quantity}</span>
                     <span className="ml-auto shrink-0 tabular-nums text-[#4a5578]">
                       {batch.expireDate ? new Date(batch.expireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                     </span>
-                    <span className="shrink-0 font-bold tabular-nums text-[#0a1128]">PKR {batch.sellingPrice.toFixed(2)}</span>
+                    <span className="shrink-0 font-bold tabular-nums text-[#0a1128]">PKR {isWeight ? (batch.sellingPrice * KG_GRAMS_PER_KG).toFixed(2) : batch.sellingPrice.toFixed(2)}{isWeight ? ' / kg' : ''}</span>
                   </button>
                 );
               })}
@@ -322,6 +337,14 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
           {/* Level + quantity + add */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] p-1" role="group" aria-label="Sell by unit, strip or box">
+              {isWeight ? (
+                // Loose / by-weight selling (Stage 1): a kilo product
+                // has one level only (KG).
+                <button type="button" onClick={() => setSelectedUnitType('kg')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'kg' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
+                  KG
+                </button>
+              ) : (
+                <>
               <button type="button" onClick={() => setSelectedUnitType('unit')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'unit' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
                 Unit
               </button>
@@ -333,21 +356,26 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
               <button type="button" onClick={() => setSelectedUnitType('box')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'box' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
                 Box
               </button>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-1">
-              <Button type="button" variant="outline" size="sm" className="h-8 w-7 rounded-[8px] p-0" onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">
+              <Button type="button" variant="outline" size="sm" className="h-8 w-7 rounded-[8px] p-0" onClick={() => isWeight ? setQuantity(Math.max(0.1, Math.round((quantity - 0.1) * 10) / 10)) : setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">
                 <Minus className="h-3.5 w-3.5" />
               </Button>
               <Input
                 type="number"
-                min={1}
+                min={isWeight ? 0.1 : 1}
+                step={isWeight ? 0.1 : 1}
                 max={maxQuantity}
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Math.min(maxQuantity, parseInt(e.target.value, 10) || 1)))}
-                className="h-8 w-14 rounded-[8px] text-center text-xs font-bold tabular-nums"
-                aria-label="Quantity"
+                onChange={(e) => isWeight
+                  ? setQuantity(Math.max(0.1, Math.min(maxQuantity, Math.round((parseFloat(e.target.value) || 0.1) * 1000) / 1000)))
+                  : setQuantity(Math.max(1, Math.min(maxQuantity, parseInt(e.target.value, 10) || 1)))}
+                className="h-8 w-16 rounded-[8px] text-center text-xs font-bold tabular-nums"
+                aria-label={isWeight ? "Weight in kilograms" : "Quantity"}
               />
-              <Button type="button" variant="outline" size="sm" className="h-8 w-7 rounded-[8px] p-0" onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))} aria-label="Increase quantity">
+              <Button type="button" variant="outline" size="sm" className="h-8 w-7 rounded-[8px] p-0" onClick={() => isWeight ? setQuantity(Math.min(maxQuantity, Math.round((quantity + 0.1) * 10) / 10)) : setQuantity(Math.min(maxQuantity, quantity + 1))} aria-label="Increase quantity">
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>

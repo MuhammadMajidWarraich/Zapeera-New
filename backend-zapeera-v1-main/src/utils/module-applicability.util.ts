@@ -80,3 +80,31 @@ export function isModuleApplicableToBusinessType(moduleKey: unknown, businessTyp
   if (!(CANONICAL_BUSINESS_TYPES as readonly string[]).includes(typeKey)) return true;
   return allowed.includes(typeKey);
 }
+
+// Loose / by-weight selling (Stage 1, 2026-10-26) — Muhammad's standing
+// rule (2026-10-26): "Harr business type me uss business type ke related
+// sb kuch hona chahiye" — a business type gets only its own features.
+// Weight selling belongs to general retail only: departmental + retail
+// stores. PHARMACY, HOTEL, CLINIC and anything else must never see it
+// and must never be able to sell by weight.
+//
+// NOTE on the map above: it is the registry for whole MODULES, and its
+// contract lets unknown/custom types fall through to the DB-driven gates.
+// Weight selling is a SUB-feature inside the shared sales/inventory core
+// (no module key, no Layer-2 hook), so it is gated here instead — and
+// FAIL-CLOSED, because there is no DB-driven gate behind this check:
+// an unknown type is denied, not allowed. The frontend mirrors this
+// list (src/utils/units.ts) so the UI never offers KG where the API
+// would refuse it.
+export const WEIGHT_SELLING_BUSINESS_TYPES = ['DEPARTMENTAL_STORE', 'RETAIL_STORE'] as const;
+
+export function isWeightSellingAllowedForBusinessType(businessType: unknown): boolean {
+  const key = normalizeBusinessTypeKey(businessType);
+  // Legacy aliases resolve to the canonical departmental type (the
+  // boot seeder migrates stored values; the entitlement map agrees).
+  const canonical =
+    key === 'STORE' || key === 'DEPARTMENT_STORE' || key === 'SUPERMARKET' || key === 'GROCERY_STORE'
+      ? 'DEPARTMENTAL_STORE'
+      : key;
+  return (WEIGHT_SELLING_BUSINESS_TYPES as readonly string[]).includes(canonical);
+}
