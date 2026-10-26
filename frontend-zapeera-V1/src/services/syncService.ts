@@ -9,6 +9,11 @@ export interface SyncStatus {
   pendingChanges: number;
   failedChanges: number;
   inProgress: boolean;
+  // Multi-counter review (R3/R6, 2026-10-26): open sales in the review
+  // list (oversold / offline / replay-pending). Polled by the
+  // SyncProvider from /sync/review/summary — NOT part of the engine
+  // status, so it survives engine restarts and works in web mode too.
+  reviewOpen: number;
   // Desktop only, from the main-process sync status: how many businesses
   // the local DB holds memberships for, and the last account-sync outcome
   // (null until an account sync has run or failed). These are what let
@@ -79,6 +84,7 @@ class SyncService {
       pendingChanges: 0,
       failedChanges: 0,
       inProgress: false,
+      reviewOpen: 0,
       localBusinessCount: 0,
       accountSyncError: null,
       applyFailures: null,

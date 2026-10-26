@@ -14,7 +14,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           createRecordPostgreSQLFirst, mapRowForPostgreSQL, getPostgreSQLColumns,
           getSQLiteColumns, pgRowToSqlite, normalizeValue, getWeekNumber, getDateFromWeek,
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
-          saveDatabase, initDatabase } = deps;
+          saveDatabase, initDatabase, cloudApi } = deps;
 
 // GET /api/sales (line 6731)
       app.get('/api/sales', authMiddleware, (req, res) => {
@@ -146,7 +146,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
       });
 
   // POST /api/sales (line 6854)
-      app.post('/api/sales', authMiddleware, (req, res) => {
+      app.post('/api/sales', authMiddleware, async (req, res) => {
         try {
           console.log('[Sales] POST request body:', JSON.stringify(req.body, null, 2));
     
@@ -375,6 +375,49 @@ function registerSalesRoutes(app, authMiddleware, deps) {
             }
           }
     
+          // ============================================================
+          // R2 (2026-10-26): cloud-authoritative pre-check. When this
+          // terminal is online, ask the cloud whether the live batches
+          // cover every line BEFORE deducting locally — the other
+          // counter may have sold the same stock seconds ago and the
+          // local copy may not know yet (5s pull). A shortfall is
+          // refused with the same message shape as the local stock
+          // check below, so the POS shows the same "Insufficient
+          // stock" error. FAIL-OPEN by design: offline, unreachable,
+          // or any precheck error sells from local stock exactly as
+          // before — the R1 server replay + R3 review list are the
+          // backstop, and a blocked sale must never strand a cashier
+          // because the cloud hiccuped.
+          // ============================================================
+          if (finalCompanyId && typeof getIsOnline === 'function' && getIsOnline() && cloudApi && typeof cloudApi.precheckSale === 'function') {
+            try {
+              const precheck = await cloudApi.precheckSale({
+                businessId: finalCompanyId,
+                branchId: finalBranchId,
+                items: items.map((it) => ({
+                  productId: it.productId,
+                  batchId: it.batchId || null,
+                  quantity: it.quantity,
+                  unitsDeducted: it.unitsDeducted || null,
+                  unitLevel: it.unitLevel || null,
+                  unitsPerBox: it.unitsPerBox || null,
+                  variantId: it.variantId || null
+                }))
+              });
+              if (precheck && precheck.success !== false && precheck.data && precheck.data.ok === false) {
+                const short = (precheck.data.lines || []).find((l) => !l.ok);
+                if (short) {
+                  return res.status(400).json({
+                    success: false,
+                    message: `Insufficient stock for ${short.productName}. Available: ${short.available}, Required: ${short.required}`
+                  });
+                }
+              }
+            } catch (precheckError) {
+              console.log('[Sales] Precheck skipped (cloud unreachable):', precheckError.message);
+            }
+          }
+
           // ============================================================
           // QA fix 2026-10-20 (Agent B2, B-7 + B-9): RESOLUTION PHASE.
           // Everything is validated and priced BEFORE any row is written:
@@ -680,10 +723,19 @@ function registerSalesRoutes(app, authMiddleware, deps) {
     
           console.log('[Sales] Created sale successfully:', id);
     
-          // 🔄 TWO-WAY SYNC: Queue sale and sale_items for sync to PostgreSQL
+          // 🔄 TWO-WAY SYNC: Queue sale and sale_items for sync to PostgreSQL.
+          // R1 prerequisite (2026-10-26): enqueue the STORED sale_items
+          // rows (SELECT * — saleId + batchId included), NOT the
+          // response-shaped objects built above (id/productId/quantity/
+          // unitPrice/totalPrice/product, no saleId, no batchId, nested
+          // product). The response shape made every saleItem push fail
+          // cloud validation (missing required saleId) and left the
+          // sale's lines — the stock replay's only input — stranded on
+          // the terminal forever.
           const saleData = query('SELECT * FROM sales WHERE id = ?', [id])[0];
           if (saleData) handleDataChange('sales', 'create', saleData);
-          saleItems.forEach(item => handleDataChange('sale_items', 'create', item));
+          const storedSaleItems = query('SELECT * FROM sale_items WHERE saleId = ?', [id]);
+          storedSaleItems.forEach(item => handleDataChange('sale_items', 'create', item));
     
           // CRITICAL FIX: Match backend response structure exactly
           res.status(201).json({

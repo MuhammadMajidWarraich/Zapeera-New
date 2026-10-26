@@ -600,7 +600,9 @@ function requeueFailedOperations() {
 
 // sync_operations rows store the payload as JSON text and the operation in
 // whatever case the writer used; the cloud API expects a parsed payload
-// object and an uppercase operation.
+// object and an uppercase operation. queuedAt is the op's
+// sync_operations.createdAt — the server uses it to mark sales that were
+// made while the terminal was offline (R3: queued > 2 min before landing).
 function buildPushOperation(row) {
   let payload = row.payload;
   if (typeof payload === 'string') {
@@ -612,7 +614,8 @@ function buildPushOperation(row) {
     entityId: row.entityId,
     operation: String(row.operation || '').toUpperCase(),
     payload,
-    idempotencyKey: row.idempotencyKey || undefined
+    idempotencyKey: row.idempotencyKey || undefined,
+    queuedAt: row.createdAt || undefined
   };
 }
 

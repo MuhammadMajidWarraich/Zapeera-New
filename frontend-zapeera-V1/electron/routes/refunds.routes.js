@@ -439,6 +439,15 @@ function registerRefundsRoutes(app, authMiddleware, deps) {
     
           // 🔄 TWO-WAY SYNC: Queue refund for sync to PostgreSQL
           if (refund) handleDataChange('refunds', 'create', refund);
+
+          // R1 (2026-10-26): enqueue the STORED refund_items rows so the
+          // cloud restock replay knows what came back (the refund header
+          // alone carries no product/quantity), and the sale's REFUNDED
+          // status so the cloud sale stops reading COMPLETED.
+          const storedRefundItems = query('SELECT * FROM refund_items WHERE refundId = ?', [id]);
+          storedRefundItems.forEach(item => handleDataChange('refund_items', 'create', item));
+          const updatedSale = query('SELECT * FROM sales WHERE id = ?', [finalSaleId])[0];
+          if (updatedSale) handleDataChange('sales', 'update', updatedSale);
     
           // Get refund items for response
           const refundItemsResponse = query('SELECT ri.*, p.name as productName, p.unitType FROM refund_items ri LEFT JOIN products p ON ri.productId = p.id WHERE ri.refundId = ?', [id]);

@@ -137,6 +137,47 @@ async function pushOperations(businessId, operations) {
   return makeRequest('POST', '/api/sync/operations/push', { businessId, operations });
 }
 
+// R2 (2026-10-26): cloud-authoritative pre-check before an online
+// desktop sale — live batch availability from the cloud, no writes.
+async function precheckSale({ businessId, branchId, items }) {
+  return makeRequest('POST', '/api/sync/sales/precheck', { businessId, branchId, items });
+}
+
+// R3 (2026-10-26): offline-sales review list (oversold / offline /
+// never-replayed) + per-sale resolve. Used by the Sync Review page and
+// the header badge (via the embedded proxy in desktop mode).
+async function getSyncReviewSummary(businessId) {
+  return makeRequest('GET', `/api/sync/review/summary?businessId=${encodeURIComponent(businessId)}`);
+}
+
+async function getSyncReview(businessId, status = 'open', limit = 50) {
+  return makeRequest('GET', `/api/sync/review?businessId=${encodeURIComponent(businessId)}&status=${encodeURIComponent(status)}&limit=${limit}`);
+}
+
+async function resolveSyncReview(businessId, saleId, note) {
+  return makeRequest('POST', `/api/sync/review/${encodeURIComponent(saleId)}/resolve`, { businessId, note: note || undefined });
+}
+
+// R7 (2026-10-26): nightly stock reconciliation runs.
+async function runReconciliation(businessId, branchId) {
+  return makeRequest('POST', '/api/sync/reconciliations/run', { businessId, branchId: branchId || undefined });
+}
+
+async function listReconciliations(businessId, status, limit = 20) {
+  const params = new URLSearchParams({ businessId });
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  return makeRequest('GET', `/api/sync/reconciliations?${params.toString()}`);
+}
+
+async function createStockTakeFromReconciliation(businessId, reconciliationId) {
+  return makeRequest('POST', `/api/sync/reconciliations/${encodeURIComponent(reconciliationId)}/create-stock-take`, { businessId });
+}
+
+async function resolveReconciliation(businessId, reconciliationId, note) {
+  return makeRequest('POST', `/api/sync/reconciliations/${encodeURIComponent(reconciliationId)}/resolve`, { businessId, note: note || undefined });
+}
+
 async function getSyncStatus() {
   return makeRequest('GET', '/api/sync/status');
 }
@@ -172,6 +213,14 @@ module.exports = {
   provisionBusiness,
   pullChanges,
   pushOperations,
+  precheckSale,
+  getSyncReviewSummary,
+  getSyncReview,
+  resolveSyncReview,
+  runReconciliation,
+  listReconciliations,
+  createStockTakeFromReconciliation,
+  resolveReconciliation,
   getSyncStatus,
   updateProfile,
   refreshAuth,

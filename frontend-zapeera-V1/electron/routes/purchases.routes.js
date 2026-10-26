@@ -119,6 +119,16 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
               run(`INSERT INTO batches (id, batchNo, productId, branchId, companyId, supplierId, supplierName, barcode, totalBoxes, unitsPerBox, quantity, purchasePrice, sellingPrice, stockPurchasePrice, paidAmount, supplierOutstanding, supplierInvoiceNo, purchasingMethod, expireDate, productionDate, shelfId, shelfName, isActive, isReported, createdBy, createdAt, updatedAt)
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,?,?,?)`,
                 [batchId, batchNo, i.productId, branchId || null, companyId || null, supplierId || null, null, null, 0, 1, quantity, unitPrice, unitPrice * 1.3, unitPrice, 0, 0, null, null, expireDate, productionDate, null, null, req.user?.id || null, timestamp, timestamp]);
+              // R1/R7 (2026-10-26): link the purchase line to the batch it
+              // stocked (the INSERT above leaves batchId NULL) and push
+              // the batch row itself. Without the link the R7 ledger
+              // cannot attribute the receipt to any batch, and without
+              // the batch row the cloud never learns the batch exists —
+              // so an R1 replay of a sale from this batch would draw
+              // from the wrong batches or flag a false oversell.
+              run('UPDATE purchase_items SET batchId = ? WHERE id = ?', [batchId, itemId]);
+              const batchRow = query('SELECT * FROM batches WHERE id = ?', [batchId])[0];
+              if (batchRow) handleDataChange('batches', 'create', batchRow);
             }
     
             // Update product stock
@@ -133,9 +143,15 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
     
           console.log('[Purchases] Created purchase successfully:', purchase?.id);
     
-          // 🔄 TWO-WAY SYNC: Queue purchase and purchase_items for sync to PostgreSQL
+          // 🔄 TWO-WAY SYNC: Queue purchase and purchase_items for sync to PostgreSQL.
+          // R1 prerequisite (2026-10-26): enqueue the STORED purchase_items
+          // rows (SELECT * — purchaseId + batchId included), NOT the
+          // response-shaped objects built above (no purchaseId, no batchId,
+          // nested product). The response shape made every purchaseItem
+          // push fail cloud validation (missing required purchaseId).
           if (purchase) handleDataChange('purchases', 'create', purchase);
-          createdItems.forEach(item => handleDataChange('purchase_items', 'create', item));
+          const storedPurchaseItems = query('SELECT * FROM purchase_items WHERE purchaseId = ?', [id]);
+          storedPurchaseItems.forEach(item => handleDataChange('purchase_items', 'create', item));
     
           res.status(201).json({
             success: true,
