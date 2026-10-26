@@ -52,6 +52,33 @@ export function formatKgFromGrams(grams: number): string {
   return `${(grams / KG_GRAMS_PER_KG).toFixed(3)} kg`;
 }
 
+/**
+ * POS card unit chip (2026-10-26 unit-label fix): the FULL text of the
+ * unit chip on a PosProductCard. There is NO per-product base-unit word
+ * in the data — Product carries no unitType column in this tree (the
+ * loose-weight branch adds it as nullable 'KG'-only), so the old
+ * `unitType || 'tablets'` fallback LIED on every non-medicine product
+ * (a 5L oil can, Pampers and Desi Ghee all read "tablets"). Honest
+ * rendering from real data only:
+ *  - the only defined unitType value renders lowercased: 'KG'
+ *    (weight branch) → 'kg'. Anything else is NOT a known unit and
+ *    must never be passed through, or a stale 'tablets' value stored
+ *    in the column would resurrect the lie;
+ *  - otherwise the real pack copy, "Box of N" from unitsPerBox
+ *    (unitsPerPack / batch unitsPerBox — genuine pack structure);
+ *  - otherwise the neutral word "unit" (no box, no known unit).
+ * A per-product word like "tablets"/"capsules" for pharmacy items
+ * needs a real unit field + backfill — deliberately NOT guessed here
+ * (not from the name, not from the category: categories are
+ * therapeutic/departmental, never dosage forms).
+ */
+export function cardUnitChip(unitType?: string | null, unitsPerBox?: number | null): string {
+  if (String(unitType || '').trim().toUpperCase() === 'KG') return 'kg';
+  const box = unitsPerBox && unitsPerBox > 1 ? unitsPerBox : 0;
+  if (box > 0) return `Box of ${box}`;
+  return 'unit';
+}
+
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export function isStructured(structure: UnitStructure): boolean {
@@ -81,10 +108,14 @@ export interface StockBreakdown {
   text: string;
 }
 
-/** Greedy packs → strips → loose tablets breakdown of a base-unit qty.
+/** Greedy packs → strips → loose units breakdown of a base-unit qty.
  * Loose / by-weight selling (Stage 1): a KG product's stock is grams,
- * so the breakdown reads in kilos ("50.000 kg") — never "50 packs". */
-export function breakdownStock(baseQty: number, structure: UnitStructure): StockBreakdown {
+ * so the breakdown reads in kilos ("50.000 kg") — never "50 packs".
+ * `looseUnit` names the leftover single units (default "tablet", the
+ * pharmacy base unit the engine counts in). Callers that cannot know
+ * the base unit — the POS card — pass "unit" so a non-medicine
+ * product never reads "tablets" from a stock remainder. */
+export function breakdownStock(baseQty: number, structure: UnitStructure, looseUnit = 'tablet'): StockBreakdown {
   const qty = Math.max(0, Math.floor(baseQty || 0));
   if (isWeightUnitType(structure.unitType)) {
     return { packs: 0, strips: 0, units: qty, text: formatKgFromGrams(qty) };
@@ -105,7 +136,7 @@ export function breakdownStock(baseQty: number, structure: UnitStructure): Stock
   const parts: string[] = [];
   if (packs > 0) parts.push(`${packs} pack${packs === 1 ? "" : "s"}`);
   if (strips > 0) parts.push(`${strips} strip${strips === 1 ? "" : "s"}`);
-  if (rest > 0 || parts.length === 0) parts.push(`${rest} tablet${rest === 1 ? "" : "s"}`);
+  if (rest > 0 || parts.length === 0) parts.push(`${rest} ${looseUnit}${rest === 1 ? "" : "s"}`);
   return { packs, strips, units: rest, text: parts.join(" · ") };
 }
 
