@@ -155,6 +155,104 @@ function registerSyncRoutes(app, authMiddleware, deps) {
       res.status(500).json({ success: false, message: e.message });
     }
   });
+
+  // ── Multi-counter sync review + reconciliation (R3/R7, 2026-10-26) ──
+  // Desktop-mode proxy: the SPA calls these on the embedded server
+  // (apiService base URL is 127.0.0.1:4201 in Electron) and they forward
+  // to the cloud with the cloud JWT the sync engine already holds. The
+  // business comes from the X-Business-ID header apiService sets (or an
+  // explicit businessId query/body param). In web mode the same paths hit
+  // the cloud directly, so the page code is identical in both shells.
+  // Offline the proxy answers 503 with an empty summary instead of
+  // failing the page — the badge simply hides its review count.
+  const businessIdOf = (req) =>
+    req.query.businessId || req.body?.businessId || req.headers['x-business-id'] || req.headers['x-company-id'] || null;
+  const reviewUnavailable = (res, message) =>
+    res.status(503).json({ success: false, message: message || 'Cloud unavailable — review data will load when back online.' });
+
+  app.get('/api/sync/review/summary', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.getSyncReviewSummary !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.getSyncReviewSummary(businessId);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.get('/api/sync/review', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.getSyncReview !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.getSyncReview(businessId, req.query.status || 'open', parseInt(req.query.limit, 10) || 50);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.post('/api/sync/review/:saleId/resolve', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.resolveSyncReview !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.resolveSyncReview(businessId, req.params.saleId, req.body?.note);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.post('/api/sync/reconciliations/run', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.runReconciliation !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.runReconciliation(businessId, req.body?.branchId);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.get('/api/sync/reconciliations', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.listReconciliations !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.listReconciliations(businessId, req.query.status, parseInt(req.query.limit, 10) || 20);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.post('/api/sync/reconciliations/:id/create-stock-take', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.createStockTakeFromReconciliation !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.createStockTakeFromReconciliation(businessId, req.params.id);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
+
+  app.post('/api/sync/reconciliations/:id/resolve', authMiddleware, async (req, res) => {
+    try {
+      const businessId = businessIdOf(req);
+      if (!businessId) return res.status(400).json({ success: false, message: 'businessId is required' });
+      if (!cloudApi || typeof cloudApi.resolveReconciliation !== 'function') return reviewUnavailable(res);
+      const result = await cloudApi.resolveReconciliation(businessId, req.params.id, req.body?.note);
+      res.json(result && result.success !== false ? result : { success: false, message: (result && result.message) || 'Cloud unavailable' });
+    } catch (e) {
+      reviewUnavailable(res, e.message);
+    }
+  });
 }
 
 module.exports = {

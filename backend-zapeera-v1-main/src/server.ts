@@ -153,6 +153,7 @@ import affiliateRoutes from './routes/affiliate.routes';
 import contentRoutes from './routes/content.routes';
 import barcodeRoutes from './routes/barcode.routes';
 import { startSubscriptionCron } from './jobs/subscription-cron';
+import { startStockReconciliationCron } from './jobs/stock-reconciliation';
 import { startFbrWorker } from './jobs/fbr-worker';
 import { startDarazOrderPoll, stopDarazOrderPoll } from './jobs/daraz-order-poll';
 import { getDatabaseService, DatabaseType } from './services/database.service';
@@ -207,6 +208,8 @@ try {
           await ensurePlanEntitlementsCoverCatalog();
           console.log('[Server] ✅ Standard modules, business types, plans, and employee portal ensured');
           startSubscriptionCron();
+          // Multi-counter sync (R7): nightly stock reconciliation sweep.
+          startStockReconciliationCron();
           // FBR POS (Wave B7): drain the fiscal outbox every 30s.
           startFbrWorker();
           // Daraz (Tier 1): poll orders every 15 min, push stock hourly.

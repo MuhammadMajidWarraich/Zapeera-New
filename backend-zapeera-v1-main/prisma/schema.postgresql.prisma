@@ -188,6 +188,7 @@ model Business {
   folios                    Folio[]
   productVariants           ProductVariant[]
   stockTakes                StockTake[]
+  stockReconciliations      StockReconciliation[]
   affiliateReferral         AffiliateReferral?
   affiliateCommissions      AffiliateCommission[]
   aiUsage                   BusinessAiUsage[]
@@ -242,6 +243,8 @@ model Branch {
   reservations       Reservation[]
   folios             Folio[]
   stockTakes         StockTake[]
+  stockReconciliations StockReconciliation[]
+  stockReconciliationLines StockReconciliationLine[]
   categories         Category[]
   expenses           Expense[]
   bankAccounts       BankAccount[]
@@ -588,6 +591,7 @@ model Product {
   batches        Batch[]
   variants       ProductVariant[]
   stockTakeLines StockTakeLine[]
+  stockReconciliationLines StockReconciliationLine[]
   purchaseItems  PurchaseItem[]
   purchaseSuggestionLines PurchaseSuggestionLine[]
   stockTransferItems StockTransferItem[]
@@ -682,6 +686,7 @@ model Batch {
   purchaseItems       PurchaseItem[]
   variant             ProductVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
   stockTakeLines      StockTakeLine[]
+  stockReconciliationLines StockReconciliationLine[]
   transferItemsOut    StockTransferItem[] @relation("transferSourceBatch")
   transferItemsIn     StockTransferItem[] @relation("transferDestBatch")
   saleItems           SaleItem[]
@@ -866,6 +871,66 @@ model StockTakeLine {
   @@index([productId], name: "idx_stockTakeLine_product")
   @@index([batchId], name: "idx_stockTakeLine_batch")
   @@map("stock_take_lines")
+}
+
+// Nightly stock reconciliation (R7, 2026-10-26): recompute each batch's
+// expected quantity from the ledger (purchases − sales − refunds ±
+// transfers, rebased at the latest completed stock take) and compare it
+// with the live batch quantity. A run is created on every sweep; lines
+// exist only for batches whose expected and actual quantities differ
+// (variance = expectedQty − actualQty) plus a best-effort reason hint.
+// Resolving a run can spawn per-branch stock takes pre-filled with the
+// variance lines, so the existing stock-take flow applies the
+// correction. Batches whose history has no ledger anchor (no purchase
+// link and no completed take) are UNVERIFIABLE — counted, never guessed.
+model StockReconciliation {
+  id                String    @id @default(cuid())
+  companyId         String
+  branchId          String? // null = whole-business run (all branches)
+  status            String    @default("OPEN") // OPEN | REVIEWED | RESOLVED
+  trigger           String    @default("NIGHTLY") // NIGHTLY | MANUAL
+  batchesChecked    Int       @default(0)
+  varianceCount     Int       @default(0)
+  unverifiableCount Int       @default(0)
+  note              String?
+  resolvedAt        DateTime?
+  resolvedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+  lines   StockReconciliationLine[]
+
+  @@index([companyId], name: "idx_stockRecon_company")
+  @@index([branchId], name: "idx_stockRecon_branch")
+  @@index([status], name: "idx_stockRecon_status")
+  @@index([createdAt], name: "idx_stockRecon_createdAt")
+  @@map("stock_reconciliations")
+}
+
+model StockReconciliationLine {
+  id               String   @id @default(cuid())
+  reconciliationId String
+  productId        String
+  batchId          String
+  branchId         String
+  expectedQty      Int
+  actualQty        Int
+  variance         Int // expectedQty - actualQty
+  reason           String? // hint only: UNREPLAYED_SALE | UNEXPLAINED
+  status           String   @default("OPEN") // OPEN | RESOLVED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  reconciliation StockReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  batch     Batch   @relation(fields: [batchId], references: [id])
+  branch    Branch  @relation(fields: [branchId], references: [id])
+
+  @@index([reconciliationId], name: "idx_stockReconLine_recon")
+  @@index([batchId], name: "idx_stockReconLine_batch")
+  @@map("stock_reconciliation_lines")
 }
 
 model Customer {
@@ -1178,6 +1243,27 @@ model Sale {
   membershipId       String?
   uuid               String?   @unique
   syncStatus         String    @default("PENDING")
+  // Multi-counter sync (R1/R3/R4, 2026-10-26): server-side stock replay
+  // for desktop-pushed sales. syncOrigin marks rows that arrived via the
+  // sync push API ('DESKTOP_PUSH') — web sales leave it null, so the
+  // replay can never double-deduct a web sale. stockReplayedAt is the
+  // replay claim (set atomically inside the replay transaction; a second
+  // replay attempt sees it and skips). oversold = the replay could not
+  // cover the whole sale from live batches (stock ends at 0, never
+  // negative); oversellDetail is the per-line shortfall JSON.
+  // offlineSale = the push op sat queued > 2 min before landing (the
+  // sale was made while the terminal was offline). terminalInvoiceNumber
+  // preserves the terminal's number when the cloud renames on a
+  // duplicate-invoice collision (R4). reviewedAt/reviewedBy = the R3
+  // review-list resolution.
+  syncOrigin            String?
+  stockReplayedAt       DateTime?
+  oversold              Boolean   @default(false)
+  oversellDetail        Json?
+  offlineSale           Boolean   @default(false)
+  terminalInvoiceNumber String?
+  reviewedAt            DateTime?
+  reviewedBy            String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -1768,6 +1854,13 @@ model Refund {
   createdBy      String?
   status         String       @default("PENDING")
   processedAt    DateTime?
+  // Multi-counter sync (R1/R7, 2026-10-26): syncOrigin marks refunds
+  // that arrived via the sync push API ('DESKTOP_PUSH'); stockRestockedAt
+  // is the restock-replay claim (same pattern as Sale.stockReplayedAt).
+  // Web refunds restock inline in their own transaction and leave both
+  // null.
+  syncOrigin      String?
+  stockRestockedAt DateTime?
   createdAt      DateTime?    @default(now())
   updatedAt      DateTime?    @default(now()) @updatedAt
   items          RefundItem[]

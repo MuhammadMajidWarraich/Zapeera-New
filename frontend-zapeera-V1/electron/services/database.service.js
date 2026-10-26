@@ -538,6 +538,50 @@ async function initDatabase() {
     }
   }
 
+  // Multi-counter sync (R1/R3/R4, 2026-10-26): the cloud Sale row gained
+  // replay/review columns. The cloud pull STRIPS them server-side
+  // (mapSaleForSQLite) so v1.0.10 desktops keep pulling, but once this
+  // migration lands the desktop can receive them on the next pull (and a
+  // later server change can lift the strip). Same pattern as v1.0.8/9:
+  // PRAGMA-guarded ALTERs + a cursor reset when anything is added.
+  // NOTE — merge hazard: the loose-weight-selling branch ALSO defines a
+  // SYNC_SCHEMA_UPGRADES_V1011 (products.unitType). When both land, the
+  // two arrays must be MERGED into one V1011 block; do not let one
+  // silently overwrite the other.
+  const SYNC_SCHEMA_UPGRADES_V1011 = [
+    // sales (8)
+    { table: 'sales', column: 'syncOrigin', definition: 'TEXT' },
+    { table: 'sales', column: 'stockReplayedAt', definition: 'TEXT' },
+    { table: 'sales', column: 'oversold', definition: 'INTEGER DEFAULT 0' },
+    { table: 'sales', column: 'oversellDetail', definition: 'TEXT' },
+    { table: 'sales', column: 'offlineSale', definition: 'INTEGER DEFAULT 0' },
+    { table: 'sales', column: 'terminalInvoiceNumber', definition: 'TEXT' },
+    { table: 'sales', column: 'reviewedAt', definition: 'TEXT' },
+    { table: 'sales', column: 'reviewedBy', definition: 'TEXT' }
+  ];
+  let v1011ColumnsAdded = 0;
+  for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V1011) {
+    try {
+      const cols = query(`PRAGMA table_info(${table})`);
+      if (cols && cols.some((c) => c.name === column)) continue;
+    } catch { /* fall through and attempt the ALTER */ }
+    try {
+      db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] v1.0.11 migration: added ${table}.${column}`);
+      v1011ColumnsAdded++;
+    } catch (e) {
+      console.log(`[DB] v1.0.11 migration skipped ${table}.${column}: ${e.message}`);
+    }
+  }
+  if (v1011ColumnsAdded > 0) {
+    try {
+      db.run(`DELETE FROM settings WHERE key LIKE 'sync_cursor_%'`);
+      console.log(`[DB] v1.0.11 migration: ${v1011ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
+    } catch (e) {
+      console.log('[DB] v1.0.11 migration: cursor reset skipped:', e.message);
+    }
+  }
+
   saveDatabase();
   console.log(`[DB] ✅ Database initialized: ${tablesCreated}/${tables.length} tables ready`);
 

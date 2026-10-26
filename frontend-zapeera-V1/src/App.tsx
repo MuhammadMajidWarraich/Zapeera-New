@@ -59,6 +59,7 @@ const RoomsPage = React.lazy(() => import("./pages/Rooms"));
 const ReservationsPage = React.lazy(() => import("./pages/Reservations"));
 const FoliosPage = React.lazy(() => import("./pages/Folios"));
 const StockTakesPage = React.lazy(() => import("./pages/StockTakes"));
+const SyncReviewPage = React.lazy(() => import("./pages/SyncReview"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
 const ControlledRegisterPage = React.lazy(() => import("./pages/ControlledRegister"));
@@ -485,6 +486,20 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <StockTakesPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        {/* Sync Review (R3) + reconciliation (R7), multi-counter fix 2026-10-26:
+            oversold / offline / unreplayed sales and the nightly ledger check.
+            Reached from the sync badge in the header; no sidebar module entry. */}
+        <Route path="/sync-review" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <SyncReviewPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1516,6 +1531,20 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <StockTakesPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        <Route path="/business/:businessSlug/sync-review" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <SyncReviewPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

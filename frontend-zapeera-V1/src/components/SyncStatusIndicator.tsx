@@ -1,6 +1,7 @@
 import { useSync } from '@/contexts/SyncProvider';
 import { useRuntime } from '@/lib/runtime';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface SyncStatusIndicatorProps {
   detailed?: boolean;
@@ -78,6 +79,13 @@ export function SyncStatusIndicator({ detailed, className }: SyncStatusIndicator
               </span>
             </>
           )}
+          {/* R6 (2026-10-26): failed ops + open review items, same as the badge. */}
+          {status.failedChanges > 0 && (
+            <span className="text-red-500">· {status.failedChanges} failed</span>
+          )}
+          {status.reviewOpen > 0 && (
+            <span className="text-amber-500">· {status.reviewOpen} to review</span>
+          )}
         </>
       )}
     </div>
@@ -105,6 +113,7 @@ interface SyncStatusBadgeProps {
 export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
   const { status } = useSync();
   const runtime = useRuntime();
+  const navigate = useNavigate();
 
   if (!runtime.isDesktop) return null;
 
@@ -114,9 +123,22 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
   // has downloaded yet — this must NEVER render as green "Online".
   const isSetupPending = status.syncState === 'setup-pending';
   const hasPending = status.pendingChanges > 0;
+  // Multi-counter (R6, 2026-10-26): failed ops and open review items
+  // were invisible in the header — the badge ignored failedChanges
+  // entirely and nothing showed the review list. Failed (red) goes to
+  // Settings → Device Status; open review items (amber) go to the
+  // Sync Review page. Clicking the badge opens whichever is present
+  // (review wins when both are).
+  const failed = status.failedChanges || 0;
+  const reviewOpen = status.reviewOpen || 0;
+  const badgeTarget = reviewOpen > 0 ? '/sync-review' : failed > 0 ? '/settings' : null;
 
   return (
     <span
+      role={badgeTarget ? 'button' : undefined}
+      tabIndex={badgeTarget ? 0 : undefined}
+      onClick={badgeTarget ? () => navigate(badgeTarget) : undefined}
+      onKeyDown={badgeTarget ? (e) => { if (e.key === 'Enter' || e.key === ' ') navigate(badgeTarget); } : undefined}
       title={
         isAuthRequired
           ? 'Your cloud sign-in has expired. Sign out and sign in again to resume syncing.'
@@ -124,19 +146,26 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
             ? status.accountSyncError
               ? `Connected to the cloud, but your businesses have not downloaded yet. Last account sync failed: ${status.accountSyncError}`
               : 'Connected to the cloud, but your businesses have not downloaded yet — sync setup is retrying.'
-            : undefined
+            : failed > 0
+              ? `${failed} sync operation(s) failed — click to open Device Status.`
+              : reviewOpen > 0
+                ? `${reviewOpen} sale(s) need review (oversold / offline / replay pending) — click to open Sync Review.`
+                : undefined
       }
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-        isSetupPending ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : isAuthRequired ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+        failed > 0 ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : isSetupPending ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : isOnline ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300' : isAuthRequired ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+        badgeTarget && 'cursor-pointer hover:opacity-80',
         className,
       )}>
       <span className={cn(
         'w-1.5 h-1.5 rounded-full',
-        isSetupPending ? 'bg-amber-500' : isOnline ? 'bg-green-500' : isAuthRequired ? 'bg-red-500' : 'bg-gray-400',
+        failed > 0 ? 'bg-red-500' : isSetupPending ? 'bg-amber-500' : isOnline ? 'bg-green-500' : isAuthRequired ? 'bg-red-500' : 'bg-gray-400',
       )} />
       {isSetupPending ? 'Sync setup pending' : isOnline ? 'Online' : isAuthRequired ? 'Sign in again' : 'Offline'}
       {hasPending && <span className="ml-0.5">· {status.pendingChanges}</span>}
+      {failed > 0 && <span className="ml-0.5 font-semibold">· {failed} failed</span>}
+      {reviewOpen > 0 && <span className="ml-0.5 font-semibold">· {reviewOpen} to review</span>}
     </span>
   );
 }

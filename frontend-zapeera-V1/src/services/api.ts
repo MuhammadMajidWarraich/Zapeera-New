@@ -2543,6 +2543,53 @@ export class ApiService {
     });
   }
 
+  // Multi-counter sync review (R3) + reconciliation (R7), 2026-10-26.
+  // In web mode these hit the cloud directly; in desktop mode the
+  // embedded server proxies the same paths (electron/routes/sync.routes.js).
+  async getSyncReviewSummary() {
+    return this.request<{ open: number; oversold: number; offline: number; pendingReplay: number; pendingRestock: number; reviewed: number; total: number }>('/sync/review/summary');
+  }
+
+  async getSyncReview(status: 'open' | 'all' | 'reviewed' = 'open', limit = 50) {
+    // Endpoint shape: { sales: [...] } — the page unwraps it.
+    return this.request<{ sales: any[] }>(`/sync/review?status=${status}&limit=${limit}`);
+  }
+
+  async resolveSyncReview(saleId: string, note?: string) {
+    return this.request<any>(`/sync/review/${encodeURIComponent(saleId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note || undefined }),
+    });
+  }
+
+  async runStockReconciliation(branchId?: string) {
+    return this.request<any>('/sync/reconciliations/run', {
+      method: 'POST',
+      body: JSON.stringify({ branchId: branchId || undefined }),
+    });
+  }
+
+  async listStockReconciliations(status?: string, limit = 20) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    params.set('limit', String(limit));
+    // Endpoint shape: { runs: [...] } — the page unwraps it.
+    return this.request<{ runs: any[] }>(`/sync/reconciliations?${params.toString()}`);
+  }
+
+  async createStockTakeFromReconciliation(reconciliationId: string) {
+    return this.request<any>(`/sync/reconciliations/${encodeURIComponent(reconciliationId)}/create-stock-take`, {
+      method: 'POST',
+    });
+  }
+
+  async resolveStockReconciliation(reconciliationId: string, note?: string) {
+    return this.request<any>(`/sync/reconciliations/${encodeURIComponent(reconciliationId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note || undefined }),
+    });
+  }
+
   async getStockTake(id: string) {
     return this.request<any>(`/stock-takes/${id}`);
   }
