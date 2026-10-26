@@ -494,7 +494,7 @@ async function pruneProcessedOps(store: any): Promise<void> {
 async function recordProcessedOp(store: any, businessId: string, op: any, opKey: string, result: any): Promise<void> {
   try {
     await store.upsert({
-      where: { companyId_opKey: { companyId: businessId, opKey } },
+      where: { uq_sync_processed_op_key: { companyId: businessId, opKey } },
       create: {
         companyId: businessId,
         opKey,
@@ -526,13 +526,21 @@ async function applyPushCreate(prisma: any, businessId: string, opId: any, entit
       data.syncOrigin = 'DESKTOP_PUSH';
       if (opts.queuedAtMs && Date.now() - opts.queuedAtMs > OFFLINE_SALE_DELAY_MS) data.offlineSale = true;
       // The desktop sale INSERT never sets userId (only createdBy) and
-      // the cloud requires it — the creator is the cashier.
-      if (!data.userId && data.createdBy) data.userId = data.createdBy;
+      // the cloud requires it. Prefer the authenticated actor: it is
+      // always a real cloud user, while createdBy is a LOCAL id that
+      // need not exist on the cloud (a stale/local-only id trips the
+      // sales_userId_fkey). createdBy is still stored on the row, so
+      // attribution is preserved.
       if (!data.userId && opts.actorUserId) data.userId = opts.actorUserId;
+      if (!data.userId && data.createdBy) data.userId = data.createdBy;
     }
     if (entityType === 'refund') {
       data.syncOrigin = 'DESKTOP_PUSH';
-      if (!data.refundedBy && opts.actorUserId) data.refundedBy = opts.actorUserId;
+      // The sanitizer maps createdBy -> refundedBy, but createdBy is a
+      // LOCAL id that need not exist on the cloud (same FK trap as the
+      // sale userId above) — the authenticated actor always wins.
+      if (opts.actorUserId) data.refundedBy = opts.actorUserId;
+      if (!data.refundedBy && data.createdBy) data.refundedBy = data.createdBy;
     }
     try {
       await model.create({ data });
@@ -648,7 +656,7 @@ async function applyPushOperation(prisma: any, store: any, businessId: string, r
       let prior: any = null;
       try {
         prior = await store.findUnique({
-          where: { companyId_opKey: { companyId: businessId, opKey: String(opKey) } }
+          where: { uq_sync_processed_op_key: { companyId: businessId, opKey: String(opKey) } }
         });
       } catch { prior = null; }
       if (prior) {
