@@ -61,8 +61,9 @@ export function ShortcutsHelpDialog({
           ))}
 
           <p className="rounded-[12px] bg-[#f4f6fa] px-3 py-2.5 text-xs leading-relaxed text-[#4a5578]">
-            On the Point of Sale screen, <Kbd>Alt+1</Kbd> / <Kbd>Alt+2</Kbd>{" "}
-            select Cash / Card tender instead of navigating. Every action
+            On the Point of Sale screen, <Kbd>Alt+C</Kbd> / <Kbd>Alt+B</Kbd>{" "}
+            select Cash / Card tender. <Kbd>Alt+1</Kbd>–<Kbd>Alt+6</Kbd>{" "}
+            navigate everywhere, including the register. Every action
             still works with the mouse or touch exactly as before.
           </p>
         </div>

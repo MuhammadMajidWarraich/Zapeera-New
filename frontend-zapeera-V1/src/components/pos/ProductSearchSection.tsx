@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, ScanBarcode, Building2, X } from 'lucide-react';
@@ -130,6 +130,19 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
     burstTrackerRef.current = new BurstTracker();
   }
 
+  // Keyboard navigation of search results (revised map, 2026-10-26):
+  // ↑/↓ move a highlighted row; Enter adds the highlighted product
+  // instead of always the first. The ring only shows while a query
+  // is typed (in browse mode Enter does nothing).
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+  const resultCount = filteredProducts.length;
+  useEffect(() => {
+    setHighlightedIndex((i) => Math.min(i, Math.max(0, resultCount - 1)));
+  }, [resultCount]);
+
   // Auto-focus the search input
   useEffect(() => {
     if (inputRef.current) {
@@ -147,20 +160,40 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
     const now = e.timeStamp || performance.now();
 
     if (e.key === 'Enter') {
+      // Ctrl+Enter belongs to the register (Proceed to Payment), not
+      // to the search box — let it bubble to the POS listener.
+      if (e.ctrlKey || e.metaKey) {
+        return;
+      }
       const code = tracker.pushEnter(now);
       if (code && scanningEnabled && onScanSubmit) {
         e.preventDefault();
         onScanSubmit(code);
         return;
       }
-      // Plain Enter (typed query, not a scanner burst): add the first
-      // matching product — the keyboard path to a sale without the mouse.
-      // The query is cleared so the next item can be typed straight away.
+      // Plain Enter (typed query, not a scanner burst): add the
+      // HIGHLIGHTED product — the keyboard path to a sale without
+      // the mouse. The query is cleared so the next item can be
+      // typed straight away.
       if (searchQuery.trim() && filteredProducts.length > 0) {
         e.preventDefault();
-        onAddToCart(filteredProducts[0], 1, filteredProducts[0].unitType);
+        const idx = Math.min(highlightedIndex, filteredProducts.length - 1);
+        const target = filteredProducts[Math.max(0, idx)];
+        onAddToCart(target, 1, target.unitType);
         onSearchChange('');
       }
+      return;
+    }
+    // ↑/↓ navigate the search results (revised map). preventDefault
+    // keeps the text cursor from moving inside the input.
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (filteredProducts.length === 0) return;
+      e.preventDefault();
+      setHighlightedIndex((i) =>
+        e.key === 'ArrowDown'
+          ? Math.min(i + 1, filteredProducts.length - 1)
+          : Math.max(i - 1, 0),
+      );
       return;
     }
     if (e.key === 'Escape') {
@@ -318,7 +351,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               />
             </div>
           ) : Array.isArray(filteredProducts) && filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => {
+            filteredProducts.map((product, index) => {
               const allBatches = productBatches[product.id] || [];
               const batches = getBatchesForProduct ? getBatchesForProduct(product.id) : allBatches;
               const selectedBatch = getSelectedBatch(product.id);
@@ -343,18 +376,30 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                 onSelectVariant: onSelectVariant ? (variantId: string | null) => onSelectVariant(product.id, variantId) : undefined,
               };
 
-              return isSplit ? (
+              const highlighted =
+                searchQuery.trim() !== '' && index === highlightedIndex;
+              const card = isSplit ? (
                 <PosProductCard
-                  key={product.id}
                   {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
                 />
               ) : (
                 <ProductCard
-                  key={product.id}
                   {...sharedProps}
                   onAddToCart={(quantity, unitType) => onAddToCart(product, quantity, unitType)}
                 />
+              );
+              return (
+                <div
+                  key={product.id}
+                  className={
+                    highlighted
+                      ? 'rounded-2xl ring-2 ring-[#1a52c5] ring-offset-1'
+                      : undefined
+                  }
+                >
+                  {card}
+                </div>
               );
             })
           ) : searchQuery.trim() ? (

@@ -10,9 +10,9 @@ import {
 
 /**
  * Global keyboard shortcuts — mounted once inside the router (AppRoutes).
- * Active only while signed in; the POS screen owns Alt+1/Alt+2 itself
- * (its capture-phase listener stops propagation, so these navigation
- * bindings never see those keys there).
+ * Active only while signed in. Revised map (research, 2026-10-26):
+ * Alt+1–6 are navigation-only everywhere now that tender moved off
+ * Alt+digits, so the global listener owns them on the POS screen too.
  */
 export function GlobalShortcuts() {
   const navigate = useNavigate();
@@ -99,6 +99,13 @@ export function GlobalShortcuts() {
         allowWhileTyping: true,
       },
       { combo: { key: "/" }, handler: () => focusSearch() },
+      {
+        // Ctrl+F focuses search too (Shopify convention) — same
+        // handler as `/` (POS search first, else global search).
+        combo: { key: "f", ctrl: true },
+        handler: () => focusSearch(),
+        allowWhileTyping: true,
+      },
       {
         // '?' with or without Shift (layouts and synthetic events differ)
         test: (e) => e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey,

@@ -13,9 +13,12 @@
  *   in). Esc is handled by Radix dialogs natively.
  * - No browser/OS-reserved combos: no Ctrl+W/T/N, no F5, no F12, no
  *   Alt+Left/Right (history), no Alt+D (address bar), no Ctrl+Shift+T/J.
- * - The POS listener runs in the capture phase and stops propagation for
- *   the keys it owns, so Alt+1/Alt+2 mean Cash/Card tender on the POS
- *   screen and Dashboard/POS navigation everywhere else.
+ * - Revised map (research, 2026-10-26): tender moved off Alt+digits
+ *   (Alt+C cash / Alt+B card), so there is no capture-phase exception
+ *   any more — Alt+1–6 are navigation-only everywhere and the global
+ *   listener owns them. Ctrl+P is context-scoped by its binding's
+ *   `test`, so it never hijacks the browser's print outside the POS
+ *   receipt flow.
  */
 import { useEffect, useRef } from "react";
 
@@ -58,9 +61,11 @@ export function comboMatches(e: KeyboardEvent, combo: ShortcutCombo): boolean {
 }
 
 /**
- * Register window keydown bindings. `capture: true` listeners run first
- * and stop propagation on a match, so a screen-level listener (POS) can
- * own keys that the global listener also defines (Alt+1 / Alt+2).
+ * Register window keydown bindings. Bindings are matched in order; on a
+ * match the event is preventDefaulted and the handler runs. A binding's
+ * `test` runs before preventDefault, so a context-scoped key (Ctrl+P)
+ * only ever matches when its context holds — otherwise the browser
+ * default proceeds untouched.
  */
 export function useKeyboardShortcuts(
   bindings: ShortcutBinding[],
@@ -119,17 +124,26 @@ export const SHORTCUT_HELP_GROUPS: ShortcutHelpGroup[] = [
   {
     title: "Point of Sale",
     items: [
-      { keys: "F2", label: "Focus product search" },
-      { keys: "Enter", label: "Add first matching product (in search)" },
+      { keys: "F2 / Ctrl+F", label: "Focus product search" },
+      { keys: "↑ / ↓", label: "Navigate search results" },
+      { keys: "Enter", label: "Add highlighted product (in search)" },
       { keys: "+ / −", label: "Increase / decrease last line quantity" },
-      { keys: "F4", label: "Proceed to Payment" },
+      {
+        keys: "Ctrl+Enter",
+        label: "Proceed to Payment (or Complete Sale when the payment dialog is open)",
+      },
+      { keys: "F4", label: "Apply discount" },
       { keys: "F8", label: "Hold sale" },
-      { keys: "Alt+R", label: "Open Transactions" },
-      { keys: "Alt+1 / Alt+2", label: "Cash / Card tender" },
+      { keys: "Alt+T", label: "Open Transactions" },
+      { keys: "Alt+C / Alt+B", label: "Cash / Card tender" },
       { keys: "1–8", label: "Pick payment method (payment dialog open)" },
-      { keys: "Ctrl+Enter", label: "Complete Sale" },
-      { keys: "F9", label: "Print Receipt (receipt open)" },
+      {
+        keys: "Ctrl+P",
+        label: "Print Receipt (receipt open) / Reprint last receipt (on POS)",
+      },
       { keys: "N", label: "New Sale (receipt open)" },
+      { keys: "Delete", label: "Remove line from sale" },
+      { keys: "Ctrl+U", label: "Add / set customer" },
       { keys: "Esc", label: "Close dialog / clear search" },
     ],
   },
@@ -147,7 +161,7 @@ export const SHORTCUT_HELP_GROUPS: ShortcutHelpGroup[] = [
   {
     title: "General",
     items: [
-      { keys: "/", label: "Focus search" },
+      { keys: "/ / Ctrl+F", label: "Focus search" },
       { keys: "?", label: "Show this shortcuts help" },
       { keys: "Ctrl+S", label: "Save (where a save button exists)" },
       { keys: "Esc", label: "Close dialog or menu" },
