@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import MODULE_HIERARCHY from '../config/module-hierarchy';
 import { moduleAccessCache } from '../utils/modules-v2.util';
+import { isModuleApplicableToBusinessType } from '../utils/module-applicability.util';
 
 /**
  * Get all business types with real business counts
@@ -473,6 +474,38 @@ export const updateBusinessTypeModules = async (req: AuthRequest, res: Response)
     }
 
     const enabledSet = new Set(keysToEnable.map((k: string) => k.toLowerCase()));
+
+    // L-7 fix (2026-10-26): validate the modules being enabled against
+    // the applicability map for THIS business type. A wrong-type module
+    // row must be rejected here, not persisted and silently overridden
+    // later by the hard deny in checkModule / getModuleAccessV2. Both
+    // the full key and its module part are checked, so a sub-module key
+    // under a denied module (e.g. prescriptions::review for a HOTEL) is
+    // rejected too. Any row this rejects would have been hard-denied at
+    // runtime anyway, so no legitimate flow can depend on it.
+    const businessTypeRow = await (prisma.businessType as any).findUnique({
+      where: { id },
+      select: { name: true },
+    });
+    if (businessTypeRow?.name) {
+      const rejected: string[] = [];
+      for (const key of keysToEnable) {
+        const modulePart = String(key).split('::')[0];
+        if (
+          !isModuleApplicableToBusinessType(key, businessTypeRow.name) ||
+          !isModuleApplicableToBusinessType(modulePart, businessTypeRow.name)
+        ) {
+          rejected.push(String(key));
+        }
+      }
+      if (rejected.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Modules not available for business type ${businessTypeRow.name}: ${rejected.join(', ')}`,
+          details: { code: 'MODULE_NOT_APPLICABLE_TO_BUSINESS_TYPE', rejected },
+        });
+      }
+    }
 
     // All module keys to persist (enabled or disabled) — if moduleOrder provided use it, else all modules
     const allKeys = Array.isArray(moduleOrder) && moduleOrder.length > 0

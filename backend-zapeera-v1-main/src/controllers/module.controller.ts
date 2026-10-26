@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { getModuleAccessV2, toLegacyModuleAccessPayload, type SubModuleAccessResult } from '../utils/modules-v2.util';
+import { normalizeModuleKey } from '../utils/module-applicability.util';
 import MODULE_HIERARCHY, { ModuleConfig, SubModuleConfig } from '../config/module-hierarchy';
 
 const isMissingTableError = (error: any): boolean => {
@@ -163,13 +164,20 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
     const subModuleReasonMap = new Map<string, SubModuleAccessResult>();
     if (Array.isArray(v2Payload.subModuleResults)) {
       for (const smr of v2Payload.subModuleResults) {
-        subModuleReasonMap.set(`${smr.module.toLowerCase()}::${smr.key.toLowerCase()}`, smr);
+        // L-6 fix (2026-10-26): normalize the key (hyphens → underscores).
+        // The V2 resolver returns normalized keys (e.g. sales::tax_classes)
+        // while the hierarchy uses hyphens (sales::tax-classes); without
+        // normalization the lookup below misses and the fallback marks the
+        // page enabled, leaking denied pages into the sidebar.
+        subModuleReasonMap.set(normalizeModuleKey(`${smr.module}::${smr.key}`), smr);
       }
     }
 
     // Backward-compatible flat set (used only as fallback)
+    // L-6 fix (2026-10-26): normalize entries the same way as the map and
+    // the lookup below, or hyphenated pages miss this set too.
     const disabledSubModulesSet = new Set<string>(
-      Array.isArray(v2Payload.disabledSubModules) ? v2Payload.disabledSubModules.map((s: string) => s.toLowerCase()) : []
+      Array.isArray(v2Payload.disabledSubModules) ? v2Payload.disabledSubModules.map((s: string) => normalizeModuleKey(s)) : []
     );
     const enabledModulesData = toLegacyModuleAccessPayload(v2Payload).data;
     const normalizedRole = userRole === 'ADMIN' ? 'OWNER' : userRole.toUpperCase();
@@ -194,7 +202,9 @@ export const getModuleHierarchy = async (req: AuthRequest, res: Response) => {
 
         // Per-sub-module filtering with denial-reason awareness
         const processedSubModules = module.subModules.map((sub) => {
-          const subKey = `${sub.module.toLowerCase()}::${sub.key.toLowerCase()}`;
+          // L-6 fix (2026-10-26): normalize the lookup key the same way as
+          // the map keys above (hyphens → underscores).
+          const subKey = normalizeModuleKey(`${sub.module}::${sub.key}`);
           const smr = subModuleReasonMap.get(subKey);
           const effective = smr
             ? { enabled: smr.enabled, disabledReason: smr.enabled ? null : smr.primaryDenialReason }

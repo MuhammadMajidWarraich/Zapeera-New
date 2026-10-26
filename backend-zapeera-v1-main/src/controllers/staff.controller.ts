@@ -133,6 +133,17 @@ export const getStaff = async (req: AuthRequest, res: Response) => {
       };
     }
 
+    // Business-type scoping (L-4 fix, 2026-10-26): staff rows belong to
+    // the SELECTED business only. Without this there was no business
+    // filter at all, so every business listed the same staff.
+    // buildBranchWhereClause resolves the selected business from the
+    // membership (X-Business-ID) with the 'no-business-context' sentinel
+    // when none resolves, so a missing context matches nothing.
+    where.membership = {
+      ...where.membership,
+      businessId: buildBranchWhereClause(req as any, {}).companyId,
+    };
+
     const [staffProfiles, total] = await Promise.all([
       prisma.staffProfile.findMany({
         where,
@@ -214,7 +225,12 @@ export const getStaffMember = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
     const staffProfile = await prisma.staffProfile.findFirst({
-      where: { id },
+      // Business-type scoping (L-4 fix, 2026-10-26): a staff profile from
+      // another business must not be fetchable by id.
+      where: {
+        id,
+        membership: { businessId: buildBranchWhereClause(req as any, {}).companyId },
+      },
       include: {
         membership: {
           include: {
@@ -794,6 +810,13 @@ export const getStaffStats = async (req: AuthRequest, res: Response) => {
         branches: { some: { branchId: branchId as string } }
       };
     }
+
+    // Business-type scoping (L-4 fix, 2026-10-26): stats are for the
+    // SELECTED business only.
+    where.membership = {
+      ...where.membership,
+      businessId: buildBranchWhereClause(req as any, {}).companyId,
+    };
 
     const [
       totalStaff,

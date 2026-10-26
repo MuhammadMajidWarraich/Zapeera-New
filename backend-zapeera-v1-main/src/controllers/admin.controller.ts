@@ -366,7 +366,11 @@ export const createAdmin = async (req: AuthRequest, res: Response): Promise<void
           address: 'Default Address',
           phone: finalPhone,
           email,
-          businessType: 'STORE',
+          // L-8/L-9 fix (2026-10-26): 'STORE' is not a real business type
+          // (no BusinessType row) — a company created with it was bricked
+          // by the type gates. 'PHARMACY' is the codebase default (same as
+          // the tenant create path) until a type is chosen for the company.
+          businessType: 'PHARMACY',
           createdBy: currentUser.id // Temporary, will be updated below
         }
       });

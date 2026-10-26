@@ -810,6 +810,16 @@ export const getRefunds = async (req: AuthRequest, res: Response): Promise<void>
       };
     }
 
+    // Business-type scoping (L-3 fix, 2026-10-26): scope the list to the
+    // SELECTED business. targetCompanyId was computed above but NEVER added
+    // to the where clause, so an owner with many businesses saw every
+    // business's refunds (72 identical rows in Medicos, GS and Clinic).
+    // Fail closed: without a resolvable business context, match nothing.
+    whereClause.originalSale = {
+      ...whereClause.originalSale,
+      companyId: targetCompanyId || 'no-business-context',
+    };
+
     // Apply branch filter if provided
     if (branchId) {
       whereClause.originalSale = {
@@ -945,6 +955,21 @@ export const getRefundById = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!refund) {
+      res.status(404).json({
+        success: false,
+        message: 'Refund not found'
+      });
+      return;
+    }
+
+    // Business-type scoping (L-3 fix, 2026-10-26): a refund whose original
+    // sale belongs to another business is indistinguishable from a missing
+    // refund — never leak a cross-business row by id.
+    const targetCompanyId = (req as any).user?.selectedCompanyId
+      || (req as any).user?.companyId
+      || (req as any).business_id
+      || (req as any).membership?.business_id;
+    if (!refund.originalSale || refund.originalSale.companyId !== targetCompanyId) {
       res.status(404).json({
         success: false,
         message: 'Refund not found'

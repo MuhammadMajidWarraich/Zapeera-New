@@ -31,6 +31,14 @@ export const isPrescriptionEnforced = async (
   adminId: string | undefined | null,
   businessType: string | undefined | null
 ): Promise<boolean> => {
+  // L-11 fix (2026-10-26): enforcement ON is impossible for a non-pharmacy
+  // business. Before this, a stored 'true' (e.g. carried over from a
+  // pharmacy-era setting) won over the type default and blocked sales for
+  // a hotel/clinic/store. A missing type defaults to PHARMACY, the same
+  // default checkModule uses — an untyped legacy row is not blocked.
+  const typeKey = String(businessType || 'PHARMACY').trim().toUpperCase();
+  if (typeKey !== 'PHARMACY') return false;
+
   if (adminId) {
     try {
       const setting = await prisma.settings.findUnique({
@@ -49,5 +57,5 @@ export const isPrescriptionEnforced = async (
       console.warn('Could not fetch prescription enforcement setting, using business-type default:', error);
     }
   }
-  return String(businessType || '').trim().toUpperCase() === 'PHARMACY';
+  return true;
 };

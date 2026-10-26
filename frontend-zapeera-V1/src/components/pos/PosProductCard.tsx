@@ -55,6 +55,8 @@ interface PosProductCardProps {
   selectedVariant?: ProductVariantLite | null;
   hasBaseStock?: boolean;
   onSelectVariant?: (variantId: string | null) => void;
+  /** Hide the Strip sell-by button (L-10 fix, 2026-10-26). Defaults to shown. */
+  showStripOption?: boolean;
 }
 
 const PosProductCard: React.FC<PosProductCardProps> = ({
@@ -69,6 +71,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
   selectedVariant,
   hasBaseStock,
   onSelectVariant,
+  showStripOption = true,
 }) => {
   const [selectedUnitType, setSelectedUnitType] = useState<string>('unit');
   const [quantity, setQuantity] = useState<number>(1);
@@ -322,7 +325,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
               <button type="button" onClick={() => setSelectedUnitType('unit')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'unit' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
                 Unit
               </button>
-              {unitsPerStrip ? (
+              {unitsPerStrip && showStripOption ? (
                 <button type="button" onClick={() => setSelectedUnitType('strip')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'strip' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
                   Strip
                 </button>

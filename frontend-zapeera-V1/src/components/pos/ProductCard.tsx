@@ -49,6 +49,8 @@ interface ProductCardProps {
   selectedVariant?: ProductVariantLite | null;
   hasBaseStock?: boolean;
   onSelectVariant?: (variantId: string | null) => void;
+  /** Hide the Strip sell-by button (L-10 fix, 2026-10-26). Defaults to shown. */
+  showStripOption?: boolean;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -63,6 +65,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   selectedVariant,
   hasBaseStock,
   onSelectVariant,
+  showStripOption = true,
 }) => {
   const [selectedUnitType, setSelectedUnitType] = useState<string>('unit');
   const [quantity, setQuantity] = useState<number>(1);
@@ -246,7 +249,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               >
                 Unit
               </Button>
-              {unitsPerStrip ? (
+              {unitsPerStrip && showStripOption ? (
                 <Button
                   type="button"
                   size="sm"

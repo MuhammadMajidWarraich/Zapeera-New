@@ -1696,6 +1696,10 @@ toast({
                 What one loyalty point is worth when a customer redeems points at the POS. Customers earn 1 point per PKR 100 spent.
               </p>
             </div>
+            {/* L-11 fix (2026-10-26): the prescription control is PHARMACY-only — for
+                every other business type the setting is meaningless, and the server
+                now ignores an explicit ON for non-pharmacy too. */}
+            {(selectedCompany as any)?.businessType === 'PHARMACY' && (
             <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">
               <Label htmlFor="require-prescription-pos" className="mb-2 block text-sm font-bold text-[#0a1128]">
                 Prescription Required at POS
@@ -1720,6 +1724,7 @@ toast({
                 record — the cashier sees a warning instead.
               </p>
             </div>
+            )}
           </div>
         </section>
 

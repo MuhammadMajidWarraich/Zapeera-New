@@ -88,6 +88,14 @@ export interface AddonCatalogueEntry {
    * for any future unpriced pack.
    */
   pricingPending?: boolean;
+  /**
+   * Business types this add-on applies to (L-2 fix, 2026-10-26). When
+   * set, only businesses of one of these types may buy the pack, and
+   * getEffectiveLimits reports its flag false for every other type — so
+   * the public gates that read those flags are covered too. Absent =
+   * applies to every type.
+   */
+  applicableBusinessTypes?: string[];
 }
 
 export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
@@ -158,6 +166,9 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     // no setup fee, no lock-in.
     priceMonthly: 500,
     stackable: false,
+    // L-2 fix (2026-10-26): the storefront is an Online PHARMACY Store —
+    // a hotel/clinic must not be able to buy it.
+    applicableBusinessTypes: ['PHARMACY'],
   },
   PRESCRIPTION_UPLOAD_PACK: {
     type: 'PRESCRIPTION_UPLOAD_PACK',
@@ -169,6 +180,8 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
     // PKR 15,000/yr (Rs 1,250/mo) — Zapeera undercuts by 20%.
     priceMonthly: 1000,
     stackable: false,
+    // L-2 fix (2026-10-26): prescription upload is pharmacy-only.
+    applicableBusinessTypes: ['PHARMACY'],
   },
   GIFT_CARD_KIOSK_PACK: {
     type: 'GIFT_CARD_KIOSK_PACK',
@@ -336,6 +349,19 @@ function resolveInclusion(planId: string | null | undefined): { planId: PlanId; 
 }
 
 /**
+ * L-2 fix (2026-10-26): is this add-on buyable / effective for a business
+ * of the given type? Add-ons without applicableBusinessTypes apply to
+ * every type. A missing/empty type falls back to PHARMACY, the same
+ * default checkModule uses — an untyped legacy row is not blocked.
+ */
+export function isAddonApplicableToBusinessType(type: AddonType, businessType: unknown): boolean {
+  const allowed = ADDON_CATALOGUE[type]?.applicableBusinessTypes;
+  if (!allowed || allowed.length === 0) return true;
+  const typeKey = String(businessType || 'PHARMACY').toUpperCase().replace(/[\s-]+/g, '_');
+  return allowed.includes(typeKey);
+}
+
+/**
  * THE effective-limits function. Every add-on/plan gate in the backend
  * must go through this — never re-derive plan + add-on math inline.
  */
@@ -343,6 +369,22 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const sub = await getBusinessPlan(prisma, businessId);
   const { planId, inclusion } = resolveInclusion(sub?.planId);
   const isTrial = planId === PLANS.TRIAL || String(sub?.status || '').toUpperCase() === 'TRIAL';
+
+  // L-2 fix (2026-10-26): the business type gates the pharmacy packs —
+  // a hotel/clinic that somehow holds an ONLINE_STORE_PACK or
+  // PRESCRIPTION_UPLOAD_PACK row gets both flags false here, so the
+  // public storefront / prescription-upload gates (online-store.util.ts,
+  // which read these flags) stay closed for it.
+  let businessType: string | null = null;
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { businessType: true },
+    });
+    businessType = business?.businessType ?? null;
+  } catch {
+    businessType = null;
+  }
 
   let rows: any[] = [];
   try {
@@ -371,8 +413,10 @@ export async function getEffectiveLimits(prisma: any, businessId: string): Promi
   const advancedReportsAllowed = inclusion.advancedReports || has('REPORTS_PACK');
   const multiBranchReportsAllowed = inclusion.multiBranchReports || has('REPORTS_PACK');
   const whatsappPack = has('WHATSAPP_PACK');
-  const onlineStoreAllowed = has('ONLINE_STORE_PACK');
-  const prescriptionUploadAllowed = has('PRESCRIPTION_UPLOAD_PACK');
+  const onlineStoreAllowed = has('ONLINE_STORE_PACK')
+    && isAddonApplicableToBusinessType('ONLINE_STORE_PACK', businessType);
+  const prescriptionUploadAllowed = has('PRESCRIPTION_UPLOAD_PACK')
+    && isAddonApplicableToBusinessType('PRESCRIPTION_UPLOAD_PACK', businessType);
   const giftCardKioskAllowed = has('GIFT_CARD_KIOSK_PACK');
 
   const voiceConfig = await getVoiceAiConfig(prisma);

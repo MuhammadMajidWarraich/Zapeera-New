@@ -64,6 +64,10 @@ interface ProductSearchSectionProps {
   onScanSubmit?: (barcode: string) => void;
   /** Barcode scanning switch for this business (default true). */
   scanningEnabled?: boolean;
+  /** Hide the strip-selling option on product cards (L-10 fix, 2026-10-26):
+   *  strip selling only applies to product-selling business types.
+   *  Defaults to shown, so existing usages are unaffected. */
+  showStripOption?: boolean;
   /** Use on full-width split layouts so the list grows with the column */
   layout?: 'default' | 'split';
   className?: string;
@@ -117,6 +121,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   onSelectVariant,
   onScanSubmit,
   scanningEnabled = true,
+  showStripOption = true,
   layout = 'default',
   className,
   categories,
@@ -394,6 +399,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                 variants,
                 selectedVariant,
                 hasBaseStock,
+                showStripOption,
                 onSelectVariant: onSelectVariant ? (variantId: string | null) => onSelectVariant(product.id, variantId) : undefined,
               };
 

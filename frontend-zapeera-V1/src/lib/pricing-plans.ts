@@ -21,7 +21,7 @@ export interface PricingPlan {
    * Business owner access is enforced separately (company.createdBy).
    */
   dashboardAccessRoles?: DashboardAccessRole[];
-  businessTypes?: Array<"PHARMACY" | "STORE" | "HOTEL" | "CLINIC">;
+  businessTypes?: Array<"PHARMACY" | "DEPARTMENTAL_STORE" | "HOTEL" | "CLINIC">;
   limits?: {
     maxBranches?: number | null;
     maxCountersPerBranch?: number | null;
