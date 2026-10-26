@@ -46,6 +46,9 @@ export type UnitLevel = 'PACK' | 'STRIP' | 'UNIT';
 export interface UnitStructure {
   unitsPerPack?: number | null;
   unitsPerStrip?: number | null;
+  // Loose / by-weight selling (Stage 1): 'KG' = the product sells by
+  // the kilo, stock counted in grams. breakdownStock renders it in kg.
+  unitType?: string | null;
 }
 
 export const UNIT_LEVELS: readonly UnitLevel[] = ['PACK', 'STRIP', 'UNIT'];
@@ -99,9 +102,15 @@ export interface StockBreakdown {
  * Greedy display breakdown of a base-unit quantity into whole packs,
  * then whole strips, then loose base units. Unstructured products (or
  * quantities below one pack) degrade gracefully.
+ *
+ * Loose / by-weight selling (Stage 1): a KG product's stock is grams,
+ * so the breakdown reads in kilos ("50.000 kg") — never "50 packs".
  */
 export function breakdownStock(baseQty: number, structure: UnitStructure): StockBreakdown {
   const qty = Math.max(0, Math.floor(baseQty || 0));
+  if (String(structure.unitType || '').trim().toUpperCase() === 'KG') {
+    return { packs: 0, strips: 0, units: qty, text: `${(qty / 1000).toFixed(3)} kg` };
+  }
   const perPack = structure.unitsPerPack && structure.unitsPerPack > 0 ? structure.unitsPerPack : 0;
   const perStrip = structure.unitsPerStrip && structure.unitsPerStrip > 0 ? structure.unitsPerStrip : 0;
   let packs = 0;

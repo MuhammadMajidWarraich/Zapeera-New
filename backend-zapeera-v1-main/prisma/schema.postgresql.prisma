@@ -543,6 +543,13 @@ model Product {
   // always counted in base units (tablets); unitsPerPack /
   // unitsPerStrip only describe how those units are packaged.
   unitsPerStrip        Int?
+  // Loose / by-weight selling (Stage 1, 2026-10-26): 'KG' = sold by the
+  // kilo, stock counted in grams (base units), unitsPerPack forced to
+  // 1000 (grams per kilo) — the "pack" IS the kilo. Null = sold by
+  // pieces (the historical behaviour). Gated by business type (see
+  // module-applicability.util.ts isWeightSellingAllowedForBusinessType):
+  // only DEPARTMENTAL_STORE / RETAIL_STORE may carry KG products.
+  unitType             String?
   barcode              String?   @unique
   additionalBarcodes   String?   // JSON array of additional barcodes: ["CODE1","CODE2"]
   barcodeType          String?   @default("CODE128") // CODE128, EAN13, EAN8, UPC_A, UPC_E, CODE39, QR

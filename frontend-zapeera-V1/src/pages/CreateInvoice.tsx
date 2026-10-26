@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { escapeHtml } from "@/utils/html-escape";
-import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, type UnitLevel } from "@/utils/units";
+import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType, isWeightSellingAllowedForBusinessType, type UnitLevel } from "@/utils/units";
 import { batchInLinePool, variantUnitPrice, type ProductVariantLite } from "@/utils/variants";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -227,12 +227,30 @@ interface Receipt {
  * piece count for everything else.
  */
 const cartItemQtyPhrase = (item: CartItem): string => {
+  // Loose / by-weight selling (Stage 1): a kilo line reads in kg
+  // ("0.500 kg"), never "packs (N tablets)".
+  if (item.unitType === "kg" && item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+    const levelQty = item.levelQuantity ?? item.quantity / item.unitFactor;
+    return `${levelQty.toFixed(3)} kg`;
+  }
   if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
     const levelQty = item.levelQuantity ?? item.quantity / item.unitFactor;
     return `${levelQty} ${levelLabel(item.unitLevel, levelQty)} (${item.quantity} tablets)`;
   }
   return `${item.quantity}`;
 };
+
+/**
+ * Loose / by-weight selling (Stage 1): a receipt line is a kilo line
+ * when it carries the weight conjunction — PACK level, factor 1000
+ * (grams per kilo), unitType 'kg'/'KG'. A pharmacy pack of 1000 tablets
+ * has factor 1000 but unitType 'tablets'; a legacy UNIT gram line has
+ * no PACK level. Same conjunction as describeStoredLine's KG branch
+ * and the receipt detailsLine builders — so the " / kg" price suffix
+ * appears exactly when the qty phrase reads "N.NNN kg".
+ */
+const isKgReceiptLine = (item: { unitLevel?: string | null; unitFactor?: number | null; unitType?: string | null }): boolean =>
+  (item.unitLevel || "").toUpperCase() === "PACK" && item.unitFactor === KG_GRAMS_PER_KG && isWeightUnitType(item.unitType);
 
 /**
  * Tax classes (Wave B5): per-class tax lines appear on a receipt only
@@ -326,6 +344,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [invoiceItems, setInvoiceItems] = useState<CartItem[]>([]);
+  // Loose / by-weight selling (Stage 1): per-cart-line local strings
+  // for the decimal KG qty input and the amount→weight input. Local
+  // strings (not controlled numbers) so typing "0." does not snap
+  // back while the cashier is mid-typing; committed on blur/Enter.
+  const [kgInputByItem, setKgInputByItem] = useState<Record<string, string>>({});
+  const [weightAmountByItem, setWeightAmountByItem] = useState<Record<string, string>>({});
   const [invoiceCustomer, setInvoiceCustomer] = useState({
     name: "",
     phone: ""
@@ -1739,8 +1763,23 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       ? selectedBatch.unitsPerBox
       : (inferredUnitsPerBox || product.unitsPerBox || product.unitsPerPack || 1);
     const unitsPerBox = resolvedUnitsPerBox;
-    const isBoxSale = unitType === "box" || unitType === "pack";
-    const isStripSale = unitType === "strip";
+    // Loose / by-weight selling (Stage 1): "kg" is the kilo level —
+    // the pack IS the kilo (1000 g). A kilo add is refused in
+    // business types where weight selling does not belong (the API
+    // would 400 the sale anyway); the KG button is hidden there, so
+    // this only fires for scan/search adds of a KG product.
+    const normalizedUnitType = (unitType || "").toString().toLowerCase();
+    const isKgSale = normalizedUnitType === "kg";
+    if (isKgSale && !isWeightSellingAllowed) {
+      toast({
+        title: "Not available",
+        description: "Weight selling is not available for this business type.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const isBoxSale = normalizedUnitType === "box" || normalizedUnitType === "pack";
+    const isStripSale = normalizedUnitType === "strip";
 
     // DEBUG: Log product data to verify unitsPerBox
     // CRITICAL: If box is selected but unitsPerBox is 1, warn the user
@@ -1754,11 +1793,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     // take the exact legacy flow (factor 1, no level fields).
     const resolvedUnitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
     const isStructuredProduct = (product.unitsPerPack || 0) > 1 || !!resolvedUnitsPerStrip;
-    const saleLevel: UnitLevel = isBoxSale ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
-    const levelFactor = saleLevel === "PACK" ? unitsPerBox : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
+    const saleLevel: UnitLevel = (isBoxSale || isKgSale) ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
+    const levelFactor = saleLevel === "PACK" ? (isKgSale ? KG_GRAMS_PER_KG : unitsPerBox) : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
 
-    const finalQuantity = quantity * levelFactor;
-    const finalUnitType = isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType);
+    const finalQuantity = isKgSale ? Math.round(quantity * levelFactor) : quantity * levelFactor;
+    const finalUnitType = isKgSale ? "kg" : (isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType));
     const batchPrice = variantUnitPrice(selectedBatch.sellingPrice || product.price, lineVariant?.priceDelta);
 
     // Calculate unit price: per LEVEL unit (batchPrice is per tablet,
@@ -1785,6 +1824,47 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       item.productId === product.id &&
       (item.variantId || null) === (lineVariant ? lineVariant.id : null)
     );
+
+    // Loose / by-weight selling (Stage 1): merging two kilo adds
+    // keeps the PACK level (grams add up, per-kg price averages) —
+    // the legacy merge below would normalize the line to per-gram
+    // UNIT pricing and lose the kg display.
+    if (existingItem && existingItem.unitType === "kg") {
+      const totalUnits = existingItem.quantity + finalQuantity;
+      if (totalUnits > selectedBatch.quantity) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Available stock in batch ${selectedBatch.batchNo}: ${selectedBatch.quantity} units.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const addedTotal = unitPrice * quantity; // unitPrice is per-kg here
+      const mergedTotal = existingItem.totalPrice + addedTotal;
+      const levelQty = totalUnits / KG_GRAMS_PER_KG;
+      setInvoiceItems(invoiceItems.map(item => {
+        if (item.id === existingItem.id) {
+          return {
+            ...item,
+            quantity: totalUnits,
+            levelQuantity: levelQty,
+            unitPrice: mergedTotal / levelQty,
+            totalPrice: mergedTotal,
+            unitType: "kg",
+            unitLevel: "PACK" as UnitLevel,
+            unitFactor: KG_GRAMS_PER_KG,
+            batchUnitPrice: batchPrice,
+            batchId: selectedBatch.id,
+            batch: selectedBatch.batchNo,
+            expiry: selectedBatch.expireDate
+              ? new Date(selectedBatch.expireDate).toLocaleDateString()
+              : "N/A"
+          };
+        }
+        return item;
+      }));
+      return;
+    }
 
     if (existingItem) {
       // Convert existing item quantity to units for comparison
@@ -1856,19 +1936,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         unitPrice: unitPrice, // Use calculated unit price (per level unit)
         totalPrice: totalPrice, // Total = unitPrice * original quantity (packs/strips/pieces)
         unitType: finalUnitType, // Store "box" if box was selected, otherwise product.unitType
-        unitsPerBox: unitsPerBox,
-        unitLevel: isStructuredProduct ? saleLevel : undefined,
-        unitFactor: isStructuredProduct ? levelFactor : undefined,
-        levelQuantity: isStructuredProduct ? quantity : undefined,
+        unitsPerBox: isKgSale ? KG_GRAMS_PER_KG : unitsPerBox,
+        unitLevel: isStructuredProduct || isKgSale ? saleLevel : undefined,
+        unitFactor: isStructuredProduct || isKgSale ? levelFactor : undefined,
+        levelQuantity: isStructuredProduct || isKgSale ? quantity : undefined,
         batchUnitPrice: batchPrice,
-        unitsPerPack: product.unitsPerPack || unitsPerBox,
+        unitsPerPack: isKgSale ? KG_GRAMS_PER_KG : (product.unitsPerPack || unitsPerBox),
         unitsPerStrip: resolvedUnitsPerStrip,
         variantId: lineVariant ? lineVariant.id : null,
         variantName: lineVariant ? lineVariant.name : null,
         batch: selectedBatch.batchNo,
         batchId: selectedBatch.id,
         expiry: expiryDate,
-        instructions: isBoxSale ? "Take as directed" : `Take ${quantity} ${unitType} as directed`,
+        // A kilo line carries no "Take as directed" instruction.
+        instructions: isKgSale ? undefined : (isBoxSale ? "Take as directed" : `Take ${quantity} ${unitType} as directed`),
         discountPercentage: 0,
         discountAmount: 0,
         requiresPrescription: product.requiresPrescription || false
@@ -1917,6 +1998,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     setInvoiceItems(invoiceItems.map(item => {
       if (item.id !== itemId) return item;
       const product = products.find(p => p.id === item.productId);
+      // Loose / by-weight selling (Stage 1): a kilo line has one
+      // level only (PACK = the kilo) — switching it to strip/unit
+      // would silently change grams into tablets.
+      const isKgLine = item.unitType === "kg" || isWeightUnitType(product?.unitType);
+      if (isKgLine && level !== "PACK") return item;
       const structure = {
         unitsPerPack: item.unitsPerPack || product?.unitsPerPack || item.unitsPerBox || 1,
         unitsPerStrip: item.unitsPerStrip ?? product?.unitsPerStrip ?? null
@@ -1937,7 +2023,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         unitPrice: unitPrice,
         totalPrice: subtotal - discountAmount,
         discountAmount: discountAmount,
-        unitType: level === "PACK" ? "box" : level === "STRIP" ? "strip" : (product?.unitType || "tablets"),
+        unitType: isKgLine ? "kg" : (level === "PACK" ? "box" : level === "STRIP" ? "strip" : (product?.unitType || "tablets")),
         unitsPerBox: level === "PACK" ? factor : item.unitsPerBox
       };
     }));
@@ -1984,8 +2070,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       ? selectedBatch.unitsPerBox
       : (inferredUnitsPerBox || product.unitsPerBox || product.unitsPerPack || 1);
     const unitsPerBox = resolvedUnitsPerBox;
-    const isBoxSale = unitType === "box" || unitType === "pack";
-    const isStripSale = unitType === "strip";
+    // Loose / by-weight selling (Stage 1): "kg" is the kilo level —
+    // the pack IS the kilo (1000 g). Refused in business types
+    // where weight selling does not belong (see addToInvoiceCart).
+    const normalizedUnitType = (unitType || "").toString().toLowerCase();
+    const isKgSale = normalizedUnitType === "kg";
+    if (isKgSale && !isWeightSellingAllowed) {
+      toast({
+        title: "Not available",
+        description: "Weight selling is not available for this business type.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const isBoxSale = normalizedUnitType === "box" || normalizedUnitType === "pack";
+    const isStripSale = normalizedUnitType === "strip";
     // Unit engine (Wave C2): for pack-structured products the line
     // is expressed in a selling LEVEL (pack / strip / tablet). The
     // cart keeps quantity in pieces and unitPrice per LEVEL unit;
@@ -1994,11 +2093,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     // take the exact legacy flow (factor 1, no level fields).
     const resolvedUnitsPerStrip = product.unitsPerStrip && product.unitsPerStrip > 1 ? product.unitsPerStrip : null;
     const isStructuredProduct = (product.unitsPerPack || 0) > 1 || !!resolvedUnitsPerStrip;
-    const saleLevel: UnitLevel = isBoxSale ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
-    const levelFactor = saleLevel === "PACK" ? unitsPerBox : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
+    const saleLevel: UnitLevel = (isBoxSale || isKgSale) ? "PACK" : (isStripSale && resolvedUnitsPerStrip ? "STRIP" : "UNIT");
+    const levelFactor = saleLevel === "PACK" ? (isKgSale ? KG_GRAMS_PER_KG : unitsPerBox) : saleLevel === "STRIP" ? (resolvedUnitsPerStrip as number) : 1;
 
-    const finalQuantity = quantity * levelFactor;
-    const finalUnitType = isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType);
+    const finalQuantity = isKgSale ? Math.round(quantity * levelFactor) : quantity * levelFactor;
+    const finalUnitType = isKgSale ? "kg" : (isBoxSale ? "box" : (isStripSale ? "strip" : product.unitType));
     const batchPrice = selectedBatch.sellingPrice || product.price;
     const unitPrice = batchPrice * levelFactor;
     const totalPrice = unitPrice * quantity;
@@ -2015,6 +2114,46 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     const existingItem = modalInvoiceItems.find(item =>
       item.productId === product.id
     );
+
+    // Loose / by-weight selling (Stage 1): merging two kilo adds
+    // keeps the PACK level (grams add up, per-kg price averages) —
+    // the legacy merge below would normalize to per-gram UNIT pricing.
+    if (existingItem && existingItem.unitType === "kg") {
+      const totalUnits = existingItem.quantity + finalQuantity;
+      if (totalUnits > selectedBatch.quantity) {
+        toast({
+          title: "Insufficient Stock",
+          description: `Available stock in batch ${selectedBatch.batchNo}: ${selectedBatch.quantity} units.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const addedTotal = unitPrice * quantity; // unitPrice is per-kg here
+      const mergedTotal = existingItem.totalPrice + addedTotal;
+      const levelQty = totalUnits / KG_GRAMS_PER_KG;
+      setModalInvoiceItems(modalInvoiceItems.map(item => {
+        if (item.id === existingItem.id) {
+          return {
+            ...item,
+            quantity: totalUnits,
+            levelQuantity: levelQty,
+            unitPrice: mergedTotal / levelQty,
+            totalPrice: mergedTotal,
+            unitType: "kg",
+            unitLevel: "PACK" as UnitLevel,
+            unitFactor: KG_GRAMS_PER_KG,
+            batchUnitPrice: batchPrice,
+            batchId: selectedBatch.id,
+            batch: selectedBatch.batchNo,
+            expiry: selectedBatch.expireDate
+              ? new Date(selectedBatch.expireDate).toLocaleDateString()
+              : "N/A"
+          };
+        }
+        return item;
+      }));
+      return;
+    }
 
     if (existingItem) {
       const existingUnits = existingItem.quantity;
@@ -2072,17 +2211,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         unitPrice: unitPrice,
         totalPrice: totalPrice,
         unitType: finalUnitType,
-        unitsPerBox: unitsPerBox,
-        unitLevel: isStructuredProduct ? saleLevel : undefined,
-        unitFactor: isStructuredProduct ? levelFactor : undefined,
-        levelQuantity: isStructuredProduct ? quantity : undefined,
+        unitsPerBox: isKgSale ? KG_GRAMS_PER_KG : unitsPerBox,
+        unitLevel: isStructuredProduct || isKgSale ? saleLevel : undefined,
+        unitFactor: isStructuredProduct || isKgSale ? levelFactor : undefined,
+        levelQuantity: isStructuredProduct || isKgSale ? quantity : undefined,
         batchUnitPrice: batchPrice,
-        unitsPerPack: product.unitsPerPack || unitsPerBox,
+        unitsPerPack: isKgSale ? KG_GRAMS_PER_KG : (product.unitsPerPack || unitsPerBox),
         unitsPerStrip: resolvedUnitsPerStrip,
         batch: selectedBatch.batchNo,
         batchId: selectedBatch.id,
         expiry: expiryDate,
-        instructions: isBoxSale ? "Take as directed" : `Take ${quantity} ${unitType} as directed`,
+        // A kilo line carries no "Take as directed" instruction.
+        instructions: isKgSale ? undefined : (isBoxSale ? "Take as directed" : `Take ${quantity} ${unitType} as directed`),
         discountPercentage: 0,
         discountAmount: 0
       };
@@ -3290,21 +3430,33 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               let displayQuantity = item.quantity;
               let displayUnitType = item.unitType;
               let displayUnitPrice = item.unitPrice;
+              let detailsLine = "";
 
-              // Convert pieces to boxes for display if unitType is box/pack
-              if (item.unitType === "pack" || item.unitType === "box") {
+              // Loose / by-weight selling (Stage 1): a kilo line
+              // reads "0.500 kg @ PKR 180.00/kg" — all four numbers,
+              // never "500 KG" and never "tablets".
+              const isKgLine = item.unitType === "kg" || isWeightUnitType(product?.unitType);
+              if (isKgLine && item.unitLevel === "PACK" && item.unitFactor === KG_GRAMS_PER_KG) {
+                displayQuantity = item.quantity / KG_GRAMS_PER_KG;
+                displayUnitType = "kg";
+                displayUnitPrice = item.unitPrice; // Already price per kg
+                detailsLine = `${displayQuantity.toFixed(3)} kg @ PKR ${displayUnitPrice.toFixed(2)}/kg`;
+              } else if (item.unitType === "pack" || item.unitType === "box") {
+                // Convert pieces to boxes for display if unitType is box/pack
                 displayQuantity = item.quantity / unitsPerPack;
                 displayUnitType = "BOX";
                 displayUnitPrice = item.unitPrice; // Already price per box
+                detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
               } else {
                 displayUnitType = item.unitType.toUpperCase();
+                detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
               }
 
               return `
               <div class="item">
                 <div>
                   <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
-                  <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
+                  <div class="item-details">${detailsLine}</div>
                   ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
                 </div>
                 <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
@@ -3686,27 +3838,40 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             let displayQuantity = item.quantity;
             let displayUnitType = item.unitType;
             let displayUnitPrice = item.unitPrice;
+            let detailsLine = "";
 
-            // Wave C2: leveled lines read in their level, with the
-            // tablet count alongside ("2 STRIP (20 tablets)").
-            if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+            // Loose / by-weight selling (Stage 1): a kilo line
+            // reads "0.500 kg @ PKR 180.00/kg" — all four numbers,
+            // never "BOX (500 tablets)".
+            const isKgLine = item.unitType === "kg" || isWeightUnitType(product?.unitType);
+            if (isKgLine && item.unitLevel === "PACK" && item.unitFactor === KG_GRAMS_PER_KG) {
+              displayQuantity = item.quantity / KG_GRAMS_PER_KG;
+              displayUnitType = "kg";
+              displayUnitPrice = item.unitPrice; // Already price per kg
+              detailsLine = `${displayQuantity.toFixed(3)} kg @ PKR ${displayUnitPrice.toFixed(2)}/kg`;
+            } else if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
+              // Wave C2: leveled lines read in their level, with the
+              // tablet count alongside ("2 STRIP (20 tablets)").
               displayQuantity = item.quantity / item.unitFactor;
               displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
               displayUnitPrice = item.unitPrice;
+              detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
             } else if (item.unitType === "pack" || item.unitType === "box") {
               // Convert pieces to boxes for display if unitType is box/pack
               displayQuantity = item.quantity / unitsPerPack;
               displayUnitType = "BOX";
               displayUnitPrice = item.unitPrice; // Already price per box
+              detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
             } else {
               displayUnitType = item.unitType.toUpperCase();
+              detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
             }
 
             return `
             <div class="item">
               <div>
                 <div class="item-name">${escapeHtml(item.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</div>
-                <div class="item-details">${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}</div>
+                <div class="item-details">${detailsLine}</div>
                 ${item.instructions ? `<div class="item-details">${escapeHtml(item.instructions)}</div>` : ''}
               </div>
               <div class="item-price">PKR ${item.totalPrice.toFixed(2)}</div>
@@ -4027,6 +4192,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // plain customer block for every other business type.
   const businessType = (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
   const isPharmacyBusiness = businessType === "PHARMACY";
+  // Loose / by-weight selling (Stage 1) — business-type scoping
+  // (standing rule 2026-10-26): the KG UI (card button, decimal KG
+  // input, amount→weight) renders only for general-retail types.
+  // The API refuses KG products/sales elsewhere, so the UI must
+  // never offer it there either.
+  const isWeightSellingAllowed = isWeightSellingAllowedForBusinessType(businessType);
 
   // L-10 fix (2026-10-26): strip selling only applies to product-selling
   // business types (pharmacy / general store / retail) — the strip
@@ -4561,8 +4732,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               }}
               onAddToCart={addToInvoiceCart}
               onScanSubmit={(code) => { void handleBarcodeScanned(code, "main"); }}
-              scanningEnabled={barcodeScanningEnabled}
               showStripOption={showStripOption}
+              isWeightSellingAllowed={isWeightSellingAllowed}
             />
           </div>
 
@@ -4695,8 +4866,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         ? batchForItem.unitsPerBox
                         : (inferredBatchUnitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1);
                     const isBoxItem = item.unitType === "pack" || item.unitType === "box";
+                    // Loose / by-weight selling (Stage 1): a kilo line
+                    // steps in 0.1 kg (100 g) and never shows "tablets".
+                    const isKgLine = item.unitType === "kg" || isWeightUnitType(product?.unitType);
                     // Wave C2: leveled lines step in whole level units.
-                    const quantityStep = item.unitLevel ? (item.unitFactor || 1) : (isBoxItem ? unitsPerBox : 1);
+                    const quantityStep = isKgLine ? 100 : (item.unitLevel ? (item.unitFactor || 1) : (isBoxItem ? unitsPerBox : 1));
 
                     return (
                       <div
@@ -4712,9 +4886,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             <p className="mt-0.5 truncate text-xs text-[#8c95b0]">
                               {item.batch ? `Batch ${item.batch}` : "—"}
                               {item.expiry ? ` • Exp ${item.expiry}` : ""}
-                              {item.unitLevel
-                                ? ` • PKR ${item.unitPrice.toFixed(2)} per ${levelLabel(item.unitLevel)} • ${item.quantity} tablets`
-                                : ` • PKR ${item.unitPrice.toFixed(2)} each`}
+                              {isKgLine
+                                ? ` • PKR ${item.unitPrice.toFixed(2)} / kg • ${formatKgFromGrams(item.quantity)}`
+                                : item.unitLevel
+                                  ? ` • PKR ${item.unitPrice.toFixed(2)} per ${levelLabel(item.unitLevel)} • ${item.quantity} tablets`
+                                  : ` • PKR ${item.unitPrice.toFixed(2)} each`}
                             </p>
                           </div>
                           <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#0a1128]">
@@ -4724,6 +4900,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         {item.unitLevel && (
                           <div className="mt-2 flex items-center gap-2">
                             <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Sold by</Label>
+                            {isKgLine ? (
+                              // Loose / by-weight selling (Stage 1): a
+                              // kilo line has one level only (KG).
+                              <span className="inline-flex h-8 items-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]">
+                                KG — PKR {item.unitPrice.toFixed(2)} / kg
+                              </span>
+                            ) : (
                             <select
                               value={item.unitLevel}
                               onChange={(e) => changeCartItemLevel(item.id, e.target.value as UnitLevel)}
@@ -4736,6 +4919,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               ) : null}
                               <option value="UNIT">Tablet — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
                             </select>
+                            )}
                           </div>
                         )}
                         <div className="mt-2.5 flex items-center gap-2">
@@ -4749,9 +4933,35 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
+                            {isKgLine ? (
+                              // Loose / by-weight selling (Stage 1):
+                              // decimal KG input, 3 dp (1 g resolution).
+                              // Local string state so typing "0." does
+                              // not snap back mid-typing; committed on
+                              // blur / Enter as whole grams.
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="0.1"
+                                inputMode="decimal"
+                                aria-label="Weight in kilograms"
+                                value={kgInputByItem[item.id] ?? (item.levelQuantity ?? item.quantity / KG_GRAMS_PER_KG).toFixed(3)}
+                                onChange={(e) => setKgInputByItem(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                onBlur={(e) => {
+                                  const kg = parseFloat(e.target.value);
+                                  if (Number.isFinite(kg) && kg > 0) updateInvoiceQuantity(item.id, Math.round(kg * KG_GRAMS_PER_KG));
+                                  setKgInputByItem(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                }}
+                                className="h-9 w-20 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-[15px] font-extrabold tabular-nums text-[#0a1128]"
+                              />
+                            ) : (
                             <span className="w-11 text-center text-[15px] font-extrabold tabular-nums text-[#0a1128]">
                               {item.unitLevel ? (item.levelQuantity ?? item.quantity / (item.unitFactor || 1)) : (isBoxItem ? item.quantity : Math.max(0, item.quantity))}
                             </span>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -4790,6 +5000,47 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             </Button>
                           </div>
                         </div>
+                        {isKgLine && (
+                          // Loose / by-weight selling (Stage 1):
+                          // amount→weight — "Rs 100 ka" → kg =
+                          // amount ÷ price-per-KG, rounded to whole
+                          // grams. The derived weight + actual total
+                          // are shown BEFORE the sale completes.
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Rs ka</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="100"
+                              aria-label="Amount in rupees"
+                              value={weightAmountByItem[item.id] ?? ""}
+                              onChange={(e) => setWeightAmountByItem(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              className="h-9 w-24 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 rounded-[10px] border-[rgba(15,23,60,0.1)] px-3 text-xs font-semibold"
+                              onClick={() => {
+                                const amount = parseFloat(weightAmountByItem[item.id] || "");
+                                if (!Number.isFinite(amount) || amount <= 0 || item.unitPrice <= 0) return;
+                                const grams = Math.round(amount / item.unitPrice * KG_GRAMS_PER_KG);
+                                if (grams <= 0) return;
+                                updateInvoiceQuantity(item.id, grams);
+                                setWeightAmountByItem(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                              }}
+                            >
+                              Set weight
+                            </Button>
+                            {(() => {
+                              const amount = parseFloat(weightAmountByItem[item.id] || "");
+                              if (!Number.isFinite(amount) || amount <= 0 || item.unitPrice <= 0) return null;
+                              const grams = Math.round(amount / item.unitPrice * KG_GRAMS_PER_KG);
+                              const actual = grams * item.unitPrice / KG_GRAMS_PER_KG;
+                              return <span className="text-xs font-semibold text-[#1a52c5]">≈ {formatKgFromGrams(grams)} · PKR {actual.toFixed(2)}</span>;
+                            })()}
+                          </div>
+                        )}
                         {itemDiscount > 0 && (
                           <p className="mt-1.5 text-right text-[11px] font-semibold text-emerald-600">
                             Discount −PKR {itemDiscountAmount.toFixed(2)}
@@ -5973,7 +6224,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         <span className="shrink-0 font-bold text-neutral-900">PKR {Number(item.totalPrice || 0).toFixed(2)}</span>
                       </div>
                       <p className="text-[11px] text-neutral-500">
-                        {cartItemQtyPhrase(item)} × PKR {Number(item.unitPrice || 0).toFixed(2)}
+                        {cartItemQtyPhrase(item)} × PKR {Number(item.unitPrice || 0).toFixed(2)}{isKgReceiptLine(item) ? " / kg" : ""}
                       </p>
                       {item.instructions && (
                         <p className="text-[11px] italic text-neutral-500">{item.instructions}</p>
@@ -6154,7 +6405,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{item.product.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {describeStoredLine(item) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice.toFixed(2)}
+                                  {describeStoredLine({ ...item, unitType: (item as any).product?.unitType }) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice.toFixed(2)}{isKgReceiptLine({ ...item, unitType: (item as any).product?.unitType }) ? " / kg" : ""}
                                   {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                                   {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                                 </p>
@@ -6293,12 +6544,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 }}
                 onAddToCart={addToModalCart}
                 onScanSubmit={(code) => { void handleBarcodeScanned(code, "modal"); }}
-                scanningEnabled={barcodeScanningEnabled}
                 onScanClick={() => {
                   setScanTarget("modal");
                   setIsCameraScannerOpen(true);
                 }}
                 showStripOption={showStripOption}
+                isWeightSellingAllowed={isWeightSellingAllowed}
               />
 
               {/* Customer Details Section */}
@@ -6391,7 +6642,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 ? batchForItem.unitsPerBox
                                 : (inferredBatchUnitsPerBox || product?.unitsPerBox || product?.unitsPerPack || 1);
                             const isBoxItem = item.unitType === "pack" || item.unitType === "box";
-                            const quantityStep = isBoxItem ? unitsPerBox : 1;
+                            // Loose / by-weight selling (Stage 1): a
+                            // kilo line steps in 0.1 kg (100 g).
+                            const isKgLine = item.unitType === "kg" || isWeightUnitType(product?.unitType);
+                            const quantityStep = isKgLine ? 100 : (isBoxItem ? unitsPerBox : 1);
 
                             return (
                               <TableRow key={item.id} className="hover:bg-gray-50">
@@ -6408,8 +6662,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                     >
                                       <Minus className="w-3 h-3" />
                                     </Button>
-                                    <span className="font-medium w-8 text-center text-xs">
-                                      {isBoxItem ? item.quantity : Math.max(0, item.quantity)}
+                                    <span className="font-medium w-16 text-center text-xs">
+                                      {isKgLine ? `${(item.levelQuantity ?? item.quantity / KG_GRAMS_PER_KG).toFixed(3)} kg` : (isBoxItem ? item.quantity : Math.max(0, item.quantity))}
                                     </span>
                                     <Button
                                       variant="outline"
@@ -6422,7 +6676,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right py-2 text-xs">
-                                  PKR {item.unitPrice.toFixed(2)}
+                                  PKR {item.unitPrice.toFixed(2)}{isKgLine ? " / kg" : ""}
                                 </TableCell>
                                 <TableCell className="text-right py-2">
                                   <div className="font-semibold text-xs text-green-600">

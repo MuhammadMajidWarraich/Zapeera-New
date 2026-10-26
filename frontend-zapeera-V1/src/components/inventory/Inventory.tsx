@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useLayoutEffect, useCallback } from "react";
 import React from "react";
 import { config } from "@/lib/config";
+import { isWeightSellingAllowedForBusinessType } from "@/utils/units";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,9 @@ interface Product {
   // Unit engine (Wave C2): pack structure - tablets per pack / strip.
   unitsPerPack?: number;
   unitsPerStrip?: number | null;
+  // Loose / by-weight selling (Stage 1): 'KG' = sold by the kilo
+  // (1 KG = 1000 g, stock in grams); null/undefined = pieces.
+  unitType?: string | null;
   // Auto-reorder (Wave C3): opt-in reorder point + fixed reorder qty.
   reorderLevel?: number | null;
   reorderQuantity?: number | null;
@@ -171,7 +175,12 @@ const CONTROLLED_SCHEDULE_OPTIONS = [
 
 const Inventory = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch, selectedCompanyId, setSelectedBranchId, allBranches } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany, setSelectedBranchId, allBranches } = useAdmin();
+  // Loose / by-weight selling (Stage 1) — business-type scoping
+  // (standing rule 2026-10-26): the "Sold by KG" selector renders
+  // only for general-retail types; the API refuses KG products
+  // elsewhere, so the form must never offer it there either.
+  const isWeightSellingAllowed = isWeightSellingAllowedForBusinessType((selectedCompany as any)?.businessType);
   const { toast } = useToast();
   
   // Dashboard data cache (disabled - data caching removed)
@@ -251,10 +260,14 @@ const Inventory = () => {
     pctCode: "",
     unitsPerPack: 1,
     unitsPerStrip: "",
+    // Loose / by-weight selling (Stage 1): "" = pieces, "KG" = kilo.
+    unitType: "",
     reorderLevel: "",
     reorderQuantity: "",
     minStock: 10
   });
+  // Loose / by-weight selling (Stage 1): the form is in kilo mode.
+  const isKgForm = newMedicine.unitType === "KG";
 
   // Tax classes (Wave B5) for the product form's rate-group picker.
   const [taxClasses, setTaxClasses] = useState<Array<{ id: string; name: string; rate: number; isDefault: boolean; isActive: boolean }>>([]);
@@ -1115,8 +1128,11 @@ const Inventory = () => {
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
-        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        // Loose / by-weight selling (Stage 1): a kilo product is
+        // 1 KG = 1000 g per pack, no strips.
+        unitType: isKgForm ? "KG" : null,
+        unitsPerPack: isKgForm ? 1000 : (Number(newMedicine.unitsPerPack) || 1),
+        unitsPerStrip: isKgForm ? null : (newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)),
         reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
         reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity)
       };
@@ -1144,8 +1160,11 @@ const Inventory = () => {
         isActive: true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
-        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        // Loose / by-weight selling (Stage 1): a kilo product is
+        // 1 KG = 1000 g per pack, no strips.
+        unitType: isKgForm ? "KG" : null,
+        unitsPerPack: isKgForm ? 1000 : (Number(newMedicine.unitsPerPack) || 1),
+        unitsPerStrip: isKgForm ? null : (newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)),
         reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
         reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity),
         sku: `TEMP-${Date.now()}`,
@@ -1175,6 +1194,7 @@ const Inventory = () => {
         pctCode: "",
         unitsPerPack: 1,
         unitsPerStrip: "",
+        unitType: "",
         reorderLevel: "",
         reorderQuantity: "",
         minStock: 10
@@ -1322,6 +1342,7 @@ const Inventory = () => {
           taxClassId: freshProduct.taxClassId ?? product.taxClassId ?? "",
           pctCode: freshProduct.pctCode ?? (product as any).pctCode ?? "",
           unitsPerPack: freshProduct.unitsPerPack ?? product.unitsPerPack ?? 1,
+          unitType: freshProduct.unitType ?? product.unitType ?? "",
           unitsPerStrip: (freshProduct.unitsPerStrip ?? product.unitsPerStrip) != null ? String(freshProduct.unitsPerStrip ?? product.unitsPerStrip) : "",
           reorderLevel: (freshProduct.reorderLevel ?? product.reorderLevel) != null ? String(freshProduct.reorderLevel ?? product.reorderLevel) : "",
           reorderQuantity: (freshProduct.reorderQuantity ?? product.reorderQuantity) != null ? String(freshProduct.reorderQuantity ?? product.reorderQuantity) : "",
@@ -1343,6 +1364,7 @@ const Inventory = () => {
           taxClassId: product.taxClassId || "",
           pctCode: (product as any).pctCode || "",
           unitsPerPack: product.unitsPerPack || 1,
+          unitType: product.unitType || "",
           unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
           reorderLevel: product.reorderLevel != null ? String(product.reorderLevel) : "",
           reorderQuantity: product.reorderQuantity != null ? String(product.reorderQuantity) : "",
@@ -1365,6 +1387,7 @@ const Inventory = () => {
         taxClassId: product.taxClassId || "",
         pctCode: (product as any).pctCode || "",
         unitsPerPack: product.unitsPerPack || 1,
+        unitType: product.unitType || "",
         unitsPerStrip: product.unitsPerStrip != null ? String(product.unitsPerStrip) : "",
         reorderLevel: product.reorderLevel != null ? String(product.reorderLevel) : "",
         reorderQuantity: product.reorderQuantity != null ? String(product.reorderQuantity) : "",
@@ -1421,8 +1444,11 @@ const Inventory = () => {
         isActive: editingProduct.isActive !== undefined ? editingProduct.isActive : true,
         minStock: Number(newMedicine.minStock) || 10,
         maxStock: 1000,
-        unitsPerPack: Number(newMedicine.unitsPerPack) || 1,
-        unitsPerStrip: newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null),
+        // Loose / by-weight selling (Stage 1): a kilo product is
+        // 1 KG = 1000 g per pack, no strips.
+        unitType: isKgForm ? "KG" : null,
+        unitsPerPack: isKgForm ? 1000 : (Number(newMedicine.unitsPerPack) || 1),
+        unitsPerStrip: isKgForm ? null : (newMedicine.unitsPerStrip === "" ? null : (Number(newMedicine.unitsPerStrip) || null)),
         reorderLevel: newMedicine.reorderLevel === "" ? null : Number(newMedicine.reorderLevel),
         reorderQuantity: newMedicine.reorderQuantity === "" ? null : Number(newMedicine.reorderQuantity)
       };
@@ -1503,6 +1529,7 @@ const Inventory = () => {
           pctCode: "",
           unitsPerPack: 1,
           unitsPerStrip: "",
+          unitType: "",
           reorderLevel: "",
           reorderQuantity: "",
           minStock: 10
@@ -2702,6 +2729,23 @@ const Inventory = () => {
                     </p>
                   </div>
 
+                  {isWeightSellingAllowed && (
+                    <div className="space-y-2">
+                      <Label htmlFor="unitsPerPack-unitType">Sold by</Label>
+                      <Select value={newMedicine.unitType || "PIECES"} onValueChange={(value) => setNewMedicine({...newMedicine, unitType: value === "KG" ? "KG" : ""})}>
+                        <SelectTrigger id="unitsPerPack-unitType">
+                          <SelectValue placeholder="Pieces" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PIECES">Pieces (tablets / units)</SelectItem>
+                          <SelectItem value="KG">Kilograms — loose / by weight</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Loose goods (sugar, flour, spices) sell by the kilo — 1 KG = 1000 g, stock is counted in grams.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="unitsPerPack">Units per Pack</Label>
                     <Input
@@ -2709,13 +2753,17 @@ const Inventory = () => {
                       type="number"
                       min={1}
                       placeholder="e.g., 100"
-                      value={newMedicine.unitsPerPack}
+                      value={isKgForm ? 1000 : newMedicine.unitsPerPack}
+                      disabled={isKgForm}
                       onChange={(e) => setNewMedicine({...newMedicine, unitsPerPack: Number(e.target.value) || 1})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Tablets in one full pack/box. Leave at 1 for products sold only as single units.
+                      {isKgForm
+                        ? "1 KG = 1000 g — stock is always counted in grams."
+                        : "Tablets in one full pack/box. Leave at 1 for products sold only as single units."}
                     </p>
                   </div>
+                  {isKgForm ? null : (
                   <div className="space-y-2">
                     <Label htmlFor="unitsPerStrip">Units per Strip</Label>
                     <Input
@@ -2745,6 +2793,7 @@ const Inventory = () => {
                       return null;
                     })()}
                   </div>
+                  )}
 
                 </div>
 
@@ -2945,6 +2994,7 @@ const Inventory = () => {
                 pctCode: "",
                 unitsPerPack: 1,
                 unitsPerStrip: "",
+                unitType: "",
                 reorderLevel: "",
                 reorderQuantity: "",
                 minStock: 10
@@ -3030,6 +3080,23 @@ const Inventory = () => {
                     </p>
                   </div>
 
+                  {isWeightSellingAllowed && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-unitsPerPack-unitType">Sold by</Label>
+                      <Select value={newMedicine.unitType || "PIECES"} onValueChange={(value) => setNewMedicine({...newMedicine, unitType: value === "KG" ? "KG" : ""})}>
+                        <SelectTrigger id="edit-unitsPerPack-unitType">
+                          <SelectValue placeholder="Pieces" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PIECES">Pieces (tablets / units)</SelectItem>
+                          <SelectItem value="KG">Kilograms — loose / by weight</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Loose goods (sugar, flour, spices) sell by the kilo — 1 KG = 1000 g, stock is counted in grams.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="edit-unitsPerPack">Units per Pack</Label>
                     <Input
@@ -3037,13 +3104,17 @@ const Inventory = () => {
                       type="number"
                       min={1}
                       placeholder="e.g., 100"
-                      value={newMedicine.unitsPerPack}
+                      value={isKgForm ? 1000 : newMedicine.unitsPerPack}
+                      disabled={isKgForm}
                       onChange={(e) => setNewMedicine({...newMedicine, unitsPerPack: Number(e.target.value) || 1})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Tablets in one full pack/box. Leave at 1 for products sold only as single units.
+                      {isKgForm
+                        ? "1 KG = 1000 g — stock is always counted in grams."
+                        : "Tablets in one full pack/box. Leave at 1 for products sold only as single units."}
                     </p>
                   </div>
+                  {isKgForm ? null : (
                   <div className="space-y-2">
                     <Label htmlFor="edit-unitsPerStrip">Units per Strip</Label>
                     <Input
@@ -3073,6 +3144,7 @@ const Inventory = () => {
                       return null;
                     })()}
                   </div>
+                  )}
 
                 </div>
 

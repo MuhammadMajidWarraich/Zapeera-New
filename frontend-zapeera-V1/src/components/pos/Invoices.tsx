@@ -926,7 +926,7 @@ const Invoices = () => {
               ${invoice.items.map(item => `
                 <tr>
                   <td>${escapeHtml(item.product.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</td>
-                  <td>${escapeHtml(describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`)}</td>
+                  <td>${escapeHtml(describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product.unitType}`)}</td>
                   <td>PKR ${item.unitPrice.toFixed(2)}</td>
                   <td>PKR ${item.totalPrice.toFixed(2)}</td>
                 </tr>
@@ -1543,7 +1543,7 @@ const Invoices = () => {
                       <div className="flex-1">
                         <p className="font-medium">{item.product.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
                         <p className="text-sm text-muted-foreground">
-                          {describeStoredLine(item) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
+                          {describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
                           {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                           {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                         </p>

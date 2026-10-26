@@ -544,10 +544,19 @@ async function initDatabase() {
   // migration lands the desktop can receive them on the next pull (and a
   // later server change can lift the strip). Same pattern as v1.0.8/9:
   // PRAGMA-guarded ALTERs + a cursor reset when anything is added.
-  // NOTE — merge hazard: the loose-weight-selling branch ALSO defines a
-  // SYNC_SCHEMA_UPGRADES_V1011 (products.unitType). When both land, the
-  // two arrays must be MERGED into one V1011 block; do not let one
-  // silently overwrite the other.
+  // Loose / by-weight selling (Stage 1, 2026-10-26): the cloud Product
+  // gains `unitType` ('KG' = sold by the kilo, null = sold by pieces).
+  // The CREATE TABLE above already carries the column (fresh installs
+  // fine); upgraded DBs need the ALTER, or the cloud sync payload —
+  // which carries unitType: null on EVERY changed product
+  // (cleanRecordForSQLite does NOT strip nulls) — quarantines the
+  // record (v1.0.9 lesson).
+  // MERGED V1011 (9 entries: 8 sales + 1 products) — the weight and
+  // multi-counter branches each defined their own
+  // SYNC_SCHEMA_UPGRADES_V1011; they were combined here at the weight
+  // rebase. Do not let one silently overwrite the other.
+  // ROLLOUT ORDER: this EXE build + laptop install BEFORE the cloud
+  // deploy that ships unitType (or before any product change syncs).
   const SYNC_SCHEMA_UPGRADES_V1011 = [
     // sales (8)
     { table: 'sales', column: 'syncOrigin', definition: 'TEXT' },
@@ -557,7 +566,9 @@ async function initDatabase() {
     { table: 'sales', column: 'offlineSale', definition: 'INTEGER DEFAULT 0' },
     { table: 'sales', column: 'terminalInvoiceNumber', definition: 'TEXT' },
     { table: 'sales', column: 'reviewedAt', definition: 'TEXT' },
-    { table: 'sales', column: 'reviewedBy', definition: 'TEXT' }
+    { table: 'sales', column: 'reviewedBy', definition: 'TEXT' },
+    // products (1)
+    { table: 'products', column: 'unitType', definition: "TEXT DEFAULT 'PIECE'" }
   ];
   let v1011ColumnsAdded = 0;
   for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V1011) {

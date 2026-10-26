@@ -78,6 +78,9 @@ interface ProductSearchSectionProps {
    *  strip selling only applies to product-selling business types.
    *  Defaults to shown, so existing usages are unaffected. */
   showStripOption?: boolean;
+  // Loose / by-weight selling (Stage 1): gates the KG level button
+  // and per-kg prices on the cards (business-type scoping).
+  isWeightSellingAllowed?: boolean;
   /** Use on full-width split layouts so the list grows with the column */
   layout?: 'default' | 'split';
   className?: string;
@@ -134,6 +137,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   onScanClick,
   inputId,
   showStripOption = true,
+  isWeightSellingAllowed,
   layout = 'default',
   className,
   categories,
@@ -425,6 +429,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                 selectedBatch,
                 isLoadingBatch,
                 requiresBranchSelection,
+                isWeightSellingAllowed,
                 onSelectBatch: (batchId: string) => onSelectBatch(product.id, batchId),
                 variants,
                 selectedVariant,

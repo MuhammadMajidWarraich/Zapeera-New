@@ -11,6 +11,45 @@ export type UnitLevel = "PACK" | "STRIP" | "UNIT";
 export interface UnitStructure {
   unitsPerPack?: number | null;
   unitsPerStrip?: number | null;
+  // Loose / by-weight selling (Stage 1): 'KG' = the product sells by
+  // the kilo, stock counted in grams. breakdownStock renders it in kg.
+  unitType?: string | null;
+}
+
+/** Grams in one kilo — the base-unit factor of a KG product. */
+export const KG_GRAMS_PER_KG = 1000;
+
+// Loose / by-weight selling (Stage 1) — business-type scoping
+// (Muhammad's standing rule, 2026-10-26): a business type gets only
+// its own features. Weight selling belongs to general retail only.
+// Mirror of the backend's isWeightSellingAllowedForBusinessType
+// (module-applicability.util.ts) — keep the two lists identical;
+// the API refuses KG where this returns false, so the UI must never
+// offer it there either. FAIL-CLOSED: any other/unknown type → false.
+export const WEIGHT_SELLING_BUSINESS_TYPES = ["DEPARTMENTAL_STORE", "RETAIL_STORE"] as const;
+
+export function normalizeBusinessTypeKey(value: unknown): string {
+  return String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+}
+
+export function isWeightSellingAllowedForBusinessType(businessType: unknown): boolean {
+  const key = normalizeBusinessTypeKey(businessType);
+  // Legacy aliases resolve to the canonical departmental type.
+  const canonical =
+    key === "STORE" || key === "DEPARTMENT_STORE" || key === "SUPERMARKET" || key === "GROCERY_STORE"
+      ? "DEPARTMENTAL_STORE"
+      : key;
+  return (WEIGHT_SELLING_BUSINESS_TYPES as readonly string[]).includes(canonical);
+}
+
+/** True when a product's unit type is the kilo ('KG', any case). */
+export function isWeightUnitType(unitType: unknown): boolean {
+  return String(unitType || "").trim().toUpperCase() === "KG";
+}
+
+/** Grams → "0.500 kg" (3 dp, 1 g resolution). */
+export function formatKgFromGrams(grams: number): string {
+  return `${(grams / KG_GRAMS_PER_KG).toFixed(3)} kg`;
 }
 
 export const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -42,9 +81,14 @@ export interface StockBreakdown {
   text: string;
 }
 
-/** Greedy packs → strips → loose tablets breakdown of a base-unit qty. */
+/** Greedy packs → strips → loose tablets breakdown of a base-unit qty.
+ * Loose / by-weight selling (Stage 1): a KG product's stock is grams,
+ * so the breakdown reads in kilos ("50.000 kg") — never "50 packs". */
 export function breakdownStock(baseQty: number, structure: UnitStructure): StockBreakdown {
   const qty = Math.max(0, Math.floor(baseQty || 0));
+  if (isWeightUnitType(structure.unitType)) {
+    return { packs: 0, strips: 0, units: qty, text: formatKgFromGrams(qty) };
+  }
   const perPack = structure.unitsPerPack && structure.unitsPerPack > 0 ? structure.unitsPerPack : 0;
   const perStrip = structure.unitsPerStrip && structure.unitsPerStrip > 0 ? structure.unitsPerStrip : 0;
   let packs = 0;
@@ -110,15 +154,22 @@ export function levelLabel(level: UnitLevel, qty?: number): string {
  * Receipt phrasing for a stored C2 sale line: "2 strips (20 tablets)".
  * Stored C2 lines keep quantity in BASE units, so the entered level
  * quantity is quantity / unitFactor. Returns null for UNIT lines.
+ * Loose / by-weight selling (Stage 1): a kilo line reads in kg
+ * ("0.500 kg") — never "packs (N tablets)". The caller passes the
+ * product's unitType when it has it (item.product.unitType).
  */
 export function describeStoredLine(item: {
   quantity: number;
   unitLevel?: string | null;
   unitFactor?: number | null;
+  unitType?: string | null;
 }): string | null {
   const level = (item.unitLevel || "").toUpperCase();
   const factor = item.unitFactor || 0;
   if ((level !== "PACK" && level !== "STRIP") || factor <= 1) return null;
   const levelQty = item.quantity / factor;
+  if (level === "PACK" && factor === KG_GRAMS_PER_KG && isWeightUnitType(item.unitType)) {
+    return `${levelQty.toFixed(3)} kg`;
+  }
   return `${levelQty} ${levelLabel(level as UnitLevel, levelQty)} (${item.quantity} tablets)`;
 }
