@@ -314,12 +314,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   }
 
   // Context switchers (2026-10-26): the SAME two dropdowns render in
-  // the desktop header AND in the mobile context bar below — one
-  // definition, two placements. Below md the header had no room for
-  // them, so they used to be `hidden … md:inline-flex`, which left
-  // pages like Purchase Orders stuck on "Choose a branch in the
-  // header" with no way to choose. The trigger is always inline-flex;
-  // the wrappers below carry the breakpoint visibility.
+  // the desktop header AND in the single-row mobile top bar — one
+  // definition, two placements. Below md the trigger is compact
+  // (text-only, no icon/chevron) so both names fit at 360px next to
+  // the hamburger, the compact New Sale "+" and the avatar; md+
+  // restores the full trigger. The trigger is always inline-flex;
+  // the wrappers in the header carry the breakpoint sizing.
   const branchSwitcher = (
     <>
 {/* Branch Selection Dropdown for Admins */}
@@ -329,10 +329,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     <DropdownMenuTrigger asChild>
       <button
         type="button"
-        className="inline-flex max-w-[128px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:max-w-[160px] md:px-4"
+        className="inline-flex max-w-[128px] min-w-0 items-center gap-2 rounded-[10px] border border-border bg-card px-2 py-2 text-xs font-semibold text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:max-w-[160px] md:px-4 md:text-[13px]"
       >
-        <Building2 className="sel-icon h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
-        <span className="max-w-[160px] truncate">
+        <Building2 className="sel-icon hidden h-4 w-4 shrink-0 text-muted-foreground opacity-60 md:block" />
+        <span className="min-w-0 max-w-[160px] truncate">
         {(() => {
           // CRITICAL FIX: Get branch name from allBranches or cache IMMEDIATELY
           // This prevents "Loading..." from showing on refresh
@@ -378,7 +378,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           return 'All branches';
         })()}
         </span>
-        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+        <ChevronDown className="ml-1 hidden h-4 w-4 shrink-0 opacity-50 md:block" />
       </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-48 rounded-2xl border border-black/5">
@@ -481,15 +481,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     <DropdownMenuTrigger asChild>
       <button
         type="button"
-        className="inline-flex max-w-[140px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground md:max-w-[220px] md:px-4"
+        className="inline-flex max-w-[140px] min-w-0 items-center gap-2 rounded-[10px] border border-border bg-card px-2 py-2 text-xs font-semibold text-muted-foreground shadow-sm transition-colors hover:text-foreground md:max-w-[220px] md:px-4 md:text-[13px]"
       >
-        <Building className="sel-icon h-4 w-4 shrink-0 opacity-60" />
-        <span className="truncate">
+        <Building className="sel-icon hidden h-4 w-4 shrink-0 opacity-60 md:block" />
+        <span className="min-w-0 truncate">
           {selectedCompanyId
             ? allCompanies.find((c: any) => c.id === selectedCompanyId)?.name || 'Business'
             : 'Business'}
         </span>
-        <ChevronDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
+        <ChevronDown className="ml-1 hidden h-4 w-4 shrink-0 opacity-50 md:block" />
       </button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-56 rounded-2xl border border-black/5">
@@ -574,12 +574,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               isCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[272px]',
             )}
           >
-            <header className="sticky top-0 z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-black/[0.04] bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-11">
-              <div className="flex items-center gap-3">
+            <header className="sticky top-0 z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-black/[0.04] bg-white/70 px-3 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-11">
+              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] lg:hidden"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] sm:h-10 sm:w-10 lg:hidden"
                   aria-label="Open menu"
                 >
                   <Menu className="h-5 w-5" />
@@ -588,20 +588,25 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <button
                   type="button"
                   onClick={() => navigate(withBusinessSlug(businessSlug || null, "/point-of-sale"))}
-                  className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium"
+                  aria-label="New Sale"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] bg-primary text-[13px] font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium sm:h-auto sm:w-auto sm:px-5 sm:py-2"
                 >
-                  <Plus className="h-4 w-4 stroke-[2.5]" strokeLinecap="round" />
-                  New Sale
+                  <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" strokeLinecap="round" />
+                  <span className="hidden sm:inline">New Sale</span>
                 </button>
                 )}
 
                 <SyncStatusBadge />
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5">
 
-                {/* Branch + business switchers — desktop slot (hidden below md; the mobile bar below renders the same elements). */}
-                <div className="hidden md:block">{branchSwitcher}</div>
-                <div className="hidden md:block">{businessSwitcher}</div>
+                {/* Branch + business switchers — single-row mobile header
+                    (2026-10-26): below md they sit in the top bar row
+                    (hamburger | New Sale | branch | business | avatar),
+                    compact text-only triggers so both names fit at 360px.
+                    md+ restores the full trigger (icon + chevron). */}
+                <div className="min-w-0">{branchSwitcher}</div>
+                <div className="min-w-0">{businessSwitcher}</div>
 
                 {membershipRole && (
                   <div className="hidden flex-col items-end sm:flex">
@@ -616,7 +621,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="grid h-[38px] w-[38px] shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring"
+                      className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring md:h-[38px] md:w-[38px]"
                     >
                       {user?.profileImage ? (
                         <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
@@ -655,18 +660,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 </DropdownMenu>
               </div>
             </header>
-            {/* Mobile context bar (2026-10-26): business + branch
-                switchers on phones. The empty states (e.g. Purchase
-                Orders: "Choose a branch in the header") point at the
-                header, so the switchers live here — a second header
-                row — not hidden in the hamburger drawer. md+ hides
-                this row; the desktop header above is unchanged. */}
-            {canShowContextSwitchers && (
-              <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-black/[0.04] bg-white/70 px-4 py-2 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden">
-                {branchSwitcher}
-                {businessSwitcher}
-              </div>
-            )}
+            {/* (2026-10-26) The mobile context bar that used to live here
+                (second header row with the two switchers) was removed:
+                the switchers now sit in the single-row top bar above. */}
 
             {subscriptionGate === 'grace' && (
               <div className="flex items-center gap-2.5 bg-amber-50 border-b border-amber-200 px-5 py-2.5 text-sm text-amber-800">
