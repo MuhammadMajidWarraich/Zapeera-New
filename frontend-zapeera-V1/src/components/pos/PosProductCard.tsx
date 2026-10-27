@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Minus, Loader2, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { breakdownStock, isStructured, levelPriceFromUnitPrice, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType } from '@/utils/units';
+import { breakdownStock, cardUnitChip, isStructured, levelPriceFromUnitPrice, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType } from '@/utils/units';
 import { variantUnitPrice, type ProductVariantLite } from '@/utils/variants';
 
 // POS redesign (Muhammad's reference layout): compact catalog card for
@@ -177,8 +177,11 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
       ) : null}
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         <span className="inline-flex items-center rounded-md bg-[#f4f6fa] px-2 py-0.5 text-[11px] font-medium text-[#4a5578]">
-          {isWeight ? 'kg' : (product.unitType || 'unit')}
-          {!isWeight && unitsPerBox > 1 ? ` • Box of ${unitsPerBox}` : ''}
+          {/* Unit-label fix (2026-10-26): the chip text comes from
+              cardUnitChip — real pack copy ("Box of N") or a real
+              unit ('kg'), never the old invented 'tablets'. The
+              weight branch's isWeight gate stays first. */}
+          {isWeight ? 'kg' : cardUnitChip(product.unitType, unitsPerBox)}
         </span>
         {selectedBatch?.expireDate && (
           <span
@@ -196,7 +199,9 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
         )}
         {isStructured(structure) && stockOnHand > 0 ? (
           <span className="inline-flex items-center rounded-md bg-[#f4f6fa] px-2 py-0.5 text-[11px] font-medium text-[#4a5578]">
-            {breakdownStock(stockOnHand, structure).text}
+            {/* Loose remainder reads "units", not "tablets": the card
+                cannot know the base unit (see cardUnitChip). */}
+            {breakdownStock(stockOnHand, structure, 'unit').text}
           </span>
         ) : null}
       </div>

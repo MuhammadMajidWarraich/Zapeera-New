@@ -1686,7 +1686,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           name: product.name,
           price: product.price || 0, // Price now comes from batch data
           stock: product.stock || 0, // Stock now comes from batch data
-          unitType: product.unitType || 'tablets',
+          // Unit-label fix (2026-10-26): the API carries no per-product
+          // base-unit word (no unitType column in this tree), so the old
+          // 'tablets' fallback LIED on every non-medicine product. The
+          // neutral 'unit' keeps cart/receipt rendering non-empty ("UNIT")
+          // and behaves identically in every box/pack/strip comparison
+          // below; the card itself renders cardUnitChip() from real data.
+          unitType: product.unitType || 'unit',
           batch: product.currentBatch?.batchNo || 'BATCH001',
           expiry: product.currentBatch?.expireDate ? new Date(product.currentBatch.expireDate).toLocaleDateString() : 'Dec 2025',
           formula: product.formula || '', // Product formula/composition for search
@@ -2023,7 +2029,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         unitPrice: unitPrice,
         totalPrice: subtotal - discountAmount,
         discountAmount: discountAmount,
-        unitType: isKgLine ? "kg" : (level === "PACK" ? "box" : level === "STRIP" ? "strip" : (product?.unitType || "tablets")),
+        unitType: isKgLine ? "kg" : (level === "PACK" ? "box" : level === "STRIP" ? "strip" : (product?.unitType || "unit")),
         unitsPerBox: level === "PACK" ? factor : item.unitsPerBox
       };
     }));
@@ -2296,7 +2302,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       (Array.isArray(apiProduct.batches)
         ? apiProduct.batches.reduce((sum: number, b: any) => sum + (b.quantity || 0), 0)
         : 0),
-    unitType: apiProduct.unitType || "tablets",
+    // Unit-label fix (2026-10-26): see loadProducts — no 'tablets'
+    // fallback; the API returns no unitType in this tree.
+    unitType: apiProduct.unitType || "unit",
     batch: apiProduct.batches?.[0]?.batchNo || "BATCH001",
     expiry: apiProduct.batches?.[0]?.expireDate
       ? new Date(apiProduct.batches[0].expireDate).toLocaleDateString()
