@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getStaff,
   getStaffMember,
+  getMyStaffProfile,
   createStaff,
   updateStaff,
   deleteStaff,
@@ -19,6 +20,15 @@ router.use(authenticate);
 router.use(resolveBusiness({ required: false }));
 router.use(resolveMembership());
 router.use(resolveBranch({ required: false }));
+
+// GET /api/staff/me — the caller's OWN staff profile (B1 follow-up).
+// Registered BEFORE checkModule/requireStaffAllowed: a cashier has no
+// business_management.staff.read grant, and this endpoint is own-only
+// by construction (it reads the caller's own membership), so no module
+// or permission gate applies. Must stay above '/:id' so 'me' is not
+// captured as an id.
+router.get('/me', getMyStaffProfile);
+
 router.use(checkModule('business_management'));
 router.use(requireStaffAllowed());
 

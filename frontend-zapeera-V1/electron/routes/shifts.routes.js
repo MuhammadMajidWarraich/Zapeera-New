@@ -145,6 +145,9 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
       const startBound = startDate ? (String(startDate).length === 10 ? `${startDate}T00:00:00.000Z` : String(startDate)) : null;
       const endBound = endDate ? (String(endDate).length === 10 ? `${endDate}T23:59:59.999Z` : String(endDate)) : null;
       const whereSql = `FROM shifts s JOIN memberships m ON m.id = s.membershipId
+        LEFT JOIN staff_profiles sp ON sp.id = s.staffProfileId
+        LEFT JOIN users u ON u.id = m.userId
+        LEFT JOIN branches b ON b.id = s.branchId
         WHERE (? IS NULL OR m.businessId = ?)
           AND (? IS NULL OR s.branchId = ?)
           AND (? IS NULL OR s.staffProfileId = ?)

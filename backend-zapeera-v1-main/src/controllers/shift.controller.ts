@@ -266,6 +266,18 @@ export const getActiveShift = async (req: Request, res: Response) => {
     if (!staffProfileId) {
       return res.status(400).json({ success: false, message: 'staffId is required' });
     }
+    // B1: a staff member may only read their OWN active shift. Privileged
+    // roles (manager / owner / admin) may look up anyone's — the POS
+    // dialog always passes its own id, and the Shift Management page never
+    // calls this endpoint. Without this, reclassifying the endpoint to
+    // auth-core (so cashiers can reach it at all) would let any cashier
+    // read any other cashier's shift.
+    if (!isShiftPrivileged(req)) {
+      const ownProfileId = await resolveCallerStaffProfileId(prisma, req);
+      if (!ownProfileId || ownProfileId !== staffProfileId) {
+        return res.status(403).json({ success: false, message: 'You can only view your own shift' });
+      }
+    }
     // Business-type scoping (L-5 fix, 2026-10-26): an active shift from
     // another business must not be visible through this business's POS.
     const activeShift = await prisma.shift.findFirst({

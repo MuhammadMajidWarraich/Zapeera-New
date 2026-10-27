@@ -933,25 +933,28 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     void fetchActiveShift();
   }, [myStaffProfileId, fetchActiveShift]);
 
-  // POS redesign: resolve my staff-profile id from the staff list so
-  // the active-shift lookup above can run. (The salesperson effect
-  // deliberately skips the register layout, so this is separate.)
+  // POS redesign: resolve my staff-profile id so the active-shift
+  // lookup above can run. (The salesperson effect deliberately skips
+  // the register layout, so this is separate.)
+  // Shift gaps fix (2026-10-27, B1 follow-up): resolve through
+  // GET /api/staff/me (the caller's OWN profile) instead of the full
+  // roster — cashiers have no business_management.staff.read grant,
+  // so the roster 403s for them and the dialog could never resolve
+  // their profile (it fell back to the manager-only copy). The /me
+  // endpoint returns the single profile (or null); the roster shape
+  // is still accepted defensively for the embedded/desktop server.
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    apiService.getStaff()
+    apiService.getMyStaffProfile()
       .then((response) => {
         if (cancelled || !response.success) return;
-        // The staff endpoint returns a paginated envelope
-        // ({ staff, pagination }), not a bare array — reading only
-        // the array shape left the shift pill permanently unloaded.
-        const rows = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any)?.staff;
-        if (!Array.isArray(rows)) return;
-        const mine = rows.find(
-          (s: any) => (s.membership?.userId || s.membership?.user?.id) === user.id,
-        );
+        const data: any = (response as any).data;
+        const mine = Array.isArray(data)
+          ? data.find((s: any) => (s.membership?.userId || s.membership?.user?.id) === user.id)
+          : (data?.membership ? data : (data?.staff || []).find(
+            (s: any) => (s.membership?.userId || s.membership?.user?.id) === user.id,
+          ));
         if (mine?.id) setMyStaffProfileId(mine.id);
       })
       .catch(() => { /* shift pill simply stays hidden */ });
@@ -6086,10 +6089,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
         <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[520px]">
           <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
-            <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
+            {/* DialogTitle (not a plain <p>): Radix requires a Title
+                inside DialogContent for screen-reader accessibility —
+                without it the dialog logs a console error on open. */}
+            <DialogTitle className="flex items-center gap-2 text-base font-extrabold tracking-tight">
               <ClipboardList className="h-5 w-5 text-white/70" strokeWidth={2} />
               Shift Summary &amp; Cash Drawer
-            </p>
+            </DialogTitle>
             <p className="mt-0.5 text-xs text-white/60">
               {user?.name || "Cashier"} • {selectedBranch?.name || "Current branch"}
             </p>

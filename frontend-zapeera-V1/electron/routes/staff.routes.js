@@ -94,7 +94,7 @@ function registerStaffRoutes(app, authMiddleware, deps) {
       const rows = query(
         `SELECT sp.*, m.id AS membershipId, m.userId AS mUserId, m.businessId AS mBusinessId,
                 m.role AS mRole, m.branchIds AS mBranchIds,
-                u.name AS userName, u.email AS userEmail, u.phone AS userPhone, u.profileImage AS userProfileImage
+                u.name AS userName, u.email AS userEmail
          FROM staff_profiles sp
          JOIN memberships m ON m.id = sp.membershipId
          LEFT JOIN users u ON u.id = m.userId
@@ -123,6 +123,36 @@ function registerStaffRoutes(app, authMiddleware, deps) {
     }
   });
 
+  // GET /api/staff/me — the CALLER's own staff profile (B1 follow-up,
+  // 2026-10-27). The POS resolves its staffProfileId through this
+  // instead of the full roster (same reason as the cloud /me: the
+  // roster is a manager surface). Own-only by construction — the
+  // profile attached to the caller's own membership in the scoped
+  // business. No profile returns data: null, not an error. Must stay
+  // above '/:id' so 'me' is not captured as an id.
+  app.get('/api/staff/me', authMiddleware, (req, res) => {
+    try {
+      const { companyFilter } = getDataFilter(req.user, undefined, req.query.companyId);
+      const userId = req.user && req.user.id;
+      if (!userId) return res.json({ success: true, data: null });
+      const row = query(
+        `SELECT sp.*, m.id AS membershipId, m.userId AS mUserId, m.businessId AS mBusinessId,
+                m.role AS mRole, m.branchIds AS mBranchIds,
+                u.name AS userName, u.email AS userEmail
+         FROM staff_profiles sp
+         JOIN memberships m ON m.id = sp.membershipId
+         LEFT JOIN users u ON u.id = m.userId
+         WHERE m.userId = ? AND (? IS NULL OR m.businessId = ?)`,
+        [userId, companyFilter, companyFilter]
+      )[0];
+      if (!row) return res.json({ success: true, data: null });
+      return res.json({ success: true, data: shapeStaffRow(row) });
+    } catch (e) {
+      console.error('[Staff] Error fetching my staff profile:', e.message);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   // GET /api/staff/:id — one staff profile, business-scoped.
   app.get('/api/staff/:id', authMiddleware, (req, res) => {
     try {
@@ -130,7 +160,7 @@ function registerStaffRoutes(app, authMiddleware, deps) {
       const row = query(
         `SELECT sp.*, m.id AS membershipId, m.userId AS mUserId, m.businessId AS mBusinessId,
                 m.role AS mRole, m.branchIds AS mBranchIds,
-                u.name AS userName, u.email AS userEmail, u.phone AS userPhone, u.profileImage AS userProfileImage
+                u.name AS userName, u.email AS userEmail
          FROM staff_profiles sp
          JOIN memberships m ON m.id = sp.membershipId
          LEFT JOIN users u ON u.id = m.userId
