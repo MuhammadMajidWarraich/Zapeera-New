@@ -382,6 +382,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [isShiftDialogOpen, setIsShiftDialogOpen] = useState(false);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [myStaffProfileId, setMyStaffProfileId] = useState<string | null>(null);
+  // Shift gaps fix (2026-10-27, B1/B3/B4/B5): this shift's sales for the
+  // per-shift Collected section, the open/close form state for a cashier
+  // acting on their own shift from this dialog, and the just-ended
+  // shift's counted-vs-expected summary (shown once, then cleared).
+  const [shiftSales, setShiftSales] = useState<any[]>([]);
+  const [isLoadingShiftSales, setIsLoadingShiftSales] = useState(false);
+  const [openingFloatInput, setOpeningFloatInput] = useState("");
+  const [closingBalanceInput, setClosingBalanceInput] = useState("");
+  const [shiftActionBusy, setShiftActionBusy] = useState(false);
+  const [shiftActionError, setShiftActionError] = useState("");
+  const [endedShiftSummary, setEndedShiftSummary] = useState<{ expected: number; actual: number; difference: number } | null>(null);
+  // Shift gaps fix (2026-10-27, B5): the Collected section reads this
+  // shift's sales when one is active, today's totals otherwise.
+  const collectedSales = activeShift ? shiftSales : todaySales;
+  const isLoadingCollectedSales = activeShift ? isLoadingShiftSales : isLoadingTodaySales;
   // Loyalty redemption (Wave B3): the customer resolved from the
   // entered phone (its points balance drives the "Use points"
   // control), the raw points input, and the PKR value of one point
@@ -894,19 +909,29 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     return () => { cancelled = true; };
   }, [selectedCompanyId]);
 
+  // Shift gaps fix (2026-10-27, B3): the active-shift fetch, extracted
+  // so the Shift Summary dialog can re-run it on open — a shift opened
+  // (here or in Shift Management) must show WITHOUT a page reload. It
+  // returns the fresh shift (or null) for the dialog-open handler.
+  const fetchActiveShift = useCallback(async (): Promise<any | null> => {
+    if (!myStaffProfileId) return null;
+    try {
+      const response = await apiService.getActiveShift(myStaffProfileId);
+      const shift = response.success ? (response.data ?? null) : null;
+      setActiveShift(shift);
+      return shift;
+    } catch {
+      setActiveShift(null);
+      return null;
+    }
+  }, [myStaffProfileId]);
+
   // POS redesign: the signed-in user's OWN active register shift
   // (the real record from Shift Management) for the header pill and
   // the shift report. No shift → nothing is shown; nothing invented.
   useEffect(() => {
-    if (!myStaffProfileId) return;
-    let cancelled = false;
-    apiService.getActiveShift(myStaffProfileId)
-      .then((response) => {
-        if (!cancelled) setActiveShift(response.success ? (response.data ?? null) : null);
-      })
-      .catch(() => { if (!cancelled) setActiveShift(null); });
-    return () => { cancelled = true; };
-  }, [myStaffProfileId]);
+    void fetchActiveShift();
+  }, [myStaffProfileId, fetchActiveShift]);
 
   // POS redesign: resolve my staff-profile id from the staff list so
   // the active-shift lookup above can run. (The salesperson effect
@@ -958,12 +983,128 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     }
   }, [user, selectedBranchId, selectedCompanyId]);
 
+  // Shift gaps fix (2026-10-27, B5): this shift's sales only — the
+  // server filters by shiftId (a sale carries the shift it was rung
+  // under). The dialog shows these when a shift is active, and falls
+  // back to today's totals when none is.
+  const fetchShiftSales = useCallback(async (shiftId: string) => {
+    setIsLoadingShiftSales(true);
+    try {
+      const response = await apiService.getSales({
+        shiftId,
+        companyId: selectedCompanyId || '',
+        limit: 100,
+      });
+      setShiftSales(response.success && Array.isArray(response.data?.sales) ? response.data.sales : []);
+    } catch {
+      setShiftSales([]);
+    } finally {
+      setIsLoadingShiftSales(false);
+    }
+  }, [selectedCompanyId]);
+
   // POS Hold: the branch this terminal is selling from — the same
   // resolution the product loader and the sale submit use.
   const resolvePosBranchId = useCallback((): string | undefined => {
     if (user?.role === 'OWNER') return selectedBranchId || undefined;
     return user?.membership?.branchIds?.[0] || user?.branchId || undefined;
   }, [user, selectedBranchId]);
+
+  // Shift gaps fix (2026-10-27, B3): opening the dialog re-fetches the
+  // shift first (a shift opened since mount must show without a reload),
+  // then loads the right collections — this shift's sales when one is
+  // active, today's totals otherwise (B5 fallback).
+  const openShiftDialog = useCallback(async () => {
+    setIsShiftDialogOpen(true);
+    setShiftActionError("");
+    setEndedShiftSummary(null);
+    const shift = await fetchActiveShift();
+    if (shift) {
+      void fetchShiftSales(shift.id);
+    } else {
+      void fetchTodaySales();
+    }
+  }, [fetchActiveShift, fetchShiftSales, fetchTodaySales]);
+
+  // Shift gaps fix (2026-10-27, B1): a cashier opens their OWN shift
+  // from this dialog — the server enforces ownership (403 for another
+  // cashier's profile) and the business/branch match. The opening float
+  // is the cash counted into the drawer at open.
+  const handleOpenShift = useCallback(async () => {
+    if (!myStaffProfileId) return;
+    const openingBalance = Number(openingFloatInput);
+    if (!Number.isFinite(openingBalance) || openingBalance < 0) {
+      setShiftActionError("Enter an opening float of 0 or more.");
+      return;
+    }
+    const branchId = resolvePosBranchId();
+    if (!branchId) {
+      setShiftActionError("No branch selected for this terminal.");
+      return;
+    }
+    setShiftActionBusy(true);
+    setShiftActionError("");
+    try {
+      const now = new Date().toISOString();
+      const response = await apiService.startShift({
+        staffProfileId: myStaffProfileId,
+        branchId,
+        shiftDate: now,
+        startTime: now,
+        openingBalance,
+      });
+      if (!response.success) {
+        setShiftActionError(response.message || "Could not open the shift. Please try again.");
+        return;
+      }
+      setOpeningFloatInput("");
+      const shift = await fetchActiveShift();
+      if (shift) void fetchShiftSales(shift.id);
+    } catch {
+      setShiftActionError("Could not open the shift. Please try again.");
+    } finally {
+      setShiftActionBusy(false);
+    }
+  }, [myStaffProfileId, openingFloatInput, resolvePosBranchId, fetchActiveShift, fetchShiftSales]);
+
+  // Shift gaps fix (2026-10-27, B1/B4): close MY shift from this dialog
+  // with the counted drawer balance. The server computes expected vs
+  // actual and the difference. A stale shift is closed the same way —
+  // never auto-closed with an invented count.
+  const handleEndShift = useCallback(async () => {
+    if (!activeShift?.id) return;
+    const actualBalance = Number(closingBalanceInput);
+    if (!Number.isFinite(actualBalance) || actualBalance < 0) {
+      setShiftActionError("Enter the counted drawer balance (0 or more).");
+      return;
+    }
+    setShiftActionBusy(true);
+    setShiftActionError("");
+    try {
+      const response = await apiService.endShift({
+        shiftId: activeShift.id,
+        endTime: new Date().toISOString(),
+        actualBalance,
+      });
+      if (!response.success) {
+        setShiftActionError(response.message || "Could not close the shift. Please try again.");
+        return;
+      }
+      setEndedShiftSummary({
+        expected: Number((response.data as any)?.expectedBalance ?? 0),
+        actual: Number((response.data as any)?.actualBalance ?? 0),
+        difference: Number((response.data as any)?.difference ?? 0),
+      });
+      setClosingBalanceInput("");
+      setActiveShift(null);
+      setShiftSales([]);
+      void fetchTodaySales();
+    } catch {
+      setShiftActionError("Could not close the shift. Please try again.");
+    } finally {
+      setShiftActionBusy(false);
+    }
+  }, [activeShift, closingBalanceInput, fetchTodaySales]);
 
   const fetchParkedSales = useCallback(async () => {
     setIsLoadingParked(true);
@@ -4625,7 +4766,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <Button
               type="button"
               variant="ghost"
-              onClick={() => { fetchTodaySales(); setIsShiftDialogOpen(true); }}
+              onClick={openShiftDialog}
               className="h-10 gap-2 rounded-[10px] border border-white/15 bg-white/10 px-3 2xl:px-3.5 text-sm font-semibold text-white shadow-none hover:bg-white/15 hover:text-white"
             >
               <ClipboardList className="h-4 w-4 shrink-0" strokeWidth={2} />
@@ -5956,6 +6097,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             {activeShift ? (
               <>
+                {/* Shift gaps fix (2026-10-27, B4): a stale shift is
+                    flagged, never silently presented as today's. The
+                    cashier closes it with the counted balance below —
+                    never auto-closed with an invented count. */}
+                {activeShift.isStale && (
+                  <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3">
+                    <p className="text-sm font-bold text-amber-900">This shift looks stale</p>
+                    <p className="mt-0.5 text-[13px] leading-relaxed text-amber-800">
+                      {activeShift.staleReason || "This shift was opened on a previous day."} Close it with the counted drawer balance below before starting a new shift.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Shift opened</p>
@@ -5983,31 +6136,94 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-[#8c95b0]">
-                  Drawer movements and closing the shift are managed in Shift Management — sales are not tied to a shift in Zapeera, so the expected cash above is the shift record's own float arithmetic.
+                  Sales made during this shift are tied to it — the Collected section below shows this shift's sales only.
                 </p>
+                {/* Shift gaps fix (2026-10-27, B1): close MY shift here
+                    with the counted drawer balance. Managers close any
+                    shift from Shift Management. */}
+                <div className="mt-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3.5 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Close this shift</p>
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      value={closingBalanceInput}
+                      onChange={(e) => setClosingBalanceInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                      placeholder="Counted drawer balance (PKR)"
+                      inputMode="decimal"
+                      className="h-10 flex-1 rounded-[10px] bg-white text-sm"
+                    />
+                    <Button
+                      type="button"
+                      disabled={shiftActionBusy}
+                      onClick={handleEndShift}
+                      className="h-10 shrink-0 rounded-[10px] bg-[#0a1128] px-4 text-sm font-bold text-white hover:bg-[#1a2340]"
+                    >
+                      {shiftActionBusy ? "Closing…" : "End shift"}
+                    </Button>
+                  </div>
+                  {shiftActionError && (
+                    <p className="mt-2 text-xs font-semibold text-red-600">{shiftActionError}</p>
+                  )}
+                </div>
               </>
             ) : (
               <div className="rounded-xl border border-dashed border-[rgba(15,23,60,0.15)] bg-[#f8f9fc] px-4 py-5 text-center">
                 <ClipboardList className="mx-auto mb-2 h-7 w-7 text-[#c3cbdd]" strokeWidth={1.5} />
                 <p className="text-sm font-semibold text-[#0a1128]">No active register shift</p>
-                <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
-                  You don't have an open shift right now. Shifts (with opening float and drawer counts) are opened and closed in Shift Management.
+                {myStaffProfileId ? (
+                  <>
+                    <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
+                      Open your shift for this register — the opening float is the cash counted into the drawer.
+                    </p>
+                    <div className="mx-auto mt-3 flex max-w-[340px] gap-2">
+                      <Input
+                        value={openingFloatInput}
+                        onChange={(e) => setOpeningFloatInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                        placeholder="Opening float (PKR)"
+                        inputMode="decimal"
+                        className="h-10 flex-1 rounded-[10px] bg-white text-sm"
+                      />
+                      <Button
+                        type="button"
+                        disabled={shiftActionBusy}
+                        onClick={handleOpenShift}
+                        className="h-10 shrink-0 rounded-[10px] bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700"
+                      >
+                        {shiftActionBusy ? "Opening…" : "Open shift"}
+                      </Button>
+                    </div>
+                    {shiftActionError && (
+                      <p className="mx-auto mt-2 max-w-[340px] text-xs font-semibold text-red-600">{shiftActionError}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
+                    You don't have an open shift right now. Shifts (with opening float and drawer counts) are opened and closed in Shift Management.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {endedShiftSummary && (
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+                <p className="text-sm font-bold text-emerald-900">Shift closed</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-emerald-800">
+                  Expected PKR {endedShiftSummary.expected.toFixed(2)} · Counted PKR {endedShiftSummary.actual.toFixed(2)} · Difference PKR {endedShiftSummary.difference.toFixed(2)}
                 </p>
               </div>
             )}
 
-            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Collected today by tender</p>
-            {isLoadingTodaySales ? (
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#8c95b0]">{activeShift ? "Collected this shift by tender" : "Collected today by tender"}</p>
+            {isLoadingCollectedSales ? (
               <p className="mt-2 flex items-center gap-2 text-sm text-[#8c95b0]">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading…
               </p>
-            ) : todaySales.length === 0 ? (
-              <p className="mt-2 text-sm text-[#8c95b0]">No sales recorded today yet.</p>
+            ) : collectedSales.length === 0 ? (
+              <p className="mt-2 text-sm text-[#8c95b0]">{activeShift ? "No sales recorded on this shift yet." : "No sales recorded today yet."}</p>
             ) : (
               <div className="mt-2 space-y-1.5">
                 {(() => {
                   const byMethod = new Map<string, { count: number; total: number }>();
-                  todaySales.forEach((s: any) => {
+                  collectedSales.forEach((s: any) => {
                     const key = String(s.paymentMethod || "CASH").toUpperCase();
                     const entry = byMethod.get(key) || { count: 0, total: 0 };
                     entry.count += 1;
@@ -6027,7 +6243,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 <div className="flex items-center justify-between border-t border-dashed border-[rgba(15,23,60,0.12)] px-3 pt-2 text-sm">
                   <span className="font-bold text-[#0a1128]">Total collected</span>
                   <span className="font-mono font-extrabold tabular-nums text-[#0a1128]">
-                    PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
+                    PKR {collectedSales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
                   </span>
                 </div>
               </div>

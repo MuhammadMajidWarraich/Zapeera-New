@@ -4107,6 +4107,9 @@ export class ApiService {
     // orders queue reads channel=KIOSK&status=PENDING.
     channel?: string;
     status?: string;
+    // Register shift (2026-10-27, B5): the Shift Summary modal reads
+    // one shift's sales only — getSales({ shiftId }).
+    shiftId?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {

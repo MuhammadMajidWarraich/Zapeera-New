@@ -222,7 +222,8 @@ export const getSales = async (req: AuthRequest, res: Response) => {
       customerId = '',
       paymentMethod = '',
       channel = '',
-      status = ''
+      status = '',
+      shiftId = ''
     } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -239,6 +240,12 @@ export const getSales = async (req: AuthRequest, res: Response) => {
 
     if (customerId) {
       where.customerId = customerId;
+    }
+
+    // Register shift (2026-10-27, B5): the Shift Summary modal reads
+    // one shift's sales only — the collections for the active shift.
+    if (shiftId) {
+      where.shiftId = shiftId;
     }
 
     if (paymentMethod) {
@@ -777,6 +784,27 @@ export const getAvailableReceiptNumbers = async (req: AuthRequest, res: Response
     });
   }
 };
+
+// Register shift (2026-10-27, B5): the ACTIVE shift id for the cashier
+// ringing up this sale, resolved server-side from the caller's
+// membership — never from a client-sent id (a client-sent id could
+// attach another cashier's shift). Returns null when no shift is open
+// for the cashier in this business; the sale is still valid, it simply
+// has no shift. Called inside the sale transaction so the shift lookup
+// and the sale row are atomic.
+async function resolveActiveShiftIdForSale(tx: any, userId: string, companyId: string): Promise<string | null> {
+  const profile = await tx.staffProfile.findFirst({
+    where: { membership: { userId, businessId: companyId } },
+    select: { id: true }
+  });
+  if (!profile) return null;
+  const shift = await tx.shift.findFirst({
+    where: { staffProfileId: profile.id, status: 'ACTIVE' },
+    orderBy: { startTime: 'desc' },
+    select: { id: true }
+  });
+  return shift?.id ?? null;
+}
 
 export const createSale = async (req: AuthRequest, res: Response) => {
   try {
@@ -1514,6 +1542,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         console.log('🏢 Using provided branch context for sale:', { targetCompanyId, targetBranchId });
       }
 
+      // Register shift (2026-10-27, B5): tie this sale to the cashier's
+      // ACTIVE shift (see resolveActiveShiftIdForSale above). Resolved
+      // here, inside the transaction, so it is atomic with the sale.
+      const shiftIdForSale = await resolveActiveShiftIdForSale(tx, userId, targetCompanyId);
+
       // Payment status and paidAmount were resolved before the
       // transaction (split-tender validation depends on them).
       const saleStatus = paymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
@@ -1602,6 +1635,13 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           // Salesperson attribution (Wave C6): validated above to
           // be an ACTIVE member of this business; null = cashier.
           salespersonId: salespersonForSale ? salespersonForSale.id : null,
+          // Register shift (2026-10-27, B5): the cashier's ACTIVE
+          // shift, resolved inside this transaction above. Null when
+          // no shift was open. (tx is `any`, so the generated client
+          // predating Sale.shiftId does not trip tsc — the column comes
+          // from the schema change, applied at deploy time; see
+          // channelTag above for the same pattern.)
+          shiftId: shiftIdForSale,
           // Online store (Wave C5 — gap item 5): channel + delivery
           // details. POS sales store the POS default; storefront
           // checkouts send ONLINE_STORE with delivery fields.
@@ -1647,6 +1687,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               prescriptionId: saleData.prescriptionId || null,
               folioId: folioForSale ? folioForSale.id : null,
               salespersonId: salespersonForSale ? salespersonForSale.id : null,
+              // Register shift (2026-10-27, B5): same shift as the
+              // first attempt — resolved once, before the retry.
+              shiftId: shiftIdForSale,
               // Online store (Wave C5 — gap item 5): channel + delivery
               // details (same values as the first attempt above).
               channel: saleData.channel || 'POS',

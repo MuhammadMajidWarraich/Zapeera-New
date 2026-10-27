@@ -250,14 +250,22 @@ const PUSH_BLOCKED_ENTITY_TYPES = new Set([
 // Dependency rank for in-batch ordering (lower applies first). Mirrors the
 // desktop's SYNC_TABLES priorities (electron/services/sync.service.js).
 // Unknown entity types apply last, in client order.
+//
+// Shift fix (2026-10-27, B2/B5): staffProfile (112) and shift (115) rank
+// BEFORE sale (120) — a sale pushed in the same batch as the shift it
+// was rung under must not land before its shift row, or the sale's
+// shiftId FK (P2003) fails the create. A staffProfile is created on the
+// server (admin/web) and only pulled down, never pushed — its rank is
+// for the same parent-before-child guarantee in any batch that carries
+// one.
 const ENTITY_DEPENDENCY_RANK: Record<string, number> = {
   category: 40, manufacturer: 50, supplier: 60, shelf: 70,
   product: 80, productVariant: 85, batch: 90,
-  customer: 100, employee: 110,
+  customer: 100, employee: 110, staffProfile: 112, shift: 115,
   sale: 120, saleItem: 130, salePayment: 135, salePromotion: 136, saleTaxLine: 137,
   purchase: 140, purchaseItem: 150,
   stockMovement: 160, receipt: 170, refund: 180, refundItem: 190,
-  attendance: 200, shift: 210, scheduledShift: 220, scheduledShiftUser: 230,
+  attendance: 200, scheduledShift: 220, scheduledShiftUser: 230,
   commission: 240, settings: 250, cardDetails: 260, subscription: 270,
   stockTransfer: 300, stockTransferItem: 310,
   stockTake: 320, stockTakeLine: 330,
@@ -364,8 +372,15 @@ function staleVerdict(payload: any, existing: any, serverNowMs: number = Date.no
 //   per-unit, so it is divided by quantity.
 // - stockMovement: local referenceId -> cloud reference.
 const PUSH_FIELD_ALLOWLIST: Record<string, Set<string>> = {
-  sale: new Set(['id', 'invoiceNumber', 'customerId', 'userId', 'branchId', 'companyId', 'createdBy', 'subtotal', 'taxAmount', 'provincialTaxAmount', 'discountAmount', 'discountPercentage', 'loyaltyPointsRedeemed', 'loyaltyDiscount', 'loyaltyPointsEarned', 'promotionDiscount', 'fbrInvoiceNumber', 'fbrStatus', 'postexTrackingNumber', 'postexShipmentStatus', 'prescriptionId', 'folioId', 'salespersonId', 'channel', 'externalOrderId', 'deliveryAddress', 'deliveryPhone', 'deliveryNotes', 'giftCardAmount', 'walletAmount', 'totalAmount', 'paidAmount', 'returnedAmount', 'paymentMethod', 'paymentStatus', 'status', 'saleDate', 'membershipId', 'uuid', 'syncStatus', 'createdAt', 'updatedAt']),
+  sale: new Set(['id', 'invoiceNumber', 'customerId', 'userId', 'branchId', 'companyId', 'createdBy', 'subtotal', 'taxAmount', 'provincialTaxAmount', 'discountAmount', 'discountPercentage', 'loyaltyPointsRedeemed', 'loyaltyDiscount', 'loyaltyPointsEarned', 'promotionDiscount', 'fbrInvoiceNumber', 'fbrStatus', 'postexTrackingNumber', 'postexShipmentStatus', 'prescriptionId', 'folioId', 'salespersonId', 'shiftId', 'channel', 'externalOrderId', 'deliveryAddress', 'deliveryPhone', 'deliveryNotes', 'giftCardAmount', 'walletAmount', 'totalAmount', 'paidAmount', 'returnedAmount', 'paymentMethod', 'paymentStatus', 'status', 'saleDate', 'membershipId', 'uuid', 'syncStatus', 'createdAt', 'updatedAt']),
   saleItem: new Set(['id', 'saleId', 'productId', 'batchId', 'createdBy', 'quantity', 'unitsDeducted', 'unitsPerBox', 'saleType', 'unitLevel', 'unitFactor', 'variantId', 'variantName', 'unitPrice', 'totalPrice', 'batchNumber', 'expiryDate']),
+  // Shift fix (2026-10-27, B2): the desktop pushes real shift rows now.
+  // Deliberately NO companyId in this set: the Shift model has no
+  // companyId field (tenancy runs through membershipId), and
+  // applyPushCreate injects companyId before sanitizing — the sanitizer
+  // strips it here, so the create never sees an unknown argument. The
+  // desktop must send only cloud Shift fields (no legacy name/isActive).
+  shift: new Set(['id', 'staffProfileId', 'membershipId', 'branchId', 'shiftDate', 'startTime', 'endTime', 'openingBalance', 'cashIn', 'cashOut', 'expectedBalance', 'actualBalance', 'difference', 'status', 'notes', 'createdAt', 'updatedAt']),
   purchase: new Set(['id', 'supplierId', 'branchId', 'companyId', 'invoiceNo', 'purchaseDate', 'totalAmount', 'paidAmount', 'outstanding', 'status', 'notes', 'createdBy', 'createdAt', 'updatedAt']),
   purchaseItem: new Set(['id', 'purchaseId', 'productId', 'batchId', 'quantity', 'unitPrice', 'totalPrice', 'createdAt', 'updatedAt']),
   refund: new Set(['id', 'originalSaleId', 'refundReason', 'refundAmount', 'refundMethod', 'refundReference', 'refundedBy', 'createdBy', 'status', 'processedAt', 'createdAt', 'updatedAt']),
@@ -510,6 +525,23 @@ async function recordProcessedOp(store: any, businessId: string, op: any, opKey:
   } catch { /* dedupe recording must never fail the push itself */ }
 }
 
+// Shift fix (2026-10-27, B2/L-5): shift + staffProfile carry no
+// companyId — their tenancy runs through membershipId. The create-replay
+// / update / delete paths below resolve the owning business through the
+// membership, so a pushed op for another business's shift is rejected
+// exactly like a companyId mismatch. For every other entity type this
+// returns companyId/businessId with no extra query.
+async function resolveRowBusinessId(prisma: any, entityType: string, row: any): Promise<string | undefined> {
+  if (!row) return undefined;
+  if (row.companyId !== undefined) return row.companyId;
+  if (row.businessId !== undefined) return row.businessId;
+  if ((entityType === 'shift' || entityType === 'staffProfile') && row.membershipId) {
+    const membership = await prisma.membership.findUnique({ where: { id: row.membershipId }, select: { businessId: true } });
+    return membership?.businessId;
+  }
+  return undefined;
+}
+
 async function applyPushCreate(prisma: any, businessId: string, opId: any, entityType: string, entityId: string, payload: any, opts: { actorUserId?: string | null; queuedAtMs?: number | null } = {}) {
   const model = (prisma as any)[entityType];
   if (!model?.create || !payload) return { id: opId, status: 'ACCEPTED' };
@@ -575,7 +607,7 @@ async function applyPushCreate(prisma: any, businessId: string, opId: any, entit
   }
 
   // Create against an id that already exists = replay or duplicate create.
-  const owner = existing.companyId ?? existing.businessId;
+  const owner = await resolveRowBusinessId(prisma, entityType, existing);
   if (owner !== undefined && owner !== businessId) {
     return { id: opId, status: 'FAILED', message: 'Entity does not belong to this business' };
   }
@@ -603,7 +635,7 @@ async function applyPushUpdate(prisma: any, businessId: string, opId: any, entit
   if (!existing) {
     return { id: opId, status: 'FAILED', message: 'Entity not found on server' };
   }
-  const owner = existing.companyId ?? existing.businessId;
+  const owner = await resolveRowBusinessId(prisma, entityType, existing);
   if (owner !== undefined && owner !== businessId) {
     return { id: opId, status: 'FAILED', message: 'Entity does not belong to this business' };
   }
@@ -629,7 +661,7 @@ async function applyPushDelete(prisma: any, businessId: string, opId: any, entit
   if (!existing) {
     return { id: opId, status: 'ACCEPTED', message: 'Already absent on the server' };
   }
-  const owner = existing.companyId ?? existing.businessId;
+  const owner = await resolveRowBusinessId(prisma, entityType, existing);
   if (owner !== undefined && owner !== businessId) {
     return { id: opId, status: 'FAILED', message: 'Entity does not belong to this business' };
   }
@@ -982,14 +1014,23 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
     // - fbr_configs / fbr_invoice_queue (B7) are EXCLUDED by design: the
     //   config holds a write-only PRAL API token that must never leave the
     //   server, and the queue is server-side worker state.
+    //
+    // EXCEPTION — membership-scoped parents (shift fix, 2026-10-27, B2):
+    // shift + staffProfile carry no companyId; their tenancy runs through
+    // membershipId, so the pull filters by membership.businessId instead.
+    // The desktop needs both: staffProfiles so the POS can resolve the
+    // signed-in cashier's profile, and shifts so a counter sees the
+    // shift another counter opened.
     const CREATED_AT_CURSOR_TABLES = new Set(['customerLedgerEntry', 'loyaltyTransaction']);
+    const MEMBERSHIP_SCOPED_PULL_TABLES = new Set(['shift', 'staffProfile']);
     const tables = [
       'product', 'customer', 'sale', 'purchase', 'batch', 'category', 'supplier', 'manufacturer', 'shelf', 'stockMovement',
       'stockTransfer', 'promotion', 'taxClass', 'prescription',
       'patient', 'doctor', 'appointment', 'doctorSettlement',
       'roomType', 'room', 'reservation', 'folio',
       'productVariant', 'stockTake',
-      'customerLedgerEntry', 'loyaltyTransaction'
+      'customerLedgerEntry', 'loyaltyTransaction',
+      'shift', 'staffProfile'
     ];
     let maxSeen: { ms: number; id: string } | null = null;
     const truncatedFrontiers: Array<{ ms: number; id: string }> = [];
@@ -1006,11 +1047,13 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
               ]
             }
           : { [tsField]: { gte: sinceDate } };
+        // Membership-scoped tables (shift fix, 2026-10-27, B2) filter by
+        // membership.businessId — they carry no companyId.
+        const where = MEMBERSHIP_SCOPED_PULL_TABLES.has(table)
+          ? { membership: { businessId }, ...tsCondition }
+          : { companyId: businessId, ...tsCondition };
         const records = await model.findMany({
-          where: {
-            companyId: businessId,
-            ...tsCondition
-          },
+          where,
           orderBy: [{ [tsField]: 'asc' }, { id: 'asc' }],
           take: PULL_PAGE_SIZE
         });

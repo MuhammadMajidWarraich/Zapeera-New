@@ -37,6 +37,7 @@ const { registerSettingsRoutes } = require('./settings.routes');
 const { registerShelvesRoutes } = require('./shelves.routes');
 const { registerShiftsRoutes } = require('./shifts.routes');
 const { registerSseRoutes } = require('./sse.routes');
+const { registerStaffRoutes } = require('./staff.routes');
 const { registerSuppliersRoutes } = require('./suppliers.routes');
 const { registerSubscriptionRoutes } = require('./subscription.routes');
 const { registerSyncRoutes } = require('./sync.routes');
@@ -84,6 +85,7 @@ function registerAllRoutes(app, authMiddleware, deps) {
   registerShelvesRoutes(app, authMiddleware, deps);
   registerShiftsRoutes(app, authMiddleware, deps);
   registerSseRoutes(app, authMiddleware, deps);
+  registerStaffRoutes(app, authMiddleware, deps);
   registerSuppliersRoutes(app, authMiddleware, deps);
   registerSubscriptionRoutes(app, authMiddleware, deps);
   registerSyncRoutes(app, authMiddleware, deps);

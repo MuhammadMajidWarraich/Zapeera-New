@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
-import { buildBranchWhereClause } from '../middleware/auth.middleware';
+import { buildBranchWhereClause, getUserRole } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { createNotification } from './notification.controller';
 import Joi from 'joi';
@@ -41,6 +41,56 @@ const staffInclude = {
   branch: { select: { id: true, name: true } }
 };
 
+// ── Shift gaps fix (2026-10-27, B1/B4/B6) ─────────────────────────────
+// B1: a cashier opens/closes/updates ONLY their own shift. Manager /
+// owner / admin (privileged roles) may act for any staff member of the
+// business. Ownership is resolved from the caller's membership — never
+// from a client-sent id.
+// B4: a shift is STALE when its shiftDate is a previous calendar day,
+// or its startTime is more than 24h old. Stale shifts are FLAGGED, not
+// auto-closed: auto-closing would invent a counted balance. The flag
+// rides on getActiveShift so the POS dialog can warn + offer Close.
+// B6: the route param is :staffId (shift.routes.ts) — the controller
+// used to read req.params.staffProfileId (undefined), so every lookup
+// returned the business's FIRST active shift, whoever asked.
+const SHIFT_PRIVILEGED_ROLES = new Set(['OWNER', 'ADMIN', 'MANAGER', 'SUPERADMIN']);
+
+function isShiftPrivileged(req: Request): boolean {
+  return SHIFT_PRIVILEGED_ROLES.has(getUserRole(req as any));
+}
+
+async function resolveCallerStaffProfileId(prisma: any, req: Request): Promise<string | null> {
+  const userId = (req as any).user?.id;
+  const companyId = buildBranchWhereClause(req as any, {}).companyId;
+  if (!userId || !companyId) return null;
+  const membership = await prisma.membership.findFirst({
+    where: { userId, businessId: companyId },
+    select: { id: true }
+  });
+  if (!membership) return null;
+  const profile = await prisma.staffProfile.findFirst({
+    where: { membershipId: membership.id },
+    select: { id: true }
+  });
+  return profile?.id ?? null;
+}
+
+function isShiftStale(shift: { shiftDate?: string | Date; startTime?: string | Date }): { isStale: boolean; staleReason: string | null } {
+  if (!shift) return { isStale: false, staleReason: null };
+  const now = new Date();
+  const start = new Date(shift.startTime as any);
+  const shiftDay = new Date(shift.shiftDate as any);
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const shiftDayStart = new Date(shiftDay); shiftDayStart.setHours(0, 0, 0, 0);
+  if (shiftDayStart.getTime() < todayStart.getTime()) {
+    return { isStale: true, staleReason: `Shift opened on ${shiftDay.toLocaleDateString()} — from a previous day` };
+  }
+  if (now.getTime() - start.getTime() > 24 * 60 * 60 * 1000) {
+    return { isStale: true, staleReason: 'Shift open for more than 24 hours' };
+  }
+  return { isStale: false, staleReason: null };
+}
+
 export const startShift = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -54,6 +104,27 @@ export const startShift = async (req: Request, res: Response) => {
     const staffProfile = await prisma.staffProfile.findUnique({ where: { id: staffProfileId } });
     if (!staffProfile) return res.status(404).json({ success: false, message: 'Staff not found' });
     if (!staffProfile.isActive) return res.status(400).json({ success: false, message: 'Staff is not active' });
+
+    // B1 + L-5: the staff profile must belong to the SELECTED business,
+    // and the branch must too — otherwise a shift could be opened for
+    // foreign staff or in a foreign branch.
+    const selectedCompanyId = buildBranchWhereClause(req as any, {}).companyId;
+    const staffMembership = await prisma.membership.findUnique({ where: { id: staffProfile.membershipId }, select: { businessId: true } });
+    if (!staffMembership || staffMembership.businessId !== selectedCompanyId) {
+      return res.status(404).json({ success: false, message: 'Staff not found' });
+    }
+    const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { companyId: true } });
+    if (!branch || branch.companyId !== selectedCompanyId) {
+      return res.status(404).json({ success: false, message: 'Branch not found' });
+    }
+    // B1: a staff member opens ONLY their own shift. Privileged roles
+    // (manager / owner / admin) may open a shift for any staff member.
+    if (!isShiftPrivileged(req)) {
+      const ownProfileId = await resolveCallerStaffProfileId(prisma, req);
+      if (!ownProfileId || ownProfileId !== staffProfileId) {
+        return res.status(403).json({ success: false, message: 'You can only open your own shift' });
+      }
+    }
 
     const activeShift = await prisma.shift.findFirst({ where: { staffProfileId, status: 'ACTIVE' } });
     if (activeShift) return res.status(400).json({ success: false, message: 'Staff already has an active shift' });
@@ -118,6 +189,13 @@ export const endShift = async (req: Request, res: Response) => {
     if ((shift as any).membership?.businessId !== buildBranchWhereClause(req as any, {}).companyId) {
       return res.status(404).json({ success: false, message: 'Shift not found' });
     }
+    // B1: a staff member closes ONLY their own shift.
+    if (!isShiftPrivileged(req)) {
+      const ownProfileId = await resolveCallerStaffProfileId(prisma, req);
+      if (!ownProfileId || ownProfileId !== shift.staffProfileId) {
+        return res.status(403).json({ success: false, message: 'You can only close your own shift' });
+      }
+    }
     if (shift.status !== 'ACTIVE') return res.status(400).json({ success: false, message: 'Shift is not active' });
 
     const expectedBalance = shift.openingBalance + shift.cashIn - shift.cashOut;
@@ -179,14 +257,26 @@ export const getShifts = async (req: Request, res: Response) => {
 export const getActiveShift = async (req: Request, res: Response) => {
   try {
     const prisma = await getPrisma();
-    const { staffProfileId } = req.params;
+    // B6: the route param is :staffId (shift.routes.ts) — the controller
+    // used to read req.params.staffProfileId (undefined), so Prisma
+    // dropped the filter and every lookup returned the business's FIRST
+    // active shift, whoever asked. Read the param the route defines.
+    // A missing id is a 400, never a silent first-row return.
+    const staffProfileId = (req.params as any).staffId || (req.params as any).staffProfileId;
+    if (!staffProfileId) {
+      return res.status(400).json({ success: false, message: 'staffId is required' });
+    }
     // Business-type scoping (L-5 fix, 2026-10-26): an active shift from
     // another business must not be visible through this business's POS.
     const activeShift = await prisma.shift.findFirst({
       where: { staffProfileId, status: 'ACTIVE', membership: { businessId: buildBranchWhereClause(req as any, {}).companyId } },
       include: staffInclude,
     });
-    return res.json({ success: true, data: activeShift });
+    if (!activeShift) return res.json({ success: true, data: null });
+    // B4: flag a stale shift — never silently present yesterday's shift
+    // as today's. The POS dialog warns and offers Close.
+    const { isStale, staleReason } = isShiftStale(activeShift);
+    return res.json({ success: true, data: { ...activeShift, isStale, staleReason } });
   } catch (error) {
     console.error('Error fetching active shift:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -212,6 +302,13 @@ export const updateShift = async (req: Request, res: Response) => {
     // business must not be mutable by id — cross-tenant write.
     if (existingShift.membership?.businessId !== buildBranchWhereClause(req as any, {}).companyId) {
       return res.status(404).json({ success: false, message: 'Shift not found' });
+    }
+    // B1: a staff member updates ONLY their own shift.
+    if (!isShiftPrivileged(req)) {
+      const ownProfileId = await resolveCallerStaffProfileId(prisma, req);
+      if (!ownProfileId || ownProfileId !== existingShift.staffProfileId) {
+        return res.status(403).json({ success: false, message: 'You can only update your own shift' });
+      }
     }
     if (existingShift.status !== 'ACTIVE') return res.status(400).json({ success: false, message: 'Shift is not active' });
 

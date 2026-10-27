@@ -196,7 +196,7 @@ async function initDatabase() {
       giftCardAmount REAL, walletAmount REAL, membershipId TEXT, externalOrderId TEXT,
       postexTrackingNumber TEXT, postexShipmentStatus TEXT, deliveryAddress TEXT, deliveryPhone TEXT,
       deliveryNotes TEXT, userId TEXT, uuid TEXT, syncStatus TEXT DEFAULT 'PENDING',
-      notes TEXT, employeeId TEXT, prescriptionId TEXT, folioId TEXT, salespersonId TEXT, fbrInvoiceNumber TEXT, fbrStatus TEXT, createdBy TEXT,
+      notes TEXT, employeeId TEXT, prescriptionId TEXT, folioId TEXT, salespersonId TEXT, shiftId TEXT, fbrInvoiceNumber TEXT, fbrStatus TEXT, createdBy TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS sale_items (
@@ -238,8 +238,24 @@ async function initDatabase() {
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS shifts (
-      id TEXT PRIMARY KEY, name TEXT NOT NULL, startTime TEXT, endTime TEXT, isActive INTEGER DEFAULT 1,
-      branchId TEXT, companyId TEXT, createdBy TEXT,
+      id TEXT PRIMARY KEY, staffProfileId TEXT, membershipId TEXT, shiftDate TEXT,
+      startTime TEXT, endTime TEXT, openingBalance REAL DEFAULT 0, cashIn REAL DEFAULT 0, cashOut REAL DEFAULT 0,
+      expectedBalance REAL, actualBalance REAL, difference REAL, status TEXT DEFAULT 'ACTIVE', notes TEXT,
+      name TEXT, isActive INTEGER DEFAULT 1, branchId TEXT, companyId TEXT, createdBy TEXT,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS staff_profiles (
+      id TEXT PRIMARY KEY, membershipId TEXT UNIQUE, employeeId TEXT UNIQUE,
+      designation TEXT, department TEXT, employmentType TEXT DEFAULT 'FULL_TIME',
+      salary REAL, salaryType TEXT DEFAULT 'MONTHLY', joiningDate TEXT,
+      probationEndDate TEXT, confirmationDate TEXT, resignationDate TEXT,
+      terminationDate TEXT, terminationReason TEXT, bankName TEXT,
+      bankAccountNumber TEXT, bankBranchName TEXT, cnicNumber TEXT, cnicExpiry TEXT,
+      passportNumber TEXT, emergencyContactName TEXT, emergencyContactPhone TEXT,
+      emergencyContactRelation TEXT, reportingManagerId TEXT, shiftPreference TEXT,
+      weeklyOffDays TEXT, annualLeaveBalance INTEGER DEFAULT 0, sickLeaveBalance INTEGER DEFAULT 0,
+      casualLeaveBalance INTEGER DEFAULT 0, documents TEXT, notes TEXT,
+      performanceRating REAL, lastReviewDate TEXT, isActive INTEGER DEFAULT 1, isSalesman INTEGER DEFAULT 0,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS scheduled_shifts (
@@ -590,6 +606,55 @@ async function initDatabase() {
       console.log(`[DB] v1.0.11 migration: ${v1011ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
     } catch (e) {
       console.log('[DB] v1.0.11 migration: cursor reset skipped:', e.message);
+    }
+  }
+
+  // ── v1.0.12 sync-schema upgrade (shift gaps fix, 2026-10-27, B2/B5) ──
+  // The desktop shifts table was a roster stub (name/startTime/endTime/
+  // isActive only) — upgraded DBs get the cloud Shift columns so pulled
+  // shift rows land instead of quarantining, and sales get shiftId so a
+  // sale keeps the shift it was rung under. The staff_profiles table
+  // itself is created by the CREATE TABLE above (runs on upgrade too).
+  // Same pattern as v1.0.8/9/11: PRAGMA-guarded ALTERs + a cursor reset
+  // when anything is added — the reset is REQUIRED here, not just
+  // hygiene: staffProfiles and shifts predate the desktop's cursor, so
+  // without a full re-pull they would never arrive.
+  const SYNC_SCHEMA_UPGRADES_V1012 = [
+    // shifts (11)
+    { table: 'shifts', column: 'staffProfileId', definition: 'TEXT' },
+    { table: 'shifts', column: 'membershipId', definition: 'TEXT' },
+    { table: 'shifts', column: 'shiftDate', definition: 'TEXT' },
+    { table: 'shifts', column: 'openingBalance', definition: 'REAL DEFAULT 0' },
+    { table: 'shifts', column: 'cashIn', definition: 'REAL DEFAULT 0' },
+    { table: 'shifts', column: 'cashOut', definition: 'REAL DEFAULT 0' },
+    { table: 'shifts', column: 'expectedBalance', definition: 'REAL' },
+    { table: 'shifts', column: 'actualBalance', definition: 'REAL' },
+    { table: 'shifts', column: 'difference', definition: 'REAL' },
+    { table: 'shifts', column: 'status', definition: "TEXT DEFAULT 'ACTIVE'" },
+    { table: 'shifts', column: 'notes', definition: 'TEXT' },
+    // sales (1)
+    { table: 'sales', column: 'shiftId', definition: 'TEXT' }
+  ];
+  let v1012ColumnsAdded = 0;
+  for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V1012) {
+    try {
+      const cols = query(`PRAGMA table_info(${table})`);
+      if (cols && cols.some((c) => c.name === column)) continue;
+    } catch { /* fall through and attempt the ALTER */ }
+    try {
+      db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] v1.0.12 migration: added ${table}.${column}`);
+      v1012ColumnsAdded++;
+    } catch (e) {
+      console.log(`[DB] v1.0.12 migration skipped ${table}.${column}: ${e.message}`);
+    }
+  }
+  if (v1012ColumnsAdded > 0) {
+    try {
+      db.run(`DELETE FROM settings WHERE key LIKE 'sync_cursor_%'`);
+      console.log(`[DB] v1.0.12 migration: ${v1012ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
+    } catch (e) {
+      console.log('[DB] v1.0.12 migration: cursor reset skipped:', e.message);
     }
   }
 
