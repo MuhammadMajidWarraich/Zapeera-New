@@ -5645,9 +5645,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               data-testid="sticky-proceed"
               onClick={() => setIsPaymentDialogOpen(true)}
-              className="h-12 shrink-0 rounded-[12px] px-5 text-[15px] font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong"
+              className="h-12 shrink-0 rounded-[12px] px-4 text-[15px] font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong"
             >
-              <Receipt className="mr-2 h-5 w-5" />
               Proceed to Payment
             </Button>
           </div>
