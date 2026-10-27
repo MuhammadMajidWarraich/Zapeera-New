@@ -61,7 +61,7 @@ function registerCustomersRoutes(app, authMiddleware, deps) {
           console.log('[Customers] Found customers:', rawCustomers.length);
     
           const customers = rawCustomers.map(c => {
-            const salesCount = query('SELECT COUNT(*) as count, SUM(grandTotal) as total FROM sales WHERE customerId = ?', [c.id])[0];
+            const salesCount = query('SELECT COUNT(*) as count, SUM(totalAmount) as total FROM sales WHERE customerId = ?', [c.id])[0];
             const branch = c.branchId ? query('SELECT id, name FROM branches WHERE id = ?', [c.branchId])[0] : null;
             const lastSale = query('SELECT createdAt FROM sales WHERE customerId = ? ORDER BY createdAt DESC LIMIT 1', [c.id])[0];
             return {
@@ -184,7 +184,7 @@ function registerCustomersRoutes(app, authMiddleware, deps) {
             const salesResult = await queryActiveDatabase('sales', { customerId: customer.id });
             if (salesResult && salesResult.success && salesResult.data) {
               salesCount.count = salesResult.data.length;
-              salesCount.total = salesResult.data.reduce((sum, s) => sum + (parseFloat(s.grandTotal) || 0), 0);
+              salesCount.total = salesResult.data.reduce((sum, s) => sum + (parseFloat(s.grandTotal) || parseFloat(s.totalAmount) || 0), 0);
             }
             if (customer.branchId) {
               const branchResult = await queryActiveDatabase('branches', { id: customer.branchId });
@@ -194,7 +194,7 @@ function registerCustomersRoutes(app, authMiddleware, deps) {
             }
           } else {
             // Query from SQLite
-            const salesData = query('SELECT COUNT(*) as count, SUM(grandTotal) as total FROM sales WHERE customerId = ?', [customer.id]);
+            const salesData = query('SELECT COUNT(*) as count, SUM(totalAmount) as total FROM sales WHERE customerId = ?', [customer.id]);
             salesCount = salesData[0] || { count: 0, total: 0 };
             if (customer.branchId) {
               const branchData = query('SELECT id, name FROM branches WHERE id = ?', [customer.branchId]);
@@ -294,10 +294,10 @@ function registerCustomersRoutes(app, authMiddleware, deps) {
             });
             const user = s.createdBy ? query('SELECT id, name, email as username FROM users WHERE id = ?', [s.createdBy])[0] : null;
             const branch = s.branchId ? query('SELECT name FROM branches WHERE id = ?', [s.branchId])[0] : null;
-            return { ...s, items, user, branch, totalAmount: s.grandTotal };
+            return { ...s, items, user, branch, totalAmount: s.grandTotal || s.totalAmount };
           });
     
-          const totalSpent = query('SELECT SUM(grandTotal) as total FROM sales WHERE customerId = ?', [req.params.id])[0]?.total || 0;
+          const totalSpent = query('SELECT SUM(totalAmount) as total FROM sales WHERE customerId = ?', [req.params.id])[0]?.total || 0;
           const avgOrder = sales.length > 0 ? totalSpent / sales.length : 0;
     
           res.json({ success: true, data: {

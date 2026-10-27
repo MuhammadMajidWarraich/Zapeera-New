@@ -712,7 +712,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
             // Transform customer data to match backend response format
             // Calculate totalPurchases from sales if column doesn't exist
             if (customer.totalPurchases === undefined || customer.totalPurchases === null) {
-              const salesCount = query('SELECT COUNT(*) as count, SUM(grandTotal) as total FROM sales WHERE customerId = ?', [finalCustomerId])[0];
+              const salesCount = query('SELECT COUNT(*) as count, SUM(totalAmount) as total FROM sales WHERE customerId = ?', [finalCustomerId])[0];
               customer.totalPurchases = salesCount?.total || 0;
             }
             customer.totalPurchases = customer.totalPurchases || 0;
