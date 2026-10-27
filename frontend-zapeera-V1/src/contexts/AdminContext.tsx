@@ -3,11 +3,84 @@ import { apiService } from '@/services/api';
 import { useAuth } from './AuthContext';
 import { AdminContext, type AdminContextType, type Branch, type Company } from './admin-context';
 import { normalizeAppRole, type AppUserRole } from '@/utils/app-role';
-import { readStoredUser } from '@/lib/session-storage';
 
-const getSavedSelection = (savedUserString: string): { companyId: string | null; branchId: string | null } => {
-  // Caching disabled - always return null to force fresh selection
-  return { companyId: null, branchId: null };
+// Persisted business/branch selection (2026-10-26 "Module Locked" fix).
+//
+// The selection used to live only in memory — the saved-selection
+// reader always returned nulls — so ANY full page load wiped it and
+// the module guard (which needs a selected business to fetch
+// enablement) locked every module on deep links like /purchases,
+// while POS showed "Select a branch to start". A phone only worked
+// because of a cached selection.
+//
+// The selection is now persisted per user under the same
+// `selected_company_<userId>` / `selected_branch_<userId>` keys that
+// AuthContext.login() already clears on a fresh OWNER login, so
+// signing in still lands on the business picker — restore only
+// applies to a reload / fresh tab inside the same auth session.
+//
+// A stored id is NEVER trusted blindly: it is applied only after the
+// live company/branch lists arrive and still contain it (see the
+// restore effects below). A stale id is discarded, its keys cleared,
+// and the normal selection flow runs instead.
+const storedCompanyKey = (userId: string) => `selected_company_${userId}`;
+const storedBranchKey = (userId: string) => `selected_branch_${userId}`;
+
+const readStoredSelection = (userId: string | null | undefined): { companyId: string | null; branchId: string | null } => {
+  if (!userId || typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return { companyId: null, branchId: null };
+  }
+  try {
+    return {
+      companyId: localStorage.getItem(storedCompanyKey(userId)) || null,
+      branchId: localStorage.getItem(storedBranchKey(userId)) || null,
+    };
+  } catch {
+    return { companyId: null, branchId: null };
+  }
+};
+
+const writeStoredSelection = (
+  userId: string | null | undefined,
+  companyId: string | null,
+  branchId?: string | null,
+) => {
+  if (!userId || typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    if (companyId) {
+      localStorage.setItem(storedCompanyKey(userId), companyId);
+    } else {
+      localStorage.removeItem(storedCompanyKey(userId));
+    }
+    if (branchId !== undefined) {
+      if (branchId) {
+        localStorage.setItem(storedBranchKey(userId), branchId);
+      } else {
+        localStorage.removeItem(storedBranchKey(userId));
+      }
+    }
+  } catch {
+    // Storage unavailable (private mode etc.) — selection just won't survive reloads.
+  }
+};
+
+const clearStoredSelection = (userId: string | null | undefined) => {
+  if (!userId || typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(storedCompanyKey(userId));
+    localStorage.removeItem(storedBranchKey(userId));
+  } catch {
+    // ignore
+  }
+};
+
+const clearStoredBranch = (userId: string | null | undefined) => {
+  if (!userId || typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(storedBranchKey(userId));
+  } catch {
+    // ignore
+  }
 };
 
 interface AdminProviderProps {
@@ -26,9 +99,12 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   }
 
   const { isAuthenticated, user } = authContext;
-  const initialSelection = getSavedSelection(JSON.stringify(user));
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(initialSelection.companyId);
-  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(initialSelection.branchId);
+  // Selection starts empty on mount: AuthContext loads the user
+  // asynchronously, so a stored selection can only be read once `user`
+  // is known — the init effect below stashes it as a pending restore
+  // and the restore effects apply it after the live lists validate it.
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [allBusinesses, setAllBusinesses] = useState<Company[]>([]);
   const [ownedCompanies, setOwnedCompanies] = useState<Company[]>([]);
   const [sharedCompanies, setSharedCompanies] = useState<Company[]>([]);
@@ -40,6 +116,12 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   // CRITICAL: Use refs to prevent duplicate API calls
   const isLoadingCompaniesRef = useRef(false);
   const isLoadingBranchesRef = useRef(false);
+
+  // Pending persisted restore, stashed by the init effect and consumed
+  // by the validation effects once the live lists arrive. `companyApplied`
+  // marks the company half as decided so the branch half can still be
+  // validated later against the branch list for that company.
+  const pendingRestoreRef = useRef<{ companyId: string; branchId: string | null; companyApplied: boolean } | null>(null);
 
 
   const selectedCompany = selectedBusinessId
@@ -107,6 +189,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
 
     if (selectedId && !canAccessCompany(selectedId)) {
       console.warn('🏢 [AdminContext] Restored selected company is not accessible, clearing it:', selectedId);
+      // Don't keep retrying a dead stored id on every reload.
+      clearStoredSelection(user?.id);
       setSelectedBusinessId(null);
       return;
     }
@@ -126,6 +210,30 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       // ignore
     }
   }, [isAuthenticated, user, selectedBusinessId, allBusinesses, authContext]);
+
+  // Apply a pending persisted business restore once the LIVE company
+  // list arrives. The stored id is only trusted if the live API still
+  // returns that business for this user AND the user can still access
+  // it; otherwise the stored keys are discarded and the existing
+  // selection flow (auto-select-if-one, else the business picker)
+  // runs. A failed companies fetch leaves the restore pending, so a
+  // later successful refresh can still apply it.
+  useEffect(() => {
+    const pending = pendingRestoreRef.current;
+    if (!pending?.companyId || pending.companyApplied) return;
+    if (allBusinesses.length === 0) return;
+    pending.companyApplied = true;
+
+    const match = allBusinesses.find((c) => String(c.id) === String(pending.companyId));
+    if (match && canAccessCompany(pending.companyId)) {
+      setSelectedBusinessId(pending.companyId);
+    } else {
+      // Stale stored id (business deleted / membership revoked) — drop
+      // it entirely, including the branch half.
+      clearStoredSelection(user?.id);
+      pendingRestoreRef.current = null;
+    }
+  }, [allBusinesses, canAccessCompany, user?.id]);
 
   const refreshCompanies = useCallback(async () => {
     if (!isAuthenticated) {
@@ -196,8 +304,9 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       if (loadedCompanies.length === 1 && !selectedBusinessId) {
         const onlyCompanyId = loadedCompanies[0].id;
         setSelectedBusinessId(onlyCompanyId);
-        
-        // Selection persistence disabled
+        // Single-company accounts re-derive this selection on every
+        // load, so no stored write is needed here; the branch is
+        // persisted by the branch handler when one is picked.
       }
     } catch (err) {
       console.error('Error loading companies:', err);
@@ -250,7 +359,21 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
         if (scopedBranchesData && scopedBranchesData.length > 0) {
           setAllBranches(scopedBranchesData);
           if (selectedBranchId && !scopedBranchesData.some((branch: any) => String(branch.id) === String(selectedBranchId))) {
-            setSelectedBranchId(scopedBranchesData[0]?.id || null);
+            const firstBranchId = scopedBranchesData[0]?.id || null;
+            setSelectedBranchId(firstBranchId);
+            // Keep storage in step so reloads converge on the same
+            // branch — but only when the branches just loaded belong
+            // to the company currently stored. (This callback can run
+            // from a stale closure after a company switch, so the
+            // stored company is compared against the LIVE branch
+            // records, never the closure's company id.)
+            if (firstBranchId) {
+              const storedCompany = readStoredSelection(user?.id).companyId;
+              const loadedCompany = scopedBranchesData[0]?.companyId;
+              if (storedCompany && loadedCompany && String(storedCompany) === String(loadedCompany)) {
+                writeStoredSelection(user?.id, storedCompany, firstBranchId);
+              }
+            }
           }
         } else {
           setAllBranches([]);
@@ -259,7 +382,32 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           }
         }
 
-        // Branch caching removed - no longer caching in localStorage
+        // Validate a pending persisted branch restore against the live
+        // list for this company. A stored branch that no longer exists
+        // (or belongs to another company) is discarded — the branch
+        // stays unselected and the normal branch picker runs, instead
+        // of silently landing the user on a wrong branch. Only consume
+        // the restore for the company it was stored against.
+        const pending = pendingRestoreRef.current;
+        if (
+          pending?.branchId &&
+          pending.companyApplied &&
+          selectedBusinessId &&
+          String(selectedBusinessId) === String(pending.companyId)
+        ) {
+          const match = (scopedBranchesData || []).find(
+            (branch: any) =>
+              String(branch.id) === String(pending.branchId) &&
+              (!branch.companyId || String(branch.companyId) === String(pending.companyId)),
+          );
+          if (match) {
+            setSelectedBranchId(String(match.id));
+          } else {
+            clearStoredBranch(user?.id);
+          }
+          // Consumed either way — a later branch reload must not re-apply it.
+          pendingRestoreRef.current = { ...pending, branchId: null };
+        }
       } else {
         setError('Failed to load branches');
       }
@@ -536,7 +684,20 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           setSelectedBusinessId(user.companyId);
         }
       } else if (membershipRole === 'OWNER' || !membershipRole) {
-        // Selection persistence disabled - always start fresh
+        // Restore the persisted selection from the previous session
+        // (same user, same browser). This only STASHES it as pending:
+        // the company is applied after getMyCompanies confirms it
+        // still exists for this user, and the branch after getBranches
+        // confirms it. A fresh login clears these keys in
+        // AuthContext.login, so this never overrides the post-login
+        // business picker — it only applies to a reload / fresh tab
+        // inside the same auth session.
+        // Managers/cashiers keep the pinned assignment above: their
+        // branch is fixed by the membership, not by a stored pick.
+        const stored = readStoredSelection(user?.id);
+        if (stored.companyId) {
+          pendingRestoreRef.current = { companyId: stored.companyId, branchId: stored.branchId, companyApplied: false };
+        }
       }
       // Users have membership-based roles per business
 
@@ -573,7 +734,19 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       return;
     }
 
-    // Selection persistence disabled
+    // Persist the selection so a reload restores it (validated on
+    // load). A company CHANGE invalidates the stored branch — it is
+    // re-stored when a branch is (re)selected for the new company.
+    // "Change" is judged against the STORED company, not the
+    // in-memory one: on a fresh load the in-memory selection starts
+    // empty, and the slug gate re-affirms the stored company through
+    // this handler — that re-affirm must NOT wipe the stored branch
+    // that the pending restore still needs (2026-10-27: the first
+    // verify run caught exactly that wipe — in-memory branch restored
+    // fine, but storage lost it, so the NEXT reload lost the branch).
+    const stored = readStoredSelection(user?.id);
+    const changedCompany = String(companyId || '') !== String(stored.companyId || '');
+    writeStoredSelection(user?.id, companyId, changedCompany ? null : undefined);
     setSelectedBusinessId(companyId);
 
     // Keep AuthContext membership in sync with selected business (permissions + role-based UI).
@@ -653,6 +826,10 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       setSelectedBusinessId(branchCompanyId);
     }
 
+    // Persist the selection so a reload restores it (validated on
+    // load). If the branch belongs to another company, that company
+    // is the stored one too, matching the in-memory sync above.
+    writeStoredSelection(user?.id, branchCompanyId || selectedBusinessId, normalizedBranchId);
     setSelectedBranchId(normalizedBranchId);
   }, [user, selectedBranchId, selectedBusinessId, getMembershipRole]);
 
