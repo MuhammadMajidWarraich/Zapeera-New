@@ -18,6 +18,95 @@ const licenseClient = require('../services/license/license-client');
 function registerSubscriptionRoutes(app, authMiddleware, deps) {
   const { query, cloudApi } = deps;
 
+  // ── Billing proxy (2026-10-28) ──────────────────────────────────
+  // The 17 missing subscription endpoints are NOT ported locally:
+  // billing state (payment methods, invoices, billing history, plan
+  // pricing, add-on purchases, activation) lives only on the cloud —
+  // there is no Stripe key, no invoice store, and no payment ledger
+  // on the desktop to port against, and a local copy would fabricate
+  // billing state. Instead the desktop PROXIES these calls to the
+  // cloud when online (same pattern as the entitlements endpoint
+  // above: the owner's cloud token, the cloud's own role checks —
+  // the pricing/admin writes 403 on the cloud for non-admins). When
+  // offline, or with no cloud token, the call fails HONESTLY with
+  // 503 CLOUD_UNAVAILABLE instead of a fabricated local answer.
+  // The invoice download is the one exception: makeRequest is
+  // JSON-only and cannot carry a PDF, so it 501s and points at the
+  // web dashboard. /admin/subscriptions* (backoffice) is out of
+  // scope — no embedded admin surface calls it.
+  const SUBSCRIPTION_PROXY = [
+    ['GET', '/api/subscription', null],
+    ['PUT', '/api/subscription', null],
+    ['GET', '/api/subscription/pricing-plans', null],
+    ['PUT', '/api/subscription/pricing-plans', null],
+    ['PATCH', '/api/subscription/pricing-plans/:planId/modules/:moduleId', null],
+    ['GET', '/api/subscription/annual-discount', null],
+    ['PUT', '/api/subscription/annual-discount', null],
+    ['PUT', '/api/subscription/entitlements/business/:companyId', null],
+    ['GET', '/api/subscription/payment-methods', null],
+    ['POST', '/api/subscription/payment-methods', null],
+    ['PUT', '/api/subscription/payment-methods/:methodId', null],
+    ['PUT', '/api/subscription/payment-methods/:methodId/default', null],
+    ['DELETE', '/api/subscription/payment-methods/:methodId', null],
+    ['GET', '/api/subscription/addons/catalogue', null],
+    ['GET', '/api/subscription/addons', null],
+    ['POST', '/api/subscription/addons', null],
+    ['POST', '/api/subscription/addons/cancel', null],
+    ['POST', '/api/subscription/activate', null],
+    ['POST', '/api/subscription/process-payment', null],
+    ['GET', '/api/subscription/billing-history', null],
+  ];
+  function proxyToCloud(method, localPath) {
+    return async (req, res) => {
+      if (!cloudApi || typeof cloudApi.getAuthToken !== 'function' || !cloudApi.getAuthToken()) {
+        return res.status(503).json({
+          success: false,
+          code: 'CLOUD_UNAVAILABLE',
+          message: 'Subscription billing needs an internet connection — sign in to the cloud account and retry. Nothing was charged or changed.'
+        });
+      }
+      // Forward the query string (getBusinessAddons reads businessId
+      // from it). The cloud path is req.path — the matched path with
+      // :params substituted — NOT the route template (which would send
+      // the literal string ":methodId" to the cloud).
+      const qIndex = req.originalUrl.indexOf('?');
+      const cloudPath = qIndex >= 0 ? req.path + req.originalUrl.slice(qIndex) : req.path;
+      try {
+        const data = await cloudApi.makeRequest(method, cloudPath, req.body || null, { timeout: 20000 });
+        return res.json(data);
+      } catch (e) {
+        // The cloud answered with an error (validation, 402, 403 …):
+        // pass its status + body through so the UI shows the real reason.
+        if (e && e.statusCode && e.body) return res.status(e.statusCode).json(e.body);
+        console.warn('[Subscription] Cloud proxy failed:', e && e.message);
+        return res.status(503).json({
+          success: false,
+          code: 'CLOUD_UNAVAILABLE',
+          message: 'The cloud billing service could not be reached — check the connection and retry. Nothing was charged or changed.'
+        });
+      }
+    };
+  }
+  for (const [method, localPath] of SUBSCRIPTION_PROXY) {
+    const handler = (req, res) => proxyToCloud(method, localPath)(req, res);
+    if (method === 'GET') app.get(localPath, authMiddleware, handler);
+    else if (method === 'POST') app.post(localPath, authMiddleware, handler);
+    else if (method === 'PUT') app.put(localPath, authMiddleware, handler);
+    else if (method === 'PATCH') app.patch(localPath, authMiddleware, handler);
+    else if (method === 'DELETE') app.delete(localPath, authMiddleware, handler);
+  }
+
+  // Invoice download: the cloud returns a PDF and the embedded
+  // cloud client is JSON-only, so this cannot be proxied. Honest
+  // 501 (not a fabricated file) — the web dashboard downloads it.
+  app.get('/api/subscription/invoices/:invoiceId/download', authMiddleware, (req, res) => {
+    return res.status(501).json({
+      success: false,
+      code: 'DOWNLOAD_NOT_SUPPORTED_ON_DESKTOP',
+      message: 'Invoice downloads are available on the web dashboard (app.zapeera.seikho.online) — the desktop cannot fetch PDF files from the cloud.'
+    });
+  });
+
   app.get('/api/subscription/entitlements/business/:companyId', authMiddleware, async (req, res) => {
     try {
       const { companyId } = req.params;

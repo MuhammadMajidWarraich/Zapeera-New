@@ -34,6 +34,18 @@ const { registerPurchasesRoutes } = require('./purchases.routes');
 const { registerReceiptsRoutes } = require('./receipts.routes');
 const { registerRefundsRoutes } = require('./refunds.routes');
 const { registerReportsRoutes } = require('./reports.routes');
+const { registerBarcodeRoutes } = require('./barcodes.routes');
+const { registerClinicRoutes } = require('./clinic.routes');
+const { registerControlledMedicinesRoutes } = require('./controlled-medicines.routes');
+const { registerExpenseRoutes } = require('./expenses.routes');
+const { registerHotelRoutes } = require('./hotel.routes');
+const { registerParkedSalesRoutes } = require('./parked-sales.routes');
+const { registerProvincialTaxRoutes } = require('./provincial-tax.routes');
+const { registerRoleRoutes } = require('./roles.routes');
+const { registerScheduledShiftRoutes } = require('./scheduled-shifts.routes');
+const { registerStockTakeRoutes } = require('./stock-takes.routes');
+const { registerTaxClassRoutes } = require('./tax-classes.routes');
+const { registerTransferRoutes } = require('./transfers.routes');
 const { registerSalesRoutes } = require('./sales.routes');
 const { registerSettingsRoutes } = require('./settings.routes');
 const { registerShelvesRoutes } = require('./shelves.routes');
@@ -85,6 +97,22 @@ function registerAllRoutes(app, authMiddleware, deps) {
   registerRefundsRoutes(app, authMiddleware, deps);
   registerReportsRoutes(app, authMiddleware, deps);
   registerSalesRoutes(app, authMiddleware, deps);
+  // Embedded ports (2026-10-28, audit-embedded-fixes): parked sales,
+  // barcodes, clinic + hotel packs, expenses, transfers, stock-takes,
+  // tax classes, provincial tax, controlled register, roles,
+  // scheduled shifts.
+  registerParkedSalesRoutes(app, authMiddleware, deps);
+  registerBarcodeRoutes(app, authMiddleware, deps);
+  registerClinicRoutes(app, authMiddleware, deps);
+  registerHotelRoutes(app, authMiddleware, deps);
+  registerExpenseRoutes(app, authMiddleware, deps);
+  registerTransferRoutes(app, authMiddleware, deps);
+  registerStockTakeRoutes(app, authMiddleware, deps);
+  registerTaxClassRoutes(app, authMiddleware, deps);
+  registerProvincialTaxRoutes(app, authMiddleware, deps);
+  registerControlledMedicinesRoutes(app, authMiddleware, deps);
+  registerRoleRoutes(app, authMiddleware, deps);
+  registerScheduledShiftRoutes(app, authMiddleware, deps);
   registerSettingsRoutes(app, authMiddleware, deps);
   registerShelvesRoutes(app, authMiddleware, deps);
   registerShiftsRoutes(app, authMiddleware, deps);

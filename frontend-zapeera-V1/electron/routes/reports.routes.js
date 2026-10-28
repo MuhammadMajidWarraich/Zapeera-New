@@ -110,9 +110,56 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             COALESCE(SUM(totalAmount), 0) as revenue
             FROM sales s ${lastMonthWhere}`, lastMonthParams)[0] || { revenue: 0 };
     
-          // Calculate profits (30% margin)
-          const todayProfit = (parseFloat(todaySales.revenue) || 0) * 0.3;
-          const monthProfit = (parseFloat(monthSales.revenue) || 0) * 0.3;
+          // M1 (2026-10-28): profit is COST-BASED, ported from the cloud's
+          // periodFigures (report.controller.ts) — the flat 30% of revenue
+          // it replaced was fabricated. Gross profit is Σ(sale line total
+          // − batch purchasePrice × qty) over the in-scope, non-refunded
+          // sales in the window; the batch cost falls back to the
+          // product's costPrice when a line has no batch (legacy sales),
+          // and to 0 for service lines (no cost). The refund margin is
+          // the margin reversed by the window's refunds — (refunded line
+          // total − original batch cost × qty) — EXCLUDING refunds whose
+          // original sale is fully REFUNDED: those sales are already
+          // excluded from gross profit, so subtracting their margin
+          // again would double-count (the cloud's H1 bug; the cloud
+          // strips the status filter from its refund scope, we keep it).
+          const costBasedProfit = (startIso, endIso) => {
+            const scopeWhere = [];
+            const scopeParams = [];
+            if (branchFilter) { scopeWhere.push('s.branchId = ?'); scopeParams.push(branchFilter); }
+            if (companyFilter) { scopeWhere.push('s.companyId = ?'); scopeParams.push(companyFilter); }
+            const scopeSql = scopeWhere.length > 0 ? ' AND ' + scopeWhere.join(' AND ') : '';
+            const gross = query(
+              `SELECT COALESCE(SUM(si.total - COALESCE(b.purchasePrice, p.costPrice, 0) * si.quantity), 0) AS gross
+               FROM sale_items si
+               JOIN sales s ON s.id = si.saleId
+               LEFT JOIN batches b ON b.id = si.batchId
+               LEFT JOIN products p ON p.id = si.productId
+               WHERE (s.status IS NULL OR s.status != 'REFUNDED')${scopeSql}
+                 AND s.createdAt >= ? AND s.createdAt < ?`,
+              [...scopeParams, startIso, endIso]
+            )[0]?.gross || 0;
+            const refundScopeWhere = [];
+            const refundScopeParams = [];
+            if (branchFilter) { refundScopeWhere.push('r.branchId = ?'); refundScopeParams.push(branchFilter); }
+            if (companyFilter) { refundScopeWhere.push('r.companyId = ?'); refundScopeParams.push(companyFilter); }
+            const refundScopeSql = refundScopeWhere.length > 0 ? ' AND ' + refundScopeWhere.join(' AND ') : '';
+            const refundMargin = query(
+              `SELECT COALESCE(SUM(ri.amount - COALESCE(b.purchasePrice, p.costPrice, 0) * ri.quantity), 0) AS margin
+               FROM refund_items ri
+               JOIN refunds r ON r.id = ri.refundId
+               JOIN sales s ON s.id = r.saleId
+               LEFT JOIN sale_items si ON si.id = ri.saleItemId
+               LEFT JOIN batches b ON b.id = si.batchId
+               LEFT JOIN products p ON p.id = ri.productId
+               WHERE (s.status IS NULL OR s.status != 'REFUNDED')${refundScopeSql}
+                 AND r.createdAt >= ? AND r.createdAt < ?`,
+              [...refundScopeParams, startIso, endIso]
+            )[0]?.margin || 0;
+            return (parseFloat(gross) || 0) - (parseFloat(refundMargin) || 0);
+          };
+          const todayProfit = costBasedProfit(todayStart, todayEnd);
+          const monthProfit = costBasedProfit(monthStart, new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1)).toISOString());
     
           // Calculate growth percentages
           const todayGrowth = parseFloat(yesterdaySales.revenue) > 0

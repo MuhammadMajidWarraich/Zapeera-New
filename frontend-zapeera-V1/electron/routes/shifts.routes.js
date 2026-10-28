@@ -62,14 +62,21 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
 
   // Same stale rule as the cloud (shift.controller.ts isShiftStale):
   // a previous calendar day, or open for more than 24 hours.
+  //
+  // L2 (2026-10-28): the calendar-day leg used the server-local day
+  // (setHours(0,0,0,0)). The desktop runs in PKT while its clock is
+  // UTC, so a shift opened at 22:00 PKT was flagged stale at 00:00
+  // UTC — 05:00 PKT, five hours early. Both days are now computed in
+  // Asia/Karachi. The 24-hour leg is absolute time and needs no zone.
+  function karachiDay(date) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(date));
+  }
   function shiftStaleInfo(shift) {
     if (!shift) return { isStale: false, staleReason: null };
     const nowDate = new Date();
     const start = new Date(shift.startTime);
     const shiftDay = new Date(shift.shiftDate);
-    const todayStart = new Date(nowDate); todayStart.setHours(0, 0, 0, 0);
-    const shiftDayStart = new Date(shiftDay); shiftDayStart.setHours(0, 0, 0, 0);
-    if (shiftDayStart.getTime() < todayStart.getTime()) {
+    if (karachiDay(shiftDay) < karachiDay(nowDate)) {
       return { isStale: true, staleReason: `Shift opened on ${shiftDay.toLocaleDateString()} — from a previous day` };
     }
     if (nowDate.getTime() - start.getTime() > 24 * 60 * 60 * 1000) {

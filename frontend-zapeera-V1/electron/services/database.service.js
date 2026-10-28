@@ -408,6 +408,37 @@ async function initDatabase() {
     )`,
     `CREATE TABLE IF NOT EXISTS product_variants (
       id TEXT PRIMARY KEY, companyId TEXT, productId TEXT, name TEXT, sku TEXT, barcode TEXT, attributes TEXT, priceDelta REAL, isActive INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    // ── Embedded ports (2026-10-28, audit-embedded-fixes) ────────────
+    // Tables for the domains ported from the cloud in this release.
+    // Column sets mirror the Prisma models (camelCase) so rows pulled
+    // from the cloud apply cleanly. Tables the cloud pull feed does not
+    // serve yet (parked_sales, expenses, provincial_tax_configs,
+    // controlled_dispense_logs, gift_cards) hold locally-created rows
+    // only until the feed + push map gain them — see each routes file.
+    `CREATE TABLE IF NOT EXISTS parked_sales (
+      id TEXT PRIMARY KEY, businessId TEXT NOT NULL, branchId TEXT NOT NULL, createdById TEXT, customerId TEXT, label TEXT, payload TEXT, itemCount INTEGER DEFAULT 0, grandTotal REAL DEFAULT 0, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS expense_categories (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, companyId TEXT NOT NULL, branchId TEXT, isActive INTEGER DEFAULT 1, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, vendor TEXT, amount REAL DEFAULT 0, expenseDate TEXT, paymentMethod TEXT DEFAULT 'CASH', reference TEXT, status TEXT DEFAULT 'PENDING', companyId TEXT NOT NULL, branchId TEXT, categoryId TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS provincial_tax_configs (
+      id TEXT PRIMARY KEY, companyId TEXT NOT NULL, branchId TEXT, authority TEXT NOT NULL, registrationNumber TEXT, rate REAL DEFAULT 0, enabled INTEGER DEFAULT 1, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS controlled_dispense_logs (
+      id TEXT PRIMARY KEY, companyId TEXT NOT NULL, branchId TEXT, productId TEXT NOT NULL, batchId TEXT, batchNo TEXT, saleId TEXT, saleItemId TEXT, entryType TEXT DEFAULT 'DISPENSE', quantity INTEGER DEFAULT 0, balanceAfter INTEGER DEFAULT 0, reversesId TEXT, reason TEXT, staffUserId TEXT, staffName TEXT, customerId TEXT, customerName TEXT, prescriptionId TEXT, prescriptionRef TEXT, invoiceNumber TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS gift_cards (
+      id TEXT PRIMARY KEY, code TEXT UNIQUE, companyId TEXT NOT NULL, branchId TEXT NOT NULL, initialValue REAL DEFAULT 0, balance REAL DEFAULT 0, recipientName TEXT, recipientPhone TEXT, purchasedBy TEXT, paymentMethod TEXT, status TEXT DEFAULT 'ACTIVE', expiresAt TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS gift_card_transactions (
+      id TEXT PRIMARY KEY, giftCardId TEXT NOT NULL, companyId TEXT NOT NULL, type TEXT, amount REAL DEFAULT 0, balanceAfter REAL DEFAULT 0, saleId TEXT, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS roles (
+      id TEXT PRIMARY KEY, businessId TEXT, name TEXT NOT NULL, description TEXT, isSystem INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1, permissionState TEXT DEFAULT 'UNCONFIGURED', policyVersion INTEGER DEFAULT 0, uuid TEXT, syncStatus TEXT DEFAULT 'PENDING', createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
