@@ -10025,7 +10025,7 @@ export default apiService;
 // reached, so a picker list is complete. Capped at 50 pages as a guard
 // against a misbehaving total; a page that returns no rows ends the
 // loop, and a response without pagination.total stops after page 1.
-export async function fetchAllPaged<T>(
+export async function fetchAllPaged<T = any>(
   fetchPage: (page: number, limit: number) => Promise<any>,
   pickList: (data: any) => T[],
   pageSize = 200

@@ -65,6 +65,7 @@ const Reports = () => {
   const [allBranches, setAllBranches] = useState<any[]>([]);
   const [showAllBranches, setShowAllBranches] = useState(false);
   const [realSalesData, setRealSalesData] = useState<any[]>([]);
+  const [realProductsData, setRealProductsData] = useState<any[]>([]);
   // H3 truncation family (2026-10-28): the page fetches at most 200
   // sales / 200 products, but the range may hold more. Branch revenue,
   // transactions and the CSV export are reduce()s over the FETCHED rows
@@ -77,7 +78,6 @@ const Reports = () => {
   const reportsTruncationNote = reportsTruncated
     ? `Branch figures cover the first ${realSalesData.length} of ${salesTotalInRange ?? realSalesData.length} sales in range${productsTotalInRange != null && productsTotalInRange > realProductsData.length ? ` and the first ${realProductsData.length} of ${productsTotalInRange} products` : ''} only`
     : null;
-  const [realProductsData, setRealProductsData] = useState<any[]>([]);
   const [realUsersData, setRealUsersData] = useState<any[]>([]);
   const [realExpensesData, setRealExpensesData] = useState<any[]>([]);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
