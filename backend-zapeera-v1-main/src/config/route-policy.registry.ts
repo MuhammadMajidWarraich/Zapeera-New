@@ -123,6 +123,10 @@ const ENTRIES: RegistryEntry[] = [
   // (no customer accounts); branch-scoped + add-on-gated in the router.
   { prefix: '/api/kiosk', policy: { kind: 'public' } },
   { prefix: '/api/ocr', policy: { kind: 'auth' } },
+  // Signed licenses (refresh + shadow-mode report): account-level like
+  // /api/devices — the router enforces authentication; issuance itself
+  // re-checks the subscription and the per-plan device cap.
+  { prefix: '/api/license', policy: { kind: 'auth' } },
   { prefix: '/api/sync', policy: { kind: 'auth' } },
   { prefix: '/api/sse', policy: { kind: 'public' } },
   { prefix: '/api/health', policy: { kind: 'public' } },

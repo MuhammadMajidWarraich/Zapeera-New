@@ -18,6 +18,7 @@ import { createChallengeToken } from '../utils/two-factor.util';
 import { claimPendingPartnerAdmins } from '../utils/partner.util';
 import logger from '../utils/logger';
 import Joi from 'joi';
+import { issueLicenseForBusiness, readDeviceBinding } from '../services/license.service';
 
 // Generate unique session token
 const generateSessionToken = (): string => {
@@ -34,7 +35,12 @@ const normalizeAppRole = (role: string | null | undefined): string => {
 // Validation schemas
 const loginSchema = Joi.object({
   usernameOrEmail: Joi.string().required(),
-  password: Joi.string().required()
+  password: Joi.string().required(),
+  // Signed-license device binding (optional — the desktop sends these once
+  // it is updated; Joi rejects unknown keys by default, so they must be
+  // declared here or a binding desktop would 400 the whole login).
+  deviceId: Joi.string().trim().max(128).optional(),
+  installId: Joi.string().trim().max(128).optional()
 });
 
 const registerSchema = Joi.object({
@@ -151,6 +157,37 @@ export const issueLoginSession = async (req: Request, res: Response, prisma: Pri
 
   console.log('✅ Login successful for user:', user.username);
 
+  // ── Signed license (shadow mode) ────────────────────────────────────────
+  // Best-effort and NEVER allowed to break login: any issuance failure
+  // leaves `license: null` + a licenseCode and the login still succeeds.
+  // The desktop stores the token verbatim (settings: zapeera_license_token)
+  // and evaluates it in shadow mode; enforcement is a later switch.
+  // Issued for the current membership's business; a user with no business
+  // gets licenseCode LICENSE_NO_BUSINESS (no subscription to license).
+  let license: any = null;
+  let licenseCode = 'LICENSE_NO_BUSINESS';
+  try {
+    const businessId = currentMembership?.businessId;
+    if (businessId) {
+      const { deviceId, installId } = readDeviceBinding(req);
+      const result = await issueLicenseForBusiness(prisma, {
+        userId: user.id,
+        businessId,
+        deviceId,
+        installId,
+      });
+      if (result.issued) {
+        license = result.license;
+        licenseCode = 'LICENSE_ISSUED';
+      } else {
+        licenseCode = result.code;
+      }
+    }
+  } catch (licenseError: any) {
+    console.error('[license] Issuance failed at login (login unaffected):', licenseError?.message || licenseError);
+    licenseCode = 'LICENSE_ERROR';
+  }
+
   // Generate CSRF token
   const csrfToken = generateCSRFToken();
 
@@ -185,7 +222,12 @@ export const issueLoginSession = async (req: Request, res: Response, prisma: Pri
         membership: currentMembership || null, // Nests for frontend expectation
         memberships: membershipList // Nests for frontend expectation
       },
-      accessToken: token
+      accessToken: token,
+      // Signed license for the current business (shadow mode — the desktop
+      // evaluates but does not enforce yet). Null + licenseCode explains
+      // why no token was issued (see license.service.ts refusal codes).
+      license,
+      licenseCode
     }
   });
 };
