@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { replaySaleStock, restockRefundStock, saleLineUnits } from '../services/sync-stock-replay.service';
 import { runReconciliation, createStockTakesFromReconciliation, resolveReconciliation } from '../services/stock-reconciliation.service';
+import { issueLicenseForBusiness, readDeviceBinding } from '../services/license.service';
 
 
 // C-14: the cloud-sync endpoints must only ever serve businesses the
@@ -160,6 +161,31 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
       return;
     }
 
+    // ── Signed license (shadow mode) ──────────────────────────────────────
+    // Best-effort: issuance must NEVER break provision. The desktop stores
+    // the token verbatim (settings: zapeera_license_token) and evaluates it
+    // in shadow mode; enforcement is a later switch. A null license +
+    // licenseCode explains the refusal (see license.service.ts).
+    let license: any = null;
+    let licenseCode = 'LICENSE_ERROR';
+    try {
+      const { deviceId, installId } = readDeviceBinding(req);
+      const result = await issueLicenseForBusiness(prisma, {
+        userId: req.user!.id,
+        businessId,
+        deviceId,
+        installId,
+      });
+      if (result.issued) {
+        license = result.license;
+        licenseCode = 'LICENSE_ISSUED';
+      } else {
+        licenseCode = result.code;
+      }
+    } catch (licenseError: any) {
+      console.error('[license] Issuance failed at provision (provision unaffected):', licenseError?.message || licenseError);
+    }
+
     res.json({
       success: true,
       data: {
@@ -201,7 +227,11 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
           id: m.id,
           userId: m.userId,
           role: m.role?.name || 'OWNER'
-        }))
+        })),
+        // Signed license for this business (shadow mode). Null + licenseCode
+        // explains why no token was issued (see license.service.ts).
+        license,
+        licenseCode
       }
     });
   } catch (error: any) {

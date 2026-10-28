@@ -168,6 +168,10 @@ export const ALWAYS_ALLOWED_ROUTES: string[] = [
   // router and the route-policy registry classifies it 'auth'.
   '/api/devices',
 
+  // Signed licenses (refresh + shadow-mode report): account-level like
+  // devices — auth lives in the router, the registry classifies it 'auth'.
+  '/api/license',
+
   // Support tickets + public content pages (no module gate; auth/public
   // handling lives in the route-policy registry and the routers)
   '/api/support',
