@@ -147,24 +147,40 @@ const Invoices = () => {
     setLoading: setCacheLoading
   } = useDashboardData();
   
+  // H3 (2026-10-28): the invoices cache key MUST include the dates.
+  // The key used to be (company, branch) only, so picking a new range
+  // within the cache window restored the PREVIOUS range's rows.
+  // (The shared cache is currently disabled and always returns null,
+  // so this is defence in depth for the day it is re-enabled — the
+  // dates effect below already forces a fresh fetch on every pick.)
+  const invoicesCacheSuffix = (start: string, end: string) =>
+    `${start || ''}|${end || ''}`;
+
   // CRITICAL: Initialize from cache IMMEDIATELY on mount
-  const initializeFromCache = () => {
-    const cached = getCachedData(selectedCompanyId, selectedBranchId);
+  const initializeFromCache = (cacheSuffix: string) => {
+    const cached = getCachedData(selectedCompanyId, selectedBranchId, cacheSuffix);
     if (cached && isCacheValid(cached) && cached.data.invoices) {
       return cached.data.invoices;
     }
     return null;
   };
-  
-  const cachedInvoicesOnMount = initializeFromCache();
+
+  // Dates are empty on mount, so the mount suffix is "|".
+  const cachedInvoicesOnMount = initializeFromCache(invoicesCacheSuffix('', ''));
   
   const [invoices, setInvoices] = useState<Invoice[]>(() => cachedInvoicesOnMount || []);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>(() => cachedInvoicesOnMount || []);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  // H3 (2026-10-28): the server-side total for the current range
+  // (pagination.total from /api/sales). The page only fetches the
+  // first 200 rows; when total > fetched, the summary totals cover
+  // the fetched rows only and the UI must say so ("200 of 218").
+  const [totalInvoicesInRange, setTotalInvoicesInRange] = useState<number | null>(null);
   // FIX 2026-10-28 (Invoices date filter): the date inputs were write-only
   // state — picking dates only called setStartDate/setEndDate and nothing
   // ever reloaded. This ref skips the first run (the mount effect already
@@ -211,10 +227,10 @@ const Invoices = () => {
 
   // CRITICAL: Restore from cache immediately on mount or when context changes
   useLayoutEffect(() => {
-    const cached = getCachedData(selectedCompanyId, selectedBranchId);
+    const cached = getCachedData(selectedCompanyId, selectedBranchId, invoicesCacheSuffix(startDate, endDate));
     if (cached && isCacheValid(cached) && cached.data.invoices) {
       const cachedData = cached.data;
-      
+
       // Restore state synchronously
       if (cachedData.invoices) {
         setInvoices(cachedData.invoices);
@@ -303,7 +319,7 @@ const Invoices = () => {
 
   useEffect(() => {
     // Check cache first before loading
-    const cached = getCachedData(selectedCompanyId, selectedBranchId);
+    const cached = getCachedData(selectedCompanyId, selectedBranchId, invoicesCacheSuffix(startDate, endDate));
     if (cached && isCacheValid(cached) && cached.data.invoices) {
       // Data already restored by useLayoutEffect
     } else {
@@ -337,7 +353,7 @@ const Invoices = () => {
   const loadInvoices = useCallback(async (forceRefresh: boolean = false) => {
     try {
       // CRITICAL: Check cache first (unless forcing refresh)
-      const cached = getCachedData(selectedCompanyId, selectedBranchId);
+      const cached = getCachedData(selectedCompanyId, selectedBranchId, invoicesCacheSuffix(startDate, endDate));
       const cacheValid = isCacheValid(cached);
       
       // If we have valid cache and not forcing refresh, use cached data immediately
@@ -348,12 +364,15 @@ const Invoices = () => {
         // Restore state from cache IMMEDIATELY
         setInvoices(cachedInvoices);
         setFilteredInvoices(cachedInvoices);
+        // The cached set carries no server total — the "200 of 218"
+        // note stays hidden until the next fresh fetch supplies it.
+        setTotalInvoicesInRange(null);
         if (cachedBatches.length > 0) {
           setAllBatches(cachedBatches);
         }
         
         setLoading(false);
-        setCacheLoading(selectedCompanyId, selectedBranchId, false);
+        setCacheLoading(selectedCompanyId, selectedBranchId, false, invoicesCacheSuffix(startDate, endDate));
         
         // Still refresh in background if cache is older than 2 minutes (stale-while-revalidate)
         const cacheAge = Date.now() - cached.timestamp;
@@ -369,7 +388,7 @@ const Invoices = () => {
       if (!cached || !cacheValid) {
         setLoading(true);
       }
-      setCacheLoading(selectedCompanyId, selectedBranchId, true);
+      setCacheLoading(selectedCompanyId, selectedBranchId, true, invoicesCacheSuffix(startDate, endDate));
 
       // Load from real API with date filtering and branch filtering
       // Determine which invoices to load based on user role and selected branch
@@ -449,26 +468,32 @@ const Invoices = () => {
           };
         });
         setInvoices(transformedInvoices);
+        // H3 (2026-10-28): keep the server-side total — the page only
+        // fetches the first 200 rows, so the summary totals below cover
+        // the fetched rows only when total > fetched.
+        setTotalInvoicesInRange(response.data.pagination?.total ?? transformedInvoices.length);
 
         // CRITICAL: Cache invoices using DashboardDataContext
         // This ensures cache is shared and accessible instantly
-        const existingCache = getCachedData(selectedCompanyId, selectedBranchId);
+        const existingCache = getCachedData(selectedCompanyId, selectedBranchId, invoicesCacheSuffix(startDate, endDate));
         const cacheData = existingCache?.data || {};
         cacheData.invoices = transformedInvoices;
         cacheData.allBatches = allBatches; // Also cache batches
-        
-        setCachedData(selectedCompanyId, selectedBranchId, cacheData);
+
+        setCachedData(selectedCompanyId, selectedBranchId, cacheData, invoicesCacheSuffix(startDate, endDate));
       } else {
         // No data from API - show empty list
         setInvoices([]);
+        setTotalInvoicesInRange(0);
       }
     } catch (error) {
       // Show empty list on error instead of mock data
       setInvoices([]);
+      setTotalInvoicesInRange(null);
       // Don't show error toast - silent fail in background
     } finally {
       setLoading(false);
-      setCacheLoading(selectedCompanyId, selectedBranchId, false);
+      setCacheLoading(selectedCompanyId, selectedBranchId, false, invoicesCacheSuffix(startDate, endDate));
     }
   }, [startDate, endDate, selectedBranchId, selectedCompanyId, user, getCachedData, setCachedData, isCacheValid, setCacheLoading, allBatches]);
 
@@ -478,7 +503,7 @@ const Invoices = () => {
 
   useEffect(() => {
     // Check cache first when branch changes
-    const cached = getCachedData(selectedCompanyId, selectedBranchId);
+    const cached = getCachedData(selectedCompanyId, selectedBranchId, invoicesCacheSuffix(startDate, endDate));
     if (cached && isCacheValid(cached) && cached.data.invoices) {
       const cachedData = cached.data;
       setInvoices(cachedData.invoices);
@@ -505,9 +530,13 @@ const Invoices = () => {
     // date-checked locally. Mirror Refunds.tsx: local-midnight bounds, end
     // day inclusive. The server already filters by the same dates; this
     // keeps cached/stale rows from leaking through.
+    // L1 (2026-10-28): the bounds are built in UTC ('Z'), matching the
+    // server — getSales parses the dates at server-local (UTC) midnight.
+    // Browser-local midnight (PKT = UTC+5) dropped end-day sales in the
+    // 19:00–23:59 UTC window that the server had correctly returned.
     if (startDate || endDate) {
-      const start = startDate ? new Date(startDate + 'T00:00:00') : null;
-      const end = endDate ? new Date(endDate + 'T23:59:59.999') : null;
+      const start = startDate ? new Date(startDate + 'T00:00:00Z') : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59.999Z') : null;
       filtered = filtered.filter(invoice => {
         const d = new Date(invoice.createdAt || invoice.saleDate);
         if (isNaN(d.getTime())) return false;
@@ -633,6 +662,16 @@ const Invoices = () => {
   // Calculate total revenue from filtered invoices
   const totalRevenue = filteredInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
   const totalInvoices = filteredInvoices.length;
+
+  // H3 (2026-10-28): the page fetches at most 200 rows, but the range
+  // may hold more (pagination.total). The six summary cards and the
+  // header total are computed over the FETCHED rows only — say so
+  // instead of silently understating ("200 of 218").
+  const invoicesTruncated =
+    totalInvoicesInRange != null && totalInvoicesInRange > invoices.length;
+  const invoicesTruncationNote = invoicesTruncated
+    ? `Showing ${invoices.length} of ${totalInvoicesInRange} in range — totals cover the first ${invoices.length} only`
+    : null;
 
   const viewInvoice = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -1288,6 +1327,9 @@ const Invoices = () => {
               <p className="text-sm text-[#8c95b0]">
                 Total revenue{" "}
                 <span className="font-bold text-green-600">PKR {totalRevenue.toFixed(2)}</span>
+                {invoicesTruncationNote && (
+                  <span className="ml-2 font-medium text-amber-600">({invoicesTruncationNote})</span>
+                )}
               </p>
             )}
           </div>
@@ -1427,6 +1469,9 @@ const Invoices = () => {
                   <div className="flex items-center gap-3">
                     <div className="text-sm text-[#8c95b0]">
                       Showing {Math.min((currentPage - 1) * pageSize + 1, filteredInvoices.length)} to {Math.min(currentPage * pageSize, filteredInvoices.length)} of {filteredInvoices.length} invoices
+                      {invoicesTruncationNote && (
+                        <span className="ml-1 font-medium text-amber-600">({invoicesTruncationNote})</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm text-[#8c95b0]">Per page:</span>
