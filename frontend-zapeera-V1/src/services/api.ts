@@ -6841,6 +6841,10 @@ export class ApiService {
         profit: number;
         transactions: number;
         growth: number;
+        // M2 (2026-10-28): the actual day the "today" figures cover —
+        // the most recent day with sales, not necessarily the calendar
+        // day. Undefined on older servers.
+        date?: string;
       };
       month: {
         revenue: number;
@@ -7563,48 +7567,6 @@ export class ApiService {
       };
       createdAt: string;
     }>(`/shifts/active/${staffProfileId}`);
-  }
-
-  async updateCashierShift(shiftId: string, shiftData: {
-    cashIn?: number;
-    cashOut?: number;
-    notes?: string;
-  }) {
-    return this.request<{
-      id: string;
-      staffProfileId: string;
-      branchId: string;
-      shiftDate: string;
-      startTime: string;
-      endTime?: string;
-      openingBalance: number;
-      cashIn: number;
-      cashOut: number;
-      expectedBalance?: number;
-      actualBalance?: number;
-      difference?: number;
-      status: string;
-      notes?: string;
-      staffProfile: {
-        id: string;
-        employeeId: string;
-        designation: string;
-        membership: {
-          user: {
-            id: string;
-            name: string;
-          };
-        };
-      };
-      branch: {
-        id: string;
-        name: string;
-      };
-      createdAt: string;
-    }>(`/shifts/${shiftId}`, {
-      method: 'PUT',
-      body: JSON.stringify(shiftData)
-    });
   }
 
   async getShiftStats(params?: {
