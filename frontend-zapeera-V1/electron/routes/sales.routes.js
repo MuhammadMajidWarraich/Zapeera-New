@@ -589,9 +589,39 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           const appliedProductDeductions = [];
           let saleRowInserted = false;
           try {
-            const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, subtotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp]);
+            // Register shift (2026-10-27, B5): tie this sale to the
+          // cashier's ACTIVE shift on this terminal, resolved from the
+          // local staff profile + shifts tables. Null when no shift is
+          // open — the sale is still valid, it simply has no shift.
+          // The cloud resolves the same way for web sales; the desktop
+          // resolves locally because it sells offline. The company
+          // lookup prefers the sale's company, and falls back to the
+          // caller's single membership when the sale has no company
+          // context (a cashier's local user row carries no companyId).
+          let saleShiftId = null;
+          try {
+            let membershipRow = null;
+            if (finalCompanyId) {
+              membershipRow = query('SELECT id FROM memberships WHERE userId = ? AND businessId = ?', [req.user?.id, finalCompanyId])[0];
+            }
+            if (!membershipRow) {
+              const memberships = query('SELECT id FROM memberships WHERE userId = ?', [req.user?.id]);
+              if (memberships.length === 1) membershipRow = memberships[0];
+            }
+            if (membershipRow) {
+              const profileRow = query('SELECT id FROM staff_profiles WHERE membershipId = ?', [membershipRow.id])[0];
+              if (profileRow) {
+                const activeRow = query("SELECT id FROM shifts WHERE staffProfileId = ? AND status = 'ACTIVE' ORDER BY startTime DESC LIMIT 1", [profileRow.id])[0];
+                if (activeRow) saleShiftId = activeRow.id;
+              }
+            }
+          } catch (e) {
+            console.log('[Sales] Shift lookup failed, sale proceeds without a shift:', e.message);
+          }
+
+          const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt, shiftId)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, subtotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp, saleShiftId]);
 
             if (!success) {
               throw new Error('Failed to insert sale');

@@ -219,6 +219,64 @@ export const getStaff = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// GET /api/staff/me — the CALLER's own staff profile for the scoped
+// business (B1 follow-up, 2026-10-27). The POS Shift Summary dialog
+// needs the cashier's own staffProfileId to open/close/read their own
+// shift, but GET /api/staff (the full roster) is module-gated to
+// MANAGER/ADMIN/OWNER — the CASHIER role has no
+// business_management.staff.read grant, so the dialog's profile
+// resolution silently failed and the dialog fell back to the
+// "opened and closed in Shift Management" copy for every cashier.
+// This endpoint is own-only BY CONSTRUCTION: it can only ever return
+// the profile attached to the caller's own membership in the selected
+// business — no roster, no other staff member. No profile (e.g. an
+// owner with no staff record) returns data: null, not an error, so
+// the dialog degrades to its no-shift copy instead of breaking.
+export const getMyStaffProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const membershipId = (req as any).membership?.id;
+    if (!membershipId) {
+      return res.json({ success: true, data: null });
+    }
+    const sp = await prisma.staffProfile.findFirst({
+      where: { membershipId: String(membershipId) },
+      include: {
+        membership: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, phone: true, profileImage: true }
+            },
+            branches: {
+              include: { branch: { select: { id: true, name: true } } }
+            },
+            role: { select: { id: true, name: true } }
+          }
+        }
+      }
+    });
+    if (!sp) {
+      return res.json({ success: true, data: null });
+    }
+    const profile = {
+      ...(sp as any),
+      name: (sp as any).membership?.user?.name || '',
+      email: (sp as any).membership?.user?.email || '',
+      phone: (sp as any).membership?.user?.phone || '',
+      profileImage: (sp as any).membership?.user?.profileImage || null,
+      staffId: (sp as any).employeeId,
+      position: (sp as any).designation,
+      hireDate: (sp as any).joiningDate,
+      branch: (sp as any).membership?.branches?.[0]?.branch || null,
+      role: (sp as any).membership?.role || null
+    };
+    return res.json({ success: true, data: profile });
+  } catch (error) {
+    logger.error('Error fetching my staff profile:', { error: String(error) });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 export const getStaffMember = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();

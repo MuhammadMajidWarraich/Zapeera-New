@@ -4107,6 +4107,9 @@ export class ApiService {
     // orders queue reads channel=KIOSK&status=PENDING.
     channel?: string;
     status?: string;
+    // Register shift (2026-10-27, B5): the Shift Summary modal reads
+    // one shift's sales only — getSales({ shiftId }).
+    shiftId?: string;
   }) {
     const queryParams = new URLSearchParams();
     if (params) {
@@ -6969,6 +6972,36 @@ export class ApiService {
         branches: Array<{ id: string; name: string }>;
       };
     }>(`/staff/${id}`);
+  }
+
+  // GET /api/staff/me — the caller's OWN staff profile (B1 follow-up,
+  // 2026-10-27). The POS resolves its staffProfileId through this
+  // instead of the full roster: cashiers have no
+  // business_management.staff.read grant, so GET /api/staff 403s for
+  // them and the dialog could never resolve their profile. Returns
+  // the single profile object (or null when the caller has none).
+  async getMyStaffProfile() {
+    return this.request<{
+      id: string;
+      employeeId: string;
+      designation: string;
+      joiningDate: string;
+      isActive: boolean;
+      membership: {
+        id: string;
+        userId: string;
+        businessId: string;
+        role: { id: string; name: string } | null;
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone?: string;
+          profileImage?: string;
+        };
+        branches: Array<{ branch: { id: string; name: string } }>;
+      };
+    } | null>(`/staff/me`);
   }
 
   async createStaff(staffData: {

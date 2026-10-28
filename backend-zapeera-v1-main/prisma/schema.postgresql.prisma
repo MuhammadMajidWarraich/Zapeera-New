@@ -1216,6 +1216,15 @@ model Sale {
   // unattributed sales keep counting for their cashier exactly as
   // before. Validated at sale time to be a member of the business.
   salespersonId         String?
+  // Register shift (2026-10-27, B5): the cashier's ACTIVE shift this
+  // sale was rung up under, resolved server-side at sale creation
+  // (never client-sent — a client-sent id could attach another
+  // cashier's shift). Null when no shift was open for the cashier, and
+  // on every pre-B5 sale. The Shift Summary modal's "Collected"
+  // section reads this shift's sales; with no shift it falls back to
+  // today's totals. onDelete SetNull: deleting a shift never deletes
+  // its sales.
+  shiftId               String?
   // Online store (Wave C5 — gap item 5) + gift cards / eWallet +
   // kiosk (Wave C9 — gap item 9): the channel this sale came
   // through. POS = counter sale (default, all history); ONLINE_STORE
@@ -1295,6 +1304,7 @@ model Sale {
   appointments Appointment[]
   user     ZapeeraUser  @relation("SaleCashier", fields: [userId], references: [id])
   salesperson ZapeeraUser? @relation("SaleSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  shift      Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
 
   @@index([companyId], name: "idx_sale_company")
   @@index([branchId], name: "idx_sale_branch")
@@ -1305,6 +1315,7 @@ model Sale {
   @@index([prescriptionId], name: "idx_sale_prescription")
   @@index([folioId], name: "idx_sale_folio")
   @@index([salespersonId], name: "idx_sale_salesperson")
+  @@index([shiftId], name: "idx_sale_shift")
   @@index([paymentStatus], name: "idx_sale_paymentStatus")
   @@index([channel], name: "idx_sale_channel")
   @@index([createdAt], name: "idx_sale_createdAt")
@@ -1941,6 +1952,7 @@ model Shift {
   branch          Branch      @relation(fields: [branchId], references: [id])
   staffProfile    StaffProfile @relation(fields: [staffProfileId], references: [id])
   membership      Membership  @relation(fields: [membershipId], references: [id])
+  sales           Sale[]
 
   @@index([staffProfileId], name: "idx_shift_staff_profile")
   @@index([membershipId], name: "idx_shift_membership")

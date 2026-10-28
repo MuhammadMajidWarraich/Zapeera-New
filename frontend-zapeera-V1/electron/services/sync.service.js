@@ -77,6 +77,11 @@ const ENTITY_TYPE_TO_TABLE = {
   refundItem: 'refund_items',
   attendance: 'attendance',
   shift: 'shifts',
+  // Shift gaps fix (2026-10-27, B2): staff profiles must land on the
+  // desktop — the POS resolves the signed-in cashier's profile from
+  // them (myStaffProfileId), and the embedded shift routes scope by
+  // membership. Pulled via the cloud cursor feed (membership-scoped).
+  staffProfile: 'staff_profiles',
   scheduledShift: 'scheduled_shifts',
   scheduledShiftUser: 'scheduled_shift_users',
   commission: 'commissions',
@@ -204,6 +209,11 @@ const SYNC_TABLES = [
   { name: 'refunds', priority: 18 },
   { name: 'refund_items', priority: 19 },
   { name: 'attendance', priority: 20 },
+  // Shift gaps fix (2026-10-27, B2/B5): staff_profiles before shifts —
+  // a shift row references its staff profile, and a sale pushed in the
+  // same batch as its shift references the shift. (Same priority as
+  // shifts; the sort is stable so array order breaks the tie.)
+  { name: 'staff_profiles', priority: 21 },
   { name: 'shifts', priority: 21 },
   { name: 'scheduled_shifts', priority: 22 },
   { name: 'scheduled_shift_users', priority: 23 },

@@ -230,8 +230,31 @@ const ENTRIES: RegistryEntry[] = [
   // staff pages live under business_management, attendance/shift self-service
   // under employee_portal — the same split the module hierarchy uses.
   // 'staff.*' keys could never resolve and denied every request.)
+  // Staff self-service (B1 follow-up, 2026-10-27): GET /api/staff/me
+  // returns ONLY the caller's own staff profile for the scoped
+  // business. The POS needs it to resolve the cashier's own
+  // staffProfileId (the dialog's open/close/read-your-own-shift flow),
+  // but the full roster is module-gated and CASHIER has no
+  // business_management.staff.read grant — so the dialog could never
+  // resolve a cashier's profile and fell back to the manager-only copy.
+  // Own-only by construction (the controller reads the caller's own
+  // membership); the roster stays module-gated below.
+  { prefix: '/api/staff/me', policy: { kind: 'auth-core' } },
   { prefix: '/api/staff', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
   { prefix: '/api/attendance', policy: { kind: 'module', resourceKey: 'employee_portal.attendance' } },
+  // Shift self-service (B1, 2026-10-27): the POS Shift Summary dialog lets
+  // a cashier open/close/read ONLY their own shift. The CASHIER role has no
+  // grant on business_management.shifts, so the module gate 403'd every
+  // cashier call and the dialog could never work for the people who ring
+  // sales. These three endpoints are therefore 'auth-core': the router's
+  // own membership/branch guards plus the controller's ownership checks
+  // (start/end/active all 403 a non-privileged caller touching another
+  // cashier's shift) are the authorization. Longest-prefix wins, so these
+  // take precedence over the module entry below. The management endpoints
+  // (list, stats, PUT) stay module-gated to MANAGER/ADMIN/OWNER.
+  { prefix: '/api/shifts/start', policy: { kind: 'auth-core' } },
+  { prefix: '/api/shifts/end', policy: { kind: 'auth-core' } },
+  { prefix: '/api/shifts/active', policy: { kind: 'auth-core' } },
   { prefix: '/api/shifts', policy: { kind: 'module', resourceKey: 'business_management.shifts' } },
   { prefix: '/api/scheduled-shifts', policy: { kind: 'module', resourceKey: 'employee_portal.shifts' } },
   { prefix: '/api/commissions', policy: { kind: 'module', resourceKey: 'business_management.staff' } },
