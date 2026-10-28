@@ -971,9 +971,15 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
         grossProfit += (it.totalPrice || 0) - (it.batch?.purchasePrice ?? 0) * it.quantity;
       }
 
+      // H1 (2026-10-28): the refunds query must only count refunds whose
+      // original sale is IN the period's sales sum. The sales sum excludes
+      // status REFUNDED, so a refund on a fully-refunded sale was
+      // subtracted twice (once by exclusion, once here) — Rs 520 in Oct
+      // (INV-10141 Rs 400 + INV-10036 Rs 120). The status is re-applied
+      // inside originalSale (it was destructured away from saleScope).
       const { createdAt, status: _status, ...saleScope } = saleWhere;
       const refunds = await prisma.refund.findMany({
-        where: { createdAt, originalSale: saleScope },
+        where: { createdAt, originalSale: { ...saleScope, status: { not: 'REFUNDED' } } },
         select: {
           refundAmount: true,
           originalSaleId: true,
@@ -1284,6 +1290,14 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
       amount: refundsAggregate._sum?.refundAmount || 0
     };
 
+    // M2 (2026-10-28): "today" is the most recent day WITH sales, per
+    // scope — not the calendar day — and the label showed no date (All
+    // branches Oct 26, DHA a different day, Gulberg a third). The
+    // computed day is returned as today.date (server-local YYYY-MM-DD)
+    // so the UI can show it next to the label. Built from local parts,
+    // not toISOString, so a non-UTC server TZ cannot shift the day.
+    const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     return res.json({
       success: true,
       data: {
@@ -1291,7 +1305,8 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
           revenue: todayRevenueNet,
           profit: todayProfit,
           transactions: todaySales._count?.id || 0,
-          growth: todayGrowth
+          growth: todayGrowth,
+          date: todayDateStr
         },
         month: {
           revenue: monthRevenueNet,
