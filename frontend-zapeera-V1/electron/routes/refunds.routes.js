@@ -222,6 +222,13 @@ function registerRefundsRoutes(app, authMiddleware, deps) {
     
           console.log('[Refunds] Creating refund:', { id, saleId: finalSaleId, refundAmount, finalBranchId, finalCompanyId, finalReason });
     
+          // License shadow gate (2026-10-28): evaluate + log only in
+          // shadow mode; the 402 branch is the enforcement wiring.
+          const licenseWrite = require('../services/license/license-gate').checkWriteAllowed('refund.create', { businessId: finalCompanyId || null });
+          if (!licenseWrite.allowed) {
+            return res.status(402).json({ success: false, code: 'LICENSE_REQUIRED', message: 'Your subscription has ended. Renew to create new refunds — your data stays readable and exportable.', licenseReason: licenseWrite.reason });
+          }
+
           const insertSuccess = run(`INSERT INTO refunds (id, saleId, amount, reason, branchId, companyId, status, createdBy, createdAt, updatedAt)
                VALUES (?,?,?,?,?,?,?,?,?,?)`,
             [id, finalSaleId, refundAmount, finalReason, finalBranchId, finalCompanyId, 'COMPLETED', finalRefundedBy, timestamp, timestamp]);

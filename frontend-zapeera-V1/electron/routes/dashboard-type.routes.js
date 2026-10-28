@@ -54,34 +54,41 @@ function registerDashboardTypeRoutes(app, authMiddleware, deps) {
       const horizonISO = horizon.toISOString();
       const now = new Date();
 
+      // Parameterized scope (SQLi fix 2026-10-28): filter values are
+      // bound as parameters, never interpolated into SQL. Returns the
+      // fragment plus the params to append to the query's own params,
+      // in order. Pattern mirrors prescriptions.routes.js.
       const scopeSql = (alias) => {
-        let sql = '';
-        if (branchFilter) sql += ` AND ${alias}.branchId = '${branchFilter}'`;
-        if (companyFilter) sql += ` AND ${alias}.companyId = '${companyFilter}'`;
-        return sql;
+        const parts = [];
+        const params = [];
+        if (branchFilter) { parts.push(`${alias}.branchId = ?`); params.push(branchFilter); }
+        if (companyFilter) { parts.push(`${alias}.companyId = ?`); params.push(companyFilter); }
+        return { sql: parts.length ? ` AND ${parts.join(' AND ')}` : '', params };
       };
+      const scopeP = scopeSql('p');
+      const scopeB = scopeSql('b');
 
       // Prescriptions today (non-voided only; a NULL isActive locally means
       // "never voided" — the cloud column is NOT NULL true, the local DDL
       // has no default, so NULL rows must count too).
       const activeSql = (alias) => ` AND (${alias}.isActive IS NULL OR ${alias}.isActive = 1)`;
       const prescriptionsToday = query(
-        `SELECT COUNT(*) as c FROM prescriptions p WHERE p.createdAt >= ? AND p.createdAt < ?${activeSql('p')}${scopeSql('p')}`,
-        [todayISO, tomorrowISO]
+        `SELECT COUNT(*) as c FROM prescriptions p WHERE p.createdAt >= ? AND p.createdAt < ?${activeSql('p')}${scopeP.sql}`,
+        [todayISO, tomorrowISO, ...scopeP.params]
       )[0]?.c || 0;
 
       // Awaiting dispensing: today's prescriptions with no sale linked
       const prescriptionsAwaiting = query(
-        `SELECT COUNT(*) as c FROM prescriptions p WHERE p.createdAt >= ? AND p.createdAt < ?${activeSql('p')}${scopeSql('p')} AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.prescriptionId = p.id)`,
-        [todayISO, tomorrowISO]
+        `SELECT COUNT(*) as c FROM prescriptions p WHERE p.createdAt >= ? AND p.createdAt < ?${activeSql('p')}${scopeP.sql} AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.prescriptionId = p.id)`,
+        [todayISO, tomorrowISO, ...scopeP.params]
       )[0]?.c || 0;
 
       // Recent prescriptions (top 5, newest first) with item counts
       const recentPrescriptions = query(
         `SELECT p.id, p.patientName, p.doctorName, p.issuedDate, p.createdAt,
           (SELECT COUNT(*) FROM prescription_items pi WHERE pi.prescriptionId = p.id) as itemsCount
-         FROM prescriptions p WHERE 1=1${activeSql('p')}${scopeSql('p')}
-         ORDER BY p.createdAt DESC LIMIT 5`
+         FROM prescriptions p WHERE 1=1${activeSql('p')}${scopeP.sql}
+         ORDER BY p.createdAt DESC LIMIT 5`, scopeP.params
       ).map((p) => ({
         id: p.id,
         patientName: p.patientName,
@@ -102,17 +109,17 @@ function registerDashboardTypeRoutes(app, authMiddleware, deps) {
         `SELECT b.id, b.batchNo, b.expireDate, b.quantity, p.name as product_name
          FROM batches b
          LEFT JOIN products p ON b.productId = p.id
-         WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) >= ? AND DATE(b.expireDate) < ?${scopeSql('b')}
+         WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) >= ? AND DATE(b.expireDate) < ?${scopeB.sql}
          ORDER BY b.expireDate ASC LIMIT 5`,
-        [todayDate, horizonDate]
+        [todayDate, horizonDate, ...scopeB.params]
       );
       const expiringSoonCount = query(
-        `SELECT COUNT(*) as c FROM batches b WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) >= ? AND DATE(b.expireDate) < ?${scopeSql('b')}`,
-        [todayDate, horizonDate]
+        `SELECT COUNT(*) as c FROM batches b WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) >= ? AND DATE(b.expireDate) < ?${scopeB.sql}`,
+        [todayDate, horizonDate, ...scopeB.params]
       )[0]?.c || 0;
       const expiredCount = query(
-        `SELECT COUNT(*) as c FROM batches b WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) < ?${scopeSql('b')}`,
-        [todayDate]
+        `SELECT COUNT(*) as c FROM batches b WHERE b.isActive = 1 AND b.quantity > 0 AND DATE(b.expireDate) < ?${scopeB.sql}`,
+        [todayDate, ...scopeB.params]
       )[0]?.c || 0;
 
       // Products in scope with their batch stock (mirrors the cloud: total
@@ -123,8 +130,8 @@ function registerDashboardTypeRoutes(app, authMiddleware, deps) {
         `SELECT p.id, p.name, p.minStock, p.reorderLevel, p.reorderQuantity,
           COALESCE((SELECT SUM(b.quantity) FROM batches b WHERE b.productId = p.id AND b.isActive = 1), 0) as totalStock,
           COALESCE((SELECT SUM(b.quantity) FROM batches b WHERE b.productId = p.id AND b.isActive = 1 AND (b.expireDate IS NULL OR b.expireDate > ?)), 0) as liveStock
-         FROM products p WHERE p.isActive = 1${scopeSql('p')}`,
-        [now.toISOString()]
+         FROM products p WHERE p.isActive = 1${scopeP.sql}`,
+        [now.toISOString(), ...scopeP.params]
       );
 
       const lowStock = [];

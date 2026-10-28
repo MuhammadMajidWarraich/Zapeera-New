@@ -6,6 +6,7 @@
     "buildResources": "build"
   },
   "buildDependenciesFromSource": false,
+  "afterPack": "scripts/apply-fuses.js",
   "npmRebuild": true,
   "forceCodeSigning": false,
   "files": [

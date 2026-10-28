@@ -690,47 +690,16 @@ async function initDatabase() {
     }
   });
 
-  // Auto-activate device for local use
-  try {
-    const deviceId = getDeviceId();
-    const deviceInfo = getDeviceInfo();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 10); // 10 years offline access
-
-    // Check if device already activated
-    const existing = query('SELECT * FROM device_activation WHERE deviceId = ?', [deviceId]);
-
-    if (!existing || existing.length === 0) {
-      // Auto-register and activate device
-      run(`
-        INSERT INTO device_activation
-        (id, deviceId, fingerprint, platform, hostname, status, lastVerifiedAt, lastVerifiedStatus, offlineAccessExpiresAt, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), 'ACTIVE', ?, datetime('now'), datetime('now'))
-      `, [
-        'local-' + deviceId,
-        deviceId,
-        deviceInfo.fingerprint || '',
-        deviceInfo.platform || '',
-        deviceInfo.hostname || '',
-        expiryDate.toISOString()
-      ]);
-      console.log('[DB] ✅ Device auto-activated for local use');
-    } else {
-      // Update existing device to ACTIVE if not already
-      if (existing[0].status !== 'ACTIVE') {
-        run(`
-          UPDATE device_activation
-          SET status = 'ACTIVE', lastVerifiedStatus = 'ACTIVE', lastVerifiedAt = datetime('now'),
-              offlineAccessExpiresAt = ?
-          WHERE deviceId = ?
-        `, [expiryDate.toISOString(), deviceId]);
-        console.log('[DB] ✅ Device status updated to ACTIVE');
-      }
-    }
-  } catch (e) {
-    console.log('[DB] Device auto-activation warning:', e.message);
-    // Continue anyway - activation check will handle it
-  }
+  // Device auto-activation REMOVED 2026-10-28 (license rollout,
+  // security audit F2). The old block inserted (or re-activated) a
+  // device_activation row with offlineAccessExpiresAt = today + 10
+  // YEARS on every DB init — self-granted access that the signed
+  // license is meant to replace. Device activation is now server-issued
+  // license binding only (electron/services/license/). Existing
+  // device_activation rows are left untouched (device registration with
+  // its 72h offline expiry still happens in
+  // device.service.registerDevice() during provisioning); nothing here
+  // writes ACTIVE rows any more.
 
   // Add missing columns to existing tables (migration) - Match PostgreSQL schema
   const columnMigrations = [

@@ -37,12 +37,16 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // JOINs customers (which also has companyId/branchId), so an
           // unqualified filter 500s with "ambiguous column name" the moment
           // scoping returns a real company/branch.
+          // PARAMETERIZED scope (SQLi fix 2026-10-28): filter values are
+          // bound, never interpolated. Each derived WHERE below carries
+          // its own params array (scope params first, then dates).
           let salesWhere = 'WHERE (s.status IS NULL OR s.status != \'REFUNDED\')';
-          if (branchFilter) salesWhere += ` AND s.branchId = '${branchFilter}'`;
-          if (companyFilter) salesWhere += ` AND s.companyId = '${companyFilter}'`;
+          const salesParams = [];
+          if (branchFilter) { salesWhere += ' AND s.branchId = ?'; salesParams.push(branchFilter); }
+          if (companyFilter) { salesWhere += ' AND s.companyId = ?'; salesParams.push(companyFilter); }
     
           // Get the most recent day with sales data (for "today" display)
-          const mostRecentSale = query(`SELECT createdAt FROM sales s ${salesWhere} ORDER BY createdAt DESC LIMIT 1`)[0];
+          const mostRecentSale = query(`SELECT createdAt FROM sales s ${salesWhere} ORDER BY createdAt DESC LIMIT 1`, salesParams)[0];
     
           // "Today" is the UTC-calendar day of the most recent sale, matching
           // the cloud (the server runs UTC). Local-midnight boundaries made
@@ -62,7 +66,8 @@ function registerReportsRoutes(app, authMiddleware, deps) {
     
           const todayStart = today.toISOString();
           const todayEnd = tomorrow.toISOString();
-          const todayWhere = `${salesWhere} AND createdAt >= '${todayStart}' AND createdAt < '${todayEnd}'`;
+          const todayWhere = `${salesWhere} AND createdAt >= ? AND createdAt < ?`;
+          const todayParams = [...salesParams, todayStart, todayEnd];
     
           // Get today's sales summary
           const todaySales = query(`SELECT
@@ -71,7 +76,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             COALESCE(SUM(subtotal), 0) as subtotal,
             COALESCE(SUM(taxAmount), 0) as taxAmount,
             COALESCE(SUM(discountAmount), 0) as discountAmount
-            FROM sales s ${todayWhere}`)[0] || { count: 0, revenue: 0, subtotal: 0, taxAmount: 0, discountAmount: 0 };
+            FROM sales s ${todayWhere}`, todayParams)[0] || { count: 0, revenue: 0, subtotal: 0, taxAmount: 0, discountAmount: 0 };
     
           // Get yesterday's sales for comparison
           const yesterday = new Date(today);
@@ -80,27 +85,30 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           yesterdayEnd.setUTCDate(yesterdayEnd.getUTCDate() - 1);
           const yesterdayStart = yesterday.toISOString();
           const yesterdayEndStr = yesterdayEnd.toISOString();
-          const yesterdayWhere = `${salesWhere} AND createdAt >= '${yesterdayStart}' AND createdAt < '${yesterdayEndStr}'`;
+          const yesterdayWhere = `${salesWhere} AND createdAt >= ? AND createdAt < ?`;
+          const yesterdayParams = [...salesParams, yesterdayStart, yesterdayEndStr];
     
           const yesterdaySales = query(`SELECT
             COALESCE(SUM(totalAmount), 0) as revenue
-            FROM sales s ${yesterdayWhere}`)[0] || { revenue: 0 };
+            FROM sales s ${yesterdayWhere}`, yesterdayParams)[0] || { revenue: 0 };
     
           // Get month's sales
           const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString();
-          const monthWhere = `${salesWhere} AND createdAt >= '${monthStart}'`;
+          const monthWhere = `${salesWhere} AND createdAt >= ?`;
+          const monthParams = [...salesParams, monthStart];
           const monthSales = query(`SELECT
             COUNT(*) as count,
             COALESCE(SUM(totalAmount), 0) as revenue
-            FROM sales s ${monthWhere}`)[0] || { count: 0, revenue: 0 };
+            FROM sales s ${monthWhere}`, monthParams)[0] || { count: 0, revenue: 0 };
     
           // Get last month's sales for comparison
           const lastMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1)).toISOString();
           const lastMonthEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString();
-          const lastMonthWhere = `${salesWhere} AND createdAt >= '${lastMonthStart}' AND createdAt < '${lastMonthEnd}'`;
+          const lastMonthWhere = `${salesWhere} AND createdAt >= ? AND createdAt < ?`;
+          const lastMonthParams = [...salesParams, lastMonthStart, lastMonthEnd];
           const lastMonthSales = query(`SELECT
             COALESCE(SUM(totalAmount), 0) as revenue
-            FROM sales s ${lastMonthWhere}`)[0] || { revenue: 0 };
+            FROM sales s ${lastMonthWhere}`, lastMonthParams)[0] || { revenue: 0 };
     
           // Calculate profits (30% margin)
           const todayProfit = (parseFloat(todaySales.revenue) || 0) * 0.3;
@@ -124,7 +132,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             LEFT JOIN customers c ON s.customerId = c.id
             ${salesWhere}
             ORDER BY s.createdAt DESC
-            LIMIT 5`);
+            LIMIT 5`, salesParams);
     
           const formattedRecentSales = recentSales.map(sale => ({
             id: sale.id,
@@ -144,8 +152,9 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Revenue sums si.total — the local money column (the sync feed maps
           // the cloud's totalPrice to `total`, so the two agree).
           const sellingWhere = `WHERE (s.status IS NULL OR s.status != 'REFUNDED')` +
-            (branchFilter ? ` AND s.branchId = '${branchFilter}'` : '') +
-            (companyFilter ? ` AND s.companyId = '${companyFilter}'` : '');
+            (branchFilter ? ' AND s.branchId = ?' : '') +
+            (companyFilter ? ' AND s.companyId = ?' : '');
+          const sellingParams = [...salesParams];
           const sellingSelect = `SELECT p.id, p.name, p.sku,
               COALESCE(SUM(si.quantity), 0) as salesCount,
               COALESCE(SUM(si.total), 0) as revenue
@@ -161,8 +170,8 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             salesCount: Number(row.salesCount) || 0,
             revenue: parseFloat(row.revenue) || 0
           });
-          const mostSellingProducts = query(`${sellingSelect} ORDER BY salesCount DESC LIMIT 5`).map(formatSelling);
-          const slowSellingProducts = query(`${sellingSelect} ORDER BY salesCount ASC LIMIT 5`).map(formatSelling);
+          const mostSellingProducts = query(`${sellingSelect} ORDER BY salesCount DESC LIMIT 5`, sellingParams).map(formatSelling);
+          const slowSellingProducts = query(`${sellingSelect} ORDER BY salesCount ASC LIMIT 5`, sellingParams).map(formatSelling);
 
           // FIX 2026-10-28 (dashboard aggregates): server-side refunds +
           // low-stock aggregates, branch-aware. The dashboard used to count
@@ -176,9 +185,10 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // directly). Cloud truth for Seikho Medicos: 37 rows / Rs 5,320
           // (Main 33 / Rs 3,410, Gulberg 4 / Rs 1,910, DHA 0).
           const refundsWhere = 'WHERE 1=1' +
-            (branchFilter ? ` AND branchId = '${branchFilter}'` : '') +
-            (companyFilter ? ` AND companyId = '${companyFilter}'` : '');
-          const refundsRow = query(`SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as amount FROM refunds ${refundsWhere}`)[0] || { count: 0, amount: 0 };
+            (branchFilter ? ' AND branchId = ?' : '') +
+            (companyFilter ? ' AND companyId = ?' : '');
+          const refundsParams = [...salesParams];
+          const refundsRow = query(`SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as amount FROM refunds ${refundsWhere}`, refundsParams)[0] || { count: 0, amount: 0 };
           const refunds = {
             count: parseInt(refundsRow.count) || 0,
             amount: parseFloat(refundsRow.amount) || 0
@@ -189,15 +199,16 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // minStock. The list is the 10 lowest-stock products; the count
           // covers the whole scope (true 22 for Seikho Medicos All).
           const lowStockWhere = 'WHERE p.isActive = 1' +
-            (branchFilter ? ` AND p.branchId = '${branchFilter}'` : '') +
-            (companyFilter ? ` AND p.companyId = '${companyFilter}'` : '');
+            (branchFilter ? ' AND p.branchId = ?' : '') +
+            (companyFilter ? ' AND p.companyId = ?' : '');
+          const lowStockParams = [...salesParams];
           const lowStockAll = query(`SELECT p.id, p.name, p.sku, p.minStock, p.unitsPerPack,
               br.name as branch_name, cat.name as category_name, cat.type as category_type,
               COALESCE((SELECT SUM(b.quantity) FROM batches b WHERE b.productId = p.id AND b.isActive = 1 AND b.quantity > 0), 0) as stock
             FROM products p
             LEFT JOIN branches br ON p.branchId = br.id
             LEFT JOIN categories cat ON p.categoryId = cat.id
-            ${lowStockWhere}`)
+            ${lowStockWhere}`, lowStockParams)
             .map((product) => ({
               id: product.id,
               name: product.name,
@@ -261,12 +272,17 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
           // Build WHERE clause with data isolation - MATCH BACKEND EXACTLY
+          // PARAMETERIZED (SQLi fix 2026-10-28): every value below is
+          // bound — including startDate/endDate, which arrive from the
+          // query string. Params travel with the clause: scope first,
+          // then the period dates, in the order appended.
           let whereClause = 'WHERE 1=1';
+          const whereParams = [];
           // Exclude refunded sales from reports (match backend)
           whereClause += ` AND (status IS NULL OR status != 'REFUNDED')`;
     
-          if (branchFilter) whereClause += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) whereClause += ` AND companyId = '${companyFilter}'`;
+          if (branchFilter) { whereClause += ' AND branchId = ?'; whereParams.push(branchFilter); }
+          if (companyFilter) { whereClause += ' AND companyId = ?'; whereParams.push(companyFilter); }
     
           // Handle period-based filtering - MATCH BACKEND DATE HANDLING
           const today = new Date().toISOString().split('T')[0];
@@ -283,40 +299,44 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           }
     
           // Match backend: Add 23:59:59 to end date to include the entire day
-          if (periodStartDate) whereClause += ` AND DATE(createdAt) >= '${periodStartDate}'`;
+          if (periodStartDate) { whereClause += ' AND DATE(createdAt) >= ?'; whereParams.push(periodStartDate); }
           if (endDate) {
             const endDateWithTime = new Date(endDate);
             endDateWithTime.setHours(23, 59, 59, 999);
-            whereClause += ` AND createdAt <= '${endDateWithTime.toISOString()}'`;
+            whereClause += ' AND createdAt <= ?';
+            whereParams.push(endDateWithTime.toISOString());
           }
     
           // Match backend: Use totalAmount instead of grandTotal, subtotal, taxAmount, discountAmount
-          const sales = query(`SELECT * FROM sales ${whereClause} ORDER BY createdAt DESC LIMIT 100`);
-          const totalRevenue = query(`SELECT SUM(totalAmount) as total FROM sales ${whereClause}`)[0]?.total || 0;
-          const totalSales = query(`SELECT COUNT(*) as count FROM sales ${whereClause}`)[0]?.count || 0;
-          const totalDiscount = query(`SELECT SUM(discountAmount) as total FROM sales ${whereClause}`)[0]?.total ||
-                               query(`SELECT SUM(discount) as total FROM sales ${whereClause}`)[0]?.total || 0;
-          const totalTax = query(`SELECT SUM(taxAmount) as total FROM sales ${whereClause}`)[0]?.total ||
-                           query(`SELECT SUM(tax) as total FROM sales ${whereClause}`)[0]?.total || 0;
-          const totalSubtotal = query(`SELECT SUM(subtotal) as total FROM sales ${whereClause}`)[0]?.total || totalRevenue;
+          const sales = query(`SELECT * FROM sales ${whereClause} ORDER BY createdAt DESC LIMIT 100`, whereParams);
+          const totalRevenue = query(`SELECT SUM(totalAmount) as total FROM sales ${whereClause}`, whereParams)[0]?.total || 0;
+          const totalSales = query(`SELECT COUNT(*) as count FROM sales ${whereClause}`, whereParams)[0]?.count || 0;
+          const totalDiscount = query(`SELECT SUM(discountAmount) as total FROM sales ${whereClause}`, whereParams)[0]?.total ||
+                               query(`SELECT SUM(discount) as total FROM sales ${whereClause}`, whereParams)[0]?.total || 0;
+          const totalTax = query(`SELECT SUM(taxAmount) as total FROM sales ${whereClause}`, whereParams)[0]?.total ||
+                           query(`SELECT SUM(tax) as total FROM sales ${whereClause}`, whereParams)[0]?.total || 0;
+          const totalSubtotal = query(`SELECT SUM(subtotal) as total FROM sales ${whereClause}`, whereParams)[0]?.total || totalRevenue;
     
           console.log('[Reports/Sales] Found sales:', totalSales, 'Revenue:', totalRevenue);
     
           // Sales by payment method - Match backend field names
-          const salesByPaymentMethod = query(`SELECT paymentMethod, COUNT(*) as count, SUM(totalAmount) as total FROM sales ${whereClause} GROUP BY paymentMethod`).map(item => ({
+          const salesByPaymentMethod = query(`SELECT paymentMethod, COUNT(*) as count, SUM(totalAmount) as total FROM sales ${whereClause} GROUP BY paymentMethod`, whereParams).map(item => ({
             paymentMethod: item.paymentMethod,
             _sum: { totalAmount: item.total || 0 },
             _count: { id: item.count || 0 }
           }));
     
           // Top products (with branch filter)
-          let topProductsWhere = branchFilter ? `AND s.branchId = '${branchFilter}'` : '';
-          if (companyFilter) topProductsWhere += ` AND s.companyId = '${companyFilter}'`;
+          let topProductsWhere = branchFilter ? 'AND s.branchId = ?' : '';
+          if (companyFilter) topProductsWhere += ' AND s.companyId = ?';
+          const topProductsParams = [];
+          if (branchFilter) topProductsParams.push(branchFilter);
+          if (companyFilter) topProductsParams.push(companyFilter);
     
           const topProducts = query(`SELECT p.id, p.name, SUM(si.quantity) as totalQty, SUM(si.total) as totalRevenue
             FROM sale_items si JOIN products p ON si.productId = p.id
             JOIN sales s ON si.saleId = s.id WHERE 1=1 ${topProductsWhere}
-            GROUP BY p.id ORDER BY totalRevenue DESC LIMIT 10`);
+            GROUP BY p.id ORDER BY totalRevenue DESC LIMIT 10`, topProductsParams);
     
           // CRITICAL FIX: Generate salesTrend based on groupBy parameter and date range
           // Match backend format: { createdAt: Date, _sum: { totalAmount }, _count: { id } }
@@ -344,8 +364,8 @@ function registerReportsRoutes(app, authMiddleware, deps) {
               const hourEnd = new Date(hourStart);
               hourEnd.setHours(hour, 59, 59, 999);
     
-              const hourWhere = trendWhere + ` AND createdAt >= '${hourStart.toISOString()}' AND createdAt <= '${hourEnd.toISOString()}'`;
-              const hourData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${hourWhere}`)[0];
+              const hourWhere = trendWhere + ' AND createdAt >= ? AND createdAt <= ?';
+              const hourData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${hourWhere}`, [...whereParams, hourStart.toISOString(), hourEnd.toISOString()])[0];
     
               salesTrend.push({
                 createdAt: hourStart,
@@ -364,8 +384,8 @@ function registerReportsRoutes(app, authMiddleware, deps) {
               currentDate.setDate(start.getDate() + i);
               const dateStr = currentDate.toISOString().split('T')[0];
     
-              const dayWhere = trendWhere + ` AND DATE(createdAt) = '${dateStr}'`;
-              const dayData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${dayWhere}`)[0];
+              const dayWhere = trendWhere + ' AND DATE(createdAt) = ?';
+              const dayData = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${dayWhere}`, [...whereParams, dateStr])[0];
     
               salesTrend.push({
                 createdAt: new Date(dateStr + 'T00:00:00'),
@@ -379,7 +399,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             const end = new Date(actualEndDate);
             const weeks = {};
     
-            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`);
+            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`, whereParams);
             sales.forEach(sale => {
               const saleDate = new Date(sale.createdAt);
               const weekKey = `${saleDate.getFullYear()}-W${getWeekNumber(saleDate)}`;
@@ -406,7 +426,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             // Group by month
             const months = {};
     
-            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`);
+            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`, whereParams);
             sales.forEach(sale => {
               const saleDate = new Date(sale.createdAt);
               const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
@@ -431,7 +451,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
             // Group by year
             const years = {};
     
-            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`);
+            const sales = query(`SELECT createdAt, totalAmount, grandTotal FROM sales ${trendWhere}`, whereParams);
             sales.forEach(sale => {
               const saleDate = new Date(sale.createdAt);
               const yearKey = saleDate.getFullYear().toString();
@@ -494,12 +514,14 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
+          // PARAMETERIZED (SQLi fix 2026-10-28).
           let whereClause = 'WHERE isActive = 1';
-          if (branchFilter) whereClause += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) whereClause += ` AND companyId = '${companyFilter}'`;
+          const invParams = [];
+          if (branchFilter) { whereClause += ' AND branchId = ?'; invParams.push(branchFilter); }
+          if (companyFilter) { whereClause += ' AND companyId = ?'; invParams.push(companyFilter); }
     
           // Match backend: Stock is now managed through batches, not product.quantity
-          const products = query(`SELECT * FROM products ${whereClause} ORDER BY quantity ASC`);
+          const products = query(`SELECT * FROM products ${whereClause} ORDER BY quantity ASC`, invParams);
           const totalProducts = products.length;
     
           // Calculate stock from batches (match backend logic)
@@ -544,7 +566,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
     
           // Products by category (with filter)
           const productsByCategory = query(`SELECT c.name as category, COUNT(p.id) as count, SUM(p.quantity) as totalStock
-            FROM products p LEFT JOIN categories c ON p.categoryId = c.id ${whereClause.replace('WHERE', 'WHERE p.')} GROUP BY c.id`);
+            FROM products p LEFT JOIN categories c ON p.categoryId = c.id ${whereClause.replace('WHERE', 'WHERE p.')} GROUP BY c.id`, invParams);
     
           res.json({ success: true, data: {
             summary: { totalProducts, totalStock, totalValue, lowStockCount, outOfStock },
@@ -574,32 +596,36 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
-          // Build WHERE clause - Match backend logic
+          // Build WHERE clause - Match backend logic. PARAMETERIZED
+          // (SQLi fix 2026-10-28).
           let whereClause = 'WHERE isActive = 1';
-          if (branchFilter) whereClause += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) whereClause += ` AND companyId = '${companyFilter}'`;
-          if (vip === 'true') whereClause += ` AND isVIP = 1`;
+          const custParams = [];
+          if (branchFilter) { whereClause += ' AND branchId = ?'; custParams.push(branchFilter); }
+          if (companyFilter) { whereClause += ' AND companyId = ?'; custParams.push(companyFilter); }
+          if (vip === 'true') whereClause += ' AND isVIP = 1';
     
-          const customers = query(`SELECT * FROM customers ${whereClause} ORDER BY createdAt DESC`);
+          const customers = query(`SELECT * FROM customers ${whereClause} ORDER BY createdAt DESC`, custParams);
           const totalCustomers = customers.length;
     
           // Calculate total spent from sales - Match backend
           let salesWhere = 'WHERE 1=1';
-          if (branchFilter) salesWhere += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) salesWhere += ` AND companyId = '${companyFilter}'`;
-          if (startDate) salesWhere += ` AND DATE(createdAt) >= '${startDate}'`;
+          const custSalesParams = [];
+          if (branchFilter) { salesWhere += ' AND branchId = ?'; custSalesParams.push(branchFilter); }
+          if (companyFilter) { salesWhere += ' AND companyId = ?'; custSalesParams.push(companyFilter); }
+          if (startDate) { salesWhere += ' AND DATE(createdAt) >= ?'; custSalesParams.push(startDate); }
           if (endDate) {
             const endDateWithTime = new Date(endDate);
             endDateWithTime.setHours(23, 59, 59, 999);
-            salesWhere += ` AND createdAt <= '${endDateWithTime.toISOString()}'`;
+            salesWhere += ' AND createdAt <= ?';
+            custSalesParams.push(endDateWithTime.toISOString());
           }
     
-          const totalSpent = query(`SELECT SUM(totalAmount) as total FROM sales ${salesWhere}`)[0]?.total || 0;
-          const totalLoyaltyPoints = query(`SELECT SUM(loyaltyPoints) as total FROM customers ${whereClause}`)[0]?.total || 0;
+          const totalSpent = query(`SELECT SUM(totalAmount) as total FROM sales ${salesWhere}`, custSalesParams)[0]?.total || 0;
+          const totalLoyaltyPoints = query(`SELECT SUM(loyaltyPoints) as total FROM customers ${whereClause}`, custParams)[0]?.total || 0;
     
           // Customers by VIP status - Match backend
           const customersByVIP = query(`SELECT isVIP, COUNT(*) as count, SUM(totalPurchases) as totalSpent, SUM(loyaltyPoints) as totalPoints
-            FROM customers ${whereClause} GROUP BY isVIP`).map(item => ({
+            FROM customers ${whereClause} GROUP BY isVIP`, custParams).map(item => ({
             isVIP: item.isVIP || false,
             _count: { id: item.count || 0 },
             _sum: { totalPurchases: item.totalSpent || 0, loyaltyPoints: item.totalPoints || 0 }
@@ -657,12 +683,14 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role (match backend)
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
+          // PARAMETERIZED (SQLi fix 2026-10-28).
           let whereClause = 'WHERE isActive = 1';
-          if (branchFilter) whereClause += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) whereClause += ` AND companyId = '${companyFilter}'`;
+          const prodParams = [];
+          if (branchFilter) { whereClause += ' AND branchId = ?'; prodParams.push(branchFilter); }
+          if (companyFilter) { whereClause += ' AND companyId = ?'; prodParams.push(companyFilter); }
     
           // Get top products with stock from batches (match backend)
-          const products = query(`SELECT * FROM products ${whereClause} ORDER BY createdAt DESC LIMIT 20`);
+          const products = query(`SELECT * FROM products ${whereClause} ORDER BY createdAt DESC LIMIT 20`, prodParams);
     
           const topProducts = products.map(p => {
             // Calculate stock from batches (match backend)
@@ -690,7 +718,7 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           // Category performance (match backend)
           const categoryPerformance = query(`SELECT c.id, c.name, COUNT(p.id) as productCount, SUM(p.quantity) as totalStock
             FROM categories c LEFT JOIN products p ON c.id = p.categoryId ${whereClause.replace('WHERE', 'WHERE p.')}
-            GROUP BY c.id ORDER BY productCount DESC`).map(item => ({
+            GROUP BY c.id ORDER BY productCount DESC`, prodParams).map(item => ({
             category: { id: item.id, name: item.name },
             _count: { products: item.productCount || 0 },
             _sum: { stock: item.totalStock || 0 }

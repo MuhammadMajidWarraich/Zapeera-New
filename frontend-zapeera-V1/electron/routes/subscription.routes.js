@@ -8,41 +8,12 @@
  * "Free Plan" mock.
  */
 
-// Local plan catalog mirroring the backend's default plans
-const PLAN_CATALOG = {
-  'single-trial': {
-    id: 'single-trial',
-    segment: 'single',
-    name: 'Trial',
-    dashboardAccessRoles: ['OWNER', 'MANAGER', 'CASHIER'],
-    businessTypes: ['PHARMACY', 'STORE', 'HOTEL', 'CLINIC'],
-    limits: { maxBranches: 1, maxCountersPerBranch: 1, maxConcurrentUsers: 5 },
-  },
-  'single-starter': {
-    id: 'single-starter',
-    segment: 'single',
-    name: 'Starter',
-    dashboardAccessRoles: ['OWNER', 'MANAGER', 'CASHIER'],
-    businessTypes: ['PHARMACY', 'STORE', 'HOTEL', 'CLINIC'],
-    limits: { maxBranches: 1, maxCountersPerBranch: 1, maxConcurrentUsers: 1 },
-  },
-  'single-growth': {
-    id: 'single-growth',
-    segment: 'single',
-    name: 'Growth',
-    dashboardAccessRoles: ['OWNER', 'MANAGER', 'CASHIER'],
-    businessTypes: ['PHARMACY', 'STORE', 'HOTEL', 'CLINIC'],
-    limits: { maxBranches: 3, maxCountersPerBranch: 3, maxConcurrentUsers: 20 },
-  },
-  'single-scale': {
-    id: 'single-scale',
-    segment: 'single',
-    name: 'Scale',
-    dashboardAccessRoles: ['OWNER', 'MANAGER', 'CASHIER'],
-    businessTypes: ['PHARMACY', 'STORE', 'HOTEL', 'CLINIC'],
-    limits: { maxBranches: 10, maxCountersPerBranch: 999, maxConcurrentUsers: 100 },
-  },
-};
+// Local plan catalog mirroring the backend's default plans. Shared
+// with the license gate (services/license/plan-catalog.js) so both map
+// a planId to the same limits.
+const { PLAN_CATALOG, EMPTY_LIMITS } = require('../services/license/plan-catalog');
+const licenseGate = require('../services/license/license-gate');
+const licenseClient = require('../services/license/license-client');
 
 function registerSubscriptionRoutes(app, authMiddleware, deps) {
   const { query, cloudApi } = deps;
@@ -68,6 +39,10 @@ function registerSubscriptionRoutes(app, authMiddleware, deps) {
           );
           if (cloud && cloud.success && cloud.data) {
             console.log('[Subscription] ✅ Live cloud entitlement for', companyId, cloud.data.planId, cloud.data.subscriptionStatus);
+            // While online, opportunistically refresh the signed license
+            // token (best-effort, never blocks the response; fails soft
+            // until the server ships /api/license/refresh).
+            try { licenseClient.refreshFromCloud(cloudApi).catch(() => {}); } catch (e) { /* never block */ }
             return res.json({ success: true, data: cloud.data });
           }
         } catch (cloudErr) {
@@ -91,13 +66,46 @@ function registerSubscriptionRoutes(app, authMiddleware, deps) {
       const isActiveStatus = normalizedStatus === 'ACTIVE' || normalizedStatus === 'TRIAL' || normalizedStatus === 'GRACE';
       const isSubscribed = Boolean(plan && isActiveStatus);
 
+      // License shadow gate (2026-10-28): evaluate the stored signed
+      // token against the legacy verdict and log any mismatch. SHADOW
+      // MODE — the legacy verdict below still decides the response;
+      // the license verdict is reported in `licenseShadow` for the
+      // deploy-phase review and drives nothing yet. When enforcement
+      // flips, this is the call site that switches to the license
+      // verdict + resolvePlanLimits(check, planKey).
+      let licenseShadow = null;
+      try {
+        const licenseCheck = licenseGate.checkEntitlement({
+          token: licenseClient.getStoredToken(),
+          legacyEntitled: isSubscribed,
+          legacyPlanId: planKey,
+          businessId: companyId,
+          deviceId: licenseClient.getDeviceId(),
+          installId: licenseClient.getInstallId()
+        });
+        const licenseLimits = licenseGate.resolvePlanLimits(licenseCheck, planKey);
+        licenseShadow = {
+          mode: licenseCheck.mode,
+          entitled: licenseCheck.licenseEntitled,
+          reason: licenseCheck.licenseReason,
+          planId: licenseCheck.licensePlanId,
+          mismatch: licenseCheck.mismatch,
+          inGrace: licenseCheck.inGrace,
+          warnings: licenseCheck.warnings,
+          // What enforcement would use for limits (diagnostic only).
+          licenseLimits: licenseLimits.limits
+        };
+      } catch (licenseErr) {
+        console.warn('[Subscription] License shadow check failed:', licenseErr.message);
+      }
+
       const usage = {
         activeBranches: query('SELECT COUNT(*) as c FROM branches WHERE companyId = ? AND isActive = 1', [companyId])[0]?.c || 0,
         activeUsers: query('SELECT COUNT(*) as c FROM users WHERE companyId = ? AND isActive = 1', [companyId])[0]?.c || 0,
         totalUsers: query('SELECT COUNT(*) as c FROM users WHERE companyId = ?', [companyId])[0]?.c || 0,
       };
 
-      const limits = plan ? plan.limits : { maxBranches: null, maxCountersPerBranch: null, maxConcurrentUsers: null };
+      const limits = plan ? plan.limits : EMPTY_LIMITS;
       const remaining = plan
         ? {
             branches: limits.maxBranches === null ? null : Math.max(limits.maxBranches - usage.activeBranches, 0),
@@ -122,6 +130,10 @@ function registerSubscriptionRoutes(app, authMiddleware, deps) {
           includedLimits: limits,
           usage,
           remaining,
+          // Diagnostic only (ignored by the frontend): the shadow-mode
+          // license verdict for this business. Removed or kept when
+          // enforcement flips; never drives the response while shadow.
+          licenseShadow,
         },
       });
     } catch (e) {

@@ -589,6 +589,15 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           const paidAmount = req.body.paidAmount || (finalPaymentStatus === 'COMPLETED' ? grandTotal : 0);
           const returnedAmount = req.body.returnedAmount || Math.max(0, paidAmount - grandTotal);
 
+          // License shadow gate (2026-10-28): evaluate the stored signed
+          // license for this write and log what enforcement would do.
+          // SHADOW MODE — always allows; the 402 branch below is the
+          // enforcement wiring, dead code until SHADOW_MODE flips.
+          const licenseWrite = require('../services/license/license-gate').checkWriteAllowed('sale.create', { businessId: finalCompanyId || null });
+          if (!licenseWrite.allowed) {
+            return res.status(402).json({ success: false, code: 'LICENSE_REQUIRED', message: 'Your subscription has ended. Renew to create new sales — your data stays readable and exportable.', licenseReason: licenseWrite.reason });
+          }
+
           // ============================================================
           // APPLY PHASE — all-or-nothing (B-7). The sale row is written
           // only now, after every validation passed. If any write fails,
