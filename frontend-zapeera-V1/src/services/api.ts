@@ -21,6 +21,16 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
+  // Top-level pagination (H3 truncation family, 2026-10-28): the
+  // appointments / reservations / folios list endpoints return
+  // pagination alongside data (not inside it). Callers that cap the
+  // fetch read total here to say "showing X of Y".
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
   // Machine-readable error code from the API body (e.g.
   // PRESCRIPTION_REQUIRED) — passed through on failures so callers
   // can react specifically instead of parsing the message.
@@ -10007,6 +10017,31 @@ export class ApiService {
 
 export const apiService = new ApiService(API_BASE_URL);
 export default apiService;
+
+// H3 truncation family (2026-10-28): pickers that fetched limit:200
+// silently dropped every product / supplier / category past the first
+// 200 (live catalog: 642 products) — unpickable in purchases and
+// promotions. fetchAllPaged loops pages until the server total is
+// reached, so a picker list is complete. Capped at 50 pages as a guard
+// against a misbehaving total; a page that returns no rows ends the
+// loop, and a response without pagination.total stops after page 1.
+export async function fetchAllPaged<T>(
+  fetchPage: (page: number, limit: number) => Promise<any>,
+  pickList: (data: any) => T[],
+  pageSize = 200
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const res: any = await fetchPage(page, pageSize);
+    if (!res?.success || !res?.data) break;
+    const list = pickList(res.data);
+    if (!Array.isArray(list) || list.length === 0) break;
+    all.push(...(list as T[]));
+    const total = res.data.pagination?.total;
+    if (typeof total !== 'number' || all.length >= total) break;
+  }
+  return all;
+}
 
 /** Backend base URL (for full-page navigations like the Shopify OAuth install). */
 export const getApiBaseUrl = (): string => API_BASE_URL;

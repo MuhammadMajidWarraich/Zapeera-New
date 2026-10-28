@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   apiService,
+  fetchAllPaged,
   type PromotionRecord,
   type PromotionPayload,
   type PromotionType,
@@ -169,21 +170,23 @@ const Promotions = () => {
   }, [loadPromotions]);
 
   // Scope pickers for the form
+  // H3 truncation family (2026-10-28): the old limit:200 page left
+  // categories/products past the first 200 untargetable in promotions.
   useEffect(() => {
-    apiService.getCategories({ limit: 200 })
-      .then((res) => {
-        if (res.success && res.data) {
-          const list = (res.data as any).categories || res.data;
-          if (Array.isArray(list)) setCategories(list.map((c: any) => ({ id: c.id, name: c.name })));
-        }
+    fetchAllPaged(
+      (page, limit) => apiService.getCategories({ page, limit }),
+      (data: any) => data.categories || data
+    )
+      .then((list) => {
+        if (Array.isArray(list)) setCategories(list.map((c: any) => ({ id: c.id, name: c.name })));
       })
       .catch(() => { /* scope picker simply stays empty */ });
-    apiService.getProducts({ limit: 200 })
-      .then((res) => {
-        if (res.success && res.data) {
-          const list = (res.data as any).products || res.data;
-          if (Array.isArray(list)) setProducts(list.map((p: any) => ({ id: p.id, name: p.name })));
-        }
+    fetchAllPaged(
+      (page, limit) => apiService.getProducts({ page, limit }),
+      (data: any) => data.products || data
+    )
+      .then((list) => {
+        if (Array.isArray(list)) setProducts(list.map((p: any) => ({ id: p.id, name: p.name })));
       })
       .catch(() => { /* scope picker simply stays empty */ });
   }, []);

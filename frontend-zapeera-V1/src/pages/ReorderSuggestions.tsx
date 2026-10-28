@@ -18,7 +18,7 @@ import {
   Loader2,
   Info,
 } from "lucide-react";
-import { apiService } from "@/services/api";
+import { apiService, fetchAllPaged } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 
 // Wave C3 — Auto-reorder suggestions.
@@ -118,12 +118,13 @@ const ReorderSuggestions: React.FC = () => {
 
   const loadSuppliers = useCallback(async () => {
     try {
-      const response = await apiService.getSuppliers({ page: 1, limit: 200 });
-      if (response.success && response.data) {
-        setSuppliers(
-          (response.data.suppliers || []).map((s) => ({ id: s.id, name: s.name }))
-        );
-      }
+      // H3 truncation family (2026-10-28): suppliers past the first
+      // 200 were missing from the reorder picker.
+      const suppliers = await fetchAllPaged(
+        (page, limit) => apiService.getSuppliers({ page, limit }),
+        (data: any) => data.suppliers || []
+      );
+      setSuppliers(suppliers.map((s: any) => ({ id: s.id, name: s.name })));
     } catch (err) {
       console.error("Load suppliers error:", err);
     }

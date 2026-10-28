@@ -45,6 +45,26 @@ const FrontDeskPage: React.FC = () => {
   const [arrivals, setArrivals] = useState<ReservationRecord[]>([]);
   const [departures, setDepartures] = useState<ReservationRecord[]>([]);
   const [inHouse, setInHouse] = useState<FolioRecord[]>([]);
+  // H3 truncation family (2026-10-28): each board list fetches at most
+  // 200 rows. The night-audit counts are server-computed, but the
+  // lists below are not — keep the fetched/total pairs so the board
+  // can say when a list is cut off.
+  const [listTotals, setListTotals] = useState<{
+    arrivalsFetched: number; arrivalsTotal: number | null;
+    checkedInFetched: number; checkedInTotal: number | null;
+    foliosFetched: number; foliosTotal: number | null;
+  }>({ arrivalsFetched: 0, arrivalsTotal: null, checkedInFetched: 0, checkedInTotal: null, foliosFetched: 0, foliosTotal: null });
+  const boardTruncationNote = [
+    listTotals.arrivalsTotal != null && listTotals.arrivalsTotal > listTotals.arrivalsFetched
+      ? `arrivals ${listTotals.arrivalsFetched} of ${listTotals.arrivalsTotal}`
+      : null,
+    listTotals.checkedInTotal != null && listTotals.checkedInTotal > listTotals.checkedInFetched
+      ? `checked-in reservations ${listTotals.checkedInFetched} of ${listTotals.checkedInTotal} (some departures may be missing)`
+      : null,
+    listTotals.foliosTotal != null && listTotals.foliosTotal > listTotals.foliosFetched
+      ? `open folios ${listTotals.foliosFetched} of ${listTotals.foliosTotal}`
+      : null,
+  ].filter(Boolean).join('; ');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -69,6 +89,14 @@ const FrontDeskPage: React.FC = () => {
         );
       }
       if (foliosRes.success && foliosRes.data) setInHouse(foliosRes.data);
+      setListTotals({
+        arrivalsFetched: arrivalsRes.data?.length ?? 0,
+        arrivalsTotal: arrivalsRes.pagination?.total ?? null,
+        checkedInFetched: checkedInRes.data?.length ?? 0,
+        checkedInTotal: checkedInRes.pagination?.total ?? null,
+        foliosFetched: foliosRes.data?.length ?? 0,
+        foliosTotal: foliosRes.pagination?.total ?? null,
+      });
     } catch {
       toast({ title: "Could not load the front desk board", variant: "destructive" });
     } finally {
@@ -169,6 +197,12 @@ const FrontDeskPage: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {boardTruncationNote && (
+        <p className="text-xs font-medium text-amber-600">
+          Board lists cover the first 200 rows only — {boardTruncationNote}.
+        </p>
       )}
 
       {loading ? (

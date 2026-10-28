@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/contexts/useAdmin';
-import { apiService } from '@/services/api';
+import { apiService, fetchAllPaged } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,12 +188,14 @@ const Purchases = () => {
         }
       }
       
-      const response = await apiService.getProducts({
-        page: 1,
-        limit: 200,
-        branchId: branchId,
-      });
-      setProducts((response.data as any).products || (response.data as any));
+      // H3 truncation family (2026-10-28): the picker must list the
+      // WHOLE catalog — the old limit:200 page left every product past
+      // the first 200 unpickable (live catalog: 642 products).
+      const products = await fetchAllPaged(
+        (page, limit) => apiService.getProducts({ page, limit, branchId }),
+        (data: any) => data.products || data
+      );
+      setProducts(products);
     } catch (error) {
       console.error('Error loading products:', error);
     }
@@ -201,13 +203,13 @@ const Purchases = () => {
 
   const loadSuppliers = useCallback(async () => {
     try {
-      const response = await apiService.getSuppliers({
-        page: 1,
-        limit: 200,
-        branchId: selectedBranchId,
-        companyId: selectedCompanyId || '',
-      });
-      setSuppliers((response.data as any).suppliers || (response.data as any));
+      // H3 truncation family (2026-10-28): same as products above —
+      // suppliers past the first 200 were unpickable.
+      const suppliers = await fetchAllPaged(
+        (page, limit) => apiService.getSuppliers({ page, limit, branchId: selectedBranchId, companyId: selectedCompanyId || '' }),
+        (data: any) => data.suppliers || data
+      );
+      setSuppliers(suppliers);
     } catch (error) {
       console.error('Error loading suppliers:', error);
     }

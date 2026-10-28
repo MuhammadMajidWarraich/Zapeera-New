@@ -78,6 +78,9 @@ const dayLabel = (iso?: string | null) => (iso ? String(iso).slice(0, 10) : "—
 
 const ReservationsPage: React.FC = () => {
   const [records, setRecords] = useState<ReservationRecord[]>([]);
+  // H3 truncation family (2026-10-28): the list fetches at most 200
+  // rows — keep the server total so the page can say "X of Y".
+  const [totalRecords, setTotalRecords] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
@@ -118,7 +121,10 @@ const ReservationsPage: React.FC = () => {
         date: dateFilter || undefined,
         search: search || undefined,
       });
-      if (response.success && response.data) setRecords(response.data);
+      if (response.success && response.data) {
+        setRecords(response.data);
+        setTotalRecords(response.pagination?.total ?? response.data.length);
+      }
     } catch {
       toast({ title: "Could not load reservations", variant: "destructive" });
     } finally {
@@ -289,6 +295,12 @@ const ReservationsPage: React.FC = () => {
           />
         </div>
       </div>
+
+      {totalRecords != null && totalRecords > records.length && (
+        <p className="text-xs font-medium text-amber-600">
+          Showing {records.length} of {totalRecords} reservations — narrow the filters to see the rest.
+        </p>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">

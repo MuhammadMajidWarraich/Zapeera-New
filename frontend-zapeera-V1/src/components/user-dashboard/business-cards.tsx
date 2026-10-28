@@ -377,18 +377,26 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                       <CreditCard className="h-4 w-4 opacity-60" />
                       Manage Subscription
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleSyncNow(b)}
-                      disabled={syncingBusinessId === b.id}
-                      className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
-                    >
-                      {syncingBusinessId === b.id ? (
-                        <RefreshCw className="h-4 w-4 animate-spin opacity-60" />
-                      ) : (
-                        <CloudUpload className="h-4 w-4 opacity-60" />
-                      )}
-                      {syncingBusinessId === b.id ? "Syncing…" : "Sync Now"}
-                    </DropdownMenuItem>
+                    {/* Sync Now is desktop-only (2026-10-28): on web the
+                        button POSTs /sync/push to the cloud, which
+                        succeeds with zero rows moved (web writes go
+                        direct to Postgres — there is no local SQLite to
+                        push from). Same gate as launchpad / widgets /
+                        DesktopStatus (runtime.isDesktop). */}
+                    {runtime.isDesktop && (
+                      <DropdownMenuItem
+                        onClick={() => handleSyncNow(b)}
+                        disabled={syncingBusinessId === b.id}
+                        className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
+                      >
+                        {syncingBusinessId === b.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin opacity-60" />
+                        ) : (
+                          <CloudUpload className="h-4 w-4 opacity-60" />
+                        )}
+                        {syncingBusinessId === b.id ? "Syncing…" : "Sync Now"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     {!owned && (
                       <DropdownMenuItem onClick={() => setConfirmAction({ type: "leave", business: b })} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-amber-600 focus:text-amber-600">

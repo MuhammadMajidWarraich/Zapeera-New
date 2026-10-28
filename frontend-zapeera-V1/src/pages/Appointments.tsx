@@ -187,6 +187,9 @@ const AppointmentsPage: React.FC = () => {
   const [doctorFilter, setDoctorFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [queue, setQueue] = useState<AppointmentRecord[]>([]);
+  // H3 truncation family (2026-10-28): the queue fetches at most 200
+  // rows — keep the server total so the page can say "X of Y".
+  const [totalQueue, setTotalQueue] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [doctors, setDoctors] = useState<DoctorRecord[]>([]);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
@@ -236,7 +239,10 @@ const AppointmentsPage: React.FC = () => {
         status: statusFilter === "all" ? undefined : statusFilter,
         limit: 200,
       });
-      if (response.success && response.data) setQueue(response.data);
+      if (response.success && response.data) {
+        setQueue(response.data);
+        setTotalQueue(response.pagination?.total ?? response.data.length);
+      }
     } catch (error) {
       toast({ title: "Error", description: "Could not load the appointment queue.", variant: "destructive" });
     } finally {
@@ -489,6 +495,12 @@ const AppointmentsPage: React.FC = () => {
           </Select>
         </div>
       </div>
+
+      {totalQueue != null && totalQueue > queue.length && (
+        <p className="text-xs font-medium text-amber-600">
+          Showing {queue.length} of {totalQueue} appointments for this day — narrow the filters to see the rest.
+        </p>
+      )}
 
       {loading ? (
         <div className="py-16 text-center text-gray-500">

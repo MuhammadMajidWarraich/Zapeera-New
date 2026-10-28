@@ -29,6 +29,9 @@ const dayLabel = (iso?: string | null) => (iso ? String(iso).slice(0, 10) : "—
 
 const FoliosPage: React.FC = () => {
   const [records, setRecords] = useState<FolioRecord[]>([]);
+  // H3 truncation family (2026-10-28): the list fetches at most 200
+  // rows — keep the server total so the page can say "X of Y".
+  const [totalRecords, setTotalRecords] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("OPEN");
   const [search, setSearch] = useState("");
@@ -44,7 +47,10 @@ const FoliosPage: React.FC = () => {
         status: statusFilter === "all" ? undefined : statusFilter,
         search: search || undefined,
       });
-      if (response.success && response.data) setRecords(response.data);
+      if (response.success && response.data) {
+        setRecords(response.data);
+        setTotalRecords(response.pagination?.total ?? response.data.length);
+      }
     } catch {
       toast({ title: "Could not load folios", variant: "destructive" });
     } finally {
@@ -93,6 +99,12 @@ const FoliosPage: React.FC = () => {
           />
         </div>
       </div>
+
+      {totalRecords != null && totalRecords > records.length && (
+        <p className="text-xs font-medium text-amber-600">
+          Showing {records.length} of {totalRecords} folios — narrow the filters to see the rest.
+        </p>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
