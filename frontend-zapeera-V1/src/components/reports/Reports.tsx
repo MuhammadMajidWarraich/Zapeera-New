@@ -66,6 +66,18 @@ const Reports = () => {
   const [showAllBranches, setShowAllBranches] = useState(false);
   const [realSalesData, setRealSalesData] = useState<any[]>([]);
   const [realProductsData, setRealProductsData] = useState<any[]>([]);
+  // H3 truncation family (2026-10-28): the page fetches at most 200
+  // sales / 200 products, but the range may hold more. Branch revenue,
+  // transactions and the CSV export are reduce()s over the FETCHED rows
+  // only — the server totals below let the UI say so.
+  const [salesTotalInRange, setSalesTotalInRange] = useState<number | null>(null);
+  const [productsTotalInRange, setProductsTotalInRange] = useState<number | null>(null);
+  const reportsTruncated =
+    (salesTotalInRange != null && salesTotalInRange > realSalesData.length) ||
+    (productsTotalInRange != null && productsTotalInRange > realProductsData.length);
+  const reportsTruncationNote = reportsTruncated
+    ? `Branch figures cover the first ${realSalesData.length} of ${salesTotalInRange ?? realSalesData.length} sales in range${productsTotalInRange != null && productsTotalInRange > realProductsData.length ? ` and the first ${realProductsData.length} of ${productsTotalInRange} products` : ''} only`
+    : null;
   const [realUsersData, setRealUsersData] = useState<any[]>([]);
   const [realExpensesData, setRealExpensesData] = useState<any[]>([]);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -85,10 +97,18 @@ const Reports = () => {
   const exportReports = async () => {
     try {
       const activeSales = realSalesData.filter((sale: any) => sale.status !== 'REFUNDED');
+      // H3 truncation family (2026-10-28): the Branch Performance row
+      // used to sum branch.revenue over allBranches — a field the
+      // branches endpoint never sets, so it always exported 0. It now
+      // uses the same fetched-rows totals the page shows, and the
+      // export states its coverage when the range holds more than the
+      // fetched 200.
+      const branchRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const csvData = [
         ['Report Type', 'Period', 'Revenue', 'Sales Count', 'Products', 'Staff'],
         ['Sales Report', selectedPeriod, formatCurrency(activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0)), activeSales.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
-        ['Branch Performance', 'All Branches', formatCurrency(allBranches.reduce((sum, branch) => sum + (branch.revenue || 0), 0)), allBranches.reduce((sum, branch) => sum + (branch.salesCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.productsCount || 0), 0).toString(), allBranches.reduce((sum, branch) => sum + (branch.usersCount || 0), 0).toString()]
+        ['Branch Performance', 'All Branches', formatCurrency(branchRevenue), activeSales.length.toString(), realProductsData.length.toString(), realUsersData.length.toString()],
+        ...(reportsTruncationNote ? [['Coverage', reportsTruncationNote, '', '', '', '']] : [])
       ];
 
       const csvContent = csvData.map(row => row.join(',')).join('\n');
@@ -300,6 +320,9 @@ const Reports = () => {
       // Process real sales data - CRITICAL: Filter by selectedBranchId (user's current selection)
       if (salesResponse.success && salesResponse.data) {
         let sales = salesResponse.data.sales || [];
+        // H3 truncation family (2026-10-28): keep the server total so
+        // the page can say the branch figures cover the first 200 only.
+        setSalesTotalInRange(salesResponse.data.pagination?.total ?? sales.length);
         
         // CRITICAL: Always filter based on selectedBranchId (user's current selection)
         // This ensures data matches what user selected, not what API returned
@@ -317,11 +340,13 @@ const Reports = () => {
       } else {
         // If API call failed, clear data to prevent showing stale data
         setRealSalesData([]);
+        setSalesTotalInRange(null);
       }
 
       // Process real products data - CRITICAL: Filter by selectedBranchId (user's current selection)
       if (productsResponse.success && productsResponse.data) {
         let products = productsResponse.data.products || [];
+        setProductsTotalInRange(productsResponse.data.pagination?.total ?? products.length);
         
         // CRITICAL: Always filter based on selectedBranchId (user's current selection)
         // This ensures data matches what user selected, not what API returned
@@ -338,6 +363,7 @@ const Reports = () => {
         setRealProductsData(products);
       } else {
         setRealProductsData([]);
+        setProductsTotalInRange(null);
       }
 
       // Process real users data - CRITICAL: Filter by branch if selected
@@ -1135,6 +1161,9 @@ const Reports = () => {
               <p className="text-2xl font-bold text-gray-900">{realUsersData.length}</p>
             </div>
           </div>
+          {reportsTruncationNote && (
+            <p className="mt-4 text-xs font-medium text-amber-600">{reportsTruncationNote}</p>
+          )}
         </div>
       )}
 
@@ -1574,6 +1603,9 @@ const Reports = () => {
               {allBranches.find((b: any) => b.id === selectedBranchId)?.name || 'Selected Branch'} - Detailed Report
             </h3>
           </div>
+          {reportsTruncationNote && (
+            <p className="mb-4 text-xs font-medium text-amber-600">{reportsTruncationNote}</p>
+          )}
           {(() => {
             if (!selectedBranchId) return null;
             

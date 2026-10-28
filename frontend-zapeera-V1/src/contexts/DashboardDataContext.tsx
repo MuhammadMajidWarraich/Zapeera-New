@@ -8,22 +8,25 @@ interface DashboardCache {
 }
 
 interface DashboardDataContextType {
-  // Cache management
-  getCachedData: (companyId: string | null, branchId: string | null) => DashboardCache | null;
-  setCachedData: (companyId: string | null, branchId: string | null, data: any) => void;
+  // Cache management. keySuffix is an optional extra key segment for
+  // callers whose cached payload depends on more than company+branch
+  // (H3, 2026-10-28: Invoices passes "startDate|endDate" so a cached
+  // range can never be restored for a different range).
+  getCachedData: (companyId: string | null, branchId: string | null, keySuffix?: string) => DashboardCache | null;
+  setCachedData: (companyId: string | null, branchId: string | null, data: any, keySuffix?: string) => void;
   clearCache: () => void;
-  clearCacheForContext: (companyId: string | null, branchId: string | null) => void;
+  clearCacheForContext: (companyId: string | null, branchId: string | null, keySuffix?: string) => void;
   
   // Loading states
-  isLoading: (companyId: string | null, branchId: string | null) => boolean;
-  setLoading: (companyId: string | null, branchId: string | null, loading: boolean) => void;
+  isLoading: (companyId: string | null, branchId: string | null, keySuffix?: string) => boolean;
+  setLoading: (companyId: string | null, branchId: string | null, loading: boolean, keySuffix?: string) => void;
   
   // Cache validity (5 minutes default)
   isCacheValid: (cache: DashboardCache | null, maxAge?: number) => boolean;
   
   // Force refresh flag
-  shouldRefresh: (companyId: string | null, branchId: string | null) => boolean;
-  markAsRefreshed: (companyId: string | null, branchId: string | null) => void;
+  shouldRefresh: (companyId: string | null, branchId: string | null, keySuffix?: string) => boolean;
+  markAsRefreshed: (companyId: string | null, branchId: string | null, keySuffix?: string) => void;
 }
 
 const DashboardDataContext = createContext<DashboardDataContextType | undefined>(undefined);
@@ -45,23 +48,24 @@ export const DashboardDataProvider: React.FC<DashboardDataProviderProps> = ({
   children, 
   cacheMaxAge = 5 * 60 * 1000 // 5 minutes default
 }) => {
-  // Cache storage: key format "companyId_branchId"
+  // Cache storage: key format "companyId_branchId" (+ "_suffix" when a
+  // caller passes keySuffix — see the interface note above).
   const cacheRef = useRef<Map<string, DashboardCache>>(new Map());
   const loadingStatesRef = useRef<Map<string, boolean>>(new Map());
   const refreshFlagsRef = useRef<Map<string, boolean>>(new Map());
 
   // Generate cache key
-  const getCacheKey = useCallback((companyId: string | null, branchId: string | null) => {
-    return `${companyId || 'all'}_${branchId || 'all'}`;
+  const getCacheKey = useCallback((companyId: string | null, branchId: string | null, keySuffix?: string) => {
+    return `${companyId || 'all'}_${branchId || 'all'}${keySuffix ? `_${keySuffix}` : ''}`;
   }, []);
 
   // Get cached data - DISABLED: Always return null to disable data caching
-  const getCachedData = useCallback((companyId: string | null, branchId: string | null): DashboardCache | null => {
+  const getCachedData = useCallback((companyId: string | null, branchId: string | null, _keySuffix?: string): DashboardCache | null => {
     return null;
   }, []);
 
   // Set cached data - DISABLED: No-op to disable data caching
-  const setCachedData = useCallback((companyId: string | null, branchId: string | null, data: any) => {
+  const setCachedData = useCallback((companyId: string | null, branchId: string | null, data: any, _keySuffix?: string) => {
     // No-op - caching disabled
   }, []);
 
@@ -74,8 +78,8 @@ export const DashboardDataProvider: React.FC<DashboardDataProviderProps> = ({
   }, []);
 
   // Clear cache for specific context
-  const clearCacheForContext = useCallback((companyId: string | null, branchId: string | null) => {
-    const key = getCacheKey(companyId, branchId);
+  const clearCacheForContext = useCallback((companyId: string | null, branchId: string | null, keySuffix?: string) => {
+    const key = getCacheKey(companyId, branchId, keySuffix);
     cacheRef.current.delete(key);
     loadingStatesRef.current.delete(key);
     refreshFlagsRef.current.delete(key);
@@ -83,14 +87,14 @@ export const DashboardDataProvider: React.FC<DashboardDataProviderProps> = ({
   }, [getCacheKey]);
 
   // Check if data is loading
-  const isLoading = useCallback((companyId: string | null, branchId: string | null): boolean => {
-    const key = getCacheKey(companyId, branchId);
+  const isLoading = useCallback((companyId: string | null, branchId: string | null, keySuffix?: string): boolean => {
+    const key = getCacheKey(companyId, branchId, keySuffix);
     return loadingStatesRef.current.get(key) || false;
   }, [getCacheKey]);
 
   // Set loading state
-  const setLoading = useCallback((companyId: string | null, branchId: string | null, loading: boolean) => {
-    const key = getCacheKey(companyId, branchId);
+  const setLoading = useCallback((companyId: string | null, branchId: string | null, loading: boolean, keySuffix?: string) => {
+    const key = getCacheKey(companyId, branchId, keySuffix);
     if (loading) {
       loadingStatesRef.current.set(key, true);
     } else {
@@ -107,14 +111,14 @@ export const DashboardDataProvider: React.FC<DashboardDataProviderProps> = ({
   }, [cacheMaxAge]);
 
   // Check if should refresh (force refresh flag)
-  const shouldRefresh = useCallback((companyId: string | null, branchId: string | null): boolean => {
-    const key = getCacheKey(companyId, branchId);
+  const shouldRefresh = useCallback((companyId: string | null, branchId: string | null, keySuffix?: string): boolean => {
+    const key = getCacheKey(companyId, branchId, keySuffix);
     return refreshFlagsRef.current.get(key) || false;
   }, [getCacheKey]);
 
   // Mark as refreshed (clear refresh flag)
-  const markAsRefreshed = useCallback((companyId: string | null, branchId: string | null) => {
-    const key = getCacheKey(companyId, branchId);
+  const markAsRefreshed = useCallback((companyId: string | null, branchId: string | null, keySuffix?: string) => {
+    const key = getCacheKey(companyId, branchId, keySuffix);
     refreshFlagsRef.current.set(key, false);
   }, [getCacheKey]);
 

@@ -468,7 +468,11 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
       />
       <CardContent
         className={cn(
-          'relative z-[1] p-5 sm:p-6',
+          'relative z-[1]',
+          // Sticky payment (2026-10-27): the split search card is 8px
+          // tighter below sm so more of the sale fits per viewport.
+          // The modal instance keeps its padding exactly.
+          isSplit ? 'p-4 sm:p-6' : 'p-5 sm:p-6',
           isSplit && 'flex min-h-0 min-w-0 flex-1 flex-col',
         )}
       >
@@ -508,7 +512,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
 
         <div
           ref={searchWrapRef}
-          className={cn('relative shrink-0', isSplit ? 'mb-3 md:mb-4' : 'mb-4')}
+          className={cn('relative shrink-0', isSplit ? 'mb-2 md:mb-4' : 'mb-4')}
         >
           <ScanBarcode
             className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]"

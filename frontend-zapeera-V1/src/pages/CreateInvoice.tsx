@@ -4848,8 +4848,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         </div>
       </div>
 
-      <main className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-3 sm:px-5 lg:px-6 lg:pb-5">
-        <div className="flex min-h-0 flex-1 flex-col gap-5 lg:flex-row lg:items-stretch">
+      <main className={cn(
+        "flex min-h-0 flex-1 flex-col px-4 pt-2 sm:px-5 md:pt-3 lg:px-6",
+        // Sticky payment bar (2026-10-27): below md, once the cart has
+        // items, the fixed bar takes ~68px at the viewport bottom — the
+        // main gets the same room as bottom padding so the bar sits over
+        // empty space and never covers a control. Empty cart: no bar, no
+        // padding — the default view stays a single viewport exactly.
+        invoiceItems.length > 0 ? "pb-[84px] md:pb-4 lg:pb-5" : "pb-4 lg:pb-5",
+      )}>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 md:gap-4 lg:flex-row lg:items-stretch lg:gap-5">
           {/* Products column — search + results.
               Mobile floor (2026-10-26, mobile POS search fix): the POS page
               is a fixed-height flex column and the cart rail below is
@@ -4904,7 +4912,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <Card className="relative flex min-h-[12rem] flex-1 flex-col overflow-hidden rounded-[20px] border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_2px_16px_rgba(15,23,60,0.04)] lg:h-full">
               <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
                 {/* Rail header */}
-                <div className="flex shrink-0 items-center gap-3 border-b border-[rgba(15,23,60,0.06)] px-4 py-2.5 sm:px-5 md:py-3.5">
+                <div className="flex shrink-0 items-center gap-3 border-b border-[rgba(15,23,60,0.06)] px-4 py-2 sm:px-5 md:py-3.5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12 md:h-10 md:w-10">
                     <ShoppingCart className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
                   </div>
@@ -4938,7 +4946,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     the TOP of the billing panel. Same invoiceCustomer
                     state the checkout has always used (sale payload,
                     khata, loyalty lookup, prescription patient). */}
-                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] px-4 py-2.5 sm:px-5 md:py-3.5">
+                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] px-4 py-2 sm:px-5 md:py-3.5">
                   {/* Mobile flyout (2026-10-27): below md the section
                       title row is hidden — the two fields are
                       placeholder-only and the Change link moves under
@@ -4989,7 +4997,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       />
                     </div>
                   </div>
-                  <div className="mt-1.5 flex justify-end md:hidden">
+                  <div className="mt-1 flex justify-end md:hidden">
                     <button
                       type="button"
                       onClick={() => document.getElementById("customerName")?.focus()}
@@ -5017,15 +5025,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 </div>
 
                 {/* Line items */}
-                <div className="min-h-[150px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-2 sm:px-4 md:py-3">
+                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-1.5 sm:px-4 md:min-h-[150px] md:py-3">
                 {invoiceItems.length > 0 && (
-                  <div className="flex items-center justify-between px-1 pb-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">
+                  <div className="flex items-center justify-between px-1 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8c95b0] md:pb-2">
                     <span>Item Description</span>
                     <span>Qty / Price / Total</span>
                   </div>
                 )}
                 {invoiceItems.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2 md:space-y-2.5">
                   {invoiceItems.map((item) => {
                     const itemSubtotal = item.totalPrice;
                     const itemDiscount = item.discountPercentage || 0;
@@ -5053,7 +5061,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     return (
                       <div
                         key={item.id}
-                        className="rounded-[14px] border border-[rgba(15,23,60,0.06)] bg-white p-3 shadow-[0_1px_3px_rgba(15,23,60,0.05)]"
+                        className="rounded-[14px] border border-[rgba(15,23,60,0.06)] bg-white p-2.5 shadow-[0_1px_3px_rgba(15,23,60,0.05)] md:p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -5076,7 +5084,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </p>
                         </div>
                         {item.unitLevel && (
-                          <div className="mt-2 flex items-center gap-2">
+                          <div className="mt-1.5 flex items-center gap-2 md:mt-2">
                             <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Sold by</Label>
                             {isKgLine ? (
                               // Loose / by-weight selling (Stage 1): a
@@ -5100,7 +5108,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             )}
                           </div>
                         )}
-                        <div className="mt-2.5 flex items-center gap-2">
+                        <div className="mt-2 flex items-center gap-2 md:mt-2.5">
                           <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
@@ -5244,7 +5252,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                 {/* Checkout footer — always visible. (The customer
                     block moved to the top of the rail — POS redesign.) */}
-                <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-2.5 sm:px-5 md:py-3.5">
+                <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-2 sm:px-5 md:py-3.5">
                 {invoiceItems.length > 0 && (
                   <>
                     <div className="flex items-center justify-between gap-3">
@@ -5266,7 +5274,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     </div>
 
-                    <div className="mt-2 space-y-1.5 md:mt-3">
+                    <div className="mt-1.5 space-y-1 md:mt-3 md:space-y-1.5">
                       <div className="flex justify-between text-sm">
                         <span className="text-[#8c95b0]">Subtotal</span>
                         <span className="font-semibold tabular-nums text-[#0a1128]">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
@@ -5289,7 +5297,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {promoEstimate.toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-2">
+                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-1.5 md:pt-2">
                         <span className="text-sm font-bold uppercase tracking-wide text-[#0a1128]">Grand Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
                           PKR {mainTotalAfterLoyalty.toFixed(2)}
@@ -5303,12 +5311,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         recomputes the discount. Automatic promotions
                         and Buy X Get Y need no input — they apply at
                         checkout and appear on the receipt. */}
-                    <div className="mt-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-3 md:mt-3">
+                    <div className="mt-1.5 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-2.5 md:mt-3 md:p-3">
                       <Label htmlFor="coupon-code" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
                         Coupon code
                       </Label>
                       {appliedCoupon ? (
-                        <div className="mt-2 flex items-center gap-2">
+                        <div className="mt-1.5 flex items-center gap-2 md:mt-2">
                           <span className="rounded-md bg-emerald-50 px-2 py-1 font-mono text-xs font-bold tracking-wide text-emerald-700">
                             {appliedCoupon.code}
                           </span>
@@ -5324,7 +5332,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </button>
                         </div>
                       ) : (
-                        <div className="mt-2 flex items-center gap-2">
+                        <div className="mt-1.5 flex items-center gap-2 md:mt-2">
                           <Input
                             id="coupon-code"
                             placeholder="e.g. EID10"
@@ -5528,7 +5536,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         amount paid, split tender, paid/unpaid,
                         salesperson) lives in the payment dialog now;
                         this line keeps the current choice visible. */}
-                    <p className="mt-2 flex items-center justify-between gap-2 rounded-[10px] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#4a5578] md:mt-3">
+                    <p className="mt-1.5 flex items-center justify-between gap-2 rounded-[10px] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#4a5578] md:mt-3">
                       <span>
                         Payment:{" "}
                         <span className="font-bold text-[#0a1128]">
@@ -5555,14 +5563,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       dialog (tendered / change / split live there).
                       The reference's third panel button, Insurance,
                       has no Zapeera backend and is deliberately absent. */}
-                  <div className="mt-2.5 grid grid-cols-2 gap-2 md:mt-3.5">
+                  <div className="mt-2 grid grid-cols-2 gap-2 md:mt-3.5">
                     {PAYMENT_METHOD_OPTIONS.filter(o => o.key === 'CASH' || o.key === 'CARD').map(({ key, label, Icon }) => (
                       <button
                         key={key}
                         type="button"
                         disabled={invoiceItems.length === 0}
                         onClick={() => { setPaymentMethod(key); setIsPaymentDialogOpen(true); }}
-                        className="flex h-12 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
                         {label}
@@ -5578,9 +5586,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       it parks this cart server-side (resume from
                       Transactions → Held). */}
                   <Button
+                    data-testid="inflow-proceed"
                     onClick={() => setIsPaymentDialogOpen(true)}
                     disabled={invoiceItems.length === 0}
-                    className="mt-2 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none"
+                    className="mt-1.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none md:mt-2"
                   >
                     <Receipt className="mr-2 h-5 w-5" />
                     {invoiceItems.length > 0
@@ -5599,7 +5608,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         // the held order — it stays parked.
                         setResumedParkedId(null);
                       }}
-                      className="mt-2 h-10 w-full rounded-[10px] bg-rose-50 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100"
+                      className="mt-1.5 h-10 w-full rounded-[10px] bg-rose-50 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 md:mt-2"
                     >
                       Clear Cart
                     </button>
@@ -5610,6 +5619,39 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           </aside>
         </div>
       </main>
+
+      {/* Mobile sticky payment bar (2026-10-27): below md, once the
+          cart has items, the complete-sale action is always reachable.
+          The in-flow Proceed button falls below the fold as soon as
+          the cart grows — the POS page is a fixed-height column and
+          the document does not scroll (body overflow hidden), so the
+          footer is clipped, not scrollable-to. Duplicate of the ACTION
+          only (same handler, same total); the in-flow totals, coupon,
+          tender buttons and Proceed button stay where they are. z-40
+          keeps it under the search flyout (z-50) and every dialog. */}
+      {invoiceItems.length > 0 && (
+        <div
+          data-testid="sticky-payment-bar"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(15,23,60,0.08)] bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(15,23,60,0.08)] backdrop-blur md:hidden"
+        >
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Grand Total</p>
+              <p className="truncate text-lg font-extrabold tabular-nums leading-tight text-[#0a1128]">
+                PKR {mainTotalAfterLoyalty.toFixed(2)}
+              </p>
+            </div>
+            <Button
+              type="button"
+              data-testid="sticky-proceed"
+              onClick={() => setIsPaymentDialogOpen(true)}
+              className="h-12 shrink-0 rounded-[12px] px-4 text-[15px] font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong"
+            >
+              Proceed to Payment
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* POS redesign: PAYMENT dialog — the reference layout's payment
           modal, carrying Zapeera's REAL checkout controls: the six

@@ -1286,15 +1286,22 @@ toast({
             <p className="text-sm text-[#8c95b0]">Manage your business POS configuration</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSyncNow}
-              className="h-11 gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-[22px] text-sm font-semibold text-[#4a5578] shadow-none transition-all hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
-            >
-              <RefreshCw className="h-[17px] w-[17px]" strokeWidth={2} />
-              Sync Now
-            </Button>
+            {/* Sync Now is desktop-only (2026-10-28): on web it calls
+                triggerSync, which POSTs /sync/push to the cloud and
+                toasts success with zero rows moved (web writes go direct
+                to Postgres — there is no local SQLite to push from).
+                Same gate as launchpad / widgets / DesktopStatus. */}
+            {isDesktopApp && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSyncNow}
+                className="h-11 gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-[22px] text-sm font-semibold text-[#4a5578] shadow-none transition-all hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+              >
+                <RefreshCw className="h-[17px] w-[17px]" strokeWidth={2} />
+                Sync Now
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveSettings}

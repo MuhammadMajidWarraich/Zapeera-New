@@ -299,9 +299,13 @@ const Refunds = () => {
     let filtered = [...refunds];
 
     // Date range filter (client-side on loaded data)
+    // L1 (2026-10-28): bounds in UTC ('Z'), matching the server — the
+    // refund list endpoint parses dates at server-local (UTC) midnight.
+    // Browser-local midnight (PKT = UTC+5) dropped end-day refunds in
+    // the 19:00–23:59 UTC window that the server had correctly returned.
     if (startDate || endDate) {
-      const start = startDate ? new Date(startDate + 'T00:00:00').getTime() : 0;
-      const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
+      const start = startDate ? new Date(startDate + 'T00:00:00Z').getTime() : 0;
+      const end = endDate ? new Date(endDate + 'T23:59:59.999Z').getTime() : Infinity;
       filtered = filtered.filter((refund) => {
         const refundedTime = new Date(refund.refundedAt).getTime();
         return refundedTime >= start && refundedTime <= end;

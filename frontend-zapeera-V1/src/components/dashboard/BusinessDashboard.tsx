@@ -378,7 +378,11 @@ const BusinessDashboard = () => {
         if (dashboardData.today) {
           setTodaySales({
             count: dashboardData.today.transactions || 0,
-            revenue: dashboardData.today.revenue || 0
+            revenue: dashboardData.today.revenue || 0,
+            // M2 (2026-10-28): keep the day the figures cover so the
+            // card can show it — "today" is the most recent day with
+            // sales, which is often not the calendar day.
+            date: dashboardData.today.date || undefined
           });
         }
 
@@ -834,7 +838,8 @@ const BusinessDashboard = () => {
       // Calculate final values for cache
       const finalTodaySales = dashboardDataFromAPI?.today ? {
         count: dashboardDataFromAPI.today.transactions || 0,
-        revenue: dashboardDataFromAPI.today.revenue || 0
+        revenue: dashboardDataFromAPI.today.revenue || 0,
+        date: dashboardDataFromAPI.today.date || undefined
       } : { count: 0, revenue: 0 };
       
       const finalTotalCost = dashboardDataFromAPI?.totalCost !== undefined ? dashboardDataFromAPI.totalCost : totalCost;
@@ -1218,7 +1223,13 @@ const BusinessDashboard = () => {
   // All hooks must be called before any conditional returns
   const adminStats = useMemo(() => [
     {
-      title: "Today Sales",
+      // M2 (2026-10-28): the figures cover the most recent day with
+      // sales, not necessarily the calendar day — show that day next
+      // to the label (e.g. "Today Sales (Oct 26)") so per-branch
+      // "today" values are never mistaken for the calendar day.
+      title: todaySales.date
+        ? `Today Sales (${new Date(`${todaySales.date}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+        : "Today Sales",
       value: todaySales.count.toString(),
       revenue: formatCurrency(todaySales.revenue || 0),
       change: selectedBranchId ? "Branch Data" : "All Data",

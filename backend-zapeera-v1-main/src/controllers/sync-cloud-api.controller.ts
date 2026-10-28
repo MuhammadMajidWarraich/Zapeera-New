@@ -21,6 +21,28 @@ async function requireBusinessAccess(prisma: any, userId: string, businessId: st
   return !!owned;
 }
 
+// SECURITY (2026-10-28, MEDIUM): the review/reconciliation endpoints
+// are an anti-fraud control — the person whose sales are under review
+// must not be able to clear them. requireBusinessAccess above admits
+// ANY active member, including CASHIER. Write actions on the review
+// queue and on reconciliation runs additionally require a managerial
+// role (OWNER / MANAGER / ADMIN, ADMIN treated as OWNER elsewhere) or
+// business ownership. Read endpoints (summary/list/precheck) stay open
+// to all members.
+const MANAGER_ROLES = new Set(['OWNER', 'MANAGER', 'ADMIN']);
+async function requireManagerAccess(prisma: any, userId: string, businessId: string): Promise<boolean> {
+  const membership = await prisma.membership.findFirst({
+    where: { userId, businessId, status: 'ACTIVE' },
+    select: { role: { select: { name: true } } }
+  });
+  if (membership && MANAGER_ROLES.has(String(membership.role?.name || '').toUpperCase())) return true;
+  const owned = await prisma.business.findFirst({
+    where: { id: businessId, createdBy: userId },
+    select: { id: true }
+  });
+  return !!owned;
+}
+
 export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -867,6 +889,45 @@ function mapSaleForSQLite(sale: any): any {
   return rest;
 }
 
+// Map a cloud Product row to the desktop products shape (H2 defence in
+// depth, 2026-10-28). The pull feed serves every other parent table raw,
+// and the desktop's applyChanges builds INSERT/UPDATE columns straight
+// from Object.keys(data) — one unknown column fails the row, and after 4
+// consecutive batch failures the batch is quarantined and the cursor
+// advances past it (row skipped, data lost locally).
+// - unitType: the v1.0.11 laptop's products table has no such column
+//   (V1011 adds it); a product change would quarantine on every
+//   pre-V1012 desktop. Stripping is safe: the desktop defaults to
+//   'PIECE', and the V1011/V1012 cursor reset re-pulls the full row
+//   once the EXE is installed.
+// - formula: no desktop products column at ANY version, so it is
+//   stripped unconditionally — it can never land.
+function mapProductForSQLite(product: any): any {
+  const { unitType: _unitType, formula: _formula, ...rest } = product || {};
+  return rest;
+}
+
+// Map a cloud Shift row to the pre-V1012 desktop shifts stub (H2, same
+// reasoning). The old table is name/startTime/endTime/isActive only, so
+// every V1012 column is stripped and status folds into isActive; the
+// row lands as a stub instead of quarantining the batch, and the
+// V1012 cursor reset re-pulls the full row after the EXE install.
+// staffProfile has NO mapper on purpose: no pre-V1012 desktop has a
+// staff_profiles table at all (its CREATE TABLE ships with the shift
+// fix), so the row fails on the missing table whatever columns it
+// carries — only the V1012 install fixes that.
+function mapShiftForSQLite(shift: any): any {
+  const s = shift || {};
+  return {
+    id: s.id,
+    startTime: s.startTime ?? null,
+    endTime: s.endTime ?? null,
+    isActive: s.status === 'ACTIVE' ? 1 : 0,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt
+  };
+}
+
 // Map a cloud StockMovement row to the desktop stock_movements shape.
 // The cloud column is `reference` (a sale id for OUT, `REF-<id>` for
 // RETURN); the local columns are referenceId/referenceType. The parent
@@ -1021,8 +1082,17 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
     // The desktop needs both: staffProfiles so the POS can resolve the
     // signed-in cashier's profile, and shifts so a counter sees the
     // shift another counter opened.
-    const CREATED_AT_CURSOR_TABLES = new Set(['customerLedgerEntry', 'loyaltyTransaction']);
+    // EXCEPTION — product-scoped parent (R7 fix, 2026-10-28): StockMovement
+    // carries NEITHER companyId NOR updatedAt — only createdAt and a
+    // product relation. Filtering it by companyId threw on every pull and
+    // the bare catch{} skipped the table, so the R5 mapper never ran and
+    // desktops never received movements through this feed. It is scoped
+    // via product.companyId (the same parent-keying precedent as the
+    // refund block, which scopes via originalSale.companyId) and its
+    // cursor field is createdAt.
+    const CREATED_AT_CURSOR_TABLES = new Set(['customerLedgerEntry', 'loyaltyTransaction', 'stockMovement']);
     const MEMBERSHIP_SCOPED_PULL_TABLES = new Set(['shift', 'staffProfile']);
+    const PRODUCT_SCOPED_PULL_TABLES = new Set(['stockMovement']);
     const tables = [
       'product', 'customer', 'sale', 'purchase', 'batch', 'category', 'supplier', 'manufacturer', 'shelf', 'stockMovement',
       'stockTransfer', 'promotion', 'taxClass', 'prescription',
@@ -1049,9 +1119,13 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
           : { [tsField]: { gte: sinceDate } };
         // Membership-scoped tables (shift fix, 2026-10-27, B2) filter by
         // membership.businessId — they carry no companyId.
+        // Product-scoped tables (R7 fix, 2026-10-28) filter via the
+        // parent product's companyId — StockMovement has no companyId.
         const where = MEMBERSHIP_SCOPED_PULL_TABLES.has(table)
           ? { membership: { businessId }, ...tsCondition }
-          : { companyId: businessId, ...tsCondition };
+          : PRODUCT_SCOPED_PULL_TABLES.has(table)
+            ? { product: { companyId: businessId }, ...tsCondition }
+            : { companyId: businessId, ...tsCondition };
         const records = await model.findMany({
           where,
           orderBy: [{ [tsField]: 'asc' }, { id: 'asc' }],
@@ -1065,11 +1139,21 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
           // R5: the sale + stockMovement rows need mapping (new R1
           // columns / reference column) — every other parent table is
           // served raw exactly as before.
+          // H2 (2026-10-28): product + shift rows are mapped too — the
+          // cloud carries columns pre-V1012 desktops cannot store
+          // (unitType/formula on products, the V1012 shift columns),
+          // and one unknown column quarantines the whole batch.
+          // staffProfile stays raw: no pre-V1012 desktop has that
+          // table at all, so no column strip can save the row.
           const data = table === 'sale'
             ? mapSaleForSQLite(record)
             : table === 'stockMovement'
               ? mapStockMovementForSQLite(record, businessId)
-              : record;
+              : table === 'product'
+                ? mapProductForSQLite(record)
+                : table === 'shift'
+                  ? mapShiftForSQLite(record)
+                  : record;
           changes.push({
             entityType: table,
             entityId: record.id,
@@ -1492,6 +1576,12 @@ export const cloudSyncReviewResolve = async (req: AuthRequest, res: Response) =>
       res.status(403).json({ success: false, message: 'Forbidden' });
       return;
     }
+    // SECURITY (2026-10-28): manager-only — a cashier must not clear
+    // their own review flags or trigger/resolve reconciliations.
+    if (!(await requireManagerAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Only the owner or a manager can perform this action' });
+      return;
+    }
     const updated = await prisma.sale.updateMany({
       where: { id: saleId, companyId: businessId, syncOrigin: 'DESKTOP_PUSH' },
       data: { reviewedAt: new Date(), reviewedBy: req.user!.id }
@@ -1518,6 +1608,12 @@ export const cloudRunReconciliation = async (req: AuthRequest, res: Response) =>
     }
     if (!(await requireBusinessAccess(prisma, req.user!.id, businessId))) {
       res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+    // SECURITY (2026-10-28): manager-only — a cashier must not clear
+    // their own review flags or trigger/resolve reconciliations.
+    if (!(await requireManagerAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Only the owner or a manager can perform this action' });
       return;
     }
     const result = await runReconciliation(prisma, businessId, 'MANUAL', branchId ?? null);
@@ -1568,6 +1664,12 @@ export const cloudCreateStockTakesFromReconciliation = async (req: AuthRequest, 
       res.status(403).json({ success: false, message: 'Forbidden' });
       return;
     }
+    // SECURITY (2026-10-28): manager-only — a cashier must not clear
+    // their own review flags or trigger/resolve reconciliations.
+    if (!(await requireManagerAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Only the owner or a manager can perform this action' });
+      return;
+    }
     const created = await createStockTakesFromReconciliation(prisma, businessId, reconciliationId, req.user!.id);
     res.json({ success: true, data: { stockTakes: created } });
   } catch (error: any) {
@@ -1587,6 +1689,12 @@ export const cloudResolveReconciliation = async (req: AuthRequest, res: Response
     }
     if (!(await requireBusinessAccess(prisma, req.user!.id, businessId))) {
       res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+    // SECURITY (2026-10-28): manager-only — a cashier must not clear
+    // their own review flags or trigger/resolve reconciliations.
+    if (!(await requireManagerAccess(prisma, req.user!.id, businessId))) {
+      res.status(403).json({ success: false, message: 'Only the owner or a manager can perform this action' });
       return;
     }
     const ok = await resolveReconciliation(prisma, businessId, reconciliationId, req.user!.id, note ?? null);
