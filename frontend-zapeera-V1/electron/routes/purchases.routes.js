@@ -16,6 +16,124 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
           saveDatabase, initDatabase } = deps;
 
+// GET /api/purchases/reorder-suggestions — FIX 2026-10-28: the desktop
+// Reorder Suggestions page had no embedded backing. Faithful port of the
+// cloud C3 engine (purchase.controller.ts getReorderSuggestions): products
+// with a reorderLevel set, live stock from non-expired batches, lines
+// grouped by the latest batch's supplier, same response shape. Registered
+// first so the literal segment wins over any /:id route.
+      app.get('/api/purchases/reorder-suggestions', authMiddleware, (req, res) => {
+        try {
+          const { branchFilter, companyFilter } = getDataFilter(req.user, req.query.branchId, req.query.companyId);
+
+          let productSql = 'SELECT id, name, sku, branchId, reorderLevel, reorderQuantity, unitsPerPack, unitsPerStrip FROM products WHERE isActive = 1 AND reorderLevel IS NOT NULL';
+          const productParams = [];
+          if (branchFilter) { productSql += ' AND branchId = ?'; productParams.push(branchFilter); }
+          if (companyFilter) { productSql += ' AND companyId = ?'; productParams.push(companyFilter); }
+          productSql += ' ORDER BY name ASC';
+          const products = query(productSql, productParams);
+
+          if (products.length === 0) {
+            return res.json({
+              success: true,
+              data: { groups: [], totals: { products: 0, units: 0, estimatedCost: 0 }, participatingProducts: 0 }
+            });
+          }
+
+          const productIds = products.map((p) => p.id);
+          const placeholders = productIds.map(() => '?').join(',');
+          let batchSql = `SELECT productId, quantity, purchasePrice, supplierId, expireDate, createdAt FROM batches WHERE isActive = 1 AND productId IN (${placeholders})`;
+          const batchParams = [...productIds];
+          if (companyFilter) { batchSql += ' AND companyId = ?'; batchParams.push(companyFilter); }
+          batchSql += ' ORDER BY createdAt DESC';
+          const batches = query(batchSql, batchParams);
+
+          // Per product: live stock (non-expired batches only) + latest batch
+          // (any status — it carries the most recent cost and supplier).
+          const nowMs = Date.now();
+          const stockByProduct = new Map();
+          const latestBatchByProduct = new Map();
+          for (const batch of batches) {
+            if (!latestBatchByProduct.has(batch.productId)) {
+              latestBatchByProduct.set(batch.productId, batch);
+            }
+            const expired = batch.expireDate && new Date(batch.expireDate).getTime() <= nowMs;
+            if (!expired) {
+              stockByProduct.set(batch.productId, (stockByProduct.get(batch.productId) || 0) + (batch.quantity || 0));
+            }
+          }
+
+          const linesBySupplier = new Map();
+          const supplierIds = new Set();
+          for (const product of products) {
+            const currentStock = stockByProduct.get(product.id) || 0;
+            if (currentStock > product.reorderLevel) continue;
+
+            const latest = latestBatchByProduct.get(product.id);
+            const suggestedQty = product.reorderQuantity
+              ? product.reorderQuantity
+              : Math.max(1, product.reorderLevel * 2 - currentStock);
+
+            const line = {
+              productId: product.id,
+              productName: product.name,
+              sku: product.sku,
+              branchId: product.branchId,
+              currentStock,
+              reorderLevel: product.reorderLevel,
+              reorderQuantity: product.reorderQuantity,
+              suggestedQty,
+              lastCost: latest ? latest.purchasePrice : null,
+              unitsPerPack: product.unitsPerPack || 1,
+              unitsPerStrip: product.unitsPerStrip ?? null
+            };
+
+            const supplierKey = latest?.supplierId || '__unassigned__';
+            if (latest?.supplierId) supplierIds.add(latest.supplierId);
+            const group = linesBySupplier.get(supplierKey) || [];
+            group.push(line);
+            linesBySupplier.set(supplierKey, group);
+          }
+
+          const suppliers = supplierIds.size
+            ? query(`SELECT id, name, contactPerson, phone FROM suppliers WHERE id IN (${[...supplierIds].map(() => '?').join(',')})`, [...supplierIds])
+            : [];
+          const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+
+          const groups = Array.from(linesBySupplier.entries()).map(([key, lines]) => {
+            const estimatedCost = lines.reduce(
+              (sum, l) => sum + (l.lastCost ? l.suggestedQty * l.lastCost : 0),
+              0
+            );
+            return {
+              supplier: key === '__unassigned__' ? null : supplierById.get(key) || null,
+              lines,
+              totalEstimatedCost: estimatedCost
+            };
+          });
+          // Named suppliers first (alphabetical), unassigned group last.
+          groups.sort((a, b) => {
+            if (!a.supplier) return 1;
+            if (!b.supplier) return -1;
+            return a.supplier.name.localeCompare(b.supplier.name);
+          });
+
+          const totals = {
+            products: groups.reduce((n, g) => n + g.lines.length, 0),
+            units: groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + l.suggestedQty, 0), 0),
+            estimatedCost: groups.reduce((n, g) => n + g.totalEstimatedCost, 0)
+          };
+
+          return res.json({
+            success: true,
+            data: { groups, totals, participatingProducts: products.length }
+          });
+        } catch (e) {
+          console.error('[Purchases/ReorderSuggestions] Error:', e.message);
+          return res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+      });
+
 // GET /api/purchases (line 11072)
       app.get('/api/purchases', authMiddleware, (req, res) => {
         try {

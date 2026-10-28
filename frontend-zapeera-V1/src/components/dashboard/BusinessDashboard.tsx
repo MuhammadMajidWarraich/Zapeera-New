@@ -131,6 +131,12 @@ const BusinessDashboard = () => {
   const [totalCost, setTotalCost] = useState(0);
   const [allBatches, setAllBatches] = useState<any[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
+  // FIX 2026-10-28 (dashboard aggregates): server-side refunds + low-stock
+  // aggregates from GET /reports/dashboard. Null = the backend did not
+  // return them (older build) — the cards then fall back to the old
+  // windowed client-side counts.
+  const [aggregateRefunds, setAggregateRefunds] = useState<{ count: number; amount: number } | null>(null);
+  const [aggregateLowStockCount, setAggregateLowStockCount] = useState<number | null>(null);
   const [batchesOverview, setBatchesOverview] = useState({ total: 0, expired: 0, outOfStock: 0 });
   const [mostSellingProducts, setMostSellingProducts] = useState<any[]>([]);
   const [slowSellingProducts, setSlowSellingProducts] = useState<any[]>([]);
@@ -408,6 +414,22 @@ const BusinessDashboard = () => {
         } else if (dashboardData.lowStockProducts) {
           // Fallback to old field (just a count number)
           setLowStockProducts(dashboardData.lowStockProducts);
+        }
+        // FIX 2026-10-28 (dashboard aggregates): server-side refunds (actual
+        // refunded money) + true unpaginated low-stock count. Reset to null
+        // when absent so a stale value never shows for another scope.
+        if (dashboardData.refunds && typeof dashboardData.refunds.count === 'number') {
+          setAggregateRefunds({
+            count: dashboardData.refunds.count,
+            amount: dashboardData.refunds.amount || 0
+          });
+        } else {
+          setAggregateRefunds(null);
+        }
+        if (typeof dashboardData.lowStockCount === 'number') {
+          setAggregateLowStockCount(dashboardData.lowStockCount);
+        } else {
+          setAggregateLowStockCount(null);
         }
       } else {
         setRealRevenue(0);
@@ -1212,6 +1234,11 @@ const BusinessDashboard = () => {
     {
       title: selectedBranchId ? `${globalSelectedBranch?.name} Refunds` : "Total Refunds",
       value: (() => {
+        // FIX 2026-10-28: server-side aggregate = ACTUAL REFUNDED MONEY
+        // (37 refund rows for Seikho Medicos All branches). The old
+        // windowed count of REFUNDED sales in the first 100 fetched rows
+        // showed 0 for All branches and 1 for Main — both wrong.
+        if (aggregateRefunds) return aggregateRefunds.count.toString();
         const refunds = realSalesData.filter((sale: any) => sale.status === 'REFUNDED');
         if (selectedBranchId) {
           return refunds.filter((sale: any) => sale.branchId === selectedBranchId).length.toString();
@@ -1226,6 +1253,10 @@ const BusinessDashboard = () => {
         return refunds.length.toString();
       })(),
       refundedAmount: (() => {
+        // FIX 2026-10-28: actual refunded money from the server aggregate
+        // (Rs 5,320 for Seikho Medicos All branches), not the sum of
+        // fully-refunded sale totals inside the 100-row window.
+        if (aggregateRefunds) return formatCurrency(aggregateRefunds.amount);
         const refunds = realSalesData.filter((sale: any) => sale.status === 'REFUNDED');
         let filteredRefunds = refunds;
         if (selectedBranchId) {
@@ -1251,7 +1282,7 @@ const BusinessDashboard = () => {
       navigateTo: "/reports",
       requiredModule: "reports"
     }
-  ], [filteredData.products, filteredData.users.length, allBranches, allUsers, currentUser?.role, selectedBranchId, selectedCompanyId, globalSelectedBranch?.name, formatCurrency, todaySales, realSalesData, growthMetrics, dashboardData?.totalProducts]);
+  ], [filteredData.products, filteredData.users.length, allBranches, allUsers, currentUser?.role, selectedBranchId, selectedCompanyId, globalSelectedBranch?.name, formatCurrency, todaySales, realSalesData, growthMetrics, dashboardData?.totalProducts, aggregateRefunds]);
 
   const visibleStats = useMemo(() => {
     // Note: We intentionally show ALL stats regardless of module access
@@ -1633,7 +1664,7 @@ const BusinessDashboard = () => {
                   navigate("/inventory");
                 }}
               >
-                View All ({lowStockProducts.length})
+                View All ({aggregateLowStockCount ?? lowStockProducts.length})
               </Button>
             )}
           </div>

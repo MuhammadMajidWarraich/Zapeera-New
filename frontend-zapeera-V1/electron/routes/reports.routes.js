@@ -164,6 +164,56 @@ function registerReportsRoutes(app, authMiddleware, deps) {
           const mostSellingProducts = query(`${sellingSelect} ORDER BY salesCount DESC LIMIT 5`).map(formatSelling);
           const slowSellingProducts = query(`${sellingSelect} ORDER BY salesCount ASC LIMIT 5`).map(formatSelling);
 
+          // FIX 2026-10-28 (dashboard aggregates): server-side refunds +
+          // low-stock aggregates, branch-aware. The dashboard used to count
+          // REFUNDED sales inside the first 100 fetched rows (newest-first)
+          // and low-stock inside a 200-product window, so All branches showed
+          // 0 refunds / Rs 0 and a wrong low-stock count. These aggregates
+          // cover the whole scope: selected branch only, or all branches of
+          // the selected company when no branch is selected.
+          // Refunds = ACTUAL REFUNDED MONEY — SUM(amount) over the refund
+          // rows in scope (local refunds table carries branchId/companyId
+          // directly). Cloud truth for Seikho Medicos: 37 rows / Rs 5,320
+          // (Main 33 / Rs 3,410, Gulberg 4 / Rs 1,910, DHA 0).
+          const refundsWhere = 'WHERE 1=1' +
+            (branchFilter ? ` AND branchId = '${branchFilter}'` : '') +
+            (companyFilter ? ` AND companyId = '${companyFilter}'` : '');
+          const refundsRow = query(`SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as amount FROM refunds ${refundsWhere}`)[0] || { count: 0, amount: 0 };
+          const refunds = {
+            count: parseInt(refundsRow.count) || 0,
+            amount: parseFloat(refundsRow.amount) || 0
+          };
+
+          // Low stock: same definition as the cloud — active products whose
+          // live batch stock (active batches, quantity > 0) is at or below
+          // minStock. The list is the 10 lowest-stock products; the count
+          // covers the whole scope (true 22 for Seikho Medicos All).
+          const lowStockWhere = 'WHERE p.isActive = 1' +
+            (branchFilter ? ` AND p.branchId = '${branchFilter}'` : '') +
+            (companyFilter ? ` AND p.companyId = '${companyFilter}'` : '');
+          const lowStockAll = query(`SELECT p.id, p.name, p.sku, p.minStock, p.unitsPerPack,
+              br.name as branch_name, cat.name as category_name, cat.type as category_type,
+              COALESCE((SELECT SUM(b.quantity) FROM batches b WHERE b.productId = p.id AND b.isActive = 1 AND b.quantity > 0), 0) as stock
+            FROM products p
+            LEFT JOIN branches br ON p.branchId = br.id
+            LEFT JOIN categories cat ON p.categoryId = cat.id
+            ${lowStockWhere}`)
+            .map((product) => ({
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              minStock: product.minStock,
+              unitsPerPack: product.unitsPerPack,
+              branch_name: product.branch_name,
+              category_name: product.category_name,
+              category_type: product.category_type,
+              stock: Number(product.stock) || 0
+            }))
+            .filter((product) => product.stock <= Number(product.minStock ?? 0))
+            .sort((a, b) => a.stock - b.stock);
+          const lowStockProducts = lowStockAll.slice(0, 10);
+          const lowStockCount = lowStockAll.length;
+
           res.json({
             success: true,
             data: {
@@ -181,7 +231,10 @@ function registerReportsRoutes(app, authMiddleware, deps) {
               },
               recentSales: formattedRecentSales,
               mostSellingProducts,
-              slowSellingProducts
+              slowSellingProducts,
+              lowStockProducts,
+              lowStockCount,
+              refunds
             }
           });
         } catch (e) {

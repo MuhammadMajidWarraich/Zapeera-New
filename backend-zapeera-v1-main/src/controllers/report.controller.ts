@@ -1239,7 +1239,12 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
     });
 
     // Calculate actual stock and filter low stock products
-    const lowStockProducts = productsWithBatches
+    // FIX 2026-10-28 (dashboard aggregates): keep the FULL filtered list so
+    // the true unpaginated low-stock count is available — the dashboard's
+    // client-side count over a 200-product window undercounted (16 vs 12 vs
+    // the true 22 for Seikho Medicos All branches). Only the top 10 are
+    // returned as the list; the count covers the whole scope.
+    const lowStockProductsAll = productsWithBatches
       .map(product => ({
         id: product.id,
         name: product.name,
@@ -1252,8 +1257,32 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
         stock: product.batches.reduce((sum, batch) => sum + batch.quantity, 0)
       }))
       .filter(product => product.stock <= product.minStock)
-      .sort((a, b) => a.stock - b.stock)
-      .slice(0, 10);
+      .sort((a, b) => a.stock - b.stock);
+    const lowStockProducts = lowStockProductsAll.slice(0, 10);
+    const lowStockCount = lowStockProductsAll.length;
+
+    // FIX 2026-10-28 (dashboard aggregates): refunds = ACTUAL REFUNDED MONEY
+    // — SUM(refundAmount) over the refund rows in scope, NOT the count/value
+    // of fully-refunded sales. The dashboard card used to count REFUNDED
+    // sales inside the first 100 fetched rows (newest-first), so All
+    // branches showed 0 / Rs 0 while Main showed 1 / Rs 468; the truth is
+    // 37 refund rows / Rs 5,320 (Main 33 / Rs 3,410, Gulberg 4 / Rs 1,910).
+    // Scope follows the refund rows' original sale (company + branch).
+    const refundScope: any = { companyId: where.companyId };
+    if (where.branchId && typeof where.branchId === 'string') {
+      refundScope.branchId = where.branchId;
+    } else if (where.branchId && where.branchId.in) {
+      refundScope.branchId = { in: where.branchId.in };
+    }
+    const refundsAggregate = await prisma.refund.aggregate({
+      where: { originalSale: refundScope },
+      _count: { id: true },
+      _sum: { refundAmount: true }
+    });
+    const refunds = {
+      count: refundsAggregate._count?.id || 0,
+      amount: refundsAggregate._sum?.refundAmount || 0
+    };
 
     return res.json({
       success: true,
@@ -1277,7 +1306,9 @@ export const getDashboardData = async (req: AuthRequest, res: Response) => {
         slowSellingProducts: slowProducts,
         totalCost,
         batchesOverview,
-        lowStockProducts
+        lowStockProducts,
+        lowStockCount,
+        refunds
       }
     });
   } catch (error) {
