@@ -130,63 +130,17 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             }
           }
     
-          // CRITICAL: Auto-activate device for local/offline use
-          // Device activation is optional - always allow login in local mode
-          try {
-            const activationStatus = checkActivationStatus();
-            // If activation check fails or device not activated, auto-activate it
-            if (!activationStatus || !activationStatus.activated) {
-              console.log('[Auth] Device not activated, auto-activating for local use...');
-              const deviceId = getDeviceId();
-              const deviceInfo = getDeviceInfo();
-              const expiryDate = new Date();
-              expiryDate.setFullYear(expiryDate.getFullYear() + 10); // 10 years offline access
-    
-              // Ensure device_activation table exists
-              run(`
-                CREATE TABLE IF NOT EXISTS device_activation (
-                  id TEXT PRIMARY KEY,
-                  deviceId TEXT UNIQUE NOT NULL,
-                  fingerprint TEXT,
-                  platform TEXT,
-                  hostname TEXT,
-                  macAddress TEXT,
-                  status TEXT DEFAULT 'ACTIVE',
-                  licenseKey TEXT,
-                  userId TEXT,
-                  companyId TEXT,
-                  branchId TEXT,
-                  activatedBy TEXT,
-                  activatedAt TEXT,
-                  lastVerifiedAt TEXT,
-                  lastVerifiedStatus TEXT DEFAULT 'ACTIVE',
-                  offlineAccessExpiresAt TEXT,
-                  notes TEXT,
-                  createdAt TEXT DEFAULT (datetime('now')),
-                  updatedAt TEXT DEFAULT (datetime('now'))
-                )
-              `);
-    
-              // Auto-register and activate device
-              run(`
-                INSERT OR REPLACE INTO device_activation
-                (id, deviceId, fingerprint, platform, hostname, status, lastVerifiedAt, lastVerifiedStatus, offlineAccessExpiresAt, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), 'ACTIVE', ?, datetime('now'), datetime('now'))
-              `, [
-                'local-' + deviceId,
-                deviceId,
-                deviceInfo.fingerprint || '',
-                deviceInfo.platform || '',
-                deviceInfo.hostname || '',
-                expiryDate.toISOString()
-              ]);
-    
-              console.log('[Auth] ✅ Device auto-activated for local use');
-            }
-          } catch (activationError) {
-            // If activation check fails completely, allow login anyway (local mode)
-            console.log('[Auth] Activation check failed, allowing login anyway (local mode):', activationError.message);
-          }
+          // Device activation is NO LONGER self-granted here (2026-10-28,
+          // license rollout, security audit F2). The old block called a
+          // `checkActivationStatus()` that does not exist anywhere (every
+          // call threw ReferenceError, the catch swallowed it) and then
+          // wrote a device_activation row with offlineAccessExpiresAt =
+          // today + 10 YEARS — a self-granted decade of access. Device
+          // activation is now server-issued license binding only
+          // (electron/services/license/); login proceeds on the local
+          // user table as before, and device registration (72h offline
+          // expiry) still happens in device.service.registerDevice()
+          // during provisioning.
     
           // Support both 'email' and 'usernameOrEmail' fields - case insensitive
           const originalEmail = (req.body.email || req.body.usernameOrEmail || '').trim();
@@ -1835,6 +1789,17 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             }
           } catch (accErr) {
             console.warn('[Provision] Account sync warning:', accErr.message);
+          }
+
+          // License token acquisition (2026-10-28): the server returns a
+          // signed license token in the provision payload
+          // (`licenseToken`); store it verbatim for the shadow-mode gate.
+          // No-op when the server does not issue one yet.
+          try {
+            const licenseClient = require('../services/license/license-client');
+            licenseClient.acquireFromProvision(req.body);
+          } catch (licenseErr) {
+            console.warn('[Provision] License acquisition warning:', licenseErr.message);
           }
 
           // Set cookies

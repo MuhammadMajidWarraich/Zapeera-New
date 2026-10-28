@@ -408,6 +408,37 @@ async function initDatabase() {
     )`,
     `CREATE TABLE IF NOT EXISTS product_variants (
       id TEXT PRIMARY KEY, companyId TEXT, productId TEXT, name TEXT, sku TEXT, barcode TEXT, attributes TEXT, priceDelta REAL, isActive INTEGER, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    // ── Embedded ports (2026-10-28, audit-embedded-fixes) ────────────
+    // Tables for the domains ported from the cloud in this release.
+    // Column sets mirror the Prisma models (camelCase) so rows pulled
+    // from the cloud apply cleanly. Tables the cloud pull feed does not
+    // serve yet (parked_sales, expenses, provincial_tax_configs,
+    // controlled_dispense_logs, gift_cards) hold locally-created rows
+    // only until the feed + push map gain them — see each routes file.
+    `CREATE TABLE IF NOT EXISTS parked_sales (
+      id TEXT PRIMARY KEY, businessId TEXT NOT NULL, branchId TEXT NOT NULL, createdById TEXT, customerId TEXT, label TEXT, payload TEXT, itemCount INTEGER DEFAULT 0, grandTotal REAL DEFAULT 0, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS expense_categories (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, companyId TEXT NOT NULL, branchId TEXT, isActive INTEGER DEFAULT 1, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, vendor TEXT, amount REAL DEFAULT 0, expenseDate TEXT, paymentMethod TEXT DEFAULT 'CASH', reference TEXT, status TEXT DEFAULT 'PENDING', companyId TEXT NOT NULL, branchId TEXT, categoryId TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS provincial_tax_configs (
+      id TEXT PRIMARY KEY, companyId TEXT NOT NULL, branchId TEXT, authority TEXT NOT NULL, registrationNumber TEXT, rate REAL DEFAULT 0, enabled INTEGER DEFAULT 1, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS controlled_dispense_logs (
+      id TEXT PRIMARY KEY, companyId TEXT NOT NULL, branchId TEXT, productId TEXT NOT NULL, batchId TEXT, batchNo TEXT, saleId TEXT, saleItemId TEXT, entryType TEXT DEFAULT 'DISPENSE', quantity INTEGER DEFAULT 0, balanceAfter INTEGER DEFAULT 0, reversesId TEXT, reason TEXT, staffUserId TEXT, staffName TEXT, customerId TEXT, customerName TEXT, prescriptionId TEXT, prescriptionRef TEXT, invoiceNumber TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS gift_cards (
+      id TEXT PRIMARY KEY, code TEXT UNIQUE, companyId TEXT NOT NULL, branchId TEXT NOT NULL, initialValue REAL DEFAULT 0, balance REAL DEFAULT 0, recipientName TEXT, recipientPhone TEXT, purchasedBy TEXT, paymentMethod TEXT, status TEXT DEFAULT 'ACTIVE', expiresAt TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS gift_card_transactions (
+      id TEXT PRIMARY KEY, giftCardId TEXT NOT NULL, companyId TEXT NOT NULL, type TEXT, amount REAL DEFAULT 0, balanceAfter REAL DEFAULT 0, saleId TEXT, note TEXT, createdBy TEXT, createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS roles (
+      id TEXT PRIMARY KEY, businessId TEXT, name TEXT NOT NULL, description TEXT, isSystem INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1, permissionState TEXT DEFAULT 'UNCONFIGURED', policyVersion INTEGER DEFAULT 0, uuid TEXT, syncStatus TEXT DEFAULT 'PENDING', createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -690,47 +721,16 @@ async function initDatabase() {
     }
   });
 
-  // Auto-activate device for local use
-  try {
-    const deviceId = getDeviceId();
-    const deviceInfo = getDeviceInfo();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 10); // 10 years offline access
-
-    // Check if device already activated
-    const existing = query('SELECT * FROM device_activation WHERE deviceId = ?', [deviceId]);
-
-    if (!existing || existing.length === 0) {
-      // Auto-register and activate device
-      run(`
-        INSERT INTO device_activation
-        (id, deviceId, fingerprint, platform, hostname, status, lastVerifiedAt, lastVerifiedStatus, offlineAccessExpiresAt, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), 'ACTIVE', ?, datetime('now'), datetime('now'))
-      `, [
-        'local-' + deviceId,
-        deviceId,
-        deviceInfo.fingerprint || '',
-        deviceInfo.platform || '',
-        deviceInfo.hostname || '',
-        expiryDate.toISOString()
-      ]);
-      console.log('[DB] ✅ Device auto-activated for local use');
-    } else {
-      // Update existing device to ACTIVE if not already
-      if (existing[0].status !== 'ACTIVE') {
-        run(`
-          UPDATE device_activation
-          SET status = 'ACTIVE', lastVerifiedStatus = 'ACTIVE', lastVerifiedAt = datetime('now'),
-              offlineAccessExpiresAt = ?
-          WHERE deviceId = ?
-        `, [expiryDate.toISOString(), deviceId]);
-        console.log('[DB] ✅ Device status updated to ACTIVE');
-      }
-    }
-  } catch (e) {
-    console.log('[DB] Device auto-activation warning:', e.message);
-    // Continue anyway - activation check will handle it
-  }
+  // Device auto-activation REMOVED 2026-10-28 (license rollout,
+  // security audit F2). The old block inserted (or re-activated) a
+  // device_activation row with offlineAccessExpiresAt = today + 10
+  // YEARS on every DB init — self-granted access that the signed
+  // license is meant to replace. Device activation is now server-issued
+  // license binding only (electron/services/license/). Existing
+  // device_activation rows are left untouched (device registration with
+  // its 72h offline expiry still happens in
+  // device.service.registerDevice() during provisioning); nothing here
+  // writes ACTIVE rows any more.
 
   // Add missing columns to existing tables (migration) - Match PostgreSQL schema
   const columnMigrations = [

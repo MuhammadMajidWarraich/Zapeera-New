@@ -589,6 +589,15 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           const paidAmount = req.body.paidAmount || (finalPaymentStatus === 'COMPLETED' ? grandTotal : 0);
           const returnedAmount = req.body.returnedAmount || Math.max(0, paidAmount - grandTotal);
 
+          // License shadow gate (2026-10-28): evaluate the stored signed
+          // license for this write and log what enforcement would do.
+          // SHADOW MODE — always allows; the 402 branch below is the
+          // enforcement wiring, dead code until SHADOW_MODE flips.
+          const licenseWrite = require('../services/license/license-gate').checkWriteAllowed('sale.create', { businessId: finalCompanyId || null });
+          if (!licenseWrite.allowed) {
+            return res.status(402).json({ success: false, code: 'LICENSE_REQUIRED', message: 'Your subscription has ended. Renew to create new sales — your data stays readable and exportable.', licenseReason: licenseWrite.reason });
+          }
+
           // ============================================================
           // APPLY PHASE — all-or-nothing (B-7). The sale row is written
           // only now, after every validation passed. If any write fails,
@@ -631,9 +640,14 @@ function registerSalesRoutes(app, authMiddleware, deps) {
             console.log('[Sales] Shift lookup failed, sale proceeds without a shift:', e.message);
           }
 
+          // M3 (2026-10-28): totalAmount is the GRAND total, not the
+          // subtotal. The old value double-counted discounts/tax in
+          // every consumer that summed totalAmount (reports, shift
+          // totals) while grandTotal sat in its own column. Existing
+          // rows keep their old values — only new sales are fixed.
           const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt, shiftId)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, subtotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp, saleShiftId]);
+              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, grandTotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp, saleShiftId]);
 
             if (!success) {
               throw new Error('Failed to insert sale');
@@ -666,6 +680,33 @@ function registerSalesRoutes(app, authMiddleware, deps) {
               run('INSERT INTO stock_movements (id, productId, type, quantity, reason, referenceId, referenceType, branchId, companyId, createdBy, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                 [uuid(), r.productId, 'OUT', r.quantity, 'Sale', id, 'SALE', finalBranchId || null, finalCompanyId || null, req.user?.id || null, timestamp]);
 
+              // Controlled-medicines register (2026-10-28): a controlled
+              // product sold here writes one DISPENSE row per batch
+              // deduction, balanceAfter = the batch's post-decrement
+              // quantity — the cloud's sale-time append. Best-effort: a
+              // register failure must never fail the sale; the rollback
+              // below deletes these rows with the sale.
+              try {
+                const controlled = query('SELECT isControlled FROM products WHERE id = ?', [r.productId])[0];
+                if (controlled && controlled.isControlled) {
+                  const customerRow = finalCustomerId ? query('SELECT name FROM customers WHERE id = ?', [finalCustomerId])[0] : null;
+                  for (const d of r.deductions) {
+                    const batchRow = query('SELECT batchNo FROM batches WHERE id = ?', [d.batchId])[0];
+                    require('../utils/controlled-register').appendDispenseEntry({ query, run }, {
+                      companyId: finalCompanyId, branchId: finalBranchId,
+                      productId: r.productId, batchId: d.batchId, batchNo: batchRow ? batchRow.batchNo : null,
+                      saleId: id, saleItemId: itemId, quantity: d.qty,
+                      staffUserId: req.user?.id || null, staffName: req.user?.name || null,
+                      customerId: finalCustomerId || null, customerName: customerRow ? customerRow.name : null,
+                      prescriptionId: req.body.prescriptionId || null, prescriptionRef: null,
+                      invoiceNumber
+                    });
+                  }
+                }
+              } catch (e) {
+                console.error('[Sales] Controlled register append failed (sale proceeds):', e.message);
+              }
+
               const product = query('SELECT id, name, unitPrice, sellingPrice FROM products WHERE id = ?', [r.productId])[0];
               saleItems.push({
                 id: itemId,
@@ -685,6 +726,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
               run('UPDATE products SET quantity = quantity + ? WHERE id = ?', [d.qty, d.productId]);
             }
             run('DELETE FROM stock_movements WHERE referenceId = ?', [id]);
+            run('DELETE FROM controlled_dispense_logs WHERE saleId = ?', [id]);
             run('DELETE FROM sale_items WHERE saleId = ?', [id]);
             if (saleRowInserted) run('DELETE FROM sales WHERE id = ?', [id]);
             saveDatabase();

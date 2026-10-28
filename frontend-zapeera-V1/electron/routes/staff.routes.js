@@ -25,7 +25,7 @@ function registerStaffRoutes(app, authMiddleware, deps) {
           createRecordPostgreSQLFirst, mapRowForPostgreSQL, getPostgreSQLColumns,
           getSQLiteColumns, pgRowToSqlite, normalizeValue, getWeekNumber, getDateFromWeek,
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
-          saveDatabase, initDatabase } = deps;
+          saveDatabase, initDatabase} = deps;
 
   function shapeStaffRow(row) {
     const branchIds = (() => {
@@ -171,6 +171,36 @@ function registerStaffRoutes(app, authMiddleware, deps) {
       return res.json({ success: true, data: shapeStaffRow(row) });
     } catch (e) {
       console.error('[Staff] Error fetching staff member:', e.message);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // DELETE /api/staff/:id — port of the cloud deleteStaff (2026-10-28):
+  // soft-deactivate the staff profile (isActive = false), 404 when not
+  // found. The cloud route is gated by checkPermission('delete_staff');
+  // on the desktop that is OWNER/MANAGER/ADMIN.
+  app.delete('/api/staff/:id', authMiddleware, (req, res) => {
+    try {
+      const role = String(req.user?.role || '').toUpperCase();
+      if (!['OWNER', 'MANAGER', 'ADMIN'].includes(role)) {
+        return res.status(403).json({ success: false, message: 'Only the owner or a manager can remove a staff member' });
+      }
+      const { companyFilter } = getDataFilter(req.user, undefined, req.query.companyId);
+      const row = query(
+        `SELECT sp.* FROM staff_profiles sp
+         JOIN memberships m ON m.id = sp.membershipId
+         WHERE sp.id = ? AND (? IS NULL OR m.businessId = ?)`,
+        [req.params.id, companyFilter, companyFilter]
+      )[0];
+      if (!row) return res.status(404).json({ success: false, message: 'Staff not found' });
+      if (!row.isActive) return res.status(400).json({ success: false, message: 'This staff member is already inactive', code: 'STAFF_INACTIVE' });
+      run('UPDATE staff_profiles SET isActive = 0 WHERE id = ?', [req.params.id]);
+      saveDatabase();
+      const updated = query('SELECT * FROM staff_profiles WHERE id = ?', [req.params.id])[0];
+      try { handleDataChange('staffProfile', 'update', updated); } catch (e) { console.error('[Staff] sync enqueue failed:', e.message); }
+      return res.json({ success: true, message: 'Staff deleted successfully' });
+    } catch (e) {
+      console.error('[Staff] Delete error:', e.message);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   });

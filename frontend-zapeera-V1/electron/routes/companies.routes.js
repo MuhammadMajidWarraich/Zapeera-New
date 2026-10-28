@@ -498,6 +498,56 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
         }
       });
 
+
+  // DELETE /api/companies/:id/members/:userId — port of the cloud
+  // removeCompanyMember (2026-10-28): removes ONE membership, never
+  // the platform account. Actor must be the business creator, or a
+  // MANAGER removing a CASHIER from a branch they share. The business
+  // creator can never be removed (400). 404 when the company, the
+  // target user, or the target membership does not exist. The removed
+  // member's staff profile (if any) drops out of the staff list
+  // automatically — the staff query inner-joins memberships.
+  app.delete('/api/companies/:id/members/:userId', authMiddleware, (req, res) => {
+    try {
+      const { id: companyId, userId } = req.params;
+      const company = query('SELECT * FROM companies WHERE id = ?', [companyId])[0];
+      if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
+      const targetUser = query('SELECT id FROM users WHERE id = ?', [userId])[0];
+      if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+      if (userId === company.createdBy) {
+        return res.status(400).json({ success: false, message: 'Cannot remove the business owner from their own business' });
+      }
+      const targetMembership = query('SELECT * FROM memberships WHERE userId = ? AND businessId = ?', [userId, companyId])[0];
+      if (!targetMembership) return res.status(404).json({ success: false, message: 'This user is not a member of this business' });
+      const actorMembership = query('SELECT * FROM memberships WHERE userId = ? AND businessId = ?', [req.user?.id, companyId])[0];
+      const actorRole = String((actorMembership && actorMembership.role) || req.user?.role || '').toUpperCase();
+      const targetRole = String(targetMembership.role || '').toUpperCase();
+      const isBusinessCreator = company.createdBy === req.user?.id;
+      let canManageAsManager = false;
+      if (actorRole === 'MANAGER' && targetRole === 'CASHIER') {
+        try {
+          const actorBranches = JSON.parse(actorMembership.branchIds || '[]');
+          const targetBranches = JSON.parse(targetMembership.branchIds || '[]');
+          canManageAsManager = Array.isArray(actorBranches) && Array.isArray(targetBranches) && actorBranches.some((b) => targetBranches.includes(b));
+        } catch { canManageAsManager = false; }
+      }
+      if (!isBusinessCreator && !canManageAsManager) {
+        return res.status(403).json({ success: false, message: 'Only the business creator can remove staff members' });
+      }
+      // LOCAL-ONLY: memberships are in the sync engine's
+      // NON_PUSHABLE set (cloud is the source of truth), so this
+      // removal does not push. A later account re-sync could restore
+      // the membership from the cloud — removing the member on the
+      // cloud is the durable step (deploy-phase follow-up).
+      run('DELETE FROM memberships WHERE id = ?', [targetMembership.id]);
+      saveDatabase();
+      res.json({ success: true, message: 'Member removed from this business. Their platform account remains active.' });
+    } catch (e) {
+      console.error('[Companies] Remove member error:', e.message);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   // GET /api/companies/:id/stats (line 1921)
       app.get('/api/companies/:id/stats', authMiddleware, (req, res) => {
         try {

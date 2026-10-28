@@ -1,26 +1,30 @@
+/**
+ * Modules Routes — enabled-module list, scoped to the caller's business
+ * type (2026-10-28: previously returned all 8 modules enabled for every
+ * business type, so a pharmacy saw clinic/hotel modules and vice versa).
+ * The applicability map is the shared port of the cloud's
+ * module-applicability.util.ts — see utils/module-applicability.js.
+ */
 function registerModulesRoutes(app, authMiddleware, deps) {
-  const { query } = deps;
-
-  const STANDARD_MODULES = [
-    { name: 'sales', enabled: true, sortOrder: 1 },
-    { name: 'inventory', enabled: true, sortOrder: 2 },
-    { name: 'purchases', enabled: true, sortOrder: 3 },
-    { name: 'reports', enabled: true, sortOrder: 4 },
-    { name: 'prescriptions', enabled: true, sortOrder: 5 },
-    { name: 'business_management', enabled: true, sortOrder: 6 },
-    { name: 'expenses', enabled: true, sortOrder: 7 },
-    { name: 'subscription', enabled: true, sortOrder: 8 },
-  ];
+  const { query, getDataFilter } = deps;
+  const { modulesForBusinessType, STANDARD_MODULES } = require('../utils/module-applicability');
 
   app.get('/api/modules/enabled', authMiddleware, (req, res) => {
     try {
-      const companyId = req.headers['x-business-id'] || req.user?.companyId;
+      const companyId = req.headers['x-business-id'] || req.user?.companyId || req.user?.selectedCompanyId;
 
       if (req.user.role === 'SUPERADMIN') {
-        return res.json({ success: true, data: STANDARD_MODULES });
+        return res.json({ success: true, data: STANDARD_MODULES.map(m => ({ ...m, enabled: true })) });
       }
 
-      res.json({ success: true, data: STANDARD_MODULES });
+      let businessType = null;
+      if (companyId) {
+        const company = query('SELECT businessType FROM companies WHERE id = ?', [companyId])[0];
+        if (company && company.businessType) businessType = String(company.businessType).toUpperCase();
+      }
+      // Unknown / unset type: all modules apply (matches the shared util's
+      // fall-through for unlisted types), same as the cloud's default.
+      res.json({ success: true, data: modulesForBusinessType(businessType) });
     } catch (e) {
       console.error('[Modules] error:', e.message);
       res.status(500).json({ success: false, message: e.message });

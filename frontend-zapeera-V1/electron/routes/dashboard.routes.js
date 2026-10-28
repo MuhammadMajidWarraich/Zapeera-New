@@ -25,37 +25,42 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
-          // Build WHERE clauses
+          // Build WHERE clauses — PARAMETERIZED (SQLi fix 2026-10-28).
+          // All four clauses append branch then company in the same
+          // order, so one scopeParams array serves every query below.
           let productWhere = 'WHERE isActive = 1';
           let customerWhere = 'WHERE isActive = 1';
           let salesWhere = 'WHERE 1=1';
           let purchaseWhere = "WHERE status != 'DELETED'";
+          const scopeParams = [];
     
           if (branchFilter) {
-            productWhere += ` AND branchId = '${branchFilter}'`;
-            customerWhere += ` AND branchId = '${branchFilter}'`;
-            salesWhere += ` AND branchId = '${branchFilter}'`;
-            purchaseWhere += ` AND branchId = '${branchFilter}'`;
+            productWhere += ' AND branchId = ?';
+            customerWhere += ' AND branchId = ?';
+            salesWhere += ' AND branchId = ?';
+            purchaseWhere += ' AND branchId = ?';
+            scopeParams.push(branchFilter);
           }
           if (companyFilter) {
-            productWhere += ` AND companyId = '${companyFilter}'`;
-            customerWhere += ` AND companyId = '${companyFilter}'`;
-            salesWhere += ` AND companyId = '${companyFilter}'`;
-            purchaseWhere += ` AND companyId = '${companyFilter}'`;
+            productWhere += ' AND companyId = ?';
+            customerWhere += ' AND companyId = ?';
+            salesWhere += ' AND companyId = ?';
+            purchaseWhere += ' AND companyId = ?';
+            scopeParams.push(companyFilter);
           }
     
           const today = new Date().toISOString().split('T')[0];
     
           const stats = {
-            totalProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere}`)[0]?.c || 0,
-            totalCustomers: query(`SELECT COUNT(*) as c FROM customers ${customerWhere}`)[0]?.c || 0,
-            totalSales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere}`)[0]?.c || 0,
-            totalRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere}`)[0]?.t || 0,
-            todaySales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere} AND DATE(createdAt) = '${today}'`)[0]?.c || 0,
-            todayRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere} AND DATE(createdAt) = '${today}'`)[0]?.t || 0,
-            lowStockProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity <= minStock`)[0]?.c || 0,
-            outOfStock: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity = 0`)[0]?.c || 0,
-            pendingOrders: query(`SELECT COUNT(*) as c FROM purchases ${purchaseWhere} AND status = 'PENDING'`)[0]?.c || 0
+            totalProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere}`, scopeParams)[0]?.c || 0,
+            totalCustomers: query(`SELECT COUNT(*) as c FROM customers ${customerWhere}`, scopeParams)[0]?.c || 0,
+            totalSales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere}`, scopeParams)[0]?.c || 0,
+            totalRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere}`, scopeParams)[0]?.t || 0,
+            todaySales: query(`SELECT COUNT(*) as c FROM sales ${salesWhere} AND DATE(createdAt) = ?`, [...scopeParams, today])[0]?.c || 0,
+            todayRevenue: query(`SELECT SUM(totalAmount) as t FROM sales ${salesWhere} AND DATE(createdAt) = ?`, [...scopeParams, today])[0]?.t || 0,
+            lowStockProducts: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity <= minStock`, scopeParams)[0]?.c || 0,
+            outOfStock: query(`SELECT COUNT(*) as c FROM products ${productWhere} AND quantity = 0`, scopeParams)[0]?.c || 0,
+            pendingOrders: query(`SELECT COUNT(*) as c FROM purchases ${purchaseWhere} AND status = 'PENDING'`, scopeParams)[0]?.c || 0
           };
     
           console.log('[Dashboard/Stats] Returning stats:', stats);
@@ -75,10 +80,11 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           // Get data filter based on user role
           const { branchFilter, companyFilter } = getDataFilter(req.user, branchId, companyId);
     
-          // Build WHERE clause
+          // Build WHERE clause — PARAMETERIZED (SQLi fix 2026-10-28).
           let whereClause = 'WHERE 1=1';
-          if (branchFilter) whereClause += ` AND branchId = '${branchFilter}'`;
-          if (companyFilter) whereClause += ` AND companyId = '${companyFilter}'`;
+          const chartScopeParams = [];
+          if (branchFilter) { whereClause += ' AND branchId = ?'; chartScopeParams.push(branchFilter); }
+          if (companyFilter) { whereClause += ' AND companyId = ?'; chartScopeParams.push(companyFilter); }
     
           // Determine date range based on period
           let days;
@@ -117,7 +123,7 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           // Generate data points
           for (let i = Math.min(days, 30) - 1; i >= 0; i--) {
             const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            const result = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${whereClause} AND DATE(createdAt) = '${date}'`)[0];
+            const result = query(`SELECT SUM(totalAmount) as total, COUNT(*) as count FROM sales ${whereClause} AND DATE(createdAt) = ?`, [...chartScopeParams, date])[0];
     
             data.push({
               date,
@@ -129,7 +135,7 @@ function registerDashboardRoutes(app, authMiddleware, deps) {
           }
     
           // Summary for the period
-          const summary = query(`SELECT SUM(totalAmount) as totalRevenue, COUNT(*) as totalOrders FROM sales ${whereClause} AND DATE(createdAt) >= '${startDate}'`)[0];
+          const summary = query(`SELECT SUM(totalAmount) as totalRevenue, COUNT(*) as totalOrders FROM sales ${whereClause} AND DATE(createdAt) >= ?`, [...chartScopeParams, startDate])[0];
     
           console.log('[Dashboard/Chart] Returning', data.length, 'data points, Summary:', summary);
     

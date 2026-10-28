@@ -968,8 +968,14 @@ async function startServer(): Promise<void> {
 
     if (available) {
       try {
-        // Start the server on this port
-        server = app.listen(currentPort, '0.0.0.0', () => {
+        // Start the server on this port.
+        // Bind host: the cloud deployment needs 0.0.0.0 (default, unchanged).
+        // The Electron desktop app spawns this same server as its LOCAL API
+        // and passes BIND_HOST=127.0.0.1 so a shop PC's full API is not
+        // exposed to every device on the shop LAN (security hardening
+        // 2026-10-23). ZAPEERA_DESKTOP_LAN=1 is the documented opt-out.
+        const bindHost = process.env.BIND_HOST || '0.0.0.0';
+        server = app.listen(currentPort, bindHost, () => {
           console.log('='.repeat(60));
           console.log('🚀 ZAPEERA BACKEND SERVER STARTED');
           console.log('='.repeat(60));

@@ -3,6 +3,8 @@
  * Extracted from routes/index.js
  */
 
+const { mustRun } = require('../utils/db-write');
+
 function registerPurchasesRoutes(app, authMiddleware, deps) {
   const { query, run, getDatabase, getActiveDatabase, insertIntoActiveDatabase, 
           queryActiveDatabase, updateInActiveDatabase, deleteInActiveDatabase,
@@ -22,8 +24,17 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
 // with a reorderLevel set, live stock from non-expired batches, lines
 // grouped by the latest batch's supplier, same response shape. Registered
 // first so the literal segment wins over any /:id route.
+//
+// GATE 2026-10-28 (audit item e): OWNER/MANAGER/ADMIN only. The cloud's
+// permission matrix gives CASHIER no purchases grant at all, so a cashier
+// could never read reorder suggestions on the web — the desktop was
+// over-permissive here.
       app.get('/api/purchases/reorder-suggestions', authMiddleware, (req, res) => {
         try {
+          const role = String(req.user?.role || '').toUpperCase();
+          if (!['OWNER', 'MANAGER', 'ADMIN'].includes(role)) {
+            return res.status(403).json({ success: false, message: 'Only the owner or a manager can view reorder suggestions' });
+          }
           const { branchFilter, companyFilter } = getDataFilter(req.user, req.query.branchId, req.query.companyId);
 
           let productSql = 'SELECT id, name, sku, branchId, reorderLevel, reorderQuantity, unitsPerPack, unitsPerStrip FROM products WHERE isActive = 1 AND reorderLevel IS NOT NULL';
@@ -209,6 +220,13 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
     
           console.log('[Purchases] Creating purchase:', { id, purchaseNumber, totalAmount, grandTotal, paidAmount });
     
+          // License shadow gate (2026-10-28): evaluate + log only in
+          // shadow mode; the 402 branch is the enforcement wiring.
+          const licenseWrite = require('../services/license/license-gate').checkWriteAllowed('purchase.create', { businessId: finalCompanyId || null });
+          if (!licenseWrite.allowed) {
+            return res.status(402).json({ success: false, code: 'LICENSE_REQUIRED', message: 'Your subscription has ended. Renew to create new purchases — your data stays readable and exportable.', licenseReason: licenseWrite.reason });
+          }
+
           const success = run(`INSERT INTO purchases (id, purchaseNumber, invoiceNo, supplierId, branchId, companyId, totalAmount, paidAmount, discount, tax, grandTotal, paymentStatus, status, notes, purchaseDate, createdBy, createdAt, updatedAt)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [id, purchaseNumber, invoiceNo || null, supplierId || null, finalBranchId, finalCompanyId, totalAmount, paidAmount, discount || 0, tax || 0, grandTotal, paymentStatus, status, notes || null, purchaseDate || timestamp, req.user?.id, timestamp, timestamp]);
@@ -284,6 +302,74 @@ function registerPurchasesRoutes(app, authMiddleware, deps) {
         } catch (e) {
           console.error('[Purchases] Create error:', e.message, e.stack);
           res.status(500).json({ success: false, message: 'Failed to create purchase: ' + e.message });
+        }
+      });
+
+      // DELETE /api/purchases/:id — port of the cloud deletePurchase
+      // (2026-10-28): tenancy-scoped, 404 when not found, deletes the
+      // purchase items and the batches created for the purchase.
+      //
+      // Two deliberate deviations from the cloud, both protective:
+      // (1) OWNER/MANAGER/ADMIN only — the cloud route carries no role
+      // gate at all, so any business user could delete purchases and
+      // their batches; a destructive write with no gate is a gap, not
+      // a feature. (2) 409 PURCHASE_BATCH_IN_USE when any batch of the
+      // purchase already has sale lines against it — the cloud deletes
+      // the batch anyway, leaving dangling sale_items.batchId rows and
+      // corrupting cost-based profit; the desktop refuses instead.
+      app.delete('/api/purchases/:id', authMiddleware, (req, res) => {
+        try {
+          const role = String(req.user?.role || '').toUpperCase();
+          if (!['OWNER', 'MANAGER', 'ADMIN'].includes(role)) {
+            return res.status(403).json({ success: false, message: 'Only the owner or a manager can delete a purchase' });
+          }
+          const { branchFilter, companyFilter } = getDataFilter(req.user, req.query.branchId, req.query.companyId);
+          let sql = 'SELECT * FROM purchases WHERE id = ?';
+          const params = [req.params.id];
+          if (branchFilter) { sql += ' AND branchId = ?'; params.push(branchFilter); }
+          if (companyFilter) { sql += ' AND companyId = ?'; params.push(companyFilter); }
+          const purchase = query(sql, params)[0];
+          if (!purchase) return res.status(404).json({ success: false, message: 'Purchase not found' });
+          const items = query('SELECT id, batchId FROM purchase_items WHERE purchaseId = ?', [req.params.id]);
+          const batchIds = items.map(i => i.batchId).filter(Boolean);
+          if (batchIds.length > 0) {
+            const placeholders = batchIds.map(() => '?').join(',');
+            const sold = query(`SELECT COUNT(*) as c FROM sale_items WHERE batchId IN (${placeholders})`, batchIds)[0]?.c || 0;
+            if (Number(sold) > 0) {
+              return res.status(409).json({ success: false, message: 'This purchase cannot be deleted — some of its batches have already been sold', code: 'PURCHASE_BATCH_IN_USE' });
+            }
+          }
+          // Snapshot for compensating rollback (the embedded run() has
+          // no transaction support — same convention as transfers and
+          // stock-takes: restore what was deleted if a later step fails).
+          // The restore INSERT is built from the row's own keys so it
+          // stays correct if the schema grows.
+          const snapshotItems = query('SELECT * FROM purchase_items WHERE purchaseId = ?', [req.params.id]);
+          const snapshotBatches = batchIds.length > 0
+            ? query(`SELECT * FROM batches WHERE id IN (${batchIds.map(() => '?').join(',')})`, batchIds)
+            : [];
+          const restoreRow = (table, row) => {
+            const cols = Object.keys(row);
+            const placeholders = cols.map(() => '?').join(',');
+            try { run(`INSERT OR IGNORE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`, cols.map(c => row[c])); } catch (_) { /* best effort */ }
+          };
+          try {
+            mustRun(run, 'DELETE FROM purchase_items WHERE purchaseId = ?', [req.params.id]);
+            if (batchIds.length > 0) {
+              mustRun(run, `DELETE FROM batches WHERE id IN (${batchIds.map(() => '?').join(',')})`, batchIds);
+            }
+            mustRun(run, 'DELETE FROM purchases WHERE id = ?', [req.params.id]);
+            saveDatabase();
+          } catch (e) {
+            for (const b of snapshotBatches) restoreRow('batches', b);
+            for (const it of snapshotItems) restoreRow('purchase_items', it);
+            throw e;
+          }
+          try { handleDataChange('purchases', 'delete', { id: req.params.id }); } catch (e) { console.error('[Purchases] sync enqueue failed:', e.message); }
+          res.json({ success: true, message: 'Purchase deleted successfully' });
+        } catch (e) {
+          console.error('[Purchases] Delete error:', e.message);
+          res.status(500).json({ success: false, message: 'Internal server error' });
         }
       });
 

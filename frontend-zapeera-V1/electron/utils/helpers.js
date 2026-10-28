@@ -101,6 +101,20 @@ function getDataFilter(user, requestedBranchId, requestedCompanyId) {
     companyFilter = user?.companyId;
   }
 
+  // Defence in depth (SQLi, 2026-10-28): branch/company ids are Prisma
+  // cuid/uuid strings (letters, digits, '_' and '-'). A caller-supplied
+  // id containing anything else can only be an injection attempt — fail
+  // closed to a sentinel that matches no row. NEVER to null: for
+  // ADMIN/OWNER null means "unscoped", which would be fail-open.
+  const VALID_ID = /^[A-Za-z0-9_-]{1,128}$/;
+  const INVALID_FILTER = '__zapeera_invalid__';
+  const cleanFilter = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    return VALID_ID.test(String(v)) ? String(v) : INVALID_FILTER;
+  };
+  branchFilter = cleanFilter(branchFilter);
+  companyFilter = cleanFilter(companyFilter);
+
   return {
     branchFilter,
     companyFilter,

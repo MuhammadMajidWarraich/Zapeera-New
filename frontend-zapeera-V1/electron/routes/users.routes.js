@@ -2810,47 +2810,24 @@ function registerUsersRoutes(app, authMiddleware, deps) {
       });
 
   // DELETE /api/users/:id (line 9963)
+      // DELETE /api/users/:id — FIX 2026-10-28: the desktop hard-deleted
+      // the platform account (and returned 200 for unknown ids, so the
+      // frontend believed the delete had worked). The cloud's
+      // deleteUser is HARD-BLOCKED — `if (true) return 403` — because
+      // platform accounts must never be deleted from a business
+      // dashboard; staff leave via DELETE
+      // /api/companies/:companyId/members/:userId, and only a Super
+      // Admin deletes an account globally. Mirrored verbatim here,
+      // including the cloud's message (it tells the operator exactly
+      // which flow to use instead). The unreachable hard-delete code
+      // below the block is gone with it — no 200-for-unknown-ids, no
+      // dangling memberships/staff_profiles to clean up, because
+      // nothing is deleted at all.
       app.delete('/api/users/:id', authMiddleware, (req, res) => {
-        try {
-          console.log('[Users] DELETE request for id:', req.params.id);
-          const user = query('SELECT * FROM users WHERE id = ?', [req.params.id])[0];
-    
-          if (!user) {
-            // CRITICAL FIX: If user not found, return 200 with info message
-            // This allows frontend to remove user from list even if already deleted
-            console.log('[Users] ⚠️ User not found (already deleted):', req.params.id);
-            return res.status(200).json({
-              success: true,
-              message: 'User was already deleted or does not exist'
-            });
-          }
-    
-          console.log('[Users] Deleting user:', user.name, user.username, 'Current isActive:', user.isActive);
-    
-          // CRITICAL FIX: Use hard delete (DELETE FROM) instead of soft delete for complete removal
-          // If you want soft delete, use: UPDATE users SET isActive = 0
-          // For hard delete, use: DELETE FROM users
-          const deleteResult = run('DELETE FROM users WHERE id = ?', [req.params.id]);
-    
-          if (!deleteResult) {
-            console.error('[Users] ❌ Delete query failed!');
-            console.error('[Users] Last DB error:', lastDbError);
-            return res.status(500).json({ success: false, message: lastDbError || 'Failed to delete user in database' });
-          }
-          console.log('[Users] ✅ Delete query executed successfully (hard delete)');
-    
-          // Save database immediately after delete
-          saveDatabase();
-          console.log('[Users] ✅ Database saved after delete');
-    
-          // 🔄 TWO-WAY SYNC: Queue delete for sync
-          if (user) handleDataChange('users', 'delete', user);
-    
-          res.status(200).json({ success: true, message: 'User deleted successfully' });
-        } catch (e) {
-          console.error('[Users] Delete error:', e.message);
-          res.status(500).json({ success: false, message: e.message });
-        }
+        return res.status(403).json({
+          success: false,
+          message: 'Removing staff only removes their access to this business; it does not delete their platform account. Use \u201cRemove from business\u201d in Staff Management, or ask a Super Admin to delete an account globally.'
+        });
       });
 
   // POST /api/users/bulk-delete (line 10007)
