@@ -78,7 +78,19 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           if (customerId && customerId !== 'undefined') { sql += ' AND customerId = ?'; params.push(customerId); }
           if (paymentMethod && paymentMethod !== 'all') { sql += ' AND paymentMethod = ?'; params.push(paymentMethod); }
           if (startDate) { sql += ' AND createdAt >= ?'; params.push(startDate); }
-          if (endDate) { sql += ' AND createdAt <= ?'; params.push(endDate); }
+          // FIX 2026-10-28 (Invoices date filter): the old `createdAt <=
+          // '2026-10-28'` excluded the whole end day. Match the cloud
+          // (end-of-day 23:59:59.999): include everything before the next
+          // day, so a sale on the end date appears.
+          if (endDate) {
+            const end = new Date(String(endDate) + 'T00:00:00Z');
+            if (!isNaN(end.getTime())) {
+              end.setUTCDate(end.getUTCDate() + 1);
+              sql += ' AND createdAt < ?'; params.push(end.toISOString().slice(0, 10));
+            } else {
+              sql += ' AND createdAt <= ?'; params.push(endDate);
+            }
+          }
           sql += ` ORDER BY createdAt DESC LIMIT ${parseInt(limit) || 500}`;
     
           const rawSales = query(sql, params);

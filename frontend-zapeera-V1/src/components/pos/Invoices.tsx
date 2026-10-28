@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from "react";
 import { escapeHtml } from "@/utils/html-escape";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,6 +165,11 @@ const Invoices = () => {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  // FIX 2026-10-28 (Invoices date filter): the date inputs were write-only
+  // state — picking dates only called setStartDate/setEndDate and nothing
+  // ever reloaded. This ref skips the first run (the mount effect already
+  // loads once); every later date change reloads from the server.
+  const firstDatesRunRef = useRef(true);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -317,6 +322,18 @@ const Invoices = () => {
     };
   }, []);
 
+  // FIX 2026-10-28 (Invoices date filter): reload whenever the dates change.
+  // The mount effect above loads once; this effect covers every later pick
+  // (including clearing the dates with the X button). The first run is
+  // skipped so mount does not fetch twice.
+  useEffect(() => {
+    if (firstDatesRunRef.current) {
+      firstDatesRunRef.current = false;
+      return;
+    }
+    loadInvoices();
+  }, [startDate, endDate]);
+
   const loadInvoices = useCallback(async (forceRefresh: boolean = false) => {
     try {
       // CRITICAL: Check cache first (unless forcing refresh)
@@ -457,7 +474,7 @@ const Invoices = () => {
 
   useEffect(() => {
     filterInvoices();
-  }, [invoices, searchQuery, statusFilter, paymentMethodFilter]);
+  }, [invoices, searchQuery, statusFilter, paymentMethodFilter, startDate, endDate]);
 
   useEffect(() => {
     // Check cache first when branch changes
@@ -482,6 +499,23 @@ const Invoices = () => {
 
   const filterInvoices = () => {
     let filtered = [...invoices];
+
+    // FIX 2026-10-28 (Invoices date filter): the client-side filter had no
+    // date logic at all, so even a server-filtered list was never
+    // date-checked locally. Mirror Refunds.tsx: local-midnight bounds, end
+    // day inclusive. The server already filters by the same dates; this
+    // keeps cached/stale rows from leaking through.
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate + 'T00:00:00') : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59.999') : null;
+      filtered = filtered.filter(invoice => {
+        const d = new Date(invoice.createdAt || invoice.saleDate);
+        if (isNaN(d.getTime())) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+    }
 
     // Search filter
     if (searchQuery) {
@@ -1201,10 +1235,19 @@ const Invoices = () => {
                 <SelectItem value="MOBILE">Mobile</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2 whitespace-nowrap text-sm text-[#8c95b0]">
-              <Filter className="h-4 w-4" strokeWidth={2} />
-              <span className="font-medium text-[#4a5578]">Filter</span>
-            </div>
+            {/* FIX 2026-10-28 (Invoices date filter): this was a label, not a
+                button — picking dates changed nothing. It now forces a reload
+                with the current dates (the dates effect above also reloads
+                on every pick; the button is the explicit trigger). */}
+            <Button
+              type="button"
+              onClick={() => void loadInvoices(true)}
+              variant="outline"
+              className="h-9 shrink-0 whitespace-nowrap rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-white"
+            >
+              <Filter className="mr-2 h-4 w-4" strokeWidth={2} />
+              Filter
+            </Button>
           </div>
         </div>
 

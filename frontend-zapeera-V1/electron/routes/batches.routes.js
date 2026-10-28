@@ -401,7 +401,12 @@ function registerBatchesRoutes(app, authMiddleware, deps) {
           const { branchFilter, companyFilter } = getDataFilter(req.user, req.query.branchId, req.query.companyId);
     
           const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          let sql = 'SELECT * FROM batches WHERE isActive = 1 AND expiryDate <= ? AND quantity > 0';
+          // FIX 2026-10-28: the batches column is expireDate, not expiryDate —
+          // the old name 500'd ("no such column"). Response shape also matches
+          // the cloud now (data = array of batches), which is what Batches.tsx
+          // and the voice executor map over; the old {batches, pagination}
+          // object broke .map() on desktop.
+          let sql = 'SELECT * FROM batches WHERE isActive = 1 AND expireDate <= ? AND quantity > 0';
           const params = [thirtyDays];
     
           // Apply strict data isolation
@@ -412,7 +417,7 @@ function registerBatchesRoutes(app, authMiddleware, deps) {
             ...b,
             product: b.productId ? query('SELECT id, name, sku FROM products WHERE id = ?', [b.productId])[0] : null
           }));
-          res.json({ success: true, data: { batches, pagination: { total: batches.length, page: 1, limit: 100, pages: 1 } } });
+          res.json({ success: true, data: batches });
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
