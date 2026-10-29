@@ -259,6 +259,27 @@ async function startServer(port = 4201, userDataPath = null) {
     });
   });
 
+  // Initialize the database BEFORE listening. Routes must never observe a
+  // not-yet-initialized database: database.service.query() fails soft to []
+  // while `db` is null, so a session/login landing in that window reads
+  // "no such session" and the app mistakes a healthy saved session for an
+  // expired one. The first boot after an over-the-top update is the slowest
+  // (cold caches, AV scanning the new binaries, sql.js loading the whole DB
+  // file), so that is exactly when the boot-time session validation used to
+  // fire inside the window — and the user was thrown to the login screen
+  // despite a valid session. Awaiting init here removes the window: the
+  // port answers only once the data is readable. A failed init (genuinely
+  // corrupt DB) still falls through to listen, preserving the old fail-soft
+  // surface; the app's boot flow then decides recoverability via the saved
+  // cloud session instead of a blind wipe.
+  try {
+    console.log('[Server] Initializing database...');
+    await databaseService.initDatabase();
+    console.log('[Server] ✅ Database initialized');
+  } catch (e) {
+    console.error('[Server] ⚠️ Database initialization failed:', e.message);
+  }
+
   // Start server
   return new Promise((resolve, reject) => {
     try {
@@ -266,14 +287,11 @@ async function startServer(port = 4201, userDataPath = null) {
         console.log(`[Server] ✅ Server listening on http://127.0.0.1:${port}`);
         console.log(`[Server] ✅ Health check: http://127.0.0.1:${port}/health`);
         console.log(`[Server] ✅ API: http://127.0.0.1:${port}/api`);
-        
-        // Initialize database in background
+
+        // Cloud/sync wiring still runs in the background — it does network
+        // work and must not delay the port (the database no longer does).
         setImmediate(async () => {
           try {
-            console.log('[Server] Initializing database in background...');
-            await databaseService.initDatabase();
-            console.log('[Server] ✅ Database initialized');
-
             // Set up cloud API sync
             const cloudApi = require('./services/cloud-api.service');
             syncService.setCloudApi(cloudApi);
