@@ -1,12 +1,19 @@
 /**
  * Welcome screen CLONE sections for the /zapeera account home.
  *
- * A faithful visual clone of Muhammad's reference mockup (sidebar and
- * header live in WelcomeLayout): compact white cards on a white page,
- * blue/violet palette (NOT the app green), stat cards with the icon +
- * label row, business cards with the 2×2 Plan/Expires/Branches/Type
- * grid, the full-width Sync & Connectivity band, the 4-panel bottom
- * row and the Stay in Control banner.
+ * A faithful visual clone of Muhammad's reference mockup: compact
+ * white cards on a white page, blue/violet palette (NOT the app
+ * green), stat cards with the icon + label row, business cards with
+ * the 2×2 Plan/Expires/Branches/Type grid, the full-width Sync &
+ * Connectivity band, the 4-panel bottom row and the Stay in Control
+ * banner.
+ *
+ * The SHELL is the app's existing ZapeeraLayout — Muhammad's
+ * correction (2026-10-29): "sidebar wohi pehly waali rakhni hai"
+ * (keep the previous sidebar). The clone's WelcomeLayout shell was
+ * removed; the layout header provides search / bell / avatar, and
+ * the time-aware greeting (CloneGreeting) sits at the top of the
+ * content area — the same approach as the v1.0.14 hub build.
  *
  * REAL DATA ONLY — the wiring is the same proven sourcing as the
  * previous hub build: businesses/branches/roles from useAdmin
@@ -79,7 +86,7 @@ import {
   type Entitlement,
   type EntitlementsMap,
 } from "@/components/user-dashboard/business-cards";
-import { usePendingInvites } from "@/components/user-dashboard/welcome-screen";
+import { usePendingInvites, getTimeGreeting } from "@/components/user-dashboard/welcome-screen";
 import {
   readUserScopedBusinesses,
   writeUserScopedBusinesses,
@@ -87,7 +94,6 @@ import {
 } from "@/lib/user-scoped-storage";
 import { useAccountStatus } from "@/lib/account-status";
 import { DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
-import { useWelcomeSearch } from "@/components/layout/WelcomeLayout";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -206,6 +212,24 @@ export function useBusinessEntitlements(businessList: Array<{ id: string }>) {
 /* Join / Create row — in the reference these sit right-aligned above  */
 /* the stat cards, NOT inside the My Businesses toolbar.               */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Greeting — top of the content area. The shell is the app's          */
+/* existing ZapeeraLayout, whose header already provides search,       */
+/* bell and avatar, so the time-aware greeting lives here — the        */
+/* same approach as the v1.0.14 hub build.                             */
+/* ------------------------------------------------------------------ */
+export function CloneGreeting() {
+  const { user } = useAuth();
+  return (
+    <div className="mb-6">
+      <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">
+        {getTimeGreeting()}, {user?.name?.split(" ")[0] || "there"} <span aria-hidden>👋</span>
+      </h1>
+      <p className="mt-1 text-sm text-[#8c95b0]">Here&apos;s an overview of your businesses and account.</p>
+    </div>
+  );
+}
+
 export function CloneActionRow({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-end gap-2.5">
@@ -453,26 +477,20 @@ export function CloneBusinessSection({
   const { user } = useAuth();
   const { allCompanies } = useAdmin();
   const runtime = useRuntime();
-  const { query } = useWelcomeSearch();
   const [view, setView] = useState<BusinessView>("grid");
   const [filter, setFilter] = useState<StatusFilter>("all");
 
   const businessList = useMemo(() => (allCompanies || []) as CompanyLike[], [allCompanies]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return businessList.filter((b) => {
       if (filter !== "all") {
         const ent = entitlements[b.id];
         if (!(entLoading && !ent) && normalizeStatus(ent?.subscriptionStatus) !== filter) return false;
       }
-      if (q) {
-        const hay = `${b.name || ""} ${String(b.businessType || "").replace(/_/g, " ")}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
       return true;
     });
-  }, [businessList, entitlements, filter, entLoading, query]);
+  }, [businessList, entitlements, filter, entLoading]);
 
   const openWorkspace = (b: CompanyLike) => {
     recordRecentVisit(b, user?.id);
@@ -558,9 +576,9 @@ export function CloneBusinessSection({
       {visible.length === 0 ? (
         <div className={cn(CARD, "p-10 text-center")}>
           <p className="text-sm font-semibold text-[#0a1128]">
-            {query.trim() ? `No businesses match “${query.trim()}”.` : "No businesses match this filter."}
+            No businesses match this filter.
           </p>
-          <p className="mt-1 text-[13px] text-[#8c95b0]">Try a different search or status, or create a new business.</p>
+          <p className="mt-1 text-[13px] text-[#8c95b0]">Try a different status, or create a new business.</p>
         </div>
       ) : (
         <div className={cn(view === "grid" ? "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-1 gap-4")}>

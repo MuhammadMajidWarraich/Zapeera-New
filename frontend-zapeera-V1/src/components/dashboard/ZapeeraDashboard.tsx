@@ -17,7 +17,7 @@ import {
   X,
   Building2,
 } from "lucide-react";
-import WelcomeLayout from "@/components/layout/WelcomeLayout";
+import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { storedPartnerSlug } from "@/contexts/BrandingContext";
@@ -30,6 +30,7 @@ import {
   CloneActivityPanel,
   CloneBusinessSection,
   CloneControlBanner,
+  CloneGreeting,
   CloneInvitationsPanel,
   CloneQuickActions,
   CloneStatCards,
@@ -176,7 +177,7 @@ const ZapeeraDashboard = () => {
 
   if (currentUser && currentUser.isActive === false) {
     return (
-      <WelcomeLayout>
+      <ZapeeraLayout>
         <div className="pb-14 pt-4">
           <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.05)]">
             <div className="border-b border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-8 py-10 text-center">
@@ -232,14 +233,14 @@ const ZapeeraDashboard = () => {
             </div>
           </div>
         </div>
-      </WelcomeLayout>
+      </ZapeeraLayout>
     );
   }
 
   const businessCount = (allCompanies || []).length;
 
   return (
-    <WelcomeLayout>
+    <ZapeeraLayout>
       <main className="w-full">
         {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
@@ -283,11 +284,15 @@ const ZapeeraDashboard = () => {
           </>
         ) : (
           <>
-            {/* Welcome CLONE of Muhammad's reference mockup — faithful
-                visual structure (action row, stat cards, business grid,
-                sync band, 4-panel row, control banner) on the same real
-                data wiring as the previous hub build. The greeting,
-                search, bell and avatar live in WelcomeLayout's header. */}
+            {/* Welcome CLONE content (Muhammad's reference mockup) —
+                action row, stat cards, business grid, sync band,
+                4-panel row, control banner — on the same real data
+                wiring as the previous hub build. The shell is the
+                app's existing ZapeeraLayout (Muhammad, 2026-10-29:
+                keep the previous sidebar); its header provides the
+                search, bell and avatar, so the time-aware greeting
+                sits at the top of the content area. */}
+            <CloneGreeting />
             <CloneActionRow onCreate={handleCreateBusiness} onJoin={() => navigate("/zapeera/invitations")} />
             <CloneStatCards entitlements={entitlements} entLoading={entLoading} />
             <CloneBusinessSection entitlements={entitlements} entLoading={entLoading} />
@@ -434,7 +439,7 @@ const ZapeeraDashboard = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </WelcomeLayout>
+    </ZapeeraLayout>
   );
 };
 
