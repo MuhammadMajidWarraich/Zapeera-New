@@ -28,11 +28,20 @@ import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/sup
 import {
   InvitationsStrip,
   CompletionStrip,
-  RecentActivity,
-  DesktopBanner,
 } from "@/components/user-dashboard/launchpad";
-import { AccountStats } from "@/components/user-dashboard/widgets";
-import { BusinessCardGrid } from "@/components/user-dashboard/business-cards";
+import {
+  getTimeGreeting,
+  WelcomeStatCards,
+  WelcomeBusinessSection,
+  WelcomeSyncPanel,
+  WelcomeCloudPanel,
+  WelcomeInvitationsPanel,
+  WelcomeActivityPanel,
+  WelcomeQuickActions,
+  WelcomeDownloadWidget,
+  WelcomeStoragePanel,
+  WelcomeControlBanner,
+} from "@/components/user-dashboard/welcome-screen";
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
@@ -272,50 +281,41 @@ const ZapeeraDashboard = () => {
               </div>
             </section>
             <CompletionStrip />
-            <DesktopBanner />
           </>
         ) : (
           <>
-            {/* Reference layout: page title, stat cards, then the
-                portfolio — every business equal, no featured one */}
+            {/* Welcome restyle: time-aware greeting, stat cards, filterable
+                business grid, then the bottom panel grid — every value
+                from the same real sources the old hub used. */}
             <div className="mb-6">
-              <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">Dashboard</h1>
-              <p className="mt-1 text-sm text-[#8c95b0]">Manage your businesses, teams, and account from one place.</p>
+              <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">
+                {getTimeGreeting()}, {currentUser?.name?.split(" ")[0] || "there"} <span aria-hidden>👋</span>
+              </h1>
+              <p className="mt-1 text-sm text-[#8c95b0]">Here&apos;s an overview of your businesses and account.</p>
             </div>
-            <AccountStats />
+            <WelcomeStatCards />
 
-            <section className="mt-10">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
-                  <p className="text-[13px] text-[#8c95b0]">Owned and joined businesses — open the workspace to operate.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/zapeera/invitations")}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-5 py-3 text-sm font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-                  >
-                    <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
-                    Join a Business
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateBusiness}
-                    disabled={!canCreateBusiness}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    <Plus className="h-[16px] w-[16px]" strokeWidth={2.5} />
-                    Create New Business
-                  </button>
-                </div>
+            <WelcomeBusinessSection
+              onCreate={handleCreateBusiness}
+              onJoin={() => navigate("/zapeera/invitations")}
+            />
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="space-y-6">
+                <WelcomeSyncPanel />
+                <WelcomeCloudPanel />
+                <WelcomeStoragePanel />
               </div>
-              <BusinessCardGrid />
-            </section>
+              <div className="space-y-6">
+                <WelcomeInvitationsPanel />
+                <WelcomeActivityPanel onOpen={openWorkspace} />
+                <WelcomeQuickActions onCreate={handleCreateBusiness} />
+                <WelcomeDownloadWidget />
+              </div>
+            </div>
 
+            <WelcomeControlBanner />
             <CompletionStrip />
-            <RecentActivity onOpen={openWorkspace} />
-            <DesktopBanner />
           </>
         )}
       </main>
