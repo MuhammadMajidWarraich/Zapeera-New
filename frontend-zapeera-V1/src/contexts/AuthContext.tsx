@@ -9,6 +9,12 @@ import {
   writeStoredUser,
 } from '../lib/session-storage';
 import { purgeUserScopedBusinesses } from '../lib/user-scoped-storage';
+import {
+  createDesktopSessionRestoreDeps,
+  restoreDesktopSession,
+  type DesktopSessionRestoreOutcome,
+} from '../lib/desktop-session-restore';
+import { clearCloudToken, clearLocalToken } from '../services/api-clients';
 
 interface Membership {
   id: string;
@@ -224,17 +230,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // BEFORE trusting it. A stale session from an older install (or a reset
         // local database) would otherwise cause a storm of 401s on boot; instead
         // we clear it and fall through to the login screen.
-        if (restoreUser && isElectron) {
-          try {
-            const sessionResult = await apiService.sessionLogin();
-            const freshUser = (sessionResult as any)?.data?.user;
-            if (sessionResult?.success && freshUser?.id) {
-              restoreUser = freshUser as Record<string, unknown>;
-            } else {
+        //
+        // The validation itself is resilient (lib/desktop-session-restore):
+        // a failed check is retried once the embedded database is confirmed
+        // ready — the first boot after an over-the-top update is the slowest,
+        // and a not-yet-initialized database used to make a healthy session
+        // look expired — and if the local session is truly gone, the saved
+        // cloud session silently re-provisions a fresh local one. The stored
+        // session is cleared ONLY on a definitively 'invalid' outcome, never
+        // for a transient or update-related failure.
+        let desktopRestoreOutcome: DesktopSessionRestoreOutcome['kind'] | null = null;
+        if (isElectron) {
+          let hasCloudToken = false;
+          try { hasCloudToken = !!localStorage.getItem('cloudAccessToken'); } catch { /* ignore */ }
+          if (restoreUser || hasCloudToken) {
+            try {
+              const outcome = await restoreDesktopSession(createDesktopSessionRestoreDeps());
+              desktopRestoreOutcome = outcome.kind;
+              if (outcome.kind === 'restored') {
+                restoreUser = outcome.user;
+              } else {
+                restoreUser = null;
+                if (outcome.kind === 'invalid') {
+                  // Nothing recoverable remains (the cloud has no usable
+                  // session either) — drop the cloud/local tokens too;
+                  // clearStoredSession below clears the rest.
+                  clearCloudToken();
+                  clearLocalToken();
+                }
+              }
+            } catch {
               restoreUser = null;
+              desktopRestoreOutcome = 'indeterminate';
             }
-          } catch {
-            restoreUser = null;
           }
         }
 
@@ -243,9 +271,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(normalizedUser);
           setIsAuthenticated(true);
           writeStoredUser(normalizedUser);
-        } else if (savedUser) {
-          // Stale/invalid local session — clear it so the app shows the login screen
+        } else if (savedUser && desktopRestoreOutcome !== 'indeterminate') {
+          // Stale/invalid local session — clear it so the app shows the login
+          // screen (this is what stops a truly dead session from 401-storming
+          // on every boot). On an 'indeterminate' desktop outcome (e.g. the
+          // machine is offline and nothing could be verified either way) the
+          // stored session is deliberately KEPT: this boot still lands on
+          // the login screen, but the next boot retries the restore instead
+          // of demanding a password login for a session that may be healthy.
           clearStoredSession();
+          setUser(null);
+          setIsAuthenticated(false);
+        } else if (desktopRestoreOutcome === 'indeterminate') {
           setUser(null);
           setIsAuthenticated(false);
         }
