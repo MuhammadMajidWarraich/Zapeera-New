@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { config } from "@/lib/config";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
   X,
   Building2,
 } from "lucide-react";
-import ZapeeraLayout from "@/components/layout/ZapeeraLayout";
+import WelcomeLayout from "@/components/layout/WelcomeLayout";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { storedPartnerSlug } from "@/contexts/BrandingContext";
@@ -26,22 +26,17 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
 import {
-  InvitationsStrip,
-  CompletionStrip,
-} from "@/components/user-dashboard/launchpad";
-import {
-  getTimeGreeting,
-  WelcomeStatCards,
-  WelcomeBusinessSection,
-  WelcomeSyncPanel,
-  WelcomeCloudPanel,
-  WelcomeInvitationsPanel,
-  WelcomeActivityPanel,
-  WelcomeQuickActions,
-  WelcomeDownloadWidget,
-  WelcomeStoragePanel,
-  WelcomeControlBanner,
-} from "@/components/user-dashboard/welcome-screen";
+  CloneActionRow,
+  CloneActivityPanel,
+  CloneBusinessSection,
+  CloneControlBanner,
+  CloneInvitationsPanel,
+  CloneQuickActions,
+  CloneStatCards,
+  CloneStorageOrDownloadPanel,
+  CloneSyncBand,
+  useBusinessEntitlements,
+} from "@/components/user-dashboard/welcome-clone";
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
@@ -169,15 +164,23 @@ const ZapeeraDashboard = () => {
 
   const { allCompanies, isLoading: companiesLoading } = useAdmin();
 
+  // One entitlements fetch shared by the stat cards (Active/Inactive
+  // split) and the business grid — same pattern as business-cards.tsx.
+  const businessListMemo = useMemo(
+    () => (allCompanies || []) as Array<{ id: string }>,
+    [allCompanies]
+  );
+  const { entitlements, loading: entLoading } = useBusinessEntitlements(businessListMemo);
+
   const canCreateBusiness = Boolean(currentUser);
 
   if (currentUser && currentUser.isActive === false) {
     return (
-      <ZapeeraLayout>
-        <div className="px-4 pb-14 pt-9 sm:px-8 lg:px-11">
+      <WelcomeLayout>
+        <div className="pb-14 pt-4">
           <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.05)]">
-            <div className="border-b border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-8 py-10 text-center">
-              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-lg">
+            <div className="border-b border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-8 py-10 text-center">
+              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#7c3aed] shadow-lg">
                 <MessageCircle className="h-8 w-8 text-white" />
               </div>
               <h1 className="text-2xl font-extrabold tracking-tight text-[#0a1128]">Account disabled</h1>
@@ -229,18 +232,15 @@ const ZapeeraDashboard = () => {
             </div>
           </div>
         </div>
-      </ZapeeraLayout>
+      </WelcomeLayout>
     );
   }
 
   const businessCount = (allCompanies || []).length;
 
   return (
-    <ZapeeraLayout>
-      <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
-        {/* Pending invitations are actionable — surface them first */}
-        <InvitationsStrip />
-
+    <WelcomeLayout>
+      <main className="w-full">
         {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
             <div className="h-[132px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
@@ -251,8 +251,8 @@ const ZapeeraDashboard = () => {
           <>
             {/* Zero businesses — strong first-run state */}
             <section className="overflow-hidden rounded-[24px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-              <div className="bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-12">
-                <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.3)]">
+              <div className="bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-12">
+                <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-white shadow-[0_8px_24px_rgba(37,99,235,0.3)]">
                   <Building2 className="h-8 w-8" />
                 </div>
                 <h2 className="text-[24px] font-extrabold tracking-tight text-[#0a1128] sm:text-[28px]">Let's set up your first business</h2>
@@ -264,7 +264,7 @@ const ZapeeraDashboard = () => {
                     type="button"
                     onClick={handleCreateBusiness}
                     disabled={!canCreateBusiness}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-primary px-7 text-[15px] font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-px hover:bg-primary/90 hover:shadow-medium disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#2563eb] px-7 text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:bg-[#1d4ed8] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
                     Create New Business
@@ -274,48 +274,31 @@ const ZapeeraDashboard = () => {
                     onClick={() => navigate("/zapeera/invitations")}
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.1)] bg-white px-7 text-[15px] font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7] sm:w-auto"
                   >
-                    <UserPlus className="h-[18px] w-[18px] text-[#1a52c5]" />
+                    <UserPlus className="h-[18px] w-[18px] text-[#2563eb]" />
                     Join a Business
                   </button>
                 </div>
               </div>
             </section>
-            <CompletionStrip />
           </>
         ) : (
           <>
-            {/* Welcome restyle: time-aware greeting, stat cards, filterable
-                business grid, then the bottom panel grid — every value
-                from the same real sources the old hub used. */}
-            <div className="mb-6">
-              <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">
-                {getTimeGreeting()}, {currentUser?.name?.split(" ")[0] || "there"} <span aria-hidden>👋</span>
-              </h1>
-              <p className="mt-1 text-sm text-[#8c95b0]">Here&apos;s an overview of your businesses and account.</p>
+            {/* Welcome CLONE of Muhammad's reference mockup — faithful
+                visual structure (action row, stat cards, business grid,
+                sync band, 4-panel row, control banner) on the same real
+                data wiring as the previous hub build. The greeting,
+                search, bell and avatar live in WelcomeLayout's header. */}
+            <CloneActionRow onCreate={handleCreateBusiness} onJoin={() => navigate("/zapeera/invitations")} />
+            <CloneStatCards entitlements={entitlements} entLoading={entLoading} />
+            <CloneBusinessSection entitlements={entitlements} entLoading={entLoading} />
+            <CloneSyncBand />
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.05fr_1.15fr_0.85fr_0.95fr]">
+              <CloneInvitationsPanel />
+              <CloneActivityPanel onOpen={openWorkspace} />
+              <CloneQuickActions />
+              <CloneStorageOrDownloadPanel />
             </div>
-            <WelcomeStatCards />
-
-            <WelcomeBusinessSection
-              onCreate={handleCreateBusiness}
-              onJoin={() => navigate("/zapeera/invitations")}
-            />
-
-            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="space-y-6">
-                <WelcomeSyncPanel />
-                <WelcomeCloudPanel />
-                <WelcomeStoragePanel />
-              </div>
-              <div className="space-y-6">
-                <WelcomeInvitationsPanel />
-                <WelcomeActivityPanel onOpen={openWorkspace} />
-                <WelcomeQuickActions onCreate={handleCreateBusiness} />
-                <WelcomeDownloadWidget />
-              </div>
-            </div>
-
-            <WelcomeControlBanner />
-            <CompletionStrip />
+            <CloneControlBanner />
           </>
         )}
       </main>
@@ -451,7 +434,7 @@ const ZapeeraDashboard = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </ZapeeraLayout>
+    </WelcomeLayout>
   );
 };
 
