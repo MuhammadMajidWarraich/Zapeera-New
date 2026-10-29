@@ -5024,8 +5024,19 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   )}
                 </div>
 
-                {/* Line items */}
-                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-1.5 sm:px-4 md:min-h-[150px] md:py-3">
+                {/* Line items. Short-viewport floor (bug fix
+                    2026-10-30): the rail's fixed parts (header 53 +
+                    patient 73 + checkout footer 127) plus this floor
+                    must fit the phone's visible height — at a 560px
+                    viewport the 120px floor pushed the shrink-0
+                    footer 40px past the card's bottom edge and the
+                    card's overflow-hidden cut the Proceed to Payment
+                    button mid-height, unreachable (nothing scrolls:
+                    the page shell is exactly viewport-height). Below
+                    a 600px viewport height the floor drops to 72px —
+                    the items list itself scrolls, so a smaller floor
+                    costs nothing but empty space. md+ unchanged. */}
+                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-1.5 sm:px-4 md:min-h-[150px] md:py-3 [@media(max-height:600px)]:min-h-[72px]">
                 {invoiceItems.length > 0 && (
                   <div className="flex items-center justify-between px-1 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8c95b0] md:pb-2">
                     <span>Item Description</span>
