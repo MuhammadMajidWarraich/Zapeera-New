@@ -8,7 +8,7 @@ export const DESKTOP_DOWNLOAD_URL =
 
 /** Direct download link for the Android app APK (served from zapeera.seikho.online/downloads). */
 export const ANDROID_DOWNLOAD_URL =
-  "https://zapeera.seikho.online/downloads/Zapeera-Android-0.2.7-debug.apk";
+  "https://zapeera.seikho.online/downloads/Zapeera-Android-1.0.15.apk";
 
 function digits(phone: string): string {
   return String(phone || "").replace(/[^0-9]/g, "");

@@ -7,8 +7,8 @@ android {
         applicationId "com.seikho.zapeera"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "0.2.7"
+        versionCode 10
+        versionName "1.0.15"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -30,6 +30,9 @@ android {
     }
     buildTypes {
         release {
+            // Signed with the same shared keystore as the debug builds, so
+            // release APKs install as upgrades over every previous build.
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
