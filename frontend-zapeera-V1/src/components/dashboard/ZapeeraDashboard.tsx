@@ -178,7 +178,7 @@ const ZapeeraDashboard = () => {
   if (currentUser && currentUser.isActive === false) {
     return (
       <ZapeeraLayout>
-        <div className="pb-14 pt-4">
+        <div className="px-4 pb-14 pt-4 sm:px-8 lg:px-11">
           <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.05)]">
             <div className="border-b border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-8 py-10 text-center">
               <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#7c3aed] shadow-lg">
@@ -241,7 +241,7 @@ const ZapeeraDashboard = () => {
 
   return (
     <ZapeeraLayout>
-      <main className="w-full">
+      <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
             <div className="h-[132px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
