@@ -2,7 +2,7 @@ import { Laptop, Monitor, Smartphone, ShieldCheck, CheckCircle2, ArrowLeft } fro
 import { useNavigate } from "react-router-dom";
 import { useRuntime } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
-import { DESKTOP_DOWNLOAD_URL, ANDROID_DOWNLOAD_URL } from "@/lib/support-links";
+import { DESKTOP_DOWNLOAD_URL, ANDROID_DOWNLOAD_URL, ANDROID_VERSION } from "@/lib/support-links";
 
 const DownloadsPage = () => {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ const DownloadsPage = () => {
               Download Zapeera for Android (APK)
             </a>
           </Button>
-          <p className="text-[12px] leading-relaxed text-[#8c95b0]">Direct APK download · version 0.1.0 · not on Google Play yet.</p>
+          <p className="text-[12px] leading-relaxed text-[#8c95b0]">Direct APK download · version {ANDROID_VERSION} · not on Google Play yet.</p>
         </div>
         <div className="border-t border-[rgba(15,23,60,0.06)] bg-[#f8fafc] p-8 md:border-l md:border-t-0">
           <h3 className="mb-4 flex items-center gap-2 text-[15px] font-bold text-[#0a1128]">

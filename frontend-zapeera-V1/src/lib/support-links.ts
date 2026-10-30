@@ -10,6 +10,12 @@ export const DESKTOP_DOWNLOAD_URL =
 export const ANDROID_DOWNLOAD_URL =
   "https://zapeera.seikho.online/downloads/Zapeera-Android-1.0.15.apk";
 
+/** Version labels derived from the download URLs above — single source of truth, cannot go stale. */
+export const DESKTOP_VERSION =
+  DESKTOP_DOWNLOAD_URL.match(/Zapeera-Setup-([\d.]+)\.exe/)?.[1] ?? "";
+export const ANDROID_VERSION =
+  ANDROID_DOWNLOAD_URL.match(/Zapeera-Android-([\d.]+)\.apk/)?.[1] ?? "";
+
 function digits(phone: string): string {
   return String(phone || "").replace(/[^0-9]/g, "");
 }
