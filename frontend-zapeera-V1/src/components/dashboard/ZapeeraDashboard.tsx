@@ -26,7 +26,6 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { whatsappUrl, emailUrl, callUrl, SUPPORT_PHONE_DISPLAY } from "@/lib/support-links";
 import {
-  CloneActionRow,
   CloneActivityPanel,
   CloneBusinessSection,
   CloneControlBanner,
@@ -283,19 +282,24 @@ const ZapeeraDashboard = () => {
           </>
         ) : (
           <>
-            {/* Welcome CLONE content (Muhammad's reference mockup) —
-                action row, stat cards, business grid, sync band,
-                4-panel row, control banner — on the same real data
-                wiring as the previous hub build. The shell is the
-                app's existing ZapeeraLayout (Muhammad, 2026-10-29:
+            {/* Welcome content — stat cards, business grid, sync
+                band, 4-panel row, control banner — on the same real
+                data wiring as the previous hub build. The shell is
+                the app's existing ZapeeraLayout (Muhammad, 2026-10-29:
                 keep the previous sidebar). The ONE greeting lives in
                 the layout top bar (Muhammad, 2026-10-30: the
                 page-level greeting block duplicated it and was
-                removed); the content starts with the action row,
-                exactly as the reference flows after its header. */}
-            <CloneActionRow onCreate={handleCreateBusiness} onJoin={() => navigate("/zapeera/invitations")} />
+                removed). The Join / Create actions sit in the My
+                Businesses header row beside the All Status filter,
+                and the businesses are grid-only (Muhammad,
+                2026-10-31). Colours are the app's own branding. */}
             <CloneStatCards entitlements={entitlements} entLoading={entLoading} />
-            <CloneBusinessSection entitlements={entitlements} entLoading={entLoading} />
+            <CloneBusinessSection
+              entitlements={entitlements}
+              entLoading={entLoading}
+              onCreate={handleCreateBusiness}
+              onJoin={() => navigate("/zapeera/invitations")}
+            />
             <CloneSyncBand />
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.35fr_1.25fr_1fr_1.05fr] 2xl:grid-cols-[1.75fr_1.55fr_1fr_1fr]">
               <CloneInvitationsPanel />

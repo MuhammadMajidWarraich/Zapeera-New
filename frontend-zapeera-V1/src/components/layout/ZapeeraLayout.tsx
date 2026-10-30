@@ -445,7 +445,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 aria-label={online ? "Online" : "Offline"}
                 className={cn(
                   "hidden h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold text-[#0a1128] md:inline-flex",
-                  online ? "bg-[#e9f9ef]" : "bg-[#f0f2f7]"
+                  online ? "bg-[#e5f6ec]" : "bg-[#f0f2f7]"
                 )}
               >
                 <span className={cn("h-2 w-2 rounded-full", online ? "bg-green-500" : "bg-gray-400")} />

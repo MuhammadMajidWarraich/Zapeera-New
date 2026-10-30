@@ -60,7 +60,6 @@ import {
   HardDrive,
   Layers,
   LayoutGrid,
-  List,
   LogIn,
   Monitor,
   MoreVertical,
@@ -110,8 +109,6 @@ const CARD =
   "rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_1px_3px_rgba(16,24,40,0.05)]";
 const BLUE_BTN =
   "bg-[#2563eb] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:bg-[#1d4ed8]";
-const OUTLINE_BTN =
-  "border border-[#2563eb]/35 bg-white text-[#2563eb] transition-all hover:-translate-y-px hover:bg-[#e8effd]";
 const GRADIENT_BTN =
   "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:opacity-95";
 
@@ -216,33 +213,11 @@ export function useBusinessEntitlements(businessList: Array<{ id: string }>) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Join / Create row — in the reference these sit right-aligned above  */
-/* the stat cards, NOT inside the My Businesses toolbar. With the     */
-/* page-level greeting removed (2026-10-30 parity pass), this row is   */
-/* the first content under the layout top bar.                         */
+/* Join / Create actions — Muhammad (2026-10-31): NOT a row at the    */
+/* top of the page; the two buttons live in the My Businesses header  */
+/* row, next to the All Status filter (see CloneBusinessSection).     */
+/* Colours stay the app's own branding (pre-parity v1.0.15 styles).   */
 /* ------------------------------------------------------------------ */
-export function CloneActionRow({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
-  return (
-    <div className="mb-5 flex flex-wrap items-center justify-end gap-2.5">
-      <button
-        type="button"
-        onClick={onJoin}
-        className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-4 text-[13.5px] font-semibold text-[#0a1128] transition-all hover:-translate-y-px hover:border-[#2563eb]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
-      >
-        <UserPlus className="h-4 w-4 text-[#2563eb]" />
-        Join a Business
-      </button>
-      <button
-        type="button"
-        onClick={onCreate}
-        className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] px-4 text-[13.5px] font-semibold", GRADIENT_BTN)}
-      >
-        <Plus className="h-4 w-4" strokeWidth={2.5} />
-        Create New Business
-      </button>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Stat cards — icon + label row, big value, honest subtext.           */
@@ -298,7 +273,7 @@ export function CloneStatCards({
     return { owned, joined, branches, active, inactive, roleCounts };
   }, [companies, user, entitlements]);
 
-  const roleDot: Record<string, string> = { Owner: "#dc2626", Manager: "#ea580c", Cashier: "#2563eb" };
+  const roleDot: Record<string, string> = { Owner: "#7c3aed", Manager: "#ea580c", Cashier: "#2563eb" };
   const roleParts = [...stats.roleCounts.entries()];
 
   const security = useMemo(() => {
@@ -418,7 +393,6 @@ export function CloneStatCards({
 /* Businesses — clone cards: type tile, status badge, colored role,    */
 /* 2×2 Plan / Expires / Branches / Type grid, blue action button.      */
 /* ------------------------------------------------------------------ */
-type BusinessView = "grid" | "list";
 type StatusFilter = "all" | "active" | "trial" | "expired" | "pending" | "inactive";
 
 function typeVisual(type?: string | null): { icon: React.ElementType; tile: string } {
@@ -460,15 +434,18 @@ function expiryParts(status: string, ent: Entitlement): { label: string; date: s
 export function CloneBusinessSection({
   entitlements,
   entLoading,
+  onCreate,
+  onJoin,
 }: {
   entitlements: EntitlementsMap;
   entLoading: boolean;
+  onCreate: () => void;
+  onJoin: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { allCompanies } = useAdmin();
   const runtime = useRuntime();
-  const [view, setView] = useState<BusinessView>("grid");
   const [filter, setFilter] = useState<StatusFilter>("all");
 
   const businessList = useMemo(() => (allCompanies || []) as CompanyLike[], [allCompanies]);
@@ -517,34 +494,25 @@ export function CloneBusinessSection({
           <p className="mt-0.5 text-[13px] text-[#8c95b0]">Access and manage all the businesses you own or are a member of.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white p-1" role="group" aria-label="View mode">
-            <button
-              type="button"
-              onClick={() => setView("grid")}
-              aria-pressed={view === "grid"}
-              aria-label="Grid view"
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-colors",
-                view === "grid" ? "bg-[#e8effd] text-[#2563eb]" : "text-[#4a5578] hover:bg-[#f0f2f7]"
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Grid View
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              aria-pressed={view === "list"}
-              aria-label="List view"
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-colors",
-                view === "list" ? "bg-[#e8effd] text-[#2563eb]" : "text-[#4a5578] hover:bg-[#f0f2f7]"
-              )}
-            >
-              <List className="h-4 w-4" />
-              List View
-            </button>
-          </div>
+          {/* Join / Create — moved here from the top of the page
+              (Muhammad, 2026-10-31), beside the All Status filter.
+              The Grid/List toggle is gone: grid only, always. */}
+          <button
+            type="button"
+            onClick={onJoin}
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-4 text-[13.5px] font-semibold text-[#0a1128] transition-all hover:-translate-y-px hover:border-[#2563eb]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
+          >
+            <UserPlus className="h-4 w-4 text-[#2563eb]" />
+            Join a Business
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            className={cn("inline-flex h-10 items-center gap-2 rounded-[10px] px-4 text-[13.5px] font-semibold", GRADIENT_BTN)}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Create New Business
+          </button>
           <label className="sr-only" htmlFor="welcome-status-filter">
             Filter by status
           </label>
@@ -572,7 +540,7 @@ export function CloneBusinessSection({
           <p className="mt-1 text-[13px] text-[#8c95b0]">Try a different status, or create a new business.</p>
         </div>
       ) : (
-        <div className={cn(view === "grid" ? "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-1 gap-4")}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {visible.map((b) => {
             const ent = entitlements[b.id] || {};
             const status = normalizeStatus(ent.subscriptionStatus);
@@ -592,11 +560,10 @@ export function CloneBusinessSection({
                 key={b.id}
                 className={cn(
                   CARD,
-                  "group flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)]",
-                  view === "list" && "md:flex-row md:items-center md:gap-6"
+                  "group flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
                 )}
               >
-                <div className={cn("min-w-0", view === "list" && "md:flex-1")}>
+                <div className="min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", visual.tile)}>
                       <TypeIcon className="h-[22px] w-[22px]" />
@@ -684,12 +651,12 @@ export function CloneBusinessSection({
                   </div>
                 </div>
 
-                <div className={cn("mt-4", view === "list" && "md:mt-0 md:w-52 md:shrink-0")}>
+                <div className="mt-4">
                   {status === "expired" && !entPending ? (
                     <button
                       type="button"
                       onClick={() => openSubscription(b)}
-                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", OUTLINE_BTN)}
+                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", BLUE_BTN)}
                     >
                       Renew Plan
                       <ArrowRight className="h-4 w-4" />
@@ -698,7 +665,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => navigate("/zapeera/my-businesses")}
-                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", OUTLINE_BTN)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd]"
                     >
                       View Details
                       <ArrowRight className="h-4 w-4" />
@@ -707,7 +674,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => openWorkspace(b)}
-                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", GRADIENT_BTN)}
+                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", BLUE_BTN)}
                     >
                       Open Workspace
                       <ArrowRight className="h-4 w-4" />
@@ -1080,7 +1047,7 @@ export function CloneInvitationsPanel() {
                     <p className="mt-0.5 truncate text-xs text-[#8c95b0]">{invitationExpiryLabel(inv.expiresAt)}</p>
                   </div>
                   {inv.roleName && (
-                    <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold", rolePillClass(inv.roleName))}>
+                    <span className="shrink-0 rounded-full bg-[#e5f6ec] px-2.5 py-1 text-[11px] font-semibold text-[#16a34a]">
                       {inv.roleName}
                     </span>
                   )}
@@ -1243,7 +1210,7 @@ export function CloneQuickActions() {
               onClick={() => navigate(a.to)}
               className="flex w-full items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.07)] px-3 py-2.5 text-left transition-colors hover:border-[#2563eb]/25 hover:bg-[#f7faff]"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#eef1f7] text-[#4a5578]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e8effd] text-[#2563eb]">
                 <Icon className="h-4 w-4" />
               </span>
               <span className="flex-1 text-[13.5px] font-semibold text-[#0a1128]">{a.label}</span>
