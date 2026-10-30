@@ -11,9 +11,13 @@
  * The SHELL is the app's existing ZapeeraLayout — Muhammad's
  * correction (2026-10-29): "sidebar wohi pehly waali rakhni hai"
  * (keep the previous sidebar). The clone's WelcomeLayout shell was
- * removed; the layout header provides search / bell / avatar, and
- * the time-aware greeting (CloneGreeting) sits at the top of the
- * content area — the same approach as the v1.0.14 hub build.
+ * removed; the layout header provides search / bell / avatar.
+ * PARITY PASS (2026-10-30): the page-level greeting block was
+ * removed on Muhammad's instruction — the layout top bar already
+ * carries the greeting + subtitle, so the page opens directly
+ * with the action row, as the reference flows after its header.
+ * The header's dashboard-route search placeholder and real-state
+ * Online pill live in ZapeeraLayout (route-scoped).
  *
  * REAL DATA ONLY — the wiring is the same proven sourcing as the
  * previous hub build: businesses/branches/roles from useAdmin
@@ -45,6 +49,7 @@ import {
   BookOpen,
   Building2,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   Cloud,
   CreditCard,
@@ -86,7 +91,7 @@ import {
   type Entitlement,
   type EntitlementsMap,
 } from "@/components/user-dashboard/business-cards";
-import { usePendingInvites, getTimeGreeting } from "@/components/user-dashboard/welcome-screen";
+import { usePendingInvites } from "@/components/user-dashboard/welcome-screen";
 import {
   readUserScopedBusinesses,
   writeUserScopedBusinesses,
@@ -105,6 +110,8 @@ const CARD =
   "rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_1px_3px_rgba(16,24,40,0.05)]";
 const BLUE_BTN =
   "bg-[#2563eb] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:bg-[#1d4ed8]";
+const OUTLINE_BTN =
+  "border border-[#2563eb]/35 bg-white text-[#2563eb] transition-all hover:-translate-y-px hover:bg-[#e8effd]";
 const GRADIENT_BTN =
   "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:opacity-95";
 
@@ -210,26 +217,10 @@ export function useBusinessEntitlements(businessList: Array<{ id: string }>) {
 
 /* ------------------------------------------------------------------ */
 /* Join / Create row — in the reference these sit right-aligned above  */
-/* the stat cards, NOT inside the My Businesses toolbar.               */
+/* the stat cards, NOT inside the My Businesses toolbar. With the     */
+/* page-level greeting removed (2026-10-30 parity pass), this row is   */
+/* the first content under the layout top bar.                         */
 /* ------------------------------------------------------------------ */
-/* ------------------------------------------------------------------ */
-/* Greeting — top of the content area. The shell is the app's          */
-/* existing ZapeeraLayout, whose header already provides search,       */
-/* bell and avatar, so the time-aware greeting lives here — the        */
-/* same approach as the v1.0.14 hub build.                             */
-/* ------------------------------------------------------------------ */
-export function CloneGreeting() {
-  const { user } = useAuth();
-  return (
-    <div className="mb-6">
-      <h1 className="text-[28px] font-extrabold tracking-tight text-[#0a1128]">
-        {getTimeGreeting()}, {user?.name?.split(" ")[0] || "there"} <span aria-hidden>👋</span>
-      </h1>
-      <p className="mt-1 text-sm text-[#8c95b0]">Here&apos;s an overview of your businesses and account.</p>
-    </div>
-  );
-}
-
 export function CloneActionRow({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-end gap-2.5">
@@ -307,7 +298,7 @@ export function CloneStatCards({
     return { owned, joined, branches, active, inactive, roleCounts };
   }, [companies, user, entitlements]);
 
-  const roleDot: Record<string, string> = { Owner: "#7c3aed", Manager: "#ea580c", Cashier: "#2563eb" };
+  const roleDot: Record<string, string> = { Owner: "#dc2626", Manager: "#ea580c", Cashier: "#2563eb" };
   const roleParts = [...stats.roleCounts.entries()];
 
   const security = useMemo(() => {
@@ -348,7 +339,7 @@ export function CloneStatCards({
     },
     {
       key: "roles",
-      icon: Users,
+      icon: UserPlus,
       tint: "bg-[#f0eafd] text-[#7c3aed]",
       label: "My Role Summary",
       value: `${companies.length} Role${companies.length === 1 ? "" : "s"}`,
@@ -379,7 +370,7 @@ export function CloneStatCards({
     },
     {
       key: "pending",
-      icon: Clock,
+      icon: ClipboardCheck,
       tint: "bg-[#fdeeda] text-[#ea580c]",
       label: "Pending Actions",
       value: String(pendingInvites.length),
@@ -406,15 +397,15 @@ export function CloneStatCards({
             key={c.key}
             type="button"
             onClick={c.onClick}
-            className={cn(CARD, "group p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(0,0,0,0.07)]")}
+            className={cn(CARD, "group p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(0,0,0,0.07)]")}
           >
             <span className="flex items-center gap-3">
-              <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-[10px]", c.tint)}>
-                <Icon className="h-[18px] w-[18px]" />
+              <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-[10px]", c.tint)}>
+                <Icon className="h-5 w-5" />
               </span>
-              <span className="min-w-0 text-[12px] font-semibold leading-tight text-[#4a5578]">{c.label}</span>
+              <span className="min-w-0 text-[12.5px] font-semibold leading-tight text-[#4a5578]">{c.label}</span>
             </span>
-            <span className="mt-3 block text-[24px] font-extrabold leading-none tracking-tight text-[#0a1128]">{c.value}</span>
+            <span className="mt-3.5 block text-[26px] font-extrabold leading-none tracking-tight text-[#0a1128]">{c.value}</span>
             <span className="mt-1.5 block text-xs leading-snug text-[#8c95b0]">{c.sub}</span>
           </button>
         );
@@ -439,12 +430,12 @@ function typeVisual(type?: string | null): { icon: React.ElementType; tile: stri
   return { icon: Building2, tile: "bg-[#e8effd] text-[#2563eb]" };
 }
 
-function roleTextClass(role: string): string {
+function rolePillClass(role: string): string {
   const r = role.toUpperCase();
-  if (r === "OWNER") return "text-[#7c3aed]";
-  if (r === "MANAGER") return "text-[#ea580c]";
-  if (r === "CASHIER") return "text-[#2563eb]";
-  return "text-[#4a5578]";
+  if (r === "OWNER") return "bg-[#f0eafd] text-[#7c3aed]";
+  if (r === "MANAGER") return "bg-[#fdeeda] text-[#ea580c]";
+  if (r === "CASHIER") return "bg-[#e8effd] text-[#2563eb]";
+  return "bg-[#eef1f7] text-[#4a5578]";
 }
 
 function expiryParts(status: string, ent: Entitlement): { label: string; date: string | null; danger?: boolean } {
@@ -654,7 +645,11 @@ export function CloneBusinessSection({
                   <p title={b.name} className="mt-3 line-clamp-2 text-[16px] font-bold leading-snug tracking-tight text-[#0a1128]">
                     {b.name}
                   </p>
-                  <p className={cn("mt-0.5 text-[12.5px] font-semibold", roleTextClass(role))}>{role}</p>
+                  <p className="mt-1.5">
+                    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold", rolePillClass(role))}>
+                      {role}
+                    </span>
+                  </p>
 
                   <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-[rgba(15,23,60,0.06)] pt-3">
                     <div className="min-w-0">
@@ -694,7 +689,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => openSubscription(b)}
-                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", BLUE_BTN)}
+                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", OUTLINE_BTN)}
                     >
                       Renew Plan
                       <ArrowRight className="h-4 w-4" />
@@ -703,7 +698,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => navigate("/zapeera/my-businesses")}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd]"
+                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", OUTLINE_BTN)}
                     >
                       View Details
                       <ArrowRight className="h-4 w-4" />
@@ -712,7 +707,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => openWorkspace(b)}
-                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", BLUE_BTN)}
+                      className={cn("inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold", GRADIENT_BTN)}
                     >
                       Open Workspace
                       <ArrowRight className="h-4 w-4" />
@@ -1071,23 +1066,21 @@ export function CloneInvitationsPanel() {
           ))}
         </div>
       ) : invitations.length > 0 ? (
-        <div className="space-y-2.5">
+        <div className="divide-y divide-[rgba(15,23,60,0.06)]">
           {invitations.map((inv) => {
             const busy = actingToken === inv.token;
             return (
-              <div key={inv.invitationId || inv.token} className="rounded-xl border border-[rgba(15,23,60,0.07)] p-3">
+              <div key={inv.invitationId || inv.token} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e8effd] text-[14px] font-bold text-[#2563eb]">
                     {inv.businessName?.charAt(0).toUpperCase() || "B"}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13.5px] font-bold text-[#0a1128]">{inv.businessName}</p>
-                    <p className="mt-0.5 truncate text-xs text-[#8c95b0]">
-                      Invited as {inv.roleName || "Member"} · {invitationExpiryLabel(inv.expiresAt)}
-                    </p>
+                    <p className="mt-0.5 truncate text-xs text-[#8c95b0]">{invitationExpiryLabel(inv.expiresAt)}</p>
                   </div>
                   {inv.roleName && (
-                    <span className="shrink-0 rounded-full bg-[#e5f6ec] px-2.5 py-1 text-[11px] font-semibold text-[#16a34a]">
+                    <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold", rolePillClass(inv.roleName))}>
                       {inv.roleName}
                     </span>
                   )}
@@ -1117,9 +1110,9 @@ export function CloneInvitationsPanel() {
           })}
         </div>
       ) : fetchFailed && pendingFromMemberships.length > 0 ? (
-        <div className="space-y-2.5">
+        <div className="divide-y divide-[rgba(15,23,60,0.06)]">
           {pendingFromMemberships.map((m: any) => (
-            <div key={m.businessId} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.07)] p-3">
+            <div key={m.businessId} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e8effd] text-[14px] font-bold text-[#2563eb]">
                 {(m.businessName || "B").charAt(0).toUpperCase()}
               </span>
@@ -1250,7 +1243,7 @@ export function CloneQuickActions() {
               onClick={() => navigate(a.to)}
               className="flex w-full items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.07)] px-3 py-2.5 text-left transition-colors hover:border-[#2563eb]/25 hover:bg-[#f7faff]"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e8effd] text-[#2563eb]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#eef1f7] text-[#4a5578]">
                 <Icon className="h-4 w-4" />
               </span>
               <span className="flex-1 text-[13.5px] font-semibold text-[#0a1128]">{a.label}</span>

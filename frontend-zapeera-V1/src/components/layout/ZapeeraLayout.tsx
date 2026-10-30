@@ -82,6 +82,30 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
   const greeting = getGreeting();
 
+  // Dashboard route (the account home) — the reference header row
+  // applies here only: "Search anything..." placeholder and the
+  // Online status pill. Other routes keep the standard header.
+  const isDashboardRoute =
+    location.pathname === "/" || location.pathname === "/dashboard" || location.pathname === "/zapeera";
+
+  // Online pill state — REAL state only, never hardcoded: desktop
+  // reads the embedded cloud connection state; web reads the
+  // browser's online status (with live online/offline events).
+  const [browserOnline, setBrowserOnline] = useState<boolean>(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
+  useEffect(() => {
+    const on = () => setBrowserOnline(true);
+    const off = () => setBrowserOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+  const online = runtime.isDesktop ? runtime.cloudState === "online" : browserOnline;
+
   // Pending invitation count from memberships (status != ACTIVE/DOWNLOADED)
   const pendingInvites = useMemo(() => {
     if (!Array.isArray(user?.memberships)) return 0;
@@ -381,7 +405,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                   setSearchOpen(true);
                 }}
                 onFocus={() => setSearchOpen(true)}
-                placeholder="Search businesses, invitations, support…"
+                placeholder={isDashboardRoute ? "Search anything..." : "Search businesses, invitations, support…"}
                 aria-label="Search"
                 className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#fbfcfe] pl-9 pr-9 text-[13px] text-[#0a1128] outline-none transition-all focus:w-80 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-[330px]"
               />
@@ -413,6 +437,21 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 </div>
               )}
             </div>
+
+            {/* Online status pill — dashboard route only, real state */}
+            {isDashboardRoute && (
+              <span
+                role="status"
+                aria-label={online ? "Online" : "Offline"}
+                className={cn(
+                  "hidden h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold text-[#0a1128] md:inline-flex",
+                  online ? "bg-[#e9f9ef]" : "bg-[#f0f2f7]"
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full", online ? "bg-green-500" : "bg-gray-400")} />
+                {online ? "Online" : "Offline"}
+              </span>
+            )}
 
             {/* Keyboard shortcuts help */}
             <button
