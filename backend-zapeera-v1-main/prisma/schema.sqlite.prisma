@@ -548,7 +548,7 @@ model Product {
   // 1000 (grams per kilo) — the "pack" IS the kilo. Null = sold by
   // pieces (the historical behaviour). Gated by business type (see
   // module-applicability.util.ts isWeightSellingAllowedForBusinessType):
-  // only DEPARTMENTAL_STORE / RETAIL_STORE may carry KG products.
+  // only RETAIL_STORE may carry KG products.
   unitType             String?
   barcode              String?   @unique
   additionalBarcodes   String?   // JSON array of additional barcodes: ["CODE1","CODE2"]

@@ -16,6 +16,41 @@ function registerCategoriesRoutes(app, authMiddleware, deps) {
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
           saveDatabase, initDatabase } = deps;
 
+  // Per-industry category types (business-types overhaul, 2026-10-31;
+  // mirrors the cloud backend's src/utils/category-types.util.ts).
+  // PHARMACY → MEDICAL/NON_MEDICAL/GENERAL, RETAIL_STORE →
+  // FOOD/NON_FOOD/GENERAL, HOTEL/CLINIC → GENERAL only. Legacy
+  // departmental values resolve to RETAIL_STORE; unknown/custom
+  // business types fall through to the legacy (pharmacy) set.
+  const CATEGORY_TYPES_BY_BUSINESS_TYPE = {
+    PHARMACY: ['MEDICAL', 'NON_MEDICAL', 'GENERAL'],
+    RETAIL_STORE: ['FOOD', 'NON_FOOD', 'GENERAL'],
+    HOTEL: ['GENERAL'],
+    CLINIC: ['GENERAL']
+  };
+  const LEGACY_RETAIL_ALIASES = ['STORE', 'DEPARTMENT_STORE', 'DEPARTMENTAL_STORE', 'SUPERMARKET', 'GROCERY_STORE'];
+  const allowedCategoryTypesFor = (businessType) => {
+    let key = String(businessType || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (LEGACY_RETAIL_ALIASES.includes(key)) key = 'RETAIL_STORE';
+    return CATEGORY_TYPES_BY_BUSINESS_TYPE[key] || CATEGORY_TYPES_BY_BUSINESS_TYPE.PHARMACY;
+  };
+  const businessTypeForCategoryScope = (companyId, branchId) => {
+    try {
+      if (companyId) {
+        const row = query('SELECT businessType FROM companies WHERE id = ?', [companyId])[0];
+        if (row) return row.businessType || null;
+      }
+      if (branchId) {
+        const branch = query('SELECT companyId FROM branches WHERE id = ?', [branchId])[0];
+        if (branch && branch.companyId) {
+          const company = query('SELECT businessType FROM companies WHERE id = ?', [branch.companyId])[0];
+          if (company) return company.businessType || null;
+        }
+      }
+    } catch { /* unresolved scope → legacy fall-through set */ }
+    return null;
+  };
+
 // GET /api/categories (line 2430)
       app.get('/api/categories', authMiddleware, (req, res) => {
         try {
@@ -205,6 +240,18 @@ function registerCategoriesRoutes(app, authMiddleware, deps) {
           // This ensures created items use the same branchId that will be used for filtering
           const finalBranchId = branchId || selectedBranchId || req.user?.branchId || null;
           const finalCompanyId = companyId || selectedCompanyId || req.user?.companyId || null;
+
+          // Industry gate (2026-10-31): the category type must belong
+          // to the owning business's industry set (mirrors the cloud).
+          const requestedCategoryType = String(type || 'GENERAL').trim().toUpperCase();
+          const allowedCategoryTypes = allowedCategoryTypesFor(businessTypeForCategoryScope(finalCompanyId, finalBranchId));
+          if (!allowedCategoryTypes.includes(requestedCategoryType)) {
+            return res.status(400).json({
+              success: false,
+              message: `Category type "${requestedCategoryType}" is not available for this business. Allowed types: ${allowedCategoryTypes.join(', ')}`
+            });
+          }
+
     
           const id = uuid();
           const timestamp = now();
@@ -244,13 +291,13 @@ function registerCategoriesRoutes(app, authMiddleware, deps) {
     
           const insertSuccess = run(`INSERT INTO categories (id, name, description, type, color, branchId, companyId, createdBy, isActive, createdAt, updatedAt)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-            [id, name, description || null, type, color, finalBranchId, finalCompanyId, req.user?.id || null, timestamp, timestamp]);
+            [id, name, description || null, requestedCategoryType, color, finalBranchId, finalCompanyId, req.user?.id || null, timestamp, timestamp]);
     
           if (!insertSuccess) {
             const errorMsg = lastDbError || 'Unknown database error';
             console.error('[Categories] ❌ SQLite insert failed:', errorMsg);
             console.error('[Categories] SQL:', `INSERT INTO categories (id, name, description, type, color, branchId, companyId, createdBy, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`);
-            console.error('[Categories] Params:', [id, name, description || null, type, color, finalBranchId, finalCompanyId, req.user?.id || null, timestamp, timestamp]);
+            console.error('[Categories] Params:', [id, name, description || null, requestedCategoryType, color, finalBranchId, finalCompanyId, req.user?.id || null, timestamp, timestamp]);
             return res.status(500).json({ success: false, message: 'Failed to create category: ' + errorMsg });
           }
     
@@ -315,6 +362,24 @@ function registerCategoriesRoutes(app, authMiddleware, deps) {
             }
           }
     
+          // Industry gate (2026-10-31, mirrors the cloud): a type
+          // CHANGE must land inside the owning business's industry
+          // set; re-submitting the stored value is grandfathered.
+          if (updateData.type !== undefined && updateData.type !== null && String(updateData.type).trim() !== '') {
+            const newType = String(updateData.type).trim().toUpperCase();
+            const storedType = String(existingCategory.type || 'GENERAL').trim().toUpperCase();
+            if (newType !== storedType) {
+              const allowedTypes = allowedCategoryTypesFor(businessTypeForCategoryScope(existingCategory.companyId, existingCategory.branchId));
+              if (!allowedTypes.includes(newType)) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Category type "${newType}" is not available for this business. Allowed types: ${allowedTypes.join(', ')}`
+                });
+              }
+            }
+            updateData.type = newType;
+          }
+
           // Build update fields - match backend structure
           const updateFields = [];
           const updateValues = [];

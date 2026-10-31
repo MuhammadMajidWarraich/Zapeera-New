@@ -27,18 +27,42 @@
  *   families and have no separate restricted key).
  * - A module listed here applies ONLY to the listed canonical types.
  *   Product variants have no module key (they live inside inventory).
- * - Enforcement applies to the five canonical business types. A custom /
+ * - Enforcement applies to the four canonical business types. A custom /
  *   unknown type key falls through to the DB-driven gates, preserving
  *   legacy behaviour for backoffice-defined types.
  */
 
 export const CANONICAL_BUSINESS_TYPES = [
   'PHARMACY',
-  'DEPARTMENTAL_STORE',
   'RETAIL_STORE',
   'HOTEL',
   'CLINIC',
 ] as const;
+
+/**
+ * Legacy business-type values that resolve to a canonical type
+ * (business-types overhaul, 2026-10-31): DEPARTMENTAL_STORE was merged
+ * into RETAIL_STORE — Muhammad's decision, backed by competitor research
+ * (0 of 8 competitors in Zapeera's comparison set treat "departmental
+ * store" as a separate industry; all use one Retail bucket). The boot
+ * seeder (modules.util ensureBusinessTypesExist) rewrites stored
+ * business rows to RETAIL_STORE; these aliases keep any not-yet-migrated
+ * or externally supplied value behaving as retail in the meantime.
+ * Marketing keeps BOTH names — this merge is system-side only.
+ */
+export const LEGACY_BUSINESS_TYPE_ALIASES: Readonly<Record<string, string>> = {
+  STORE: 'RETAIL_STORE',
+  DEPARTMENT_STORE: 'RETAIL_STORE',
+  DEPARTMENTAL_STORE: 'RETAIL_STORE',
+  SUPERMARKET: 'RETAIL_STORE',
+  GROCERY_STORE: 'RETAIL_STORE',
+};
+
+/** Normalize a business-type value and resolve legacy aliases to canonical. */
+export function resolveCanonicalBusinessTypeKey(value: unknown): string {
+  const key = normalizeBusinessTypeKey(value);
+  return LEGACY_BUSINESS_TYPE_ALIASES[key] || key;
+}
 
 /** module key (normalized) → the ONLY canonical business types it belongs to. */
 export const MODULE_BUSINESS_TYPE_APPLICABILITY: Readonly<Record<string, readonly string[]>> = {
@@ -64,7 +88,7 @@ export function normalizeBusinessTypeKey(value: unknown): string {
 }
 
 export function isCanonicalBusinessType(value: unknown): boolean {
-  return (CANONICAL_BUSINESS_TYPES as readonly string[]).includes(normalizeBusinessTypeKey(value));
+  return (CANONICAL_BUSINESS_TYPES as readonly string[]).includes(resolveCanonicalBusinessTypeKey(value));
 }
 
 /**
@@ -76,7 +100,7 @@ export function isCanonicalBusinessType(value: unknown): boolean {
 export function isModuleApplicableToBusinessType(moduleKey: unknown, businessType: unknown): boolean {
   const allowed = MODULE_BUSINESS_TYPE_APPLICABILITY[normalizeModuleKey(moduleKey)];
   if (!allowed) return true;
-  const typeKey = normalizeBusinessTypeKey(businessType);
+  const typeKey = resolveCanonicalBusinessTypeKey(businessType);
   if (!(CANONICAL_BUSINESS_TYPES as readonly string[]).includes(typeKey)) return true;
   return allowed.includes(typeKey);
 }
@@ -84,8 +108,9 @@ export function isModuleApplicableToBusinessType(moduleKey: unknown, businessTyp
 // Loose / by-weight selling (Stage 1, 2026-10-26) — Muhammad's standing
 // rule (2026-10-26): "Harr business type me uss business type ke related
 // sb kuch hona chahiye" — a business type gets only its own features.
-// Weight selling belongs to general retail only: departmental + retail
-// stores. PHARMACY, HOTEL, CLINIC and anything else must never see it
+// Weight selling belongs to general retail only: RETAIL_STORE (which
+// since the 2026-10-31 overhaul also covers former departmental
+// stores). PHARMACY, HOTEL, CLINIC and anything else must never see it
 // and must never be able to sell by weight.
 //
 // NOTE on the map above: it is the registry for whole MODULES, and its
@@ -96,15 +121,11 @@ export function isModuleApplicableToBusinessType(moduleKey: unknown, businessTyp
 // an unknown type is denied, not allowed. The frontend mirrors this
 // list (src/utils/units.ts) so the UI never offers KG where the API
 // would refuse it.
-export const WEIGHT_SELLING_BUSINESS_TYPES = ['DEPARTMENTAL_STORE', 'RETAIL_STORE'] as const;
+export const WEIGHT_SELLING_BUSINESS_TYPES = ['RETAIL_STORE'] as const;
 
 export function isWeightSellingAllowedForBusinessType(businessType: unknown): boolean {
-  const key = normalizeBusinessTypeKey(businessType);
-  // Legacy aliases resolve to the canonical departmental type (the
-  // boot seeder migrates stored values; the entitlement map agrees).
-  const canonical =
-    key === 'STORE' || key === 'DEPARTMENT_STORE' || key === 'SUPERMARKET' || key === 'GROCERY_STORE'
-      ? 'DEPARTMENTAL_STORE'
-      : key;
+  // Legacy aliases resolve to the canonical retail type (the boot
+  // seeder migrates stored values; the entitlement map agrees).
+  const canonical = resolveCanonicalBusinessTypeKey(businessType);
   return (WEIGHT_SELLING_BUSINESS_TYPES as readonly string[]).includes(canonical);
 }

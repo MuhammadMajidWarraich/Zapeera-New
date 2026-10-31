@@ -378,7 +378,6 @@ const ZapeeraDashboard = () => {
                     ) : (
                       <>
                         <SelectItem value="PHARMACY">Pharmacy</SelectItem>
-                        <SelectItem value="DEPARTMENTAL_STORE">Departmental Store</SelectItem>
                         <SelectItem value="RETAIL_STORE">Retail Store</SelectItem>
                         <SelectItem value="HOTEL">Hotel</SelectItem>
                         <SelectItem value="CLINIC">Clinic</SelectItem>

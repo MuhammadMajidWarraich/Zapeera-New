@@ -363,7 +363,7 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
               initialData={editingCategory ? {
                 name: editingCategory.name,
                 description: editingCategory.description || '',
-                type: (editingCategory.type?.toLowerCase() as 'general' | 'medical' | 'non-medical') || 'general',
+                type: String(editingCategory.type || 'GENERAL').toUpperCase(),
                 color: editingCategory.color || '#3B82F6'
               } : {}}
               onSubmit={handleEditCategory}

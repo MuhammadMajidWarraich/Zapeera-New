@@ -668,7 +668,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
         return res.status(400).json({
           success: false,
           message: 'Validation error',
-          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to general retail (departmental / retail) stores only`]
+          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to retail stores only`]
         });
       }
     }
@@ -847,7 +847,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         return res.status(400).json({
           success: false,
           message: 'Validation error',
-          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to general retail (departmental / retail) stores only`]
+          errors: [`Weight selling is not available for ${targetCompany?.businessType || 'this'} business type — loose/by-weight products belong to retail stores only`]
         });
       }
     }

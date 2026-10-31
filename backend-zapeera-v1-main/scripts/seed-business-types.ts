@@ -14,9 +14,9 @@ async function main() {
   console.log('Seeding business types...');
   const defaultTypes = [
     { name: 'PHARMACY', description: 'Pharmacy and medical stores' },
-    { name: 'DEPARTMENTAL_STORE', description: 'General retail and departmental stores' },
+    { name: 'RETAIL_STORE', description: 'Retail stores (including departmental stores)' },
     { name: 'Pharmacy', description: 'Pharmacy and medical stores' },
-    { name: 'Departmental Store', description: 'General retail and departmental stores' }
+    { name: 'Retail Store', description: 'Retail stores (including departmental stores)' }
   ];
 
   for (const type of defaultTypes) {

@@ -882,6 +882,27 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
         console.warn('[Branches] ⚠️ Could not create Main Branch:', branchErr?.message || branchErr);
       }
 
+      // Starter categories for NEW pharmacy / retail businesses
+      // (business-types overhaul, 2026-10-31). Runs only here, at
+      // creation, and the seeder itself no-ops when the branch already
+      // has categories — existing businesses are never injected into.
+      if (mainBranch) {
+        try {
+          const { seedDefaultCategoriesForBusiness } = await import('../utils/category-types.util');
+          const seededCount = await seedDefaultCategoriesForBusiness(prisma, {
+            businessId: company.id,
+            branchId: mainBranch.id,
+            businessType: normalizedBusinessType,
+            createdBy: createdById
+          });
+          if (seededCount > 0) {
+            console.log(`[Categories] ✅ Seeded ${seededCount} starter categories for business:`, company.id);
+          }
+        } catch (catSeedErr: any) {
+          console.warn('[Categories] ⚠️ Starter category seeding failed (non-fatal):', catSeedErr?.message || catSeedErr);
+        }
+      }
+
       // 2. User context is handled via memberships; no need to update User record.
 
       // 3. Resolve/Create OWNER role

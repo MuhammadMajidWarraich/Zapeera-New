@@ -26,7 +26,7 @@ export const KG_GRAMS_PER_KG = 1000;
 // (module-applicability.util.ts) — keep the two lists identical;
 // the API refuses KG where this returns false, so the UI must never
 // offer it there either. FAIL-CLOSED: any other/unknown type → false.
-export const WEIGHT_SELLING_BUSINESS_TYPES = ["DEPARTMENTAL_STORE", "RETAIL_STORE"] as const;
+export const WEIGHT_SELLING_BUSINESS_TYPES = ["RETAIL_STORE"] as const;
 
 export function normalizeBusinessTypeKey(value: unknown): string {
   return String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
@@ -34,10 +34,11 @@ export function normalizeBusinessTypeKey(value: unknown): string {
 
 export function isWeightSellingAllowedForBusinessType(businessType: unknown): boolean {
   const key = normalizeBusinessTypeKey(businessType);
-  // Legacy aliases resolve to the canonical departmental type.
+  // Legacy aliases resolve to the canonical retail type
+  // (DEPARTMENTAL_STORE merged into RETAIL_STORE on 2026-10-31).
   const canonical =
-    key === "STORE" || key === "DEPARTMENT_STORE" || key === "SUPERMARKET" || key === "GROCERY_STORE"
-      ? "DEPARTMENTAL_STORE"
+    key === "STORE" || key === "DEPARTMENT_STORE" || key === "DEPARTMENTAL_STORE" || key === "SUPERMARKET" || key === "GROCERY_STORE"
+      ? "RETAIL_STORE"
       : key;
   return (WEIGHT_SELLING_BUSINESS_TYPES as readonly string[]).includes(canonical);
 }

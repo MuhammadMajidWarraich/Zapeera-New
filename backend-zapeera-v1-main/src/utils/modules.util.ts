@@ -31,10 +31,16 @@ const STANDARD_MODULES = [
 ];
 
 // Built-in business types seeded at boot (id = UPPER_SNAKE_CASE name).
+// Business-types overhaul (2026-10-31): FOUR industries — PHARMACY,
+// RETAIL_STORE, HOTEL, CLINIC. DEPARTMENTAL_STORE was merged into
+// RETAIL_STORE (Muhammad's decision; 0 of 8 researched competitors
+// treat departmental store as a separate industry). Marketing keeps
+// both names; the system has one retail type. The boot migration below
+// rewrites stored DEPARTMENTAL_STORE businesses to RETAIL_STORE and
+// retires the legacy business_types row.
 const DEFAULT_BUSINESS_TYPES = [
   { id: 'PHARMACY',           name: 'PHARMACY',           description: 'Pharmacy and medical stores' },
-  { id: 'DEPARTMENTAL_STORE', name: 'DEPARTMENTAL_STORE', description: 'General retail and departmental stores' },
-  { id: 'RETAIL_STORE',       name: 'RETAIL_STORE',       description: 'General retail stores' },
+  { id: 'RETAIL_STORE',       name: 'RETAIL_STORE',       description: 'Retail stores (including departmental stores)' },
   { id: 'HOTEL',              name: 'HOTEL',              description: 'Hotels and hospitality' },
   { id: 'CLINIC',             name: 'CLINIC',             description: 'Medical clinics' },
 ];
@@ -160,22 +166,110 @@ export async function ensureBusinessTypesExist(): Promise<void> {
       }
     }
 
-    // Migrate legacy company.businessType values to canonical UPPER_SNAKE_CASE ids
+    // Migrate legacy company.businessType values to canonical UPPER_SNAKE_CASE ids.
+    // Business-types overhaul (2026-10-31): the whole departmental family
+    // (including DEPARTMENTAL_STORE itself) now resolves to RETAIL_STORE.
     const legacyMappings: Array<{ from: string; to: string }> = [
-      { from: 'STORE',            to: 'DEPARTMENTAL_STORE' },
+      { from: 'STORE',            to: 'RETAIL_STORE' },
+      { from: 'DEPARTMENTAL_STORE', to: 'RETAIL_STORE' },
+      { from: 'DEPARTMENT_STORE', to: 'RETAIL_STORE' },
+      { from: 'SUPERMARKET',      to: 'RETAIL_STORE' },
+      { from: 'GROCERY_STORE',    to: 'RETAIL_STORE' },
       { from: 'Pharmacy',         to: 'PHARMACY' },
-      { from: 'Departmental Store', to: 'DEPARTMENTAL_STORE' },
+      { from: 'Departmental Store', to: 'RETAIL_STORE' },
       { from: 'Retail store',     to: 'RETAIL_STORE' },
       { from: 'Retail Store',     to: 'RETAIL_STORE' },
       { from: 'Hotel',            to: 'HOTEL' },
       { from: 'Clinic',           to: 'CLINIC' },
     ];
+    // Businesses about to be merged into RETAIL from the departmental
+    // family — captured BEFORE the rewrite so their categories can be
+    // remapped to the retail category types below.
+    const departmentalFamilyValues = [
+      'STORE', 'DEPARTMENTAL_STORE', 'DEPARTMENT_STORE',
+      'SUPERMARKET', 'GROCERY_STORE', 'Departmental Store',
+    ];
+    let mergedRetailBusinessIds: string[] = [];
+    try {
+      const merged = await prisma.business.findMany({
+        where: { businessType: { in: departmentalFamilyValues } },
+        select: { id: true }
+      });
+      mergedRetailBusinessIds = merged.map((b: any) => b.id);
+    } catch {
+      // ignore (older DBs may not have this column yet)
+    }
     try {
       for (const { from, to } of legacyMappings) {
         await prisma.business.updateMany({ where: { businessType: from }, data: { businessType: to } });
       }
     } catch {
       // ignore (older DBs may not have this column yet)
+    }
+
+    // Category-type remap for the businesses just merged into RETAIL
+    // (idempotent: FOOD / NON_FOOD / GENERAL rows are never touched, so
+    // re-running finds nothing left to change). Pharmacy labels have no
+    // meaning in a store: NON_MEDICAL → NON_FOOD, MEDICAL → GENERAL.
+    if (mergedRetailBusinessIds.length > 0) {
+      try {
+        await prisma.category.updateMany({
+          where: { companyId: { in: mergedRetailBusinessIds }, type: 'NON_MEDICAL' },
+          data: { type: 'NON_FOOD' }
+        });
+        await prisma.category.updateMany({
+          where: { companyId: { in: mergedRetailBusinessIds }, type: 'MEDICAL' },
+          data: { type: 'GENERAL' }
+        });
+        // Legacy category rows scoped by branch only (companyId null).
+        const mergedBranches = await prisma.branch.findMany({
+          where: { companyId: { in: mergedRetailBusinessIds } },
+          select: { id: true }
+        });
+        const mergedBranchIds = mergedBranches.map((b: any) => b.id);
+        if (mergedBranchIds.length > 0) {
+          await prisma.category.updateMany({
+            where: { branchId: { in: mergedBranchIds }, companyId: null, type: 'NON_MEDICAL' },
+            data: { type: 'NON_FOOD' }
+          });
+          await prisma.category.updateMany({
+            where: { branchId: { in: mergedBranchIds }, companyId: null, type: 'MEDICAL' },
+            data: { type: 'GENERAL' }
+          });
+        }
+        console.log(`[Modules] Remapped category types for ${mergedRetailBusinessIds.length} business(es) merged into RETAIL_STORE`);
+      } catch (remapErr: any) {
+        console.error('[Modules] ❌ Category-type remap for merged retail businesses failed:', remapErr?.message || remapErr);
+      }
+    }
+
+    // Retire the legacy DEPARTMENTAL_STORE business_types row now that
+    // no business references it: delete its module/page join rows first
+    // (the Prisma relations cascade, but explicit deletes behave the
+    // same on SQLite where FK enforcement varies), then the row itself.
+    // Idempotent — later boots find no row and skip.
+    try {
+      const remainingDepartmental = await prisma.business.count({
+        where: { businessType: 'DEPARTMENTAL_STORE' }
+      });
+      if (remainingDepartmental === 0) {
+        const deptRow = await prisma.businessType.findUnique({ where: { name: 'DEPARTMENTAL_STORE' } });
+        if (deptRow) {
+          await prisma.businessTypePage.deleteMany({ where: { businessTypeId: deptRow.id } }).catch(() => {});
+          await prisma.businessTypeModule.deleteMany({ where: { businessTypeId: deptRow.id } }).catch(() => {});
+          try {
+            await prisma.$executeRaw`DELETE FROM business_type_sub_module_permissions WHERE "businessTypeId" = ${deptRow.id}`;
+          } catch {
+            // table is created lazily by the module-permissions code; may not exist
+          }
+          await prisma.businessType.delete({ where: { id: deptRow.id } });
+          console.log('[Modules] Retired legacy DEPARTMENTAL_STORE business type (merged into RETAIL_STORE)');
+        }
+      }
+    } catch (retireErr: any) {
+      if (!isMissingTableError(retireErr)) {
+        console.error('[Modules] ❌ Retiring DEPARTMENTAL_STORE business type failed:', retireErr?.message || retireErr);
+      }
     }
 
     // Auto-seed business_type_modules for default business types that have NO module configuration.

@@ -3,13 +3,23 @@ import { getPrisma } from '../utils/db.util';
 import { createSearchConditions } from '../utils/query-helper';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import {
+  getAllowedCategoryTypes,
+  isCategoryTypeAllowed,
+  resolveBusinessTypeForCategoryScope
+} from '../utils/category-types.util';
 import Joi from 'joi';
 
-// Validation schemas
+// Validation schemas.
+// Category `type` is validated against the OWNING BUSINESS's industry
+// set in the handlers below (business-types overhaul, 2026-10-31:
+// PHARMACY → MEDICAL/NON_MEDICAL/GENERAL, RETAIL_STORE →
+// FOOD/NON_FOOD/GENERAL, HOTEL/CLINIC → GENERAL) — a static Joi list
+// can no longer express it, so Joi only checks the shape here.
 const createCategorySchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('', null),
-  type: Joi.string().valid('MEDICAL', 'NON_MEDICAL', 'GENERAL').default('GENERAL'),
+  type: Joi.string().default('GENERAL'),
   color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).default('#3B82F6'),
   branchId: Joi.string().allow('', null).optional(), // Allow empty string and null
   companyId: Joi.string().allow('', null).optional() // Allow empty string and null
@@ -18,7 +28,7 @@ const createCategorySchema = Joi.object({
 const updateCategorySchema = Joi.object({
   name: Joi.string(),
   description: Joi.string().allow(''),
-  type: Joi.string().valid('MEDICAL', 'NON_MEDICAL', 'GENERAL'),
+  type: Joi.string(),
   color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/)
 });
 
@@ -397,6 +407,22 @@ export const createCategory = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Industry gate (2026-10-31): the category type must belong to the
+    // owning business's industry set (retail stores get FOOD/NON_FOOD,
+    // pharmacies keep MEDICAL/NON_MEDICAL, hotels/clinics GENERAL only).
+    const requestedType = String(type || 'GENERAL').trim().toUpperCase();
+    const owningBusinessType = await resolveBusinessTypeForCategoryScope(prisma, {
+      companyId: categoryCompanyId,
+      branchId: categoryBranchId
+    });
+    if (!isCategoryTypeAllowed(owningBusinessType ?? undefined, requestedType)) {
+      const allowedTypes = getAllowedCategoryTypes(owningBusinessType ?? undefined);
+      return res.status(400).json({
+        success: false,
+        message: `Category type "${requestedType}" is not available for this business. Allowed types: ${allowedTypes.join(', ')}`
+      });
+    }
+
     // Check if category with this name already exists for this branch
     // Priority: Check by branchId first (primary isolation)
     const where: any = {
@@ -420,7 +446,7 @@ export const createCategory = async (req: AuthRequest, res: Response) => {
     const data: any = {
       name,
       description: description || null,
-      type: type || 'GENERAL',
+      type: requestedType,
       color: color || '#3B82F6',
       branchId: categoryBranchId, // Always required - ensures branch isolation
       createdBy: req.user?.createdBy || req.user?.id || 'default-admin-id'
@@ -494,6 +520,29 @@ export const updateCategory = async (req: AuthRequest, res: Response) => {
         success: false,
         message: 'Category not found'
       });
+    }
+
+    // Industry gate (2026-10-31): a type CHANGE must land inside the
+    // owning business's industry set. Re-submitting the already-stored
+    // value is grandfathered (a legacy row can always be renamed
+    // without being forced through a type migration first).
+    if (updateData.type !== undefined && updateData.type !== null && String(updateData.type).trim() !== '') {
+      const newType = String(updateData.type).trim().toUpperCase();
+      const storedType = String(existingCategory.type || 'GENERAL').trim().toUpperCase();
+      if (newType !== storedType) {
+        const owningBusinessType = await resolveBusinessTypeForCategoryScope(prisma, {
+          companyId: existingCategory.companyId,
+          branchId: existingCategory.branchId
+        });
+        if (!isCategoryTypeAllowed(owningBusinessType ?? undefined, newType)) {
+          const allowedTypes = getAllowedCategoryTypes(owningBusinessType ?? undefined);
+          return res.status(400).json({
+            success: false,
+            message: `Category type "${newType}" is not available for this business. Allowed types: ${allowedTypes.join(', ')}`
+          });
+        }
+      }
+      updateData.type = newType;
     }
 
     // Check if name already exists for this branch (if being updated)

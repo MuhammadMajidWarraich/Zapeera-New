@@ -5575,7 +5575,7 @@ export class ApiService {
     address?: string;
     phone?: string;
     email?: string;
-    businessType?: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+    businessType?: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
     createdByUserId?: string;
     refCode?: string;
   }) {
@@ -5618,7 +5618,7 @@ export class ApiService {
     address?: string;
     phone?: string;
     email?: string;
-    businessType?: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+    businessType?: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
     createdByUserId?: string;
   }) {
     return this.createCompany(businessData);
@@ -5630,7 +5630,7 @@ export class ApiService {
     address?: string;
     phone?: string;
     email?: string;
-    businessType?: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+    businessType?: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
   }) {
     return this.request<{
       id: string;
@@ -5661,13 +5661,13 @@ export class ApiService {
     address?: string;
     phone?: string;
     email?: string;
-    businessType?: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+    businessType?: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
   }) {
     return this.updateCompany(businessId, businessData);
   }
 
   async updateCompanyBusinessType(companyId: string, businessTypeData: {
-    businessType: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+    businessType: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
   }) {
     return this.request<{
       id: string;
@@ -8431,7 +8431,7 @@ export class ApiService {
       ctaLabel: string;
       features: string[];
       dashboardAccessRoles?: Array<'OWNER' | 'MANAGER' | 'CASHIER'>;
-      businessTypes?: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+      businessTypes?: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
       limits?: {
         maxBranches?: number | null;
         maxCountersPerBranch?: number | null;
@@ -8458,7 +8458,7 @@ export class ApiService {
     ctaLabel: string;
     features: string[];
     dashboardAccessRoles?: Array<'OWNER' | 'MANAGER' | 'CASHIER'>;
-    businessTypes?: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+    businessTypes?: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
     limits?: {
       maxBranches?: number | null;
       maxCountersPerBranch?: number | null;
@@ -8483,7 +8483,7 @@ export class ApiService {
       ctaLabel: string;
       features: string[];
       dashboardAccessRoles?: Array<'OWNER' | 'MANAGER' | 'CASHIER'>;
-      businessTypes?: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+      businessTypes?: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
       limits?: {
         maxBranches?: number | null;
         maxCountersPerBranch?: number | null;
@@ -8516,7 +8516,7 @@ export class ApiService {
   async getBusinessEntitlements(companyId: string) {
     const response = await this.request<{
       companyId: string;
-      businessType: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+      businessType: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
       planId: string;
       isSubscribed: boolean;
       subscriptionStatus: string | null;
@@ -8533,13 +8533,13 @@ export class ApiService {
         maxCountersPerBranch: number | null;
         maxConcurrentUsers: number | null;
       };
-      effectiveBusinessTypes?: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+      effectiveBusinessTypes?: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
       plan: {
         id: string;
         segment: 'single' | 'multi';
         name: string;
         dashboardAccessRoles?: Array<'OWNER' | 'MANAGER' | 'CASHIER'>;
-        businessTypes: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+        businessTypes: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
         limits: {
           maxBranches: number | null;
           maxCountersPerBranch: number | null;
@@ -8568,7 +8568,7 @@ export class ApiService {
   async updateBusinessEntitlements(companyId: string, payload: { planId: string; addOns?: Record<string, number> }) {
     return this.request<{
       companyId: string;
-      businessType: 'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
+      businessType: 'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC';
       planId: string;
       addOns?: Record<string, number>;
       includedLimits?: {
@@ -8585,7 +8585,7 @@ export class ApiService {
         id: string;
         segment: 'single' | 'multi';
         name: string;
-        businessTypes: Array<'PHARMACY' | 'DEPARTMENTAL_STORE' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
+        businessTypes: Array<'PHARMACY' | 'RETAIL_STORE' | 'HOTEL' | 'CLINIC'>;
       };
       limits: {
         maxBranches: number | null;

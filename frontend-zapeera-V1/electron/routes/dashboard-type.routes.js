@@ -18,7 +18,7 @@
  * server-local day; both servers run UTC, so the windows agree.
  */
 
-const CANONICAL_TYPES = ['PHARMACY', 'DEPARTMENTAL_STORE', 'RETAIL_STORE', 'HOTEL', 'CLINIC'];
+const CANONICAL_TYPES = ['PHARMACY', 'RETAIL_STORE', 'HOTEL', 'CLINIC'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function registerDashboardTypeRoutes(app, authMiddleware, deps) {
@@ -29,10 +29,14 @@ function registerDashboardTypeRoutes(app, authMiddleware, deps) {
     try {
       const { branchFilter, companyFilter } = getDataFilter(req.user, req.query.branchId, req.query.companyId);
 
-      // PHARMACY type guard (mirrors cloud enforceType)
+      // PHARMACY type guard (mirrors cloud enforceType). Legacy
+      // departmental values resolve to RETAIL_STORE (2026-10-31 merge).
       if (companyFilter) {
         const company = query('SELECT businessType FROM companies WHERE id = ?', [companyFilter])[0];
-        const actual = String(company?.businessType || '').trim().toUpperCase();
+        let actual = String(company?.businessType || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+        if (actual === 'STORE' || actual === 'DEPARTMENT_STORE' || actual === 'DEPARTMENTAL_STORE' || actual === 'SUPERMARKET' || actual === 'GROCERY_STORE') {
+          actual = 'RETAIL_STORE';
+        }
         if (CANONICAL_TYPES.includes(actual) && actual !== 'PHARMACY') {
           return res.status(400).json({
             success: false,
