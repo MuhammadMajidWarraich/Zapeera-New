@@ -158,7 +158,6 @@ export function resolveScanLookup(response: any, code: string): ScanResolution {
 /** Business types that sell physical products through the POS. */
 export const PRODUCT_SELLING_BUSINESS_TYPES = [
   'PHARMACY',
-  'DEPARTMENTAL_STORE',
   'RETAIL_STORE',
 ] as const;
 

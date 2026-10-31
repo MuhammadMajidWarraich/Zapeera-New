@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
 import CategoryForm from "@/components/inventory/CategoryForm";
+import { getCategoryTypeOptions, categoryTypeLabel, type CategoryTypeValue } from "@/utils/category-types";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +37,7 @@ interface Category {
     products: number;
   };
   // Frontend-only fields for enhanced UI
-  type?: 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL';
+  type?: CategoryTypeValue;
   parentId?: string;
   isActive?: boolean;
   productCount?: number;
@@ -47,7 +48,7 @@ interface Category {
 
 const Categories = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch, selectedCompanyId } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany } = useAdmin();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false); // Don't show loading initially
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ const Categories = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'GENERAL' as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL',
+    type: 'GENERAL' as CategoryTypeValue,
     parentId: '',
     color: '#3B82F6',
     icon: 'Package'
@@ -180,7 +181,7 @@ const Categories = () => {
         id: `temp-${Date.now()}`,
         name: categoryData.name,
         description: categoryData.description || '',
-        type: categoryData.type as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL',
+        type: categoryData.type as CategoryTypeValue,
         color: categoryData.color || '#3B82F6',
         isActive: true,
         createdAt: new Date().toISOString(),
@@ -221,7 +222,7 @@ const Categories = () => {
         const apiData = response.data as any;
         const realCategory: Category = {
           ...apiData,
-          type: (apiData.type || 'GENERAL') as 'MEDICAL' | 'NON_MEDICAL' | 'GENERAL',
+          type: (apiData.type || 'GENERAL') as CategoryTypeValue,
           isActive: apiData.isActive !== undefined ? apiData.isActive : true,
           productCount: apiData._count?.products || 0,
           color: apiData.color || '#3B82F6',
@@ -363,7 +364,7 @@ const Categories = () => {
   const getTypeIcon = (type: string | undefined) => {
     const t = String(type || "").toUpperCase();
     if (t === "MEDICAL") return <Activity className="h-3 w-3 shrink-0" strokeWidth={2} />;
-    if (t === "NON_MEDICAL") return <Layers className="h-3 w-3 shrink-0" strokeWidth={2} />;
+    if (t === "NON_MEDICAL" || t === "FOOD" || t === "NON_FOOD") return <Layers className="h-3 w-3 shrink-0" strokeWidth={2} />;
     return <Package className="h-3 w-3 shrink-0" strokeWidth={2} />;
   };
 
@@ -371,16 +372,14 @@ const Categories = () => {
     const t = String(type || "").toUpperCase();
     if (t === "MEDICAL")
       return "border border-[rgba(26,82,197,0.1)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]";
-    if (t === "NON_MEDICAL")
+    if (t === "NON_MEDICAL" || t === "FOOD")
       return "border border-green-600/12 bg-[rgba(22,163,74,0.06)] text-green-700";
+    if (t === "NON_FOOD")
+      return "border border-[rgba(26,82,197,0.1)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]";
     return "border border-[rgba(15,23,60,0.08)] bg-black/[0.03] text-[#4a5578]";
   };
 
-  const formatTypeLabel = (type: string | undefined) => {
-    const t = String(type || "").toUpperCase();
-    if (t === "NON_MEDICAL") return "Non-Medical";
-    return t ? t.charAt(0) + t.slice(1).toLowerCase() : "General";
-  };
+  const formatTypeLabel = (type: string | undefined) => categoryTypeLabel(type);
 
   // Don't show loading screen - show content immediately
 
@@ -516,9 +515,9 @@ const Categories = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="MEDICAL">Medical</SelectItem>
-              <SelectItem value="NON_MEDICAL">Non-Medical</SelectItem>
-              <SelectItem value="GENERAL">General</SelectItem>
+              {getCategoryTypeOptions((selectedCompany as any)?.businessType).map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -721,12 +720,7 @@ const Categories = () => {
             initialData={editingCategory ? {
               name: editingCategory.name,
               description: editingCategory.description || '',
-              type: (() => {
-                const t = String(editingCategory.type || "").toUpperCase();
-                if (t === "MEDICAL") return "medical" as const;
-                if (t === "NON_MEDICAL") return "non-medical" as const;
-                return "general" as const;
-              })(),
+              type: String(editingCategory.type || 'GENERAL').toUpperCase(),
               color: editingCategory.color || '#3B82F6'
             } : {}}
             onSubmit={editingCategory ? handleEditCategory : handleAddCategory}

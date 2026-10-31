@@ -19,8 +19,8 @@ const updateSettingsSchema = Joi.object({
   // Barcode scanning (POS): explicit on/off for wedge + camera scan
   // capture at the register. Optional + nullable like the C1 key:
   // null REMOVES the stored row; consumers default to ON for the
-  // product-selling business types (PHARMACY / DEPARTMENTAL_STORE /
-  // RETAIL_STORE) and OFF elsewhere.
+  // product-selling business types (PHARMACY / RETAIL_STORE) and OFF
+  // elsewhere.
   barcodeScanningEnabled: Joi.boolean().allow(null).optional(),
   lowStockAlert: Joi.number().min(0).required(),
   expiryAlert: Joi.number().min(0).required(),

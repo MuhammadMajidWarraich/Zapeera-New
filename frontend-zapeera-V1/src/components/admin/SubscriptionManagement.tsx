@@ -57,7 +57,7 @@ interface AccountEntitlementSummary {
 
 interface BusinessEntitlementSummary {
   companyId: string;
-  businessType: "PHARMACY" | "DEPARTMENTAL_STORE" | "RETAIL_STORE" | "HOTEL" | "CLINIC";
+  businessType: "PHARMACY" | "RETAIL_STORE" | "HOTEL" | "CLINIC";
   planId: string;
   plan: { id: string; name: string };
   limits: EntitlementLimits;

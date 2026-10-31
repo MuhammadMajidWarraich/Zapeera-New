@@ -280,12 +280,15 @@ export const normalizeBusinessType = (value: unknown): SupportedBusinessType | n
   const normalized = value.trim().toUpperCase();
   if (!normalized) return null;
 
-  // Backwards/variant compatibility (UI + DB may store extended type values)
+  // Backwards/variant compatibility (UI + DB may store extended type values).
+  // DEPARTMENTAL_STORE merged into RETAIL_STORE on 2026-10-31 — it and
+  // the older store aliases remain accepted here as legacy values and
+  // resolve to the same STORE subscription segment as retail.
   if (normalized === 'DEPARTMENTAL_STORE' || normalized === 'DEPARTMENT_STORE') return BUSINESS_TYPES.STORE;
   if (normalized === 'SUPERMARKET' || normalized === 'GROCERY_STORE') return BUSINESS_TYPES.STORE;
-  // RETAIL_STORE is a canonical business type (modules.util) in the same
-  // general-retail segment as DEPARTMENTAL_STORE: resolve it to the STORE
-  // subscription segment instead of returning null (callers fall back to
+  // RETAIL_STORE is a canonical business type (modules.util) in the
+  // general-retail segment: resolve it to the STORE subscription
+  // segment instead of returning null (callers fall back to
   // PHARMACY on null, which mis-entitles retail stores).
   if (normalized === 'RETAIL_STORE' || normalized === 'RETAIL') return BUSINESS_TYPES.STORE;
 

@@ -14,17 +14,26 @@
  *   business_management, expenses, subscription, employee_portal,
  *   stock_takes, and everything inside the sales/inventory families).
  * - A module listed here applies ONLY to the listed canonical types.
- * - Enforcement applies to the five canonical business types. A custom /
+ * - Enforcement applies to the four canonical business types. A custom /
  *   unknown type falls through (returns true), preserving legacy
  *   behaviour for backoffice-defined types.
+ * - Business-types overhaul (2026-10-31): DEPARTMENTAL_STORE merged
+ *   into RETAIL_STORE; legacy departmental values resolve to retail.
  */
 const CANONICAL_BUSINESS_TYPES = [
   'PHARMACY',
-  'DEPARTMENTAL_STORE',
   'RETAIL_STORE',
   'HOTEL',
   'CLINIC'
 ];
+
+const LEGACY_BUSINESS_TYPE_ALIASES = {
+  STORE: 'RETAIL_STORE',
+  DEPARTMENT_STORE: 'RETAIL_STORE',
+  DEPARTMENTAL_STORE: 'RETAIL_STORE',
+  SUPERMARKET: 'RETAIL_STORE',
+  GROCERY_STORE: 'RETAIL_STORE'
+};
 
 /** module key (normalized) → the ONLY canonical business types it belongs to. */
 const MODULE_BUSINESS_TYPE_APPLICABILITY = {
@@ -69,8 +78,13 @@ function normalizeBusinessTypeKey(value) {
   return String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
 
+function resolveCanonicalBusinessTypeKey(value) {
+  const key = normalizeBusinessTypeKey(value);
+  return LEGACY_BUSINESS_TYPE_ALIASES[key] || key;
+}
+
 function isCanonicalBusinessType(value) {
-  return CANONICAL_BUSINESS_TYPES.includes(normalizeBusinessTypeKey(value));
+  return CANONICAL_BUSINESS_TYPES.includes(resolveCanonicalBusinessTypeKey(value));
 }
 
 /**
@@ -78,11 +92,12 @@ function isCanonicalBusinessType(value) {
  * Unlisted modules → all types. Listed modules → only the listed
  * canonical types; non-canonical/unknown types are NOT decided here
  * (returns true so the legacy behaviour is preserved for custom types).
+ * Legacy aliases resolve to their canonical type first.
  */
 function isModuleApplicableToBusinessType(moduleKey, businessType) {
   const allowed = MODULE_BUSINESS_TYPE_APPLICABILITY[normalizeModuleKey(moduleKey)];
   if (!allowed) return true;
-  const typeKey = normalizeBusinessTypeKey(businessType);
+  const typeKey = resolveCanonicalBusinessTypeKey(businessType);
   if (!CANONICAL_BUSINESS_TYPES.includes(typeKey)) return true;
   return allowed.includes(typeKey);
 }

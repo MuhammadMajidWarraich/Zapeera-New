@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useLayoutEffect, useCallback } from "reac
 import React from "react";
 import { config } from "@/lib/config";
 import { isWeightSellingAllowedForBusinessType } from "@/utils/units";
+import { categoryTypeLabel } from "@/utils/category-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -3761,10 +3762,12 @@ const Inventory = () => {
                                 "inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold",
                                 product.category?.type === 'MEDICAL' ? 'bg-blue-50 text-blue-700' :
                                 product.category?.type === 'NON_MEDICAL' ? 'bg-purple-50 text-purple-700' :
+                                product.category?.type === 'FOOD' ? 'bg-green-50 text-green-700' :
+                                product.category?.type === 'NON_FOOD' ? 'bg-purple-50 text-purple-700' :
                                 'bg-gray-50 text-gray-700'
                               )}
                             >
-                              {product.category?.type === 'MEDICAL' ? 'Medical' : product.category?.type === 'NON_MEDICAL' ? 'Non-Medical' : product.category?.type || 'General'}
+                              {categoryTypeLabel(product.category?.type)}
                             </span>
                           </td>
                           <td className="px-4 py-4 align-middle">

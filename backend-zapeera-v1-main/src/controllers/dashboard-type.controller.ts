@@ -15,13 +15,13 @@ import { DAY_MS, normalizeHotelDate, round2 } from '../utils/hotel.util';
 // Scoping: identical to getDashboardStats — buildBranchWhereClause
 // (membership business + role-aware branch filter). Every figure is
 // computed from rows of the caller's business (and branch context)
-// only. Type guard: when the business carries one of the five
+// only. Type guard: when the business carries one of the four
 // canonical types, an endpoint for a DIFFERENT type answers 400
 // DASHBOARD_TYPE_MISMATCH instead of misleading numbers; custom /
 // unknown types fall through (legacy behaviour for backoffice-defined
 // types), mirroring module-applicability.util.
 
-const CANONICAL_TYPES = ['PHARMACY', 'DEPARTMENTAL_STORE', 'RETAIL_STORE', 'HOTEL', 'CLINIC'];
+const CANONICAL_TYPES = ['PHARMACY', 'RETAIL_STORE', 'HOTEL', 'CLINIC'];
 
 const localDayRange = () => {
   const today = new Date();

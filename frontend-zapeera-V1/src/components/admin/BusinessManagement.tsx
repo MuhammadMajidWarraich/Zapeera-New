@@ -837,10 +837,12 @@ const BusinessManagement = () => {
   const getBusinessTypeLabel = (businessType?: string | null) => {
     let key = normalizeBusinessTypeKey(businessType);
 
-    // Legacy normalization: platform no longer uses STORE.
-    // Old data may still contain STORE / DEPARTMENT_STORE.
-    if (key === 'STORE' || key === 'DEPARTMENT_STORE' || key === 'DEPARTMENTALSTORE') {
-      key = 'DEPARTMENTAL_STORE';
+    // Legacy normalization: platform no longer uses STORE, and
+    // DEPARTMENTAL_STORE merged into RETAIL_STORE (2026-10-31).
+    // Old data may still contain STORE / DEPARTMENT_STORE /
+    // DEPARTMENTAL_STORE — all display as retail.
+    if (key === 'STORE' || key === 'DEPARTMENT_STORE' || key === 'DEPARTMENTALSTORE' || key === 'DEPARTMENTAL_STORE') {
+      key = 'RETAIL_STORE';
     }
 
     // Ensure pharmacy businesses always show a type even if legacy data missed the column.
@@ -1465,7 +1467,6 @@ const BusinessManagement = () => {
                       // Fallback: ensure all canonical types are available
                       const fallbackTypes = [
                         { value: 'PHARMACY', label: 'Pharmacy' },
-                        { value: 'DEPARTMENTAL_STORE', label: 'Departmental Store' },
                         { value: 'RETAIL_STORE', label: 'Retail Store' },
                         { value: 'HOTEL', label: 'Hotel' },
                         { value: 'CLINIC', label: 'Clinic' },
