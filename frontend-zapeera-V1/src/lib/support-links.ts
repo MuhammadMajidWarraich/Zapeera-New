@@ -4,11 +4,11 @@ export const SUPPORT_PHONE_DISPLAY = "+92 307 5445509";
 
 /** Direct download link for the Windows desktop installer (served from zapeera.seikho.online/downloads). */
 export const DESKTOP_DOWNLOAD_URL =
-  "https://zapeera.seikho.online/downloads/Zapeera-Setup-1.0.16.exe";
+  "https://zapeera.seikho.online/downloads/Zapeera-Setup-1.0.17.exe";
 
 /** Direct download link for the Android app APK (served from zapeera.seikho.online/downloads). */
 export const ANDROID_DOWNLOAD_URL =
-  "https://zapeera.seikho.online/downloads/Zapeera-Android-1.0.16.apk";
+  "https://zapeera.seikho.online/downloads/Zapeera-Android-1.0.17.apk";
 
 /** Version labels derived from the download URLs above — single source of truth, cannot go stale. */
 export const DESKTOP_VERSION =
