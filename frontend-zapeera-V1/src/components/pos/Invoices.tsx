@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiService } from "@/services/api";
-import { describeStoredLine } from "@/utils/units";
+import { describeStoredLine, baseUnitWordForBusinessType } from "@/utils/units";
 import type { TaxBreakdownLine } from "@/services/api";
 import QRCode from "qrcode";
 import { FiscalChip, FbrQrImage } from "@/components/common/FbrFiscal";
@@ -136,8 +136,13 @@ function invoiceShowsTaxBreakdown(invoice: Invoice): boolean {
 
 const Invoices = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch, selectedCompanyId } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany } = useAdmin();
   const { toast } = useToast();
+  // Base-unit word scoping (Muhammad, 2026-10-31): stored sale lines
+  // read "(N tablets)" only in a pharmacy; stores read "(N pieces)".
+  const baseUnitWord = baseUnitWordForBusinessType(
+    (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || ""
+  );
   
   // Cache for invoices data
   const {
@@ -999,7 +1004,7 @@ const Invoices = () => {
               ${invoice.items.map(item => `
                 <tr>
                   <td>${escapeHtml(item.product.name)}${item.variantName ? ` (${escapeHtml(item.variantName)})` : ''}</td>
-                  <td>${escapeHtml(describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product.unitType}`)}</td>
+                  <td>${escapeHtml(describeStoredLine({ ...item, unitType: item.product?.unitType }, baseUnitWord) ?? `${item.quantity} ${item.product.unitType}`)}</td>
                   <td>PKR ${item.unitPrice.toFixed(2)}</td>
                   <td>PKR ${item.totalPrice.toFixed(2)}</td>
                 </tr>
@@ -1631,7 +1636,7 @@ const Invoices = () => {
                       <div className="flex-1">
                         <p className="font-medium">{item.product.name}{item.variantName ? ` (${item.variantName})` : ''}</p>
                         <p className="text-sm text-muted-foreground">
-                          {describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
+                          {describeStoredLine({ ...item, unitType: item.product?.unitType }, baseUnitWord) ?? `${item.quantity} ${item.product.unitType}`} × PKR {item.unitPrice.toFixed(2)}
                           {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                           {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                         </p>
@@ -1787,7 +1792,7 @@ const Invoices = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-muted-foreground">
-                                Max: {item.maxQuantity} {item.unitLevel ? 'tablets' : 'units'}
+                                Max: {item.maxQuantity} {item.unitLevel ? `${baseUnitWord}s` : 'units'}
                               </p>
                               {item.unitLevel && item.unitFactor && item.unitFactor > 1 && (
                                 <p className="text-xs text-muted-foreground">
@@ -1799,7 +1804,7 @@ const Invoices = () => {
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <label className="text-sm font-medium">Quantity to Refund{item.unitLevel ? ' (tablets)' : ''}</label>
+                              <label className="text-sm font-medium">Quantity to Refund{item.unitLevel ? ` (${baseUnitWord}s)` : ''}</label>
                               <Input
                                 type="number"
                                 min="0"

@@ -47,6 +47,24 @@ export function isWeightUnitType(unitType: unknown): boolean {
   return String(unitType || "").trim().toUpperCase() === "KG";
 }
 
+// Base-unit word scoping (Muhammad, 2026-10-31): the unit engine counts
+// in a nameless BASE unit; what that unit is CALLED is pharmacy language
+// ("tablet") that leaked into every other business type — a grocery
+// store's Sugar sold "by Tablet" on the POS. Only a pharmacy's base
+// unit is a tablet; every other business type counts PIECES. Labels
+// only — the stored unitLevel values (PACK / STRIP / UNIT) and all
+// stock math are unchanged.
+export type BaseUnitWord = "tablet" | "piece";
+
+export function baseUnitWordForBusinessType(businessType: unknown): BaseUnitWord {
+  return normalizeBusinessTypeKey(businessType) === "PHARMACY" ? "tablet" : "piece";
+}
+
+/** "tablet"/"piece" pluralised for a count (no count → plural form). */
+export function baseUnitPlural(word: BaseUnitWord, qty?: number): string {
+  return qty === 1 ? word : `${word}s`;
+}
+
 /** Grams → "0.500 kg" (3 dp, 1 g resolution). */
 export function formatKgFromGrams(grams: number): string {
   return `${(grams / KG_GRAMS_PER_KG).toFixed(3)} kg`;
@@ -169,7 +187,7 @@ export function levelPriceFromUnitPrice(unitPrice: number, level: UnitLevel, str
   return level === "PACK" ? prices.pack : level === "STRIP" ? (prices.strip ?? prices.unit) : prices.unit;
 }
 
-export function levelLabel(level: UnitLevel, qty?: number): string {
+export function levelLabel(level: UnitLevel, qty?: number, baseUnit: BaseUnitWord = "tablet"): string {
   const plural = qty !== undefined && qty !== 1;
   switch (level) {
     case "PACK":
@@ -177,7 +195,7 @@ export function levelLabel(level: UnitLevel, qty?: number): string {
     case "STRIP":
       return plural ? "strips" : "strip";
     case "UNIT":
-      return plural ? "tablets" : "tablet";
+      return plural ? `${baseUnit}s` : baseUnit;
   }
 }
 
@@ -194,7 +212,7 @@ export function describeStoredLine(item: {
   unitLevel?: string | null;
   unitFactor?: number | null;
   unitType?: string | null;
-}): string | null {
+}, baseUnit: BaseUnitWord = "tablet"): string | null {
   const level = (item.unitLevel || "").toUpperCase();
   const factor = item.unitFactor || 0;
   if ((level !== "PACK" && level !== "STRIP") || factor <= 1) return null;
@@ -202,5 +220,5 @@ export function describeStoredLine(item: {
   if (level === "PACK" && factor === KG_GRAMS_PER_KG && isWeightUnitType(item.unitType)) {
     return `${levelQty.toFixed(3)} kg`;
   }
-  return `${levelQty} ${levelLabel(level as UnitLevel, levelQty)} (${item.quantity} tablets)`;
+  return `${levelQty} ${levelLabel(level as UnitLevel, levelQty, baseUnit)} (${item.quantity} ${baseUnit}s)`;
 }
