@@ -16,7 +16,7 @@ import { BarcodeLabelPrint } from '../components/barcode/BarcodeLabelPrint';
 import { BarcodeGenerator } from '../components/barcode/BarcodeGenerator';
 import { useToast } from '../hooks/use-toast';
 import { apiService } from '../services/api';
-import { breakdownStock, isStructured } from '../utils/units';
+import { breakdownStock, isStructured, baseUnitWordForBusinessType } from '../utils/units';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/useAdmin';
 import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, Eye, Flag, RotateCcw, Printer } from 'lucide-react';
@@ -178,6 +178,16 @@ const Batches = () => {
   const { user } = useAuth();
   const { selectedBranchId, selectedCompanyId, selectedCompany } = useAdmin();
   const { toast } = useToast();
+  // Base-unit word scoping (Muhammad, 2026-10-31): batch stock
+  // breakdowns say "tablets" only in a pharmacy; stores read "pieces"
+  // and never see a strip segment (pharmacy-only level).
+  const isPharmacyBusiness = (selectedCompany as any)?.businessType === "PHARMACY";
+  const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
+  const scopedBreakdown = (qty: number, product: any): string =>
+    breakdownStock(qty, {
+      ...(product || {}),
+      unitsPerStrip: isPharmacyBusiness ? (product?.unitsPerStrip ?? null) : null,
+    }, baseUnitWord).text;
   const [batches, setBatches] = useState<Batch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -1608,7 +1618,7 @@ const Batches = () => {
                               </span>
                               {isStructured(batch.product) && (
                                 <span className="text-[11px] font-medium normal-case tracking-normal text-[#4a5578]">
-                                  {breakdownStock(qty, batch.product).text}
+                                  {scopedBreakdown(qty, batch.product)}
                                 </span>
                               )}
                               {qty <= 10 && (
@@ -1928,7 +1938,7 @@ const Batches = () => {
                       </div>
                       {isStructured(viewingBatch.product) && (
                         <div className="text-sm text-gray-600 mt-1">
-                          {breakdownStock(viewingBatch.quantity || 0, viewingBatch.product).text}
+                          {scopedBreakdown(viewingBatch.quantity || 0, viewingBatch.product)}
                         </div>
                       )}
                       {(viewingBatch.quantity || 0) <= 10 && (

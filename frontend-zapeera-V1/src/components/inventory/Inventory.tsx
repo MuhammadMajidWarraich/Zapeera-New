@@ -54,7 +54,7 @@ import { useAdmin } from "@/contexts/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { cn } from "@/lib/utils";
-import { breakdownStock } from "@/utils/units";
+import { breakdownStock, baseUnitWordForBusinessType } from "@/utils/units";
 
 function inventoryCategoryBadgeClass(name: string) {
   const n = (name || "").toLowerCase();
@@ -181,6 +181,12 @@ const Inventory = () => {
   // only for general-retail types; the API refuses KG products
   // elsewhere, so the form must never offer it there either.
   const isWeightSellingAllowed = isWeightSellingAllowedForBusinessType((selectedCompany as any)?.businessType);
+  // Base-unit word scoping (Muhammad, 2026-10-31): stock breakdowns and
+  // pack-structure helper texts say "tablets" only in a pharmacy;
+  // departmental / retail stores count "pieces".
+  const isPharmacyBusiness = (selectedCompany as any)?.businessType === "PHARMACY";
+  const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
+  const baseUnitCap = baseUnitWord === "tablet" ? "Tablets" : "Pieces";
   const { toast } = useToast();
   
   // Dashboard data cache (disabled - data caching removed)
@@ -2760,7 +2766,7 @@ const Inventory = () => {
                     <p className="text-xs text-muted-foreground">
                       {isKgForm
                         ? "1 KG = 1000 g — stock is always counted in grams."
-                        : "Tablets in one full pack/box. Leave at 1 for products sold only as single units."}
+                        : `${baseUnitCap} in one full pack/box. Leave at 1 for products sold only as single units.`}
                     </p>
                   </div>
                   {isKgForm ? null : (
@@ -2775,7 +2781,7 @@ const Inventory = () => {
                       onChange={(e) => setNewMedicine({...newMedicine, unitsPerStrip: e.target.value})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Tablets in one strip (pharmacy). A pack must hold a whole number of strips.
+                      {baseUnitCap} in one strip{isPharmacyBusiness ? " (pharmacy)" : ""}. A pack must hold a whole number of strips.
                     </p>
                     {(() => {
                       const upp = Number(newMedicine.unitsPerPack) || 1;
@@ -2783,7 +2789,7 @@ const Inventory = () => {
                       if (upp > 1) {
                         return (
                           <p className="text-xs text-muted-foreground">
-                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single tablets. Stock is always counted in tablets.
+                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single {baseUnitWord}s. Stock is always counted in {baseUnitWord}s.
                             {ups !== null && ups > 0 && upp % ups !== 0 ? (
                               <span className="text-destructive block">Pack size must be a whole multiple of the strip size - the server will reject this.</span>
                             ) : null}
@@ -3111,7 +3117,7 @@ const Inventory = () => {
                     <p className="text-xs text-muted-foreground">
                       {isKgForm
                         ? "1 KG = 1000 g — stock is always counted in grams."
-                        : "Tablets in one full pack/box. Leave at 1 for products sold only as single units."}
+                        : `${baseUnitCap} in one full pack/box. Leave at 1 for products sold only as single units.`}
                     </p>
                   </div>
                   {isKgForm ? null : (
@@ -3126,7 +3132,7 @@ const Inventory = () => {
                       onChange={(e) => setNewMedicine({...newMedicine, unitsPerStrip: e.target.value})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Tablets in one strip (pharmacy). A pack must hold a whole number of strips.
+                      {baseUnitCap} in one strip{isPharmacyBusiness ? " (pharmacy)" : ""}. A pack must hold a whole number of strips.
                     </p>
                     {(() => {
                       const upp = Number(newMedicine.unitsPerPack) || 1;
@@ -3134,7 +3140,7 @@ const Inventory = () => {
                       if (upp > 1) {
                         return (
                           <p className="text-xs text-muted-foreground">
-                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single tablets. Stock is always counted in tablets.
+                            Sold by: pack of {upp}{ups ? ` - strip of ${ups}` : ""} - single {baseUnitWord}s. Stock is always counted in {baseUnitWord}s.
                             {ups !== null && ups > 0 && upp % ups !== 0 ? (
                               <span className="text-destructive block">Pack size must be a whole multiple of the strip size - the server will reject this.</span>
                             ) : null}
@@ -3834,19 +3840,24 @@ const Inventory = () => {
                               // Unit conversion (gap-features item 3):
                               // remaining stock in the product's own
                               // units ("2 packs · 3 strips · 4 tablets")
-                              // under the base-unit count. Prefers the
-                              // server-sent breakdown; falls back to the
-                              // local derivation for older responses.
+                              // under the base-unit count. Derived
+                              // LOCALLY (2026-10-31): the server-sent
+                              // breakdown text is worded in pharmacy
+                              // language ("tablets") for every business
+                              // type, so the word is scoped here instead
+                              // — stores read "pieces" and never see a
+                              // strip segment (pharmacy-only level);
+                              // the API field itself is unchanged.
                               // Unstructured products show no second
                               // line — the count already says it all.
                               const breakdownText =
-                                product.stockBreakdown?.text ||
                                 breakdownStock(remaining, {
                                   unitsPerPack: product.unitsPerPack ?? null,
-                                  unitsPerStrip: product.unitsPerStrip ?? null,
-                                }).text;
+                                  unitsPerStrip: isPharmacyBusiness ? (product.unitsPerStrip ?? null) : null,
+                                  unitType: product.unitType ?? null,
+                                }, baseUnitWord).text;
                               const structured =
-                                (product.unitsPerPack || 1) > 1 && breakdownText !== `${remaining} tablet${remaining === 1 ? "" : "s"}`;
+                                (product.unitsPerPack || 1) > 1 && breakdownText !== `${remaining} ${baseUnitWord}${remaining === 1 ? "" : "s"}`;
                               const sub = structured ? (
                                 <span className="block text-[11px] font-normal leading-tight text-[#8c95b0]">{breakdownText}</span>
                               ) : null;

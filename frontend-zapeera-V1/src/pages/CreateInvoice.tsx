@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { escapeHtml } from "@/utils/html-escape";
-import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType, isWeightSellingAllowedForBusinessType, type UnitLevel } from "@/utils/units";
+import { levelLabel, levelPriceFromUnitPrice, describeStoredLine, KG_GRAMS_PER_KG, formatKgFromGrams, isWeightUnitType, isWeightSellingAllowedForBusinessType, baseUnitWordForBusinessType, type UnitLevel, type BaseUnitWord } from "@/utils/units";
 import { batchInLinePool, variantUnitPrice, type ProductVariantLite } from "@/utils/variants";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ import { useWedgeScanner } from "@/hooks/useWedgeScanner";
 import { useMembershipRole } from "@/hooks/useMembershipRole";
 import { CameraScannerDialog } from "@/components/barcode/CameraScannerDialog";
 import { UnknownBarcodeDialog } from "@/components/barcode/UnknownBarcodeDialog";
-import { isBarcodeApplicableBusinessType, resolveBarcodeScanningEnabled, resolveScanLookup } from "@/lib/barcode-scan";
+import { resolveBarcodeScanningEnabled, resolveScanLookup } from "@/lib/barcode-scan";
 import { playScanFailureSound, playScanSuccessSound } from "@/lib/scan-sound";
 
 // Tender methods offered at the POS (Wave B1). JAZZCASH and EASYPAISA
@@ -226,7 +226,7 @@ interface Receipt {
  * and messages — "2 strips (20 tablets)" for leveled lines, the plain
  * piece count for everything else.
  */
-const cartItemQtyPhrase = (item: CartItem): string => {
+const cartItemQtyPhrase = (item: CartItem, baseUnit: BaseUnitWord = "tablet"): string => {
   // Loose / by-weight selling (Stage 1): a kilo line reads in kg
   // ("0.500 kg"), never "packs (N tablets)".
   if (item.unitType === "kg" && item.unitLevel && item.unitFactor && item.unitFactor > 1) {
@@ -235,7 +235,7 @@ const cartItemQtyPhrase = (item: CartItem): string => {
   }
   if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
     const levelQty = item.levelQuantity ?? item.quantity / item.unitFactor;
-    return `${levelQty} ${levelLabel(item.unitLevel, levelQty)} (${item.quantity} tablets)`;
+    return `${levelQty} ${levelLabel(item.unitLevel, levelQty, baseUnit)} (${item.quantity} ${baseUnit}s)`;
   }
   return `${item.quantity}`;
 };
@@ -288,7 +288,7 @@ function shortBranchName(name: string | undefined | null, businessName?: string 
  * without '+': local Pakistani numbers (03xx…) are converted to 92xx…;
  * anything else is passed through as digits.
  */
-function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string {
+function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string, baseUnit: BaseUnitWord = "tablet"): string {
   let digits = String(receipt.customer?.phone || "").replace(/\D/g, "");
   if (digits.startsWith("0")) digits = "92" + digits.slice(1);
   else if (digits.length === 10 && digits.startsWith("3")) digits = "92" + digits;
@@ -297,7 +297,7 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string): string
     `Date: ${receipt.date} ${receipt.time}`,
     "------------------------",
     ...receipt.items.map(
-      (item) => `${item.name}${item.variantName ? ` (${item.variantName})` : ''} x${cartItemQtyPhrase(item)} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
+      (item) => `${item.name}${item.variantName ? ` (${item.variantName})` : ''} x${cartItemQtyPhrase(item, baseUnit)} — PKR ${Number(item.totalPrice || 0).toFixed(2)}`
     ),
     "------------------------",
     `Subtotal: PKR ${Number(receipt.subtotal || 0).toFixed(2)}`,
@@ -4003,9 +4003,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               detailsLine = `${displayQuantity.toFixed(3)} kg @ PKR ${displayUnitPrice.toFixed(2)}/kg`;
             } else if (item.unitLevel && item.unitFactor && item.unitFactor > 1) {
               // Wave C2: leveled lines read in their level, with the
-              // tablet count alongside ("2 STRIP (20 tablets)").
+              // base-unit count alongside ("2 STRIP (20 tablets)" in a
+              // pharmacy, "2 PACK (20 pieces)" in a store).
               displayQuantity = item.quantity / item.unitFactor;
-              displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} tablets)`;
+              displayUnitType = `${item.unitLevel === "PACK" ? "BOX" : item.unitLevel} (${item.quantity} ${baseUnitWord}s)`;
               displayUnitPrice = item.unitPrice;
               detailsLine = `${displayQuantity.toFixed(0)} ${displayUnitType} × PKR ${displayUnitPrice.toFixed(2)}`;
             } else if (item.unitType === "pack" || item.unitType === "box") {
@@ -4344,6 +4345,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // plain customer block for every other business type.
   const businessType = (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || "";
   const isPharmacyBusiness = businessType === "PHARMACY";
+  // Base-unit word scoping (Muhammad, 2026-10-31): only a pharmacy's
+  // base unit is a "tablet"; stores count "pieces". Drives every
+  // sold-by / receipt unit label in this component.
+  const baseUnitWord = baseUnitWordForBusinessType(businessType);
   // Loose / by-weight selling (Stage 1) — business-type scoping
   // (standing rule 2026-10-26): the KG UI (card button, decimal KG
   // input, amount→weight) renders only for general-retail types.
@@ -4351,10 +4356,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // never offer it there either.
   const isWeightSellingAllowed = isWeightSellingAllowedForBusinessType(businessType);
 
-  // L-10 fix (2026-10-26): strip selling only applies to product-selling
-  // business types (pharmacy / general store / retail) — the strip
-  // selector is hidden on POS cards and cart lines for other types.
-  const showStripOption = isBarcodeApplicableBusinessType(businessType);
+  // Strip scoping (Muhammad, 2026-10-31 — supersedes the L-10 rule of
+  // 2026-10-26): a strip is a PHARMACY-only selling level. Departmental
+  // and retail stores sell by pack and single piece only, so the strip
+  // option is hidden on POS cards and cart lines for every non-pharmacy
+  // type (a store product that somehow carries unitsPerStrip simply
+  // never offers the strip level; its pack/piece ladder is unaffected).
+  const showStripOption = isPharmacyBusiness;
 
   // Keyboard shortcuts (POS) — revised map (research, 2026-10-26):
   // tender moved off Alt+digits (Alt+C cash / Alt+B card), so the
@@ -5086,7 +5094,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               {isKgLine
                                 ? ` • PKR ${item.unitPrice.toFixed(2)} / kg • ${formatKgFromGrams(item.quantity)}`
                                 : item.unitLevel
-                                  ? ` • PKR ${item.unitPrice.toFixed(2)} per ${levelLabel(item.unitLevel)} • ${item.quantity} tablets`
+                                  ? ` • PKR ${item.unitPrice.toFixed(2)} per ${levelLabel(item.unitLevel, undefined, baseUnitWord)} • ${item.quantity} ${baseUnitWord}s`
                                   : ` • PKR ${item.unitPrice.toFixed(2)} each`}
                             </p>
                           </div>
@@ -5110,11 +5118,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               className="h-8 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]"
                               aria-label="Selling level"
                             >
-                              <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                              <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
                               {item.unitsPerStrip && showStripOption ? (
-                                <option value="STRIP">Strip ({item.unitsPerStrip} tablets) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                                <option value="STRIP">Strip ({item.unitsPerStrip} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
                               ) : null}
-                              <option value="UNIT">Tablet — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                              <option value="UNIT">{baseUnitWord === "tablet" ? "Tablet" : "Piece"} — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
                             </select>
                             )}
                           </div>
@@ -6419,7 +6427,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera');
+                        const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera', baseUnitWord);
                         window.open(url, '_blank', 'noopener');
                       }}
                       className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
@@ -6534,7 +6542,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         <span className="shrink-0 font-bold text-neutral-900">PKR {Number(item.totalPrice || 0).toFixed(2)}</span>
                       </div>
                       <p className="text-[11px] text-neutral-500">
-                        {cartItemQtyPhrase(item)} × PKR {Number(item.unitPrice || 0).toFixed(2)}{isKgReceiptLine(item) ? " / kg" : ""}
+                        {cartItemQtyPhrase(item, baseUnitWord)} × PKR {Number(item.unitPrice || 0).toFixed(2)}{isKgReceiptLine(item) ? " / kg" : ""}
                       </p>
                       {item.instructions && (
                         <p className="text-[11px] italic text-neutral-500">{item.instructions}</p>
@@ -6715,7 +6723,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{item.product.name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {describeStoredLine({ ...item, unitType: (item as any).product?.unitType }) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice.toFixed(2)}{isKgReceiptLine({ ...item, unitType: (item as any).product?.unitType }) ? " / kg" : ""}
+                                  {describeStoredLine({ ...item, unitType: (item as any).product?.unitType }, baseUnitWord) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice.toFixed(2)}{isKgReceiptLine({ ...item, unitType: (item as any).product?.unitType }) ? " / kg" : ""}
                                   {item.batchNumber && ` • Batch: ${item.batchNumber}`}
                                   {item.expiryDate && ` • Exp: ${new Date(item.expiryDate).toLocaleDateString()}`}
                                 </p>

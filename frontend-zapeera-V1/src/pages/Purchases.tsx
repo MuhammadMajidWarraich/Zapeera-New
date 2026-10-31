@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/contexts/useAdmin';
 import { apiService, fetchAllPaged } from '@/services/api';
+import { baseUnitWordForBusinessType } from '@/utils/units';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,7 +89,12 @@ interface Supplier {
 
 const Purchases = () => {
   const { user } = useAuth();
-  const { selectedCompanyId, selectedBranchId } = useAdmin();
+  const { selectedCompanyId, selectedBranchId, selectedCompany } = useAdmin();
+  // Base-unit word scoping (Muhammad, 2026-10-31): purchase quantities
+  // are counted in "tablets" only in a pharmacy; stores count "pieces".
+  const baseUnitWord = baseUnitWordForBusinessType(
+    (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || ""
+  );
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -951,7 +957,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                   />
                   {newItemPerPack > 1 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      = {(newItem.quantity * newItemPerPack).toLocaleString()} tablets at {newItemPerPack} per pack — stock is recorded in tablets.
+                      = {(newItem.quantity * newItemPerPack).toLocaleString()} {baseUnitWord}s at {newItemPerPack} per pack — stock is recorded in {baseUnitWord}s.
                     </p>
                   )}
                 </div>
@@ -1038,7 +1044,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                         <span className="font-medium">{product?.name}</span>
                         <span className="text-gray-500 ml-2">({product?.sku})</span>
                         <div className="text-sm text-gray-600">
-                          Qty: {item.quantity}{product?.unitsPerPack && product.unitsPerPack > 1 ? ` packs (= ${(item.quantity * product.unitsPerPack).toLocaleString()} tablets)` : ''} × Rs. {item.unitPrice.toFixed(2)} = Rs. {(item.quantity * item.unitPrice).toFixed(2)}
+                          Qty: {item.quantity}{product?.unitsPerPack && product.unitsPerPack > 1 ? ` packs (= ${(item.quantity * product.unitsPerPack).toLocaleString()} ${baseUnitWord}s)` : ''} × Rs. {item.unitPrice.toFixed(2)} = Rs. {(item.quantity * item.unitPrice).toFixed(2)}
                           {item.batchNo && ` | Batch: ${item.batchNo}`}
                         </div>
                       </div>
@@ -1153,7 +1159,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                         <TableCell>
                           {item.quantity}
                           {item.product.unitsPerPack && item.product.unitsPerPack > 1
-                            ? ` packs (= ${(item.quantity * item.product.unitsPerPack).toLocaleString()} tablets)`
+                            ? ` packs (= ${(item.quantity * item.product.unitsPerPack).toLocaleString()} ${baseUnitWord}s)`
                             : ''}
                         </TableCell>
                         <TableCell>Rs. {item.unitPrice.toFixed(2)}{item.product.unitsPerPack && item.product.unitsPerPack > 1 ? ' / pack' : ''}</TableCell>

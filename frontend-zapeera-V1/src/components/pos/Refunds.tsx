@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import { apiService } from "@/services/api";
-import { describeStoredLine } from "@/utils/units";
+import { describeStoredLine, baseUnitWordForBusinessType } from "@/utils/units";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
@@ -64,7 +64,12 @@ interface RefundRecord {
 
 const Refunds = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch, selectedCompanyId } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany } = useAdmin();
+  // Base-unit word scoping (Muhammad, 2026-10-31): "(N tablets)" is
+  // pharmacy language; stores read "(N pieces)".
+  const baseUnitWord = baseUnitWordForBusinessType(
+    (selectedCompany as any)?.businessType || (user as any)?.company?.businessType || ""
+  );
 
   const [refunds, setRefunds] = useState<RefundRecord[]>([]);
   const [filteredRefunds, setFilteredRefunds] = useState<RefundRecord[]>([]);
@@ -880,7 +885,7 @@ const Refunds = () => {
                               <div>
                                 <p className="text-sm font-medium text-[#0a1128]">{item.product?.name || "Product"}</p>
                                 <p className="text-xs text-[#8c95b0]">
-                                  {describeStoredLine({ ...item, unitType: item.product?.unitType }) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
+                                  {describeStoredLine({ ...item, unitType: item.product?.unitType }, baseUnitWord) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
                                 </p>
                               </div>
                               <p className="text-sm font-semibold text-[#0a1128]">PKR {item.totalPrice?.toFixed?.(2) || "0.00"}</p>
