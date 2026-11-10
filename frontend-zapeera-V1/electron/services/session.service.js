@@ -13,6 +13,13 @@ let _uuid = null;
 let _now = null;
 
 const DEFAULT_SESSION_HOURS = 168; // 7 days
+// Offline grace: how long AFTER the primary expiry a device-bound session
+// may still be used to enter the app offline (validateOfflineSession flags
+// it _offlineGrace). The grace deadline must therefore sit BEYOND
+// expiresAt: offlineExpiresAt = creation + 168h + 72h. (Before the
+// 2026-11-10 fix it was computed as creation + 72h, i.e. ~4 days before
+// expiresAt, so the grace branch in validateOfflineSession could never
+// fire — see ZAPEERA_DESKTOP_OFFLINE_GATE_2026-11-10.md.)
 const OFFLINE_GRACE_HOURS = 72;
 
 function init(deps) {
@@ -45,7 +52,7 @@ function createSession(userId, deviceId, metadata = {}) {
   const token = generateSessionToken();
   const timestamp = _now();
   const expiresAt = computeExpiry(DEFAULT_SESSION_HOURS);
-  const offlineExpiresAt = computeExpiry(OFFLINE_GRACE_HOURS);
+  const offlineExpiresAt = computeExpiry(DEFAULT_SESSION_HOURS + OFFLINE_GRACE_HOURS);
 
   _run(`
     INSERT INTO sessions
@@ -161,6 +168,36 @@ function getUserActiveSessions(userId) {
   );
 }
 
+/**
+ * One-time repair for sessions created by builds where offlineExpiresAt
+ * was computed as creation + OFFLINE_GRACE_HOURS — i.e. BEFORE the primary
+ * expiry — which made the offline grace unreachable. For every session
+ * that is still ACTIVE and still inside its primary validity, move the
+ * grace deadline to expiresAt + OFFLINE_GRACE_HOURS (the value
+ * createSession now writes). Sessions whose primary expiry has already
+ * passed are deliberately untouched: nothing dead is resurrected.
+ * Idempotent — post-fix rows already satisfy offlineExpiresAt > expiresAt
+ * and are skipped. Returns the number of sessions repaired.
+ */
+function repairOfflineGraceWindows() {
+  ensureInit();
+  const nowMs = Date.now();
+  const rows = _query(`SELECT id, expiresAt, offlineExpiresAt FROM sessions WHERE status = 'ACTIVE'`, []) || [];
+  let repaired = 0;
+  for (const row of rows) {
+    const expMs = row.expiresAt ? new Date(row.expiresAt).getTime() : NaN;
+    if (!Number.isFinite(expMs) || expMs < nowMs) continue; // primary validity over — leave it dead
+    const offMs = row.offlineExpiresAt ? new Date(row.offlineExpiresAt).getTime() : NaN;
+    if (Number.isFinite(offMs) && offMs >= expMs) continue; // already on the post-fix window
+    const repairedOfflineExpiry = new Date(expMs + OFFLINE_GRACE_HOURS * 60 * 60 * 1000).toISOString();
+    _run(`UPDATE sessions SET offlineExpiresAt = ?, updatedAt = ? WHERE id = ?`,
+      [repairedOfflineExpiry, _now(), row.id]);
+    repaired++;
+  }
+  if (repaired > 0) _saveDatabase();
+  return repaired;
+}
+
 function computeExpiry(hours) {
   const d = new Date();
   d.setHours(d.getHours() + hours);
@@ -175,6 +212,7 @@ module.exports = {
   revokeSession,
   revokeAllUserSessions,
   refreshSession,
+  repairOfflineGraceWindows,
   cleanExpiredSessions,
   getUserActiveSessions
 };

@@ -280,6 +280,20 @@ async function startServer(port = 4201, userDataPath = null) {
     console.error('[Server] ⚠️ Database initialization failed:', e.message);
   }
 
+  // One-time repair of offline-grace windows written by builds where
+  // offlineExpiresAt landed BEFORE the primary session expiry (making the
+  // offline grace unreachable). Only still-valid ACTIVE sessions are
+  // repaired; nothing expired is resurrected. Fail-soft: a repair failure
+  // must never block startup — it is simply retried on the next boot.
+  try {
+    const repaired = sessionService.repairOfflineGraceWindows();
+    if (repaired > 0) {
+      console.log(`[Server] Repaired offline grace window for ${repaired} existing session(s)`);
+    }
+  } catch (e) {
+    console.error('[Server] ⚠️ Offline grace repair skipped:', e.message);
+  }
+
   // Start server
   return new Promise((resolve, reject) => {
     try {
