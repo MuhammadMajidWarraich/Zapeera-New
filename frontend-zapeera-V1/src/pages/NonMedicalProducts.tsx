@@ -29,6 +29,8 @@ import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
+import { getAllowedCategoryTypes } from "@/utils/category-types";
+import { isCanonicalBusinessTypeKey } from "@/utils/business-labels";
 
 interface NonMedicalProduct {
   id: string;
@@ -54,7 +56,13 @@ interface NonMedicalProduct {
 
 const NonMedicalProducts = () => {
   const { user } = useAuth();
-  const { selectedCompanyId, selectedBranchId } = useAdmin();
+  const { selectedCompanyId, selectedBranchId, selectedCompany } = useAdmin();
+  // Industry gate (2026-11-11): same as MedicalProducts — the
+  // NON_MEDICAL category type exists only in the pharmacy category
+  // set; other canonical types get the neutral notice.
+  const nonMedicalViewApplicable =
+    !isCanonicalBusinessTypeKey((selectedCompany as any)?.businessType) ||
+    getAllowedCategoryTypes((selectedCompany as any)?.businessType).includes('NON_MEDICAL');
   const [products, setProducts] = useState<NonMedicalProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +153,22 @@ const NonMedicalProducts = () => {
         return <ShoppingBag className="w-4 h-4" />;
     }
   };
+
+  if (!nonMedicalViewApplicable) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md px-6">
+          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-foreground mb-2">Not part of this business type</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            The Medical / Non-Medical product views belong to the pharmacy inventory layout.
+            Your products live in Inventory, grouped by your own categories.
+          </p>
+          <Button onClick={() => window.location.assign('/inventory')}>Go to Inventory</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

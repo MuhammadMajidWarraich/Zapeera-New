@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { apiService, fetchAllPaged } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
+import { useAdmin } from "@/contexts/useAdmin";
+import { baseUnitWordForBusinessType } from "@/utils/units";
+import { isPharmacyBusinessType } from "@/utils/business-labels";
 
 // Wave C3 — Auto-reorder suggestions.
 // Products opt in via a Reorder Level (set on the product form in
@@ -73,6 +76,11 @@ const groupKey = (group: ReorderGroup) =>
   group.supplier ? group.supplier.id : "__unassigned__";
 
 const ReorderSuggestions: React.FC = () => {
+  // Per-type base-unit wording (2026-11-11): "(tablets / pieces)" was
+  // hardcoded for every business type.
+  const { selectedCompany } = useAdmin();
+  const isPharmacyBusiness = isPharmacyBusinessType((selectedCompany as any)?.businessType);
+  const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
   const [groups, setGroups] = useState<ReorderGroup[]>([]);
   const [participating, setParticipating] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -215,7 +223,7 @@ const ReorderSuggestions: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Products at or below their reorder level, grouped by supplier.
-            Quantities are in base units (tablets / pieces).
+            Quantities are in base units ({isPharmacyBusiness ? "tablets / pieces" : `${baseUnitWord}s`}).
           </p>
         </div>
         <Button variant="outline" onClick={loadSuggestions}>

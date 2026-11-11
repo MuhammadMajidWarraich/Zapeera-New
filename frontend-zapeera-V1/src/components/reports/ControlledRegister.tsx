@@ -17,6 +17,7 @@ import {
   ControlledStaffAuditRow,
 } from "@/services/api";
 import { useAdmin } from "@/contexts/useAdmin";
+import { isPharmacyBusinessType, isCanonicalBusinessTypeKey } from "@/utils/business-labels";
 import { Download, Printer, RefreshCw, RotateCcw, ShieldAlert } from "lucide-react";
 
 // Controlled / narcotics register (Gap item 2) — the append-only
@@ -42,7 +43,14 @@ function scheduleLabel(entry: ControlledRegisterEntry): string {
 }
 
 const ControlledRegister = () => {
-  const { selectedBranchId } = useAdmin();
+  const { selectedBranchId, selectedCompany } = useAdmin();
+  // Industry gate (2026-11-11): controlled medicines are a pharmacy-only
+  // concept. The Reports-page button was already pharmacy-gated, but the
+  // route itself rendered for every type; canonical non-pharmacy types
+  // now get a neutral notice. Custom/unknown types keep legacy access.
+  const registerApplicable =
+    !isCanonicalBusinessTypeKey((selectedCompany as any)?.businessType) ||
+    isPharmacyBusinessType((selectedCompany as any)?.businessType);
   const [tab, setTab] = useState("register");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -202,6 +210,21 @@ const ControlledRegister = () => {
       setError(e instanceof Error ? e.message : "Could not download the inspection pack.");
     }
   };
+
+  if (!registerApplicable) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center max-w-md px-6">
+          <ShieldAlert className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-foreground mb-2">Not part of this business type</p>
+          <p className="text-sm text-muted-foreground">
+            The Controlled Medicines Register is a pharmacy compliance log. This business
+            type does not stock controlled medicines.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

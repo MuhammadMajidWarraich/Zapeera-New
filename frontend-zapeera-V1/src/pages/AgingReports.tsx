@@ -12,6 +12,8 @@ import {
 import { RefreshCw, Loader2, BarChart3, Info } from "lucide-react";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
+import { useAdmin } from "@/contexts/useAdmin";
+import { businessTypeLabels } from "@/utils/business-labels";
 
 // Gap Item 4 — Aging reports.
 // Five read-only reports over rows that already exist:
@@ -73,6 +75,10 @@ const movementBadge: Record<string, string> = {
 };
 
 const AgingReports: React.FC = () => {
+  // Per-type item noun (2026-11-11): the profitability report said
+  // "Medicine-wise" to every business type.
+  const { selectedCompany } = useAdmin();
+  const typeLabels = businessTypeLabels((selectedCompany as any)?.businessType);
   const [tab, setTab] = useState<TabKey>("supplier");
   const [days, setDays] = useState("30");
   const [loading, setLoading] = useState(true);
@@ -224,7 +230,7 @@ const AgingReports: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Supplier payables, khata receivables, stock age, movement and
-            per-medicine profitability — read-only, computed from live rows.
+            per-{typeLabels.itemNounLower} profitability — read-only, computed from live rows.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -503,7 +509,7 @@ const AgingReports: React.FC = () => {
             <Card className="bg-white border-0 shadow-soft">
               <CardHeader>
                 <CardTitle>
-                  Medicine-wise Profitability — last {profitData.days} days · revenue{" "}
+                  {typeLabels.itemNoun}-wise Profitability — last {profitData.days} days · revenue{" "}
                   {formatCurrency(profitData.totals.revenue)} · COGS {formatCurrency(profitData.totals.cost)} ·{" "}
                   gross profit {formatCurrency(profitData.totals.grossProfit)}
                 </CardTitle>

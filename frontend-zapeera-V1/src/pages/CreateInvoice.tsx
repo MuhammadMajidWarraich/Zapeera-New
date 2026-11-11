@@ -4922,6 +4922,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onAddToCart={addToInvoiceCart}
               onScanSubmit={(code) => { void handleBarcodeScanned(code, "main"); }}
               showStripOption={showStripOption}
+              isPharmacyBusiness={isPharmacyBusiness}
               isWeightSellingAllowed={isWeightSellingAllowed}
             />
           </div>
@@ -6881,6 +6882,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   setIsCameraScannerOpen(true);
                 }}
                 showStripOption={showStripOption}
+                isPharmacyBusiness={isPharmacyBusiness}
                 isWeightSellingAllowed={isWeightSellingAllowed}
               />
 

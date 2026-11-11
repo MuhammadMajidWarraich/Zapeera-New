@@ -78,6 +78,11 @@ interface ProductSearchSectionProps {
    *  strip selling only applies to product-selling business types.
    *  Defaults to shown, so existing usages are unaffected. */
   showStripOption?: boolean;
+  /** Pharmacy search vocabulary (2026-11-11): the split-layout search
+   *  placeholder says "brand, generic, or category" — "generic" is
+   *  medicine vocabulary. Callers pass the business's real flag;
+   *  defaults to true so existing usages keep the legacy wording. */
+  isPharmacyBusiness?: boolean;
   // Loose / by-weight selling (Stage 1): gates the KG level button
   // and per-kg prices on the cards (business-type scoping).
   isWeightSellingAllowed?: boolean;
@@ -210,6 +215,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   onScanClick,
   inputId,
   showStripOption = true,
+  isPharmacyBusiness = true,
   isWeightSellingAllowed,
   layout = 'default',
   className,
@@ -521,7 +527,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           <Input
             ref={inputRef}
             id={inputId ?? (isSplit ? 'pos-search-input' : undefined)}
-            placeholder={isSplit ? 'Search by brand, generic, or category…' : 'Scan barcode or search products...'}
+            placeholder={isSplit ? (isPharmacyBusiness ? 'Search by brand, generic, or category…' : 'Search by name, brand, or category…') : 'Scan barcode or search products...'}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={handleKeyDown}
