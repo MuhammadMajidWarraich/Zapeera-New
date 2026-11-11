@@ -77,7 +77,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
       } else {
         toast({
           title: "Failed to load catalog",
-          description: response.message || "Could not load the medicine catalog.",
+          description: response.message || "Could not load the product catalog.",
           variant: "destructive",
         });
       }
@@ -85,7 +85,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
       console.error("Load medicine catalog error:", err);
       toast({
         title: "Failed to load catalog",
-        description: "Could not load the medicine catalog.",
+        description: "Could not load the product catalog.",
         variant: "destructive",
       });
     } finally {
@@ -171,7 +171,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
         });
         toast({
           title: "Import complete",
-          description: `${created.length} medicines added, ${skipped.length} skipped (already in stock list), ${failed.length} failed.`,
+          description: `${created.length} products added, ${skipped.length} skipped (already in stock list), ${failed.length} failed.`,
         });
         // Refresh existence flags so imported rows become disabled.
         await loadCatalog();
@@ -202,10 +202,10 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Pill className="w-5 h-5 text-blue-600" />
-            <span>Import from Medicine Catalog</span>
+            <span>Import from Product Catalog</span>
           </DialogTitle>
           <DialogDescription>
-            Common medicines sold in Pakistani pharmacies. Select the ones you
+            Common products sold in Pakistani pharmacies. Select the ones you
             stock — products are created with their generic (salt), pack size
             and prescription flag. Items already in your product list are
             marked and cannot be imported twice.
@@ -252,7 +252,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
           <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
             <CheckCircle2 className="w-4 h-4" />
             <span>
-              Imported <strong>{result.created}</strong> medicines ·{" "}
+              Imported <strong>{result.created}</strong> products ·{" "}
               {result.skipped} skipped · {result.failed} failed. Set prices by
               receiving a purchase or adding batches.
             </span>
@@ -268,7 +268,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-500">
-              No medicines match the current filters.
+              No products match the current filters.
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -283,7 +283,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
                       aria-label="Select all filtered"
                     />
                   </th>
-                  <th className="text-left py-2 px-3 font-medium text-gray-600">Medicine</th>
+                  <th className="text-left py-2 px-3 font-medium text-gray-600">Product</th>
                   <th className="text-left py-2 px-3 font-medium text-gray-600">Generic (Salt)</th>
                   <th className="text-left py-2 px-3 font-medium text-gray-600">Pack</th>
                   <th className="text-left py-2 px-3 font-medium text-gray-600">Manufacturer</th>
@@ -367,7 +367,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
               ) : (
                 <Download className="w-4 h-4 mr-2" />
               )}
-              Import {selected.size > 0 ? `(${selected.size})` : ""} Medicines
+              Import {selected.size > 0 ? `(${selected.size})` : ""} Products
             </Button>
           </div>
         </div>

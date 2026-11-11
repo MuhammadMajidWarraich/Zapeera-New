@@ -190,8 +190,10 @@ const Inventory = () => {
   const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
   const baseUnitCap = baseUnitWord === "tablet" ? "Tablets" : "Pieces";
   // Per-type item labels (2026-11-11): the product form said "Medicine"
-  // to every business type. Pharmacy keeps the exact legacy wording;
-  // other types get their own label set from the central helper.
+  // to every business type. The item noun is now "Product" for EVERY
+  // type, pharmacy included (owner ruling, 2026-11-11 15:41); only the
+  // composition label still differs (pharmacy "Formula"). All label
+  // text comes from the central helper.
   const typeLabels = businessTypeLabels((selectedCompany as any)?.businessType);
   const { toast } = useToast();
   
@@ -2490,7 +2492,7 @@ const Inventory = () => {
               <Upload className="h-[17px] w-[17px]" strokeWidth={2} />
               Export
             </Button>
-            {/* Medicine master catalog is a PHARMACY-only feature
+            {/* Product master catalog is a PHARMACY-only feature
                 (2026-11-11): the button and dialog mount only there. */}
             {isPharmacyBusiness && (
             <>
@@ -2501,7 +2503,7 @@ const Inventory = () => {
               className="inline-flex h-auto items-center gap-2 rounded-[10px] border border-border bg-card px-5 py-3 text-sm font-semibold text-muted-foreground shadow-none hover:bg-card hover:text-foreground hover:shadow-soft"
             >
               <Pill className="h-[17px] w-[17px]" strokeWidth={2} />
-              Medicine Catalog
+              Product Catalog
             </Button>
             <MedicineCatalogImport
               open={isCatalogImportOpen}
@@ -2618,7 +2620,7 @@ const Inventory = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Add Medicine Dialog */}
+          {/* Add Product Dialog */}
           <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
             setIsAddDialogOpen(open);
             // CRITICAL FIX: Reload categories when dialog opens to ensure they're available
@@ -3729,7 +3731,7 @@ const Inventory = () => {
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Category</th>
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Supplier</th>
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Manufacturer</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Formula</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">{typeLabels.compositionLabel}</th>
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Cost Price</th>
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Sale Price</th>
                     <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Total Qty</th>
@@ -3840,7 +3842,7 @@ const Inventory = () => {
                             })()}
                           </td>
                           <td className="max-w-[200px] px-4 py-4 align-middle text-[12px] italic text-[#8c95b0]">
-                            {product.formula || "No formula provided"}
+                            {product.formula || (isPharmacyBusiness ? "No formula provided" : "No details provided")}
                           </td>
                           <td className="px-4 py-4 align-middle">
                             {(() => {
@@ -4111,7 +4113,7 @@ const Inventory = () => {
                       <tr>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Product Name</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">{isPharmacyBusiness ? "Formula" : typeLabels.compositionLabel}</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">{typeLabels.compositionLabel}</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Barcode</th>
                       </tr>
                     </thead>
@@ -4157,7 +4159,7 @@ const Inventory = () => {
                           </td>
                           <td className="py-3 px-4">
                             <Input
-                              placeholder={isPharmacyBusiness ? "Enter formula/composition" : `Enter ${typeLabels.compositionLabel.toLowerCase()}`}
+                              placeholder={`Enter ${typeLabels.compositionLabel.toLowerCase()}`}
                               value={product.formula || ''}
                               onChange={(e) => {
                                 const updated = [...importedProducts];

@@ -7059,7 +7059,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     <div className="text-center py-8 text-muted-foreground">
                       <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p className="text-sm font-medium">No items selected</p>
-                      <p className="text-xs mt-1">Search and add medicines</p>
+                      <p className="text-xs mt-1">Search and add products</p>
                     </div>
                   )}
 
