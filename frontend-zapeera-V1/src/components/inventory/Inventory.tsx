@@ -913,16 +913,6 @@ const Inventory = () => {
 
 
   const handleCreateCategory = async (formData: any) => {
-    // Check if admin has selected a branch
-    if (user?.role === 'OWNER' && !selectedBranchId) {
-      toast({
-        title: "Branch Selection Required",
-        description: "Please select a branch before creating a category!",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Validate required fields
     if (!formData.name || !formData.name.trim()) {
       toast({
@@ -933,20 +923,38 @@ const Inventory = () => {
       return;
     }
 
+    // Resolve the branch the category belongs to — same fallback chain
+    // as the product save: selected branch → user's branch → first
+    // branch of the business. Owners in "All branches" mode used to
+    // hit a hard "Branch Selection Required" block here (the category
+    // never reached the API); they now land on the first branch, the
+    // same branch the product being created will save under.
+    let branchId = selectedBranchId || user?.branchId || '';
+    if (!branchId) {
+      try {
+        const branchesResponse = await apiService.getBranches();
+        if (branchesResponse.success && branchesResponse.data?.branches?.length > 0) {
+          branchId = branchesResponse.data.branches[0].id;
+        } else if (allBranches && allBranches.length > 0) {
+          branchId = allBranches[0].id;
+        }
+      } catch (e) {
+        if (allBranches && allBranches.length > 0) {
+          branchId = allBranches[0].id;
+        }
+      }
+    }
+    if (!branchId) {
+      toast({
+        title: "Branch Required",
+        description: "Please select a branch before creating a category!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsCreatingCategory(true);
-
-      // Determine branchId: use selectedBranchId if available, otherwise user's branchId
-      const branchId = selectedBranchId || user?.branchId || '';
-
-      if (!branchId) {
-        toast({
-          title: "Branch Required",
-          description: "Please select a branch before creating a category!",
-          variant: "destructive",
-        });
-        return;
-      }
 
       const categoryData = {
         name: formData.name.trim(),
@@ -965,6 +973,35 @@ const Inventory = () => {
       if (response && response.success) {
         // Close dialog first
         setIsCreateCategoryDialogOpen(false);
+
+        // Refresh the category list so the new category shows up in the
+        // product form's dropdown right away, and select it — the whole
+        // point of the inline quick-create.
+        const createdCategoryId = (response as any)?.data?.id;
+        try {
+          const categoriesResponse = await apiService.getCategories({
+            branchId: branchId,
+            limit: 1000
+          });
+          if (categoriesResponse.success && categoriesResponse.data) {
+            const responseData = categoriesResponse.data as any;
+            let categoriesData = [];
+            if (Array.isArray(responseData)) {
+              categoriesData = responseData;
+            } else if (responseData.categories && Array.isArray(responseData.categories)) {
+              categoriesData = responseData.categories;
+            } else if (responseData.data && Array.isArray(responseData.data)) {
+              categoriesData = responseData.data;
+            }
+            setCategories(categoriesData);
+          }
+        } catch (refreshError) {
+          // Non-fatal: the category was created; the dropdown reloads
+          // the next time the product form opens.
+        }
+        if (createdCategoryId) {
+          setNewMedicine((prev: any) => ({ ...prev, categoryId: createdCategoryId }));
+        }
 
         // Reset form
         setNewCategory({
@@ -3015,6 +3052,30 @@ const Inventory = () => {
             </DialogContent>
           </Dialog>
 
+          {/* Create Category Dialog — inline quick-create opened by the
+              Category "+ Add New" button in the Add/Edit product forms.
+              The button, open state and handleCreateCategory existed
+              since the pre-launch QA pass but this dialog was never
+              rendered, leaving the button dead (owner bug report
+              2026-11-11). Mirrors the proven CategoryManagement
+              Dialog + CategoryForm pairing. */}
+          <Dialog open={isCreateCategoryDialogOpen} onOpenChange={setIsCreateCategoryDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create New Category</DialogTitle>
+                <DialogDescription>
+                  Add a new category to organize your products.
+                </DialogDescription>
+              </DialogHeader>
+              <CategoryForm
+                onSubmit={handleCreateCategory}
+                onCancel={() => setIsCreateCategoryDialogOpen(false)}
+                isSubmitting={isCreatingCategory}
+                submitButtonText="Create Category"
+              />
+            </DialogContent>
+          </Dialog>
+
           {/* Edit Product Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
             setIsEditDialogOpen(open);
@@ -3069,22 +3130,34 @@ const Inventory = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="edit-category">Category *</Label>
-                    <Select value={newMedicine.categoryId} onValueChange={(value) => setNewMedicine({...newMedicine, categoryId: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem
-                            key={category.id}
-                            value={category.id}
-                            className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
-                          >
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={newMedicine.categoryId} onValueChange={(value) => setNewMedicine({...newMedicine, categoryId: value})}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem
+                              key={category.id}
+                              value={category.id}
+                              className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                            >
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCreateCategoryDialogOpen(true)}
+                        className="px-3"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add New
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
