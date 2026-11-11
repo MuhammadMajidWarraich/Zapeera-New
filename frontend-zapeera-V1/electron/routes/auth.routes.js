@@ -1599,15 +1599,20 @@ function registerAuthRoutes(app, authMiddleware, deps) {
               };
             }
           }
-          let subscriptions = [];
+          let businesses = [];
           try {
-            subscriptions = query('SELECT companyId, status, periodEnd FROM subscriptions', []).map((s) => ({
+            businesses = query('SELECT companyId, status, periodEnd FROM subscriptions', []).map((s) => ({
               businessId: s.companyId,
               status: s.status,
               periodEnd: s.periodEnd || null
             }));
           } catch { /* periodEnd column may not exist on a mid-upgrade DB — banner simply stays silent */ }
-          res.json({ success: true, data: { session: sessionInfo, subscriptions, serverNow: new Date().toISOString() } });
+          // NOTE (v1.0.20.1): the field MUST be `businesses` — the renewal
+          // banner reads `data.businesses`. An earlier revision returned
+          // `subscriptions` here, which crashed every desktop workspace
+          // load with "Cannot read properties of undefined (reading
+          // 'find')" because the banner called .find() on undefined.
+          res.json({ success: true, data: { session: sessionInfo, businesses, serverNow: new Date().toISOString() } });
         } catch (e) {
           res.status(500).json({ success: false, message: e.message });
         }

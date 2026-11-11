@@ -21,6 +21,10 @@ import { useAdmin } from '@/contexts/useAdmin';
 interface SessionStatus {
   session: { expiresAt: string | null; offlineExpiresAt: string | null; offlineGrace: boolean } | null;
   businesses: Array<{ businessId: string; periodEnd: string | null }>;
+  // Legacy alias tolerated defensively (v1.0.20.1): the embedded endpoint
+  // once returned `subscriptions` here; a missing array must never crash
+  // the workspace again.
+  subscriptions?: Array<{ businessId: string; periodEnd: string | null }>;
   serverNow: string;
 }
 
@@ -72,7 +76,10 @@ export function DesktopSessionBanner() {
     }
   }
 
-  const biz = status.businesses.find((b) => b.businessId === selectedCompanyId);
+  // v1.0.20.1: never .find() on a possibly-absent array — a missing
+  // `businesses` list means "no subscription info", not a crash.
+  const businessList = status.businesses ?? status.subscriptions ?? [];
+  const biz = businessList.find((b) => b.businessId === selectedCompanyId);
   if (biz?.periodEnd) {
     const endMs = new Date(biz.periodEnd).getTime();
     const daysLeft = Math.floor((endMs - now) / DAY_MS);
