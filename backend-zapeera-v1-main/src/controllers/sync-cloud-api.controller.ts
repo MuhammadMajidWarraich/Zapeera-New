@@ -341,7 +341,18 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
 //   config holds a write-only PRAL API token; the queue is server-side
 //   worker state.
 const PUSH_BLOCKED_ENTITY_TYPES = new Set([
-  'customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue'
+  'customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue',
+  // v1.0.19.1 — subscription / entitlement state is CLOUD-AUTHORITATIVE:
+  // devices PULL it (provision + /sync/account + pull), they never PUSH
+  // it. A stale device mirror must never regress billing state (incident
+  // 2026-11-11: the General Store's currentPeriodEnd flipped back to a
+  // stale value minutes after a cloud-side restore; until now these ops
+  // were only neutralised by accident — prisma['subscription'] does not
+  // exist in the PG schema (the model is BusinessSubscription), so the
+  // generic apply silently ACCEPTED them as no-ops). The block is now
+  // explicit, covers the plausible entity spellings, and returns a
+  // recorded REJECTED so clients retire the op instead of retrying it.
+  'subscription', 'businessSubscription', 'subscriptionAddon'
 ]);
 
 // Dependency rank for in-batch ordering (lower applies first). Mirrors the
