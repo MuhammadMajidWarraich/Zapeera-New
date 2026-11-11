@@ -39,7 +39,7 @@ import {
 
 const ZapeeraDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, requestLogout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -149,7 +149,7 @@ const ZapeeraDashboard = () => {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    await logout();
+    await requestLogout();
     setIsLoggingOut(false);
   };
 

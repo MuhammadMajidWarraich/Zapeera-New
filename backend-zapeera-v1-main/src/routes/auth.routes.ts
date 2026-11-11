@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { login, register, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
+import { login, register, refreshDesktopToken, getProfile, changePassword, updateProfile, checkAccountStatus, forgotPassword, resetPassword, verifyResetToken, resetPasswordWithToken, verifyEmail, resendVerificationEmail, logout } from '../controllers/auth.controller';
 import { setupTwoFactor, enableTwoFactor, disableTwoFactor, regenerateRecoveryCodes, verifyLoginTwoFactor } from '../controllers/two-factor.controller';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
@@ -8,6 +8,8 @@ const router = Router();
 
 // Public routes
 router.post('/login', login);
+// v1.0.19: desktop sync-layer token renewal (the refresh token is the credential).
+router.post('/desktop/refresh', refreshDesktopToken);
 // Completes a 2FA-challenged login (the challenge token is the credential).
 router.post('/login/2fa', verifyLoginTwoFactor);
 router.post('/register', register);

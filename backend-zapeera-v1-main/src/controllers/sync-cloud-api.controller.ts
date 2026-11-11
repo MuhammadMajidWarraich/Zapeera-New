@@ -114,6 +114,9 @@ export const cloudSyncAccount = async (req: AuthRequest, res: Response) => {
         status: m.status,
         subscriptionPlan: m.business?.businessSubscription?.planId || '',
         subscriptionStatus: m.business?.businessSubscription?.status || '',
+        // v1.0.19: period end rides the mirror so an offline device can
+        // SEE a mid-offline expiry (currentPeriodEnd, else trial end).
+        subscriptionPeriodEnd: (m.business?.businessSubscription?.currentPeriodEnd || m.business?.businessSubscription?.trialEndsAt || null),
         branchIds: m.branches.map((b: any) => b.branch.id),
         branches: m.branches.map((b: any) => ({ id: b.branch.id, name: b.branch.name }))
       })),
@@ -208,6 +211,43 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
       console.error('[license] Issuance failed at provision (provision unaffected):', licenseError?.message || licenseError);
     }
 
+    // ── v1.0.19: invoice register slot ────────────────────────────────────
+    // Each desktop device owns ONE slot (1–9) for its offline invoice
+    // numbers (INV-<slot><seq4>); the cloud/web mint from slot 0. The
+    // slot is allocated once, stored on the device row (created by
+    // license issuance / device check-in above), and returned here so
+    // the desktop can persist it. Best-effort: no device binding or no
+    // free slot → null, and the desktop falls back to legacy numbering
+    // with the R4 renumber as backstop. Allocation races are settled by
+    // the @unique on registerSlot (loser retries the next free slot).
+    let registerSlot: number | null = null;
+    try {
+      const { deviceId } = readDeviceBinding(req);
+      if (deviceId) {
+        const device = await prisma.deviceActivation.findUnique({ where: { deviceId } });
+        if (device) {
+          if (device.registerSlot) {
+            registerSlot = device.registerSlot;
+          } else {
+            const used = await prisma.deviceActivation.findMany({
+              where: { registerSlot: { not: null } },
+              select: { registerSlot: true }
+            });
+            const taken = new Set(used.map((d: any) => d.registerSlot));
+            for (let s = 1; s <= 9 && registerSlot === null; s++) {
+              if (taken.has(s)) continue;
+              try {
+                await prisma.deviceActivation.update({ where: { deviceId }, data: { registerSlot: s } });
+                registerSlot = s;
+              } catch { /* unique race — try the next slot */ }
+            }
+          }
+        }
+      }
+    } catch (slotError: any) {
+      console.error('[sync] Register slot allocation failed (provision unaffected):', slotError?.message || slotError);
+    }
+
     res.json({
       success: true,
       data: {
@@ -238,7 +278,10 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
         subscription: business.businessSubscription ? {
           planId: business.businessSubscription.planId,
           status: business.businessSubscription.status,
-          trialEndsAt: business.businessSubscription.trialEndsAt
+          trialEndsAt: business.businessSubscription.trialEndsAt,
+          currentPeriodEnd: business.businessSubscription.currentPeriodEnd,
+          // v1.0.19: single "period end" for the local entitlement mirror.
+          periodEnd: business.businessSubscription.currentPeriodEnd || business.businessSubscription.trialEndsAt || null
         } : null,
         modules: business.businessModules.map((bm: any) => ({
           moduleId: bm.moduleId,
@@ -253,7 +296,9 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
         // Signed license for this business (shadow mode). Null + licenseCode
         // explains why no token was issued (see license.service.ts).
         license,
-        licenseCode
+        licenseCode,
+        // v1.0.19: this device's invoice register slot (1–9) or null.
+        registerSlot
       }
     });
   } catch (error: any) {
@@ -481,27 +526,35 @@ function sanitizePushData(entityType: string, data: any): Record<string, any> {
   return out;
 }
 
-// R4: server-issued invoice number. Mirrors the web generator in
-// sale.controller.ts (global last-number + 1 with retry, timestamp
-// fallback) because invoiceNumber is globally @unique — two terminals
-// that both minted INV-10345 locally collide on the same sequence.
-async function generateServerInvoiceNumber(prisma: any): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const lastSale = await prisma.sale.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { invoiceNumber: true }
-    });
-    let baseNumber = 10000;
-    if (lastSale?.invoiceNumber) {
-      const match = lastSale.invoiceNumber.match(/INV-(\d+)/);
-      if (match) baseNumber = parseInt(match[1], 10);
-    }
-    const nextNumber = ((baseNumber + 1 + attempt) % 99999) || 10000;
-    const candidate = `INV-${String(nextNumber).padStart(5, '0')}`;
-    const clash = await prisma.sale.findUnique({ where: { invoiceNumber: candidate }, select: { id: true } });
-    if (!clash) return candidate;
+// R4: server-issued invoice number. v1.0.19: the cloud mints from the
+// reserved SLOT-0 band (INV-0####) — desktop devices hold slots 1–9 for
+// their offline sales, so a server number can never collide with a
+// device-band number again. The 4-digit sequence advances past the
+// highest suffix in use anywhere (any band), so it never re-issues a
+// recently used suffix either. invoiceNumber stays globally @unique;
+// the format stays INV-##### (see ZAPEERA_INVOICE_NUMBERING_AUDIT_2026-11-11).
+async function nextSlotZeroInvoiceNumber(findMany: (args: any) => Promise<any[]>, findUnique: (args: any) => Promise<any>, attempt = 0): Promise<string> {
+  if (attempt > 10) {
+    return `INV-${Date.now().toString().slice(-8)}`;
   }
-  return `INV-${Date.now().toString().slice(-8)}`;
+  const rows = await findMany({ where: { invoiceNumber: { not: null } }, select: { invoiceNumber: true } });
+  let maxSuffix = 0;
+  for (const row of rows || []) {
+    const m = row?.invoiceNumber ? String(row.invoiceNumber).match(/^INV-(\d{5})$/) : null;
+    if (m) maxSuffix = Math.max(maxSuffix, parseInt(m[1], 10) % 10000);
+  }
+  const suffix = ((maxSuffix + attempt) % 9999) + 1;
+  const candidate = `INV-0${String(suffix).padStart(4, '0')}`;
+  const clash = await findUnique({ where: { invoiceNumber: candidate }, select: { id: true } });
+  if (clash) return nextSlotZeroInvoiceNumber(findMany, findUnique, attempt + 1);
+  return candidate;
+}
+
+async function generateServerInvoiceNumber(prisma: any): Promise<string> {
+  return nextSlotZeroInvoiceNumber(
+    (args) => prisma.sale.findMany(args),
+    (args) => prisma.sale.findUnique(args)
+  );
 }
 
 function isUniqueViolation(error: any): boolean {
@@ -610,20 +663,31 @@ async function applyPushCreate(prisma: any, businessId: string, opId: any, entit
       data.syncOrigin = 'DESKTOP_PUSH';
       if (opts.queuedAtMs && Date.now() - opts.queuedAtMs > OFFLINE_SALE_DELAY_MS) data.offlineSale = true;
       // The desktop sale INSERT never sets userId (only createdBy) and
-      // the cloud requires it. Prefer the authenticated actor: it is
-      // always a real cloud user, while createdBy is a LOCAL id that
-      // need not exist on the cloud (a stale/local-only id trips the
-      // sales_userId_fkey). createdBy is still stored on the row, so
-      // attribution is preserved.
+      // the cloud requires it. v1.0.19: createdBy now carries the
+      // OPERATOR's cloud user id on PIN-layer desktops (the person who
+      // actually rang the sale), so prefer it whenever it names a real
+      // cloud user — per-staff performance keys on userId. The old FK
+      // trap (a stale/local-only createdBy) is handled by the existence
+      // check: unknown ids fall back to the authenticated actor, then
+      // to createdBy as before.
+      if (!data.userId && data.createdBy) {
+        const cbUser = await prisma.zapeeraUser.findUnique({ where: { id: data.createdBy }, select: { id: true } }).catch(() => null);
+        if (cbUser) data.userId = data.createdBy;
+      }
       if (!data.userId && opts.actorUserId) data.userId = opts.actorUserId;
       if (!data.userId && data.createdBy) data.userId = data.createdBy;
     }
     if (entityType === 'refund') {
       data.syncOrigin = 'DESKTOP_PUSH';
-      // The sanitizer maps createdBy -> refundedBy, but createdBy is a
-      // LOCAL id that need not exist on the cloud (same FK trap as the
-      // sale userId above) — the authenticated actor always wins.
-      if (opts.actorUserId) data.refundedBy = opts.actorUserId;
+      // Same operator attribution as sales: refundedBy prefers the
+      // local createdBy when it names a real cloud user (v1.0.19
+      // desktops stamp the operator there); otherwise the actor wins,
+      // exactly as before.
+      if (data.createdBy) {
+        const cbUser = await prisma.zapeeraUser.findUnique({ where: { id: data.createdBy }, select: { id: true } }).catch(() => null);
+        if (cbUser) data.refundedBy = data.createdBy;
+      }
+      if (!data.refundedBy && opts.actorUserId) data.refundedBy = opts.actorUserId;
       if (!data.refundedBy && data.createdBy) data.refundedBy = data.createdBy;
     }
     try {
@@ -639,6 +703,9 @@ async function applyPushCreate(prisma: any, businessId: string, opId: any, entit
         for (let attempt = 0; attempt < 3; attempt++) {
           data.invoiceNumber = await generateServerInvoiceNumber(prisma);
           data.terminalInvoiceNumber = terminalInvoiceNumber;
+          // v1.0.19: a renumbered sale joins Sync Review (the printed
+          // receipt carries the terminal number; a human should know).
+          data.invoiceRenumbered = true;
           try {
             const created = await model.create({ data });
             return {
@@ -906,17 +973,17 @@ function mapSaleItemForSQLite(item: any): any {
   };
 }
 
-// Map a cloud Sale row to the desktop sales shape. The R1/R3/R4
-// columns (syncOrigin, stockReplayedAt, oversold, oversellDetail,
-// offlineSale, terminalInvoiceNumber, reviewedAt, reviewedBy) do not
-// exist in v1.0.10 desktops — an unmapped column fails every row, holds
-// the cursor, and freezes all later pulls (v1.0.9 lesson). They are
-// dropped here until the v1.0.11 desktop migration lands
-// (SYNC_SCHEMA_UPGRADES_V1011); the review page reads them from the
-// cloud API, not the local DB, so nothing the desktop shows loses them.
+// Map a cloud Sale row to the desktop sales shape. Pre-v1.0.11 this
+// stripped the R1/R3/R4 columns (syncOrigin, stockReplayedAt, oversold,
+// oversellDetail, offlineSale, terminalInvoiceNumber, reviewedAt,
+// reviewedBy) because old desktops lacked them locally. The desktop
+// migration SYNC_SCHEMA_UPGRADES_V1011 added every one of those columns
+// (and V1019 adds invoiceRenumbered), so v1.0.19 passes the row through
+// whole: the terminal now SEES its server number after a renumber, with
+// terminalInvoiceNumber preserved beside it, instead of silently
+// keeping a number that matches nothing on the cloud.
 function mapSaleForSQLite(sale: any): any {
-  const { syncOrigin, stockReplayedAt, oversold, oversellDetail, offlineSale, terminalInvoiceNumber, reviewedAt, reviewedBy, ...rest } = sale || {};
-  return rest;
+  return sale || {};
 }
 
 // Map a cloud Product row to the desktop products shape (H2 defence in
@@ -1491,7 +1558,7 @@ export const cloudSyncReviewSummary = async (req: AuthRequest, res: Response) =>
       return;
     }
     const pendingSince = new Date(Date.now() - REVIEW_PENDING_CUTOFF_MS);
-    const [oversold, offline, pendingReplay, pendingRestock, reviewed, total] = await Promise.all([
+    const [oversold, offline, pendingReplay, pendingRestock, reviewed, total, renumbered] = await Promise.all([
       prisma.sale.count({ where: { companyId: businessId, syncOrigin: 'DESKTOP_PUSH', oversold: true, reviewedAt: null } }),
       prisma.sale.count({ where: { companyId: businessId, syncOrigin: 'DESKTOP_PUSH', offlineSale: true, reviewedAt: null } }),
       prisma.sale.count({ where: { companyId: businessId, syncOrigin: 'DESKTOP_PUSH', stockReplayedAt: null, createdAt: { lt: pendingSince }, reviewedAt: null } }),
@@ -1508,12 +1575,14 @@ export const cloudSyncReviewSummary = async (req: AuthRequest, res: Response) =>
           OR: [
             { oversold: true },
             { offlineSale: true },
+            { invoiceRenumbered: true },
             { stockReplayedAt: null, createdAt: { lt: pendingSince } }
           ]
         }
-      })
+      }),
+      prisma.sale.count({ where: { companyId: businessId, syncOrigin: 'DESKTOP_PUSH', invoiceRenumbered: true, reviewedAt: null } })
     ]);
-    res.json({ success: true, data: { open: total, oversold, offline, pendingReplay, pendingRestock, reviewed, total } });
+    res.json({ success: true, data: { open: total, oversold, offline, pendingReplay, pendingRestock, reviewed, total, renumbered } });
   } catch (error: any) {
     console.error('[CloudSync] Review summary error:', error.message);
     res.status(500).json({ success: false, message: error.message });
@@ -1541,6 +1610,7 @@ export const cloudSyncReviewList = async (req: AuthRequest, res: Response) => {
       OR: [
         { oversold: true },
         { offlineSale: true },
+        { invoiceRenumbered: true },
         { stockReplayedAt: null, createdAt: { lt: pendingSince } }
       ]
     };
@@ -1569,6 +1639,7 @@ export const cloudSyncReviewList = async (req: AuthRequest, res: Response) => {
           saleDate: s.saleDate,
           createdAt: s.createdAt,
           oversold: s.oversold,
+          invoiceRenumbered: s.invoiceRenumbered ?? false,
           oversellDetail: s.oversellDetail ?? null,
           offlineSale: s.offlineSale,
           stockReplayedAt: s.stockReplayedAt ?? null,

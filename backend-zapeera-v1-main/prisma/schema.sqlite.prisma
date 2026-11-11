@@ -111,6 +111,11 @@ model StaffProfile {
   // commissions aggregation; the flag only controls who appears
   // in the salesman picker / performance views.
   isSalesman               Boolean      @default(false)
+  // Counter PIN (v1.0.19): bcrypt hash of the staff member's 4–6 digit
+  // till PIN. Nullable — nobody is forced to have one. The cloud is the
+  // source of truth; the HASH (never the PIN) rides the staffProfile
+  // sync pull so a desktop can verify the operator locally, offline.
+  pinHash                  String?
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
 
@@ -1278,6 +1283,9 @@ model Sale {
   oversellDetail        Json?
   offlineSale           Boolean   @default(false)
   terminalInvoiceNumber String?
+  // v1.0.19: set when R4 renumbered this sale on push (its printed
+  // receipt carries terminalInvoiceNumber) — joins the Sync Review list.
+  invoiceRenumbered     Boolean   @default(false)
   reviewedAt            DateTime?
   reviewedBy            String?
   createdAt          DateTime  @default(now())
@@ -2114,6 +2122,9 @@ model DeviceActivation {
   macAddress             String?
   notes                  String?
   offlineAccessExpiresAt DateTime?
+  // v1.0.19: invoice register slot (1–9) for this device's offline sales
+  // (INV-<slot><seq4>); null = legacy numbering + R4 renumber backstop.
+  registerSlot           Int?      @unique
   activatedBy            String?
   activatedAt            DateTime?
   lastVerifiedAt         DateTime?

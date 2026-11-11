@@ -124,7 +124,17 @@ async function checkInDevice() {
 }
 
 async function provisionBusiness(businessId) {
-  return makeRequest('POST', '/api/sync/business/provision', { businessId });
+  // v1.0.19: carry the device identity so the cloud can bind this
+  // device's invoice register slot (and license) at provision time.
+  let deviceId = null;
+  let installId = null;
+  try {
+    const { getDeviceInfo } = require('../utils/device-fingerprint');
+    const info = getDeviceInfo();
+    deviceId = info.deviceId || null;
+    installId = info.installId || null;
+  } catch { /* best-effort — provision works without it */ }
+  return makeRequest('POST', '/api/sync/business/provision', { businessId, deviceId, installId });
 }
 
 async function pullChanges(businessId, cursor = null) {

@@ -639,7 +639,7 @@ function registerClinicRoutes(app, authMiddleware, deps) {
             companyId: companyFilter, branchId, customerId: null, items: saleItems,
             paymentMethod: b.paymentMethod || 'CASH', paymentStatus: b.paymentStatus,
             paidAmount: b.paidAmount, notes: `Clinic visit — ${patient.name} (Dr ${doctor.name})`,
-            createdBy, userId: req.user?.id
+            createdBy, userId: (req.operator && req.operator.businessId === companyFilter) ? req.operator.userId : req.user?.id
           });
           if (Array.isArray(b.payments) && b.payments.length > 0) {
             for (const p of b.payments) {

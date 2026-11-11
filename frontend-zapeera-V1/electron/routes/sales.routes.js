@@ -236,61 +236,108 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           
           // Generate invoice number with retry logic to handle race conditions
           // Short format: INV-XXXXX (4-5 digits)
+          // Invoice numbering (v1.0.19, device/register slots): when the
+          // cloud has allocated this device a register slot for the sale's
+          // business (settings zapeera_register_slot_<businessId>, set at
+          // provisioning), numbers are minted inside the device's own
+          // band: INV-<slot><4-digit per-device sequence>. Two counters
+          // of the same business can therefore never print the same
+          // number while offline — previously both took the local max+1
+          // and collided (see ZAPEERA_INVOICE_NUMBERING_AUDIT_2026-11-11).
+          // The sequence starts above the highest suffix this device has
+          // ever seen for the business, so the business's own historical
+          // numbers are never reprinted. Without an allocated slot the
+          // legacy local max+1 behaviour below is unchanged (the cloud's
+          // global unique constraint + renumber-on-push remains the
+          // backstop either way). Format stays INV-##### throughout.
+          const resolveRegisterSlot = () => {
+            try {
+              const bizId = companyId || req.headers['x-company-id'] || req.headers['x-business-id'];
+              if (!bizId) return null;
+              let rows = query("SELECT value FROM settings WHERE key = ?", [`zapeera_register_slot_${bizId}`]);
+              if (!rows || rows.length === 0) {
+                // Device-global fallback (the slot is per-device).
+                rows = query("SELECT value FROM settings WHERE key = 'zapeera_register_slot'");
+              }
+              const slot = rows && rows.length > 0 ? parseInt(rows[0].value, 10) : NaN;
+              return Number.isInteger(slot) && slot >= 1 && slot <= 9 ? slot : null;
+            } catch { return null; }
+          };
           const generateUniqueInvoiceNumber = (attempt = 0) => {
             if (attempt > 10) {
               // After 10 attempts, use timestamp-based unique number
               const timestamp = Date.now().toString().slice(-8);
               return `INV-${timestamp}`;
             }
-    
-    
-    
-          // Generate invoice number - Short format: INV-XXXXX (4-5 digits)
-          // Get the last invoice number to increment, or start from 10000
+
+            const slot = resolveRegisterSlot();
+            if (slot !== null) {
+              try {
+                const bizId = companyId || req.headers['x-company-id'] || req.headers['x-business-id'];
+                // Highest suffix ever seen locally for this business
+                // (any band) — the floor for this device's sequence.
+                let floor = 0;
+                const seen = query("SELECT invoiceNumber FROM sales WHERE companyId = ? AND invoiceNumber LIKE 'INV-%'", [bizId]) || [];
+                for (const row of seen) {
+                  const m = String(row.invoiceNumber).match(/^INV-(\d{5})$/);
+                  if (m) floor = Math.max(floor, parseInt(m[1], 10) % 10000);
+                }
+                // This device's own highest sequence inside its band.
+                let own = 0;
+                const ownRows = query("SELECT invoiceNumber FROM sales WHERE companyId = ? AND invoiceNumber LIKE ?", [bizId, `INV-${slot}%`]) || [];
+                for (const row of ownRows) {
+                  const m = String(row.invoiceNumber).match(/^INV-(\d)(\d{4})$/);
+                  if (m && parseInt(m[1], 10) === slot) own = Math.max(own, parseInt(m[2], 10));
+                }
+                let seq = Math.max(own, floor) + 1 + attempt;
+                if (seq > 9999) seq = ((seq - 1) % 9999) + 1;
+                const candidate = `INV-${slot}${String(seq).padStart(4, '0')}`;
+                const existing = query("SELECT id FROM sales WHERE invoiceNumber = ?", [candidate])[0];
+                if (existing) return generateUniqueInvoiceNumber(attempt + 1);
+                return candidate;
+              } catch (err) {
+                console.error('[Sales] Slotted invoice generation failed, falling back:', err);
+              }
+            }
+
+          // Legacy path (no register slot allocated): last invoice + 1.
           let invoiceNumber;
-    
+
           try {
             const lastSale = query("SELECT invoiceNumber FROM sales WHERE invoiceNumber IS NOT NULL ORDER BY createdAt DESC LIMIT 1")[0];
               let baseNumber;
-              
+
             if (lastSale && lastSale.invoiceNumber) {
-              // Extract number from last invoice (format: INV-XXXXX)
               const match = lastSale.invoiceNumber.match(/INV-(\d+)/);
               if (match) {
                   baseNumber = parseInt(match[1], 10);
               } else {
-                  // Fallback: use random number
                   baseNumber = Math.floor(Math.random() * 90000) + 10000;
               }
             } else {
-              // First invoice: start from 10000
                 baseNumber = 10000;
               }
-    
-              // Add attempt offset to handle concurrent requests
+
               const nextNumber = ((baseNumber + attempt) % 99999) || 10000;
               const candidateInvoiceNumber = `INV-${String(nextNumber).padStart(5, '0')}`;
-    
-              // Check if invoice number already exists (race condition check)
+
               const existingSale = query("SELECT id FROM sales WHERE invoiceNumber = ?", [candidateInvoiceNumber])[0];
               if (existingSale) {
-                // Invoice number exists, retry with incremented attempt
                 return generateUniqueInvoiceNumber(attempt + 1);
               }
-    
+
               return candidateInvoiceNumber;
           } catch (err) {
-            // Fallback: generate random 4-5 digit number if query fails
             console.error('[Sales] Error getting last invoice number:', err);
               if (attempt > 5) {
-                // After 5 attempts, use timestamp
                 const timestamp = Date.now().toString().slice(-8);
                 return `INV-${timestamp}`;
           }
-    
+
               return `INV-${String(Math.floor(Math.random() * 90000) + 10000)}`;
             }
           };
+
     
           const invoiceNumber = generateUniqueInvoiceNumber();
           
@@ -620,7 +667,18 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           // caller's single membership when the sale has no company
           // context (a cashier's local user row carries no companyId).
           let saleShiftId = null;
+          // v1.0.19: the OPERATOR (PIN-identified person at the till)
+          // is the actor when one is bound for this business — the sale
+          // and its shift resolve from the OPERATOR's profile, not the
+          // device account's. Without an operator, the session-user
+          // resolution below applies exactly as before.
+          const saleOperator = (req.operator && finalCompanyId && req.operator.businessId === finalCompanyId) ? req.operator : null;
+          const effectiveUserId = saleOperator ? saleOperator.userId : req.user?.id;
           try {
+            if (saleOperator) {
+              const activeRow = query("SELECT id FROM shifts WHERE staffProfileId = ? AND status = 'ACTIVE' ORDER BY startTime DESC LIMIT 1", [saleOperator.staffProfileId])[0];
+              if (activeRow) saleShiftId = activeRow.id;
+            } else {
             let membershipRow = null;
             if (finalCompanyId) {
               membershipRow = query('SELECT id FROM memberships WHERE userId = ? AND businessId = ?', [req.user?.id, finalCompanyId])[0];
@@ -636,6 +694,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
                 if (activeRow) saleShiftId = activeRow.id;
               }
             }
+            }
           } catch (e) {
             console.log('[Sales] Shift lookup failed, sale proceeds without a shift:', e.message);
           }
@@ -647,7 +706,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
           // rows keep their old values — only new sales are fixed.
           const success = run(`INSERT INTO sales (id, invoiceNumber, receiptNumber, customerId, branchId, companyId, totalAmount, discount, tax, grandTotal, paidAmount, returnedAmount, paymentMethod, paymentStatus, status, notes, createdBy, createdAt, updatedAt, shiftId)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, grandTotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, req.user?.id, saleDate || timestamp, timestamp, saleShiftId]);
+              [id, invoiceNumber, receiptNumber, finalCustomerId || null, finalBranchId || null, finalCompanyId || null, grandTotal, finalDiscount, taxAmount, grandTotal, paidAmount, returnedAmount, upperPaymentMethod, finalPaymentStatus, finalSaleStatus, notes || null, effectiveUserId, saleDate || timestamp, timestamp, saleShiftId]);
 
             if (!success) {
               throw new Error('Failed to insert sale');
@@ -678,7 +737,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
               // non-existent `reference` column, so movements silently never
               // recorded (run() swallows SQL errors).
               run('INSERT INTO stock_movements (id, productId, type, quantity, reason, referenceId, referenceType, branchId, companyId, createdBy, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                [uuid(), r.productId, 'OUT', r.quantity, 'Sale', id, 'SALE', finalBranchId || null, finalCompanyId || null, req.user?.id || null, timestamp]);
+                [uuid(), r.productId, 'OUT', r.quantity, 'Sale', id, 'SALE', finalBranchId || null, finalCompanyId || null, effectiveUserId || null, timestamp]);
 
               // Controlled-medicines register (2026-10-28): a controlled
               // product sold here writes one DISPENSE row per batch
@@ -696,7 +755,7 @@ function registerSalesRoutes(app, authMiddleware, deps) {
                       companyId: finalCompanyId, branchId: finalBranchId,
                       productId: r.productId, batchId: d.batchId, batchNo: batchRow ? batchRow.batchNo : null,
                       saleId: id, saleItemId: itemId, quantity: d.qty,
-                      staffUserId: req.user?.id || null, staffName: req.user?.name || null,
+                      staffUserId: effectiveUserId || null, staffName: saleOperator ? saleOperator.name : (req.user?.name || null),
                       customerId: finalCustomerId || null, customerName: customerRow ? customerRow.name : null,
                       prescriptionId: req.body.prescriptionId || null, prescriptionRef: null,
                       invoiceNumber

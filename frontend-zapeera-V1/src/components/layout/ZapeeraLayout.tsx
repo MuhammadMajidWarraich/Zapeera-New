@@ -67,7 +67,7 @@ function getGreeting(): string {
 }
 
 const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, requestLogout } = useAuth();
   const { branding, viewer } = useBranding();
   const { allCompanies } = useAdmin();
   const { unreadCount } = useNotifications();
@@ -158,7 +158,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await requestLogout();
       navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);

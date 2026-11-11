@@ -7,7 +7,7 @@
 // whole business back and the error names the table.
 //
 // Restore semantics (also stated in the UI):
-//   · The restored business starts on the TRIAL plan (14 days, same as
+//   · The restored business starts on the TRIAL plan (15 days, same as
 //     a fresh signup). Subscriptions and payment proofs are NOT copied.
 //   · Staff accounts are NOT recreated (passwords never travel). A
 //     member whose email matches an existing Zapeera account is
@@ -578,12 +578,12 @@ async function restoreOneBusiness(
       // backup (mirrors the fresh-signup trial in company.controller).
       const trialPlanId = process.env.DEFAULT_TRIAL_PLAN_ID || 'single-trial';
       const isLocalDev = process.env.NODE_ENV === 'development' && process.env.SHORT_TRIAL_DURATIONS === 'true';
-      const trialMs = isLocalDev ? 5 * 60 * 1000 : 14 * 24 * 60 * 60 * 1000;
+      const trialMs = isLocalDev ? 5 * 60 * 1000 : 15 * 24 * 60 * 60 * 1000;
       const trialEndsAt = new Date(Date.now() + trialMs);
       await tx.businessSubscription.create({
         data: { businessId: newBusinessId, planId: trialPlanId, status: 'TRIAL', trialEndsAt, currentPeriodEnd: trialEndsAt }
       });
-      warnings.push('The restored business starts on the free TRIAL plan (14 days). Subscriptions and payment history were not copied from the backup.');
+      warnings.push('The restored business starts on the free TRIAL plan (15 days). Subscriptions and payment history were not copied from the backup.');
 
       if (!tables.businessModules?.length) {
         warnings.push('This backup carried no module configuration; default modules will be enabled for the restored business.');

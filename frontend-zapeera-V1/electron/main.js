@@ -1547,7 +1547,7 @@ function setupIPC() {
   // Main process validates cloud token, generates provisioning token signed
   // with embedded server's JWT_SECRET, and POSTs to the embedded provision-session endpoint.
   ipcMain.handle('provision-local-session', async (event, provisionData) => {
-    const { user, memberships, businesses, cloudAccessToken, cloudApiUrl } = provisionData || {};
+    const { user, memberships, businesses, cloudAccessToken, cloudApiUrl, verifiedPassword } = provisionData || {};
     if (!user || !user.id || !cloudAccessToken) {
       return { success: false, message: 'Missing required provisioning data' };
     }
@@ -1597,7 +1597,12 @@ function setupIPC() {
 
       // 3. POST to embedded provision-session endpoint
       const http = require('http');
-      const postData = JSON.stringify({ user, memberships, businesses, cloudAccessToken, cloudApiUrl: cloudApiUrl || process.env.CLOUD_API_URL || '' });
+      // v1.0.19 Phase 2B: verifiedPassword (the password the cloud just
+      // verified in this same sign-in flow) rides this authenticated
+      // provision call ONLY, so the embedded backend can bcrypt-hash it
+      // locally for local-first login. It is never logged or persisted
+      // by the main process.
+      const postData = JSON.stringify({ user, memberships, businesses, cloudAccessToken, cloudApiUrl: cloudApiUrl || process.env.CLOUD_API_URL || '', ...(verifiedPassword ? { verifiedPassword } : {}) });
       const result = await new Promise((resolve) => {
         const options = {
           hostname: '127.0.0.1',

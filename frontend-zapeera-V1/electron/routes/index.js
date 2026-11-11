@@ -28,6 +28,7 @@ const { registerManufacturersRoutes } = require('./manufacturers.routes');
 const { registerModulesRoutes } = require('./modules.routes');
 const { registerNotificationRoutes } = require('./notifications.routes');
 const { registerOtherRoutes } = require('./other.routes');
+const { registerOperatorRoutes } = require('./operator.routes');
 const { registerProductsRoutes } = require('./products.routes');
 const { registerPromotionsRoutes } = require('./promotions.routes');
 const { registerPurchasesRoutes } = require('./purchases.routes');
@@ -67,6 +68,9 @@ function registerAllRoutes(app, authMiddleware, deps) {
   registerAdminRoutes(app, authMiddleware, deps);
   registerAttendanceRoutes(app, authMiddleware, deps);
   registerAuthRoutes(app, authMiddleware, deps);
+  // v1.0.19: operator routes install the x-operator-token resolution
+  // middleware — must register before sales/shifts/refunds handlers.
+  registerOperatorRoutes(app, authMiddleware, deps);
   registerBackupRoutes(app, authMiddleware, deps);
   registerBatchesRoutes(app, authMiddleware, deps);
   registerBranchesRoutes(app, authMiddleware, deps);

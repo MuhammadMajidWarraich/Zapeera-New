@@ -40,8 +40,46 @@ const loginSchema = Joi.object({
   // it is updated; Joi rejects unknown keys by default, so they must be
   // declared here or a binding desktop would 400 the whole login).
   deviceId: Joi.string().trim().max(128).optional(),
-  installId: Joi.string().trim().max(128).optional()
+  installId: Joi.string().trim().max(128).optional(),
+  // v1.0.19: the desktop app identifies itself so the login can also issue
+  // a desktop-scoped refresh token (see issueDesktopRefreshToken). Web and
+  // mobile logins never send this and never receive a refresh token.
+  clientType: Joi.string().valid('desktop').optional()
 });
+
+// ── Desktop refresh tokens (v1.0.19) ─────────────────────────────────────
+// The cloud access token stays at 7 days for every client. The desktop
+// app, however, now keeps a 30-day LOCAL session (embedded backend); when
+// the user comes back online on day 10 with an expired access token, the
+// sync layer must be able to renew the ACCESS token without a full
+// sign-in — otherwise a still-valid local session would be stranded (and
+// early builds wiped it). The refresh token exists ONLY for that sync
+// layer: it can mint access tokens, never a local session, and the
+// restore flow deliberately never uses it to re-provision.
+//
+// Bounds: issued only by the desktop sign-in path (clientType='desktop',
+// incl. the 2FA completion, which shares issueLoginSession). Its absolute
+// expiry (rootExp) is fixed at issuance to sign-in + 35 days — longer
+// than the local session's 30 days + 72h grace, so the local window is
+// always the binding constraint — and rotation NEVER extends rootExp.
+// Past rootExp the only way back is a full sign-in, which is exactly the
+// 30-day revalidation the product promises.
+const DESKTOP_REFRESH_ROOT_DAYS = 35;
+
+function signDesktopRefreshToken(userId: string, rootExpSec: number): string {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expSec = Math.min(nowSec + DESKTOP_REFRESH_ROOT_DAYS * 24 * 3600, rootExpSec);
+  return (jwt.sign as any)(
+    { userId, type: 'desktop-refresh', rootExp: rootExpSec },
+    process.env.JWT_SECRET!,
+    { expiresIn: Math.max(expSec - nowSec, 60) }
+  );
+}
+
+function issueDesktopRefreshToken(userId: string): string {
+  const rootExpSec = Math.floor(Date.now() / 1000) + DESKTOP_REFRESH_ROOT_DAYS * 24 * 3600;
+  return signDesktopRefreshToken(userId, rootExpSec);
+}
 
 const registerSchema = Joi.object({
   username: Joi.string().min(3).max(30).required(),
@@ -155,6 +193,19 @@ export const issueLoginSession = async (req: Request, res: Response, prisma: Pri
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 
+  // v1.0.19: desktop sign-ins additionally receive a desktop-scoped
+  // refresh token for the sync layer (see the block above loginSchema).
+  // Best-effort: a failure here must never break the login itself.
+  let desktopRefreshToken: string | null = null;
+  try {
+    if ((req.body as any)?.clientType === 'desktop') {
+      desktopRefreshToken = issueDesktopRefreshToken(user.id);
+    }
+  } catch (refreshError: any) {
+    console.error('[auth] Desktop refresh token issuance failed (login unaffected):', refreshError?.message || refreshError);
+    desktopRefreshToken = null;
+  }
+
   console.log('✅ Login successful for user:', user.username);
 
   // ── Signed license (shadow mode) ────────────────────────────────────────
@@ -223,6 +274,8 @@ export const issueLoginSession = async (req: Request, res: Response, prisma: Pri
         memberships: membershipList // Nests for frontend expectation
       },
       accessToken: token,
+      // v1.0.19: present only for desktop sign-ins (null otherwise).
+      desktopRefreshToken,
       // Signed license for the current business (shadow mode — the desktop
       // evaluates but does not enforce yet). Null + licenseCode explains
       // why no token was issued (see license.service.ts refusal codes).
@@ -616,6 +669,78 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       message: errorMessage,
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+};
+
+/**
+ * POST /api/auth/desktop/refresh (v1.0.19)
+ *
+ * Exchange a desktop refresh token (issued only by the desktop sign-in
+ * path) for a fresh 7-day access token + a rotated refresh token. The
+ * rotation NEVER extends the token family's absolute expiry (rootExp,
+ * fixed at the original sign-in + 35 days), so this endpoint can keep a
+ * provisioned device's SYNC layer alive for the whole local-session
+ * window (30 days + 72h grace) but can never substitute for the 30-day
+ * full re-sign-in. It issues no session, no license, and no local
+ * provisioning material — access tokens only.
+ */
+export const refreshDesktopToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = (req.body as any)?.refreshToken;
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      res.status(400).json({ success: false, message: 'refreshToken is required' });
+      return;
+    }
+    if (!process.env.JWT_SECRET) {
+      res.status(500).json({ success: false, message: 'Server misconfigured' });
+      return;
+    }
+
+    let payload: any;
+    try {
+      payload = (jwt.verify as any)(refreshToken, process.env.JWT_SECRET);
+    } catch {
+      res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+      return;
+    }
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (!payload || payload.type !== 'desktop-refresh' || !payload.userId ||
+        typeof payload.rootExp !== 'number' || payload.rootExp <= nowSec) {
+      res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    const prisma = await getPrisma();
+    const user: any = await prisma.zapeeraUser.findUnique({ where: { id: payload.userId } });
+    if (!user || !user.isActive) {
+      res.status(401).json({ success: false, message: 'Account not available' });
+      return;
+    }
+
+    // Same access-token payload shape as issueLoginSession, but the cloud
+    // sessionToken is NOT rotated here — a sync-layer renewal must not
+    // disturb the account's existing session bookkeeping.
+    const tokenPayload: any = {
+      userId: user.id,
+      username: user.username,
+      branchId: user.branchId,
+      createdBy: user.createdBy,
+      sessionToken: user.sessionToken
+    };
+    const accessToken = (jwt.sign as any)(
+      tokenPayload,
+      process.env.JWT_SECRET!,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+    const rotatedRefreshToken = signDesktopRefreshToken(user.id, payload.rootExp);
+
+    res.json({
+      success: true,
+      data: { accessToken, desktopRefreshToken: rotatedRefreshToken }
+    });
+  } catch (error: any) {
+    console.error('[auth] Desktop refresh failed:', error?.message || error);
+    res.status(500).json({ success: false, message: 'Refresh failed' });
   }
 };
 

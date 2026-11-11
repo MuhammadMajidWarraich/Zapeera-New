@@ -283,102 +283,23 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
         } catch (e) { res.status(500).json({ success: false, message: e.message }); }
       });
 
-  // POST /api/companies (line 1707)
+  // POST /api/companies — CREATION REFUSED in the embedded backend (v1.0.19,
+  // activation model b). Businesses are created ONLY on the cloud (web
+  // funnel): the cloud create mints the real id, Main Branch, starter
+  // categories and the trial subscription, and provisioning then pulls the
+  // business down to this device. The previous local insert produced a
+  // business with a local UUID, no branch, no subscription and no limit
+  // checks that could NEVER sync up (companies is NON_PUSHABLE) — a
+  // permanently divergent local-only business. The desktop UI now calls
+  // the cloud create directly; this route refuses so no stale caller can
+  // recreate the divergent path. (Provisioning writes companies rows
+  // directly in the sync service — it does not use this route.)
       app.post('/api/companies', authMiddleware, (req, res) => {
-        try {
-          const user = req.user;
-          console.log('[Companies] POST request from user:', user.id, 'Role:', user.role);
-          console.log('[Companies] Request body:', req.body);
-    
-          if (!user || !user.id) {
-            return res.status(401).json({ success: false, message: 'Authentication required' });
-          }
-    
-          const { name, description, address, phone, email, businessType = 'PHARMACY' } = req.body;
-          if (!name || !name.trim()) {
-            return res.status(400).json({ success: false, message: 'Company name is required' });
-          }
-    
-          // Check if company name already exists
-          const existing = query('SELECT id FROM companies WHERE name = ?', [name.trim()]);
-          if (existing.length) {
-            console.log('[Companies] Company already exists:', name);
-            return res.status(400).json({ success: false, message: 'Company with this name already exists' });
-          }
-    
-          const id = uuid();
-          const timestamp = now();
-    
-          console.log('[Companies] Creating company with:', {
-            id,
-            name: name.trim(),
-            description: description?.trim() || null,
-            address: address?.trim() || null,
-            phone: phone?.trim() || null,
-            email: email?.trim() || null,
-            businessType,
-            createdBy: user.id,
-            isActive: 1
-          });
-    
-          // Insert company with isActive = 1 explicitly
-          run(`INSERT INTO companies (id, name, description, address, phone, email, businessType, createdBy, isActive, createdAt, updatedAt)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-            [id, name.trim(), description?.trim() || null, address?.trim() || null, phone?.trim() || null, email?.trim() || null, businessType, user.id, 1, timestamp, timestamp]);
-    
-          const company = query('SELECT * FROM companies WHERE id = ?', [id])[0];
-    
-          if (!company) {
-            console.error('[Companies] Company not found after creation');
-            return res.status(500).json({ success: false, message: 'Failed to create company' });
-          }
-    
-          console.log('[Companies] ✅ Company created successfully:', {
-            id: company.id,
-            name: company.name,
-            createdBy: company.createdBy
-          });
-    
-          // 🔄 TWO-WAY SYNC: Queue for sync to PostgreSQL
-          if (company) {
-            handleDataChange('companies', 'create', company);
-            console.log('[Companies] Queued for sync to PostgreSQL');
-    
-            // Trigger immediate sync if online (don't wait for debounce)
-            if (getIsOnline()) {
-              setTimeout(async () => {
-                try {
-                  console.log('[Companies] Triggering immediate sync to PostgreSQL...');
-                  const client = await connectPostgreSQL();
-                  if (client) {
-                    await syncTableToPostgreSQL('companies', client);
-                    console.log('[Companies] ✅ Immediate sync completed');
-                  }
-                } catch (e) {
-                  console.error('[Companies] Immediate sync error:', e.message);
-                }
-              }, 500); // Small delay to ensure company is saved
-            }
-
-          }
-    
-          // Format response with branches and counts
-          const result = {
-            ...company,
-            branches: [],
-            _count: {
-              branches: 0,
-              users: 0,
-              employees: 0,
-              products: 0
-            }
-          };
-    
-          res.status(201).json({ success: true, data: result, message: 'Company created successfully' });
-        } catch (e) {
-          console.error('[Companies] POST error:', e);
-          res.status(500).json({ success: false, message: e.message });
-        }
+        return res.status(410).json({
+          success: false,
+          code: 'BUSINESS_CREATION_ONLINE_ONLY',
+          message: 'Businesses are created online. Connect to the internet and create the business from Zapeera Desktop while online (or in the web app) — it will then appear here automatically.'
+        });
       });
 
   // PUT /api/companies/:id (line 1804)

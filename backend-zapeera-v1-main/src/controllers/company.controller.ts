@@ -1012,8 +1012,8 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
       const trialPlanId = process.env.DEFAULT_TRIAL_PLAN_ID || 'single-trial';
       const isLocalDev = process.env.NODE_ENV === 'development' && process.env.SHORT_TRIAL_DURATIONS === 'true';
 
-      // Local dev: 5-minute trial; production: 14 days
-      const trialMs = isLocalDev ? 5 * 60 * 1000 : 14 * 24 * 60 * 60 * 1000;
+      // Local dev: 5-minute trial; production: 15 days (v1.0.19 alignment — trial is 15 days everywhere)
+      const trialMs = isLocalDev ? 5 * 60 * 1000 : 15 * 24 * 60 * 60 * 1000;
       const trialEndsAt = new Date(Date.now() + trialMs);
 
       await prisma.businessSubscription.create({
@@ -1025,7 +1025,7 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
           currentPeriodEnd: trialEndsAt
         }
       });
-      console.log(`[Subscriptions] ✅ Trial subscription created for business: ${company.id}, ends at: ${trialEndsAt.toISOString()} (${isLocalDev ? 'LOCAL SHORT' : '14-day'})`);
+      console.log(`[Subscriptions] ✅ Trial subscription created for business: ${company.id}, ends at: ${trialEndsAt.toISOString()} (${isLocalDev ? 'LOCAL SHORT' : '15-day'})`);
     } catch (subErr: any) {
       console.warn('[Subscriptions] ⚠️ Could not create trial subscription:', subErr?.message || subErr);
     }

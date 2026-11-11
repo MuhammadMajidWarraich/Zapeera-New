@@ -15,101 +15,22 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           createRecordPostgreSQLFirst, mapRowForPostgreSQL, getPostgreSQLColumns,
           getSQLiteColumns, pgRowToSqlite, normalizeValue, getWeekNumber, getDateFromWeek,
           getDatabasePath, getDataDir, OFFLINE_ACCESS_HOURS, bcryptjs, getPgClient, getIsOnline, getSyncInProgress, getLastSyncTime, getOfflineQueue,
-          saveDatabase, initDatabase, deviceService, sessionService, syncAccountService, authRefreshService } = deps;
+          saveDatabase, initDatabase, deviceService, sessionService, syncAccountService, authRefreshService, localFirstLoginService } = deps;
 
-// POST /api/auth/register (line 354)
+// POST /api/auth/register — DISABLED in v1.0.19 (activation model b).
+// Accounts are created ONLY in the web signup funnel; the desktop app
+// carries no signup form (its "Create account" button opens the web
+// funnel in the system browser). The previous handler minted an
+// inactive, local-only user that could never sync up (users is
+// NON_PUSHABLE and REMOTE_DATABASE_URL is empty in shipped builds) —
+// a permanently stranded account. The route now refuses explicitly so
+// any stale caller gets a clear direction instead of a dead account.
       app.post('/api/auth/register', async (req, res) => {
-        try {
-          const email = (req.body.email || req.body.username || '').toLowerCase().trim();
-          const password = req.body.password;
-          const name = req.body.name;
-          const role = req.body.role || 'ADMIN';
-          const branchId = req.body.branchId;
-    
-          console.log('[Auth] Register attempt:', email);
-    
-          if (!email || !password || !name) {
-            return res.status(400).json({ success: false, message: 'Email, password, and name are required' });
-          }
-    
-          // Check if user exists
-          const existing = query('SELECT id FROM users WHERE LOWER(email) = ?', [email]);
-          if (existing.length) {
-            return res.status(400).json({ success: false, message: 'User already exists with this email' });
-          }
-    
-          const id = uuid();
-          // QA fix (Track C 1.4): new passwords are stored as bcrypt only —
-          // the legacy unsalted SHA-256 hashPassword() must never store a password.
-          const hashedPassword = hashPasswordBcrypt(password);
-          const timestamp = now();
-    
-          // Check which database to use (PostgreSQL if available, SQLite otherwise)
-          const dbType = await getActiveDatabase();
-          console.log('[Auth] Using database for registration:', dbType);
-    
-          // Prepare user data
-          const userData = {
-            id,
-            username: email,
-            email,
-            password: hashedPassword,
-            name,
-            role,
-            branchId: branchId || null,
-            isActive: false, // New registrations need activation
-            createdAt: timestamp,
-            updatedAt: timestamp
-          };
-    
-          // Insert into active database (PostgreSQL if available, SQLite otherwise)
-          const insertResult = await insertIntoActiveDatabase('users', userData);
-    
-          if (!insertResult || !insertResult.success) {
-            const errorMsg = insertResult?.error || 'Registration failed';
-            console.error('[Auth] ❌ Registration failed:', errorMsg);
-            return res.status(500).json({ success: false, message: errorMsg });
-          }
-    
-          const createdUser = insertResult.data;
-          console.log('[Auth] ✅ User created successfully in', insertResult.dbType, ':', id);
-    
-          // If using SQLite, queue for sync to PostgreSQL (background)
-          if (insertResult.dbType === 'sqlite') {
-            console.log('[Auth] Data saved to SQLite, triggering immediate sync to PostgreSQL...');
-            handleDataChange('users', 'create', createdUser);
-    
-            // CRITICAL: Force immediate sync attempt (non-blocking)
-            (async () => {
-              try {
-                const connected = await checkPostgreSQLConnection();
-                if (connected) {
-                  console.log('[Auth] ✅ PostgreSQL is now available, syncing user immediately...');
-                  const client = await connectPostgreSQL(true);
-                  if (client) {
-                    await syncTableToPostgreSQL('users', client);
-                    console.log('[Auth] ✅ User synced to PostgreSQL');
-                  }
-                }
-              } catch (e) {
-                console.log('[Auth] ⚠️ Immediate sync failed (will retry):', e.message);
-              }
-            })();
-          }
-    
-          res.json({
-            success: true,
-            pendingActivation: true,
-            syncedToPostgreSQL: insertResult.dbType === 'postgresql',
-            data: { user: { id, email, username: email, name, role, isActive: false } },
-            message: 'Account created! Contact SuperAdmin at +923107100663 to activate your account.',
-            dbType: insertResult.dbType
-          });
-        } catch (e) {
-          console.error('[Auth] Register exception:', e.message);
-          console.error('[Auth] Stack:', e.stack);
-          res.status(500).json({ success: false, message: 'Server error: ' + e.message });
-        }
+        return res.status(410).json({
+          success: false,
+          code: 'SIGNUP_ONLINE_ONLY',
+          message: 'Accounts are created online. Please sign up on the Zapeera web app, then sign in here with the same account.'
+        });
       });
 
   // POST /api/auth/login (line 447)
@@ -1595,12 +1516,100 @@ function registerAuthRoutes(app, authMiddleware, deps) {
                 isActive: u.isActive
               },
               token,
-              sessionToken
+              sessionToken,
+              // v1.0.19: the renderer persists these to drive the
+              // "renew your sign-in" banner (≤7d amber, ≤3d red).
+              session: {
+                expiresAt: session.expiresAt || null,
+                offlineExpiresAt: session.offlineExpiresAt || null,
+                offlineGrace: session._offlineGrace || false
+              }
             }
           });
         } catch (e) {
           console.error('[Auth] Session login error:', e.message);
           res.status(500).json({ success: false, message: 'Session login failed: ' + e.message });
+        }
+      });
+
+  // POST /api/auth/cloud-token (v1.0.19) — the renderer pushes a RENEWED
+  // cloud access token (obtained via POST /api/auth/desktop/refresh on the
+  // cloud) so the embedded sync engine keeps authenticating after the
+  // original 7-day token expires, without touching the local session.
+  // The token's userId must match this device's provisioned cloud identity.
+      app.post('/api/auth/cloud-token', authMiddleware, async (req, res) => {
+        try {
+          const cloudAccessToken = (req.body || {}).cloudAccessToken;
+          if (!cloudAccessToken || typeof cloudAccessToken !== 'string') {
+            return res.status(400).json({ success: false, message: 'cloudAccessToken is required' });
+          }
+          const parts = cloudAccessToken.split('.');
+          if (parts.length !== 3) {
+            return res.status(400).json({ success: false, message: 'Invalid cloud access token format' });
+          }
+          let payload;
+          try {
+            payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+          } catch {
+            try { payload = JSON.parse(Buffer.from(parts[1], 'base64').toString()); }
+            catch { return res.status(400).json({ success: false, message: 'Invalid cloud access token payload' }); }
+          }
+          if (!payload || !payload.userId) {
+            return res.status(400).json({ success: false, message: 'Cloud access token missing userId' });
+          }
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            return res.status(400).json({ success: false, message: 'Cloud access token already expired' });
+          }
+          const identity = query('SELECT cloudUserId FROM local_identity WHERE id = ?', [req.user.id]);
+          if (!identity || identity.length === 0 || String(identity[0].cloudUserId) !== String(payload.userId)) {
+            return res.status(403).json({ success: false, message: 'Cloud token does not belong to this device\'s signed-in account' });
+          }
+          const cloudApiService = require('../services/cloud-api.service');
+          cloudApiService.setAuthToken(cloudAccessToken);
+          try {
+            const existingToken = query("SELECT id FROM settings WHERE key = 'zapeera_cloud_access_token'");
+            if (existingToken && existingToken.length > 0) {
+              run("UPDATE settings SET value = ?, updatedAt = ? WHERE key = 'zapeera_cloud_access_token'", [cloudAccessToken, now()]);
+            } else {
+              run("INSERT OR IGNORE INTO settings (id, key, value, createdAt, updatedAt) VALUES (?, 'zapeera_cloud_access_token', ?, ?, ?)", [uuid(), cloudAccessToken, now(), now()]);
+            }
+            saveDatabase();
+          } catch (persistErr) {
+            console.warn('[Auth] Cloud token persistence warning:', persistErr.message);
+          }
+          res.json({ success: true, message: 'Cloud token updated' });
+        } catch (e) {
+          console.error('[Auth] Cloud token update error:', e.message);
+          res.status(500).json({ success: false, message: 'Cloud token update failed: ' + e.message });
+        }
+      });
+
+  // GET /api/auth/session-status (v1.0.19) — what the renewal banner and
+  // the read-only degrade need to know: this device's local session
+  // window and every business's mirrored subscription period end.
+      app.get('/api/auth/session-status', authMiddleware, (req, res) => {
+        try {
+          let sessionInfo = null;
+          if (sessionService && req.user && req.user.id) {
+            const active = sessionService.getUserActiveSessions(req.user.id);
+            if (active && active.length > 0) {
+              sessionInfo = {
+                expiresAt: active[0].expiresAt || null,
+                offlineExpiresAt: active[0].offlineExpiresAt || null
+              };
+            }
+          }
+          let subscriptions = [];
+          try {
+            subscriptions = query('SELECT companyId, status, periodEnd FROM subscriptions', []).map((s) => ({
+              businessId: s.companyId,
+              status: s.status,
+              periodEnd: s.periodEnd || null
+            }));
+          } catch { /* periodEnd column may not exist on a mid-upgrade DB — banner simply stays silent */ }
+          res.json({ success: true, data: { session: sessionInfo, subscriptions, serverNow: new Date().toISOString() } });
+        } catch (e) {
+          res.status(500).json({ success: false, message: e.message });
         }
       });
 
@@ -1629,6 +1638,67 @@ function registerAuthRoutes(app, authMiddleware, deps) {
         }
       });
 
+  // POST /api/auth/local-first-login — v1.0.19 Phase 2B (local-first
+  // login). Pre-auth by necessity (this IS a login). Verifies the
+  // password against the cached cloud-verified credential on the
+  // mirrored user row, inside the revalidation window only, and mints
+  // a local session through the standard session machinery. The
+  // password is never logged. Failure codes let the UI distinguish
+  // never-on-this-device / password-mismatch / window-expired.
+      app.post('/api/auth/local-first-login', async (req, res) => {
+        try {
+          if (!localFirstLoginService) {
+            return res.status(503).json({ success: false, code: 'LOCAL_UNAVAILABLE', message: 'Local sign-in is not available on this device' });
+          }
+          const identifier = req.body.usernameOrEmail || req.body.email || req.body.identifier || '';
+          const password = req.body.password;
+          if (!identifier || !password) {
+            return res.status(400).json({ success: false, code: 'LOCAL_BAD_REQUEST', message: 'Email and password required' });
+          }
+          const result = await localFirstLoginService.verifyLocalLogin(identifier, password);
+          if (!result.ok) {
+            const status = result.code === 'LOCAL_UNKNOWN' ? 404 : result.code === 'LOCAL_WINDOW_EXPIRED' ? 403 : 401;
+            return res.status(status).json({ success: false, code: result.code, message: 'Local sign-in failed' });
+          }
+          return res.json({
+            success: true,
+            data: {
+              user: result.user,
+              token: result.token,
+              sessionToken: result.sessionToken,
+              session: result.session,
+              localFirst: true,
+              windowState: result.windowState
+            }
+          });
+        } catch (e) {
+          console.error('[Auth] local-first-login error:', e.message);
+          return res.status(500).json({ success: false, code: 'LOCAL_ERROR', message: 'Local sign-in failed' });
+        }
+      });
+
+  // POST /api/auth/local-first/purge — destroy a cached credential
+  // when the CLOUD has definitively rejected the account (disabled /
+  // no longer matching). Called by the renderer's cloud-contact paths
+  // only on a definitive rejection — never on a network failure. The
+  // embedded server binds 127.0.0.1 only; the worst a local caller can
+  // do here is clear a convenience cache (no data, no disclosure).
+      app.post('/api/auth/local-first/purge', async (req, res) => {
+        try {
+          if (!localFirstLoginService) {
+            return res.status(503).json({ success: false, message: 'Local sign-in is not available on this device' });
+          }
+          const { cloudUserId, identifier } = req.body || {};
+          let purged = false;
+          if (cloudUserId) purged = localFirstLoginService.purgeCredentialByCloudUserId(cloudUserId);
+          else if (identifier) purged = localFirstLoginService.purgeCredentialByIdentifier(identifier);
+          return res.json({ success: true, data: { purged } });
+        } catch (e) {
+          console.error('[Auth] local-first purge error:', e.message);
+          return res.status(500).json({ success: false, message: 'Purge failed' });
+        }
+      });
+
   // POST /api/auth/provision-session - Create local session after cloud auth.
   // Requires a valid provisioning token in Authorization: Bearer.
   // The token is issued by the Electron main process (the trusted Desktop layer)
@@ -1646,7 +1716,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
             return res.status(403).json({ success: false, message: 'Invalid or expired provisioning token' });
           }
 
-          const { user: cloudUser, memberships, businesses, cloudAccessToken, cloudApiUrl } = req.body;
+          const { user: cloudUser, memberships, businesses, cloudAccessToken, cloudApiUrl, verifiedPassword } = req.body;
           if (!cloudUser || !cloudUser.id || !cloudUser.email) {
             return res.status(400).json({ success: false, message: 'Invalid provisioning payload' });
           }
@@ -1711,6 +1781,25 @@ function registerAuthRoutes(app, authMiddleware, deps) {
           }
 
           try { run('UPDATE users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?', [timestamp, timestamp, userId]); } catch (e) { /* best-effort */ }
+
+          // v1.0.19 Phase 2B: credential caching for local-first login.
+          // This handler is the ONLY cache write path: it runs after a
+          // successful CLOUD sign-in, gated by the main process's
+          // cloud-token validation and the provisioning token above.
+          // The password (verified by the cloud moments ago) is hashed
+          // LOCALLY with bcrypt — the cloud never sends hashes — and
+          // every cloud sign-in refreshes (heals) the entry. Failure
+          // here must never fail provisioning.
+          try {
+            if (localFirstLoginService) {
+              localFirstLoginService.touchIdentityFromProvision(cloudUser);
+              if (verifiedPassword) {
+                localFirstLoginService.cacheCredential(userId, verifiedPassword);
+              }
+            }
+          } catch (cacheErr) {
+            console.warn('[Provision] Credential cache warning:', cacheErr.message);
+          }
 
           // Generate local JWT
           localToken = generateToken({ id: userId, email, name, role: cloudUser.role || 'USER', companyId: cloudUser.companyId, branchId: cloudUser.branchId });

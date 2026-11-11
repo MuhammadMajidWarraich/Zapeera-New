@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { getCloudApi, persistCloudToken, persistLocalToken, clearCloudToken, clearLocalToken } from '@/services/api-clients';
+import { tryLocalFirstLogin, purgeLocalCredential } from '@/lib/desktop-local-first-login';
 import { config } from '@/lib/config';
 import LoginForm from '@/components/auth/LoginForm';
 import { WifiOff, CheckCircle2, Loader2, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
@@ -26,14 +27,44 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
   const [progressLabel, setProgressLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const provisionStartedRef = useRef(false);
+  // v1.0.19 Phase 2B (local-first login): the password from the current
+  // cloud attempt, held in memory ONLY so a successful cloud sign-in
+  // can cache it (bcrypt, embedded-side) during provisioning. Never
+  // persisted, never logged; cleared as soon as provisioning is built.
+  const verifiedPasswordRef = useRef<string | null>(null);
+  // Set when the local-first attempt succeeds: handlePostLogin finishes
+  // from this WITHOUT any cloud provisioning (works fully offline).
+  const localFirstSessionRef = useRef<{ token: string | null; sessionToken: string | null } | null>(null);
+  // Classification of the last local-first failure, for error copy when
+  // the cloud is also unreachable.
+  const localClassificationRef = useRef<'mismatch' | 'unknown' | 'window-expired' | null>(null);
 
+  // v1.0.19 Phase 2B — sign-in order (owner's approved design):
+  // (1) LOCAL first: a cached cloud-verified credential on this device
+  //     signs in fully offline, even after a deliberate logout.
+  // (2) CLOUD next: the full existing behaviour incl. 2FA; success
+  //     provisions and heals the cache.
+  // (3) Internet-required error LAST, with copy that distinguishes
+  //     never-on-this-device from password-mismatch-on-device.
   const handleCloudLogin = useCallback(async (credentials: { usernameOrEmail: string; password: string }) => {
     setPhase('authenticating');
     setProgressLabel('Authenticating...');
     setErrorMessage('');
     try {
+      const localAttempt = await tryLocalFirstLogin(credentials);
+      if (localAttempt.kind === 'success') {
+        localFirstSessionRef.current = localAttempt.localSession;
+        return localAttempt.result;
+      }
+      localClassificationRef.current = localAttempt.kind === 'unavailable' ? null : localAttempt.kind;
+      verifiedPasswordRef.current = credentials.password;
       const cloud = getCloudApi();
       const result = await cloud.login(credentials);
+      // Cloud wins on contact: an account the cloud definitively
+      // reports as disabled loses its cached credential on this device.
+      if (!result?.success && (result as any)?.accountDisabled) {
+        void purgeLocalCredential({ identifier: credentials.usernameOrEmail });
+      }
       if (!result?.success) throw new Error(result?.message || 'Authentication failed');
       // Two-factor challenge: the password passed but no session exists
       // yet. Return to the (still-mounted) sign-in form, which renders the
@@ -50,7 +81,21 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
       }
       return result;
     } catch (e: any) {
-      if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError') || e.message?.includes('connect')) {
+      const networkFailure = e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError') || e.message?.includes('connect');
+      if (networkFailure && localClassificationRef.current) {
+        // Local failed AND the cloud is unreachable — the copy must say
+        // WHICH case this is, in plain language.
+        const copy =
+          localClassificationRef.current === 'mismatch'
+            ? "That password doesn't match the one saved on this computer, and there's no internet connection to check it online. If the password was changed online, connect to the internet and sign in once with the new password — this computer will remember it again."
+            : localClassificationRef.current === 'window-expired'
+              ? "It's been over 30 days since this computer last verified your account online, so offline sign-in has paused. Connect to the internet and sign in once to renew it."
+              : "This account hasn't signed in on this computer before, and there's no internet connection. The first sign-in on a computer needs the internet — connect and try again.";
+        setErrorMessage(copy);
+        setPhase('sign-in');
+        throw new Error(copy);
+      }
+      if (networkFailure) {
         setPhase('offline-blocked');
       } else {
         // Any other failure (bad credentials, server error, missing
@@ -81,6 +126,25 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
   const handlePostLogin = useCallback(async (user: any) => {
     if (provisionStartedRef.current) return;
     provisionStartedRef.current = true;
+
+    // v1.0.19 Phase 2B: local-first success — the embedded backend has
+    // already minted the local session. Persist its tokens and finish:
+    // NO cloud provisioning (this path works with the internet fully
+    // off, including right after a deliberate logout).
+    if (localFirstSessionRef.current) {
+      const localSession = localFirstSessionRef.current;
+      localFirstSessionRef.current = null;
+      verifiedPasswordRef.current = null;
+      if (localSession.token) {
+        persistLocalToken(localSession.token);
+      }
+      try { localStorage.setItem('sessionToken', localSession.sessionToken || ''); } catch { }
+      setPhase('ready');
+      setProgressLabel('');
+      await new Promise(r => setTimeout(r, 400));
+      onLogin(user);
+      return;
+    }
 
     setPhase('authenticated-remote');
     setProgressLabel('Fetching account data...');
@@ -170,7 +234,11 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
         businesses,
         cloudAccessToken: cloud.accessToken,
         cloudApiUrl: String(config.cloud.baseUrl || '').replace(/\/api$/, ''),
+        // Phase 2B: the just-cloud-verified password, for the embedded
+        // credential cache (hashed locally, never stored in plaintext).
+        verifiedPassword: verifiedPasswordRef.current || undefined,
       });
+      verifiedPasswordRef.current = null;
 
       if (!provisionResult?.success || !provisionResult?.data) {
         throw new Error(provisionResult?.message || 'Session provisioning failed');
@@ -320,7 +388,23 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
           </div>
         </div>
       )}
-      <LoginForm onLogin={handlePostLogin} loginHandler={handleCloudLogin} login2faHandler={handleCloudLogin2fa} />
+      <LoginForm
+        onLogin={handlePostLogin}
+        loginHandler={handleCloudLogin}
+        login2faHandler={handleCloudLogin2fa}
+        signupLabel="Create account"
+        onNavigateToSignup={() => {
+          // v1.0.19 (model b): no signup form inside the app — the
+          // "Create account" action opens the web signup funnel in the
+          // system browser.
+          const signupUrl = 'https://app.zapeera.seikho.online/signup';
+          if (electronAPI?.openExternal) {
+            electronAPI.openExternal(signupUrl);
+          } else {
+            window.open(signupUrl, '_blank', 'noopener,noreferrer');
+          }
+        }}
+      />
     </div>
   );
 }

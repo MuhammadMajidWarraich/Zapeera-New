@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiService } from "@/services/api";
+import { StaffPinManager } from "@/components/admin/StaffPinManager";
 import { addonOfferToast } from "@/lib/addon-offer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -102,6 +103,7 @@ const UserManagement = () => {
   const cachedUsersOnMount = initializeFromCache();
   
   const [users, setUsers] = useState<User[]>(() => cachedUsersOnMount || []);
+  const [showPinManager, setShowPinManager] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(() => !cachedUsersOnMount); // Don't show loading if cache exists
@@ -1814,6 +1816,14 @@ const UserManagement = () => {
             <UserPlus className="h-[18px] w-[18px] stroke-[2]" strokeLinecap="round" />
             Add New Staff
           </button>
+          <button
+            type="button"
+            onClick={() => setShowPinManager(true)}
+            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-white px-5 py-3 text-sm font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7]"
+          >
+            Staff PINs
+          </button>
+          <StaffPinManager open={showPinManager} onClose={() => setShowPinManager(false)} />
 
           <Dialog open={isGiveAccessDialogOpen} onOpenChange={setIsGiveAccessDialogOpen}>
             <DialogContent className="sm:max-w-[440px]">

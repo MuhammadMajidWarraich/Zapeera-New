@@ -18,7 +18,40 @@
 const { v4: uuid } = require('uuid');
 const { mustRun } = require('./db-write');
 
-function generateInvoiceNumber(query) {
+function generateInvoiceNumber(query, companyId) {
+  // v1.0.19: same register-slot banding as the POS route — when this
+  // device holds a slot for the business, mint inside its own band.
+  try {
+    if (companyId) {
+      let slotRows = query("SELECT value FROM settings WHERE key = ?", [`zapeera_register_slot_${companyId}`]);
+      if (!slotRows || slotRows.length === 0) {
+        slotRows = query("SELECT value FROM settings WHERE key = 'zapeera_register_slot'");
+      }
+      const slot = slotRows && slotRows.length > 0 ? parseInt(slotRows[0].value, 10) : NaN;
+      if (Number.isInteger(slot) && slot >= 1 && slot <= 9) {
+        let floor = 0;
+        const seen = query("SELECT invoiceNumber FROM sales WHERE companyId = ? AND invoiceNumber LIKE 'INV-%'", [companyId]) || [];
+        for (const row of seen) {
+          const m = String(row.invoiceNumber).match(/^INV-(\d{5})$/);
+          if (m) floor = Math.max(floor, parseInt(m[1], 10) % 10000);
+        }
+        let own = 0;
+        const ownRows = query("SELECT invoiceNumber FROM sales WHERE companyId = ? AND invoiceNumber LIKE ?", [companyId, `INV-${slot}%`]) || [];
+        for (const row of ownRows) {
+          const m = String(row.invoiceNumber).match(/^INV-(\d)(\d{4})$/);
+          if (m && parseInt(m[1], 10) === slot) own = Math.max(own, parseInt(m[2], 10));
+        }
+        let seq = Math.max(own, floor) + 1;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const s2 = ((seq + attempt - 1) % 9999) + 1;
+          const candidate = `INV-${slot}${String(s2).padStart(4, '0')}`;
+          if (!query('SELECT id FROM sales WHERE invoiceNumber = ?', [candidate])[0]) return candidate;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[ServiceSale] slotted invoice generation failed, falling back:', e.message);
+  }
   try {
     const lastSale = query("SELECT invoiceNumber FROM sales WHERE invoiceNumber IS NOT NULL ORDER BY createdAt DESC LIMIT 1")[0];
     let baseNumber = 10000;
@@ -105,7 +138,7 @@ function createServiceSale(deps, { companyId, branchId, customerId, items, payme
   const finalSaleStatus = finalPaymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
   const finalPaidAmount = paidAmount !== undefined ? paidAmount : (finalPaymentStatus === 'COMPLETED' ? grandTotal : 0);
   const id = uuid();
-  const invoiceNumber = generateInvoiceNumber(query);
+  const invoiceNumber = generateInvoiceNumber(query, companyId);
   const receiptNumber = invoiceNumber.replace('INV-', 'RCN-');
   const timestamp = new Date().toISOString();
   const shiftId = resolveActiveShiftId(query, userId, companyId);

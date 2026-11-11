@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
+import { getCloudApi } from "@/services/api-clients";
 import {
   deriveAccountStatus,
   invalidateAccountStatus,
@@ -31,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 
 const ProfileSecurityPage = () => {
   const { user } = useAuth();
+  const { selectedCompanyId } = useAdmin() as any;
 
   const [profile, setProfile] = useState({
     name: "",
@@ -82,6 +85,14 @@ const ProfileSecurityPage = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // v1.0.19: my staff PIN (desktop till sign-in). Cloud-only operation —
+  // on desktop it goes through the cloud client after a full login.
+  const [myPinState, setMyPinState] = useState<'unknown' | 'none' | 'set' | 'no-profile'>('unknown');
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [changingPin, setChangingPin] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setProfileLoading(true);
@@ -249,6 +260,63 @@ const ProfileSecurityPage = () => {
       toast({ title: "Change failed", description: e.message || "Could not change password.", variant: "destructive" });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const pinApi = () =>
+    typeof window !== "undefined" && typeof (window as any).electronAPI !== "undefined"
+      ? getCloudApi()
+      : apiService;
+
+  const loadMyPinState = useCallback(async () => {
+    try {
+      const res: any = await pinApi().getMyStaffProfile(selectedCompanyId || undefined);
+      if (res?.success && res.data) {
+        setMyPinState(res.data.hasPin ? 'set' : 'none');
+      } else {
+        setMyPinState('no-profile');
+      }
+    } catch {
+      setMyPinState('no-profile');
+    }
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    loadMyPinState();
+  }, [loadMyPinState]);
+
+  const handleChangeMyPin = async () => {
+    if (!/^\d{4,6}$/.test(newPin)) {
+      toast({ title: "Invalid PIN", description: "PIN must be 4 to 6 digits", variant: "destructive" });
+      return;
+    }
+    if (newPin !== confirmPin) {
+      toast({ title: "PINs do not match", description: "Enter the same new PIN twice", variant: "destructive" });
+      return;
+    }
+    if (myPinState === 'set' && !/^\d{4,6}$/.test(currentPin)) {
+      toast({ title: "Current PIN required", description: "Enter your current PIN to change it", variant: "destructive" });
+      return;
+    }
+    setChangingPin(true);
+    try {
+      const res: any = await pinApi().changeMyPin({
+        currentPin: myPinState === 'set' ? currentPin : undefined,
+        newPin,
+      }, selectedCompanyId || undefined);
+      if (res?.success) {
+        toast({ title: "PIN updated", description: "Your new PIN reaches the shop computer on its next sync." });
+        setCurrentPin("");
+        setNewPin("");
+        setConfirmPin("");
+        setMyPinState('set');
+      } else {
+        toast({ title: "Could not update PIN", description: res?.message || "Please try again", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not update PIN", description: e?.message || "Check your internet connection", variant: "destructive" });
+    } finally {
+      setChangingPin(false);
     }
   };
 
@@ -733,6 +801,76 @@ const ProfileSecurityPage = () => {
               </Button>
             </div>
           </section>
+
+          {/* v1.0.19: My Staff PIN (desktop till sign-in) */}
+          {myPinState !== 'no-profile' && (
+            <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
+                <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
+                  <Lock className="h-5 w-5 text-[#1a52c5]" />
+                  My Staff PIN
+                </div>
+                <span className="text-xs font-medium text-[#8c95b0]">{myPinState === 'set' ? 'PIN is set' : 'No PIN set yet'}</span>
+              </div>
+              <div className="space-y-4 p-6">
+                <p className="text-sm text-[#4a5578]">
+                  Your PIN signs you in at the shop computer (desktop app) — it does not replace your
+                  account password. Changes are saved online and reach the computer on its next sync.
+                </p>
+                {myPinState === 'set' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="pp-curpin" className="text-sm font-semibold text-[#0a1128]">Current PIN</Label>
+                    <Input
+                      id="pp-curpin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={currentPin}
+                      onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Current 4–6 digit PIN"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="pp-newpin" className="text-sm font-semibold text-[#0a1128]">New PIN</Label>
+                    <Input
+                      id="pp-newpin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="4–6 digits"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pp-confpin" className="text-sm font-semibold text-[#0a1128]">Confirm New PIN</Label>
+                    <Input
+                      id="pp-confpin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={confirmPin}
+                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Repeat new PIN"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleChangeMyPin}
+                  disabled={changingPin}
+                  className="h-11 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+                >
+                  <Lock className="mr-2 h-4 w-4 text-[#1a52c5]" />
+                  {changingPin ? "Updating…" : myPinState === 'set' ? "Change PIN" : "Set PIN"}
+                </Button>
+              </div>
+            </section>
+          )}
         </div>
 
         <div className="space-y-6">

@@ -53,6 +53,7 @@ import {
   Play
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOperator } from "@/contexts/OperatorContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { apiService } from "@/services/api";
 import type { TaxBreakdownLine, ProvincialTaxBreakdownLine, PrescriptionRecord, SalePrescriptionSummary } from "@/services/api";
@@ -337,6 +338,7 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string, baseUni
 const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } = {}) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { requestManagerOverride, handleOwnShiftClosed } = useOperator();
   const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany, setSelectedBranchId, allBranches } = useAdmin();
 
   // State management
@@ -1098,6 +1100,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         actual: Number((response.data as any)?.actualBalance ?? 0),
         difference: Number((response.data as any)?.difference ?? 0),
       });
+      // v1.0.19: a bound operator who closes their own shift hands the
+      // till over via the lock screen (next staff member PINs in). The
+      // account session is untouched — shift change is not a logout.
+      void handleOwnShiftClosed();
       setClosingBalanceInput("");
       setActiveShift(null);
       setShiftSales([]);
@@ -4283,7 +4289,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         items: itemsToRefund,
       };
       // Call the refund API
-      const refundResponse = await apiService.createRefund(refundData);
+      let refundResponse = await apiService.createRefund(refundData);
+      // v1.0.19: cashier operator → in-place manager/owner PIN prompt,
+      // one retry with the override grant; operator stays the cashier.
+      if (!refundResponse.success && (refundResponse as any)?.code === 'MANAGER_PIN_REQUIRED') {
+        const overrideToken = await requestManagerOverride();
+        if (overrideToken) {
+          refundResponse = await apiService.createRefund({ ...refundData, managerOverrideToken: overrideToken });
+        }
+      }
       if (refundResponse.success) {
         toast({
           title: "Refund Processed Successfully",
