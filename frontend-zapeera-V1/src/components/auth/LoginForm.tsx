@@ -36,6 +36,9 @@ import { clearStoredSession, readStoredUser, writeStoredUser } from "@/lib/sessi
 interface LoginFormProps {
   onLogin: (user: any) => void;
   onNavigateToSignup?: () => void;
+  // v1.0.19: desktop passes "Create account" (its signup opens the web
+  // funnel in the system browser); web keeps the default "Sign up".
+  signupLabel?: string;
   loginHandler?: (credentials: { usernameOrEmail: string; password: string }) => Promise<any>;
   login2faHandler?: (payload: { challengeToken: string; code?: string; recoveryCode?: string }) => Promise<any>;
 }
@@ -45,7 +48,7 @@ interface FieldErrors {
   password?: string;
 }
 
-const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler, login2faHandler }: LoginFormProps) => {
+const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, login2faHandler }: LoginFormProps) => {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const [formData, setFormData] = useState({
@@ -673,7 +676,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, loginHandler, login2faHandler 
                 onClick={onNavigateToSignup}
                 className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
               >
-                Sign up
+                {signupLabel || 'Sign up'}
               </button>
             </p>
           </div>

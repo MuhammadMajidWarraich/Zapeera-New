@@ -21,6 +21,8 @@ import BusinessSlugGate from "./components/auth/BusinessSlugGate";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { ModuleGuard, AutoModuleGuard } from "./components/auth/ModuleGuard";
 import { RuntimeProvider } from "./contexts/RuntimeProvider";
+import { OperatorProvider } from "./contexts/OperatorContext";
+import { LogoutGuardDialog } from "./components/desktop/LogoutGuardDialog";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { GlobalShortcuts } from "./components/GlobalShortcuts";
 import JoinPartnerPage from "./components/auth/JoinPartnerPage";
@@ -1717,13 +1719,16 @@ const App = () => {
           <AdminProvider>
             <DashboardDataProvider>
               <SyncProvider>
+                <OperatorProvider>
                 <NotificationProvider>
                   <TooltipProvider>
                     <Toaster />
                     <Sonner />
                     <AppRoutes />
+                    <LogoutGuardDialog />
                   </TooltipProvider>
                 </NotificationProvider>
+                </OperatorProvider>
               </SyncProvider>
             </DashboardDataProvider>
           </AdminProvider>

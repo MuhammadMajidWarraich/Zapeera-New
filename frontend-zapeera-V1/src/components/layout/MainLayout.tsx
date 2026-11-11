@@ -17,6 +17,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { SyncStatusBadge } from "@/components/SyncStatusIndicator";
+import { useOperator } from "@/contexts/OperatorContext";
+import { OperatorLockScreen } from "@/components/desktop/OperatorLockScreen";
+import { DesktopSessionBanner } from "@/components/desktop/DesktopSessionBanner";
+import { Lock as LockIcon, UserRound } from "lucide-react";
 import VoiceAssistant from "@/features/voice/VoiceAssistant";
 
 interface MainLayoutProps {
@@ -24,7 +28,8 @@ interface MainLayoutProps {
 }
 
 const MainLayout = ({ children }: MainLayoutProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, requestLogout } = useAuth();
+  const operatorCtx = useOperator();
   const { toast } = useToast();
   const { selectedBranch, selectedBranchId, selectedCompanyId, selectedCompany, setSelectedCompanyId, setSelectedBranchId, allCompanies, ownedCompanies, sharedCompanies, allBranches, refreshBranches } = useAdmin();
   // L-6 fix (2026-10-26): hide "+ New Sale" when the POS page is denied for
@@ -598,6 +603,27 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 )}
 
                 <SyncStatusBadge />
+                {operatorCtx.isDesktop && (
+                  <div className="hidden items-center gap-1.5 md:flex" title={operatorCtx.isBoundOperator ? 'Working as this operator (PIN verified)' : 'Working as the account user'}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-xs font-medium text-[#4a5578]">
+                      <UserRound className="h-3.5 w-3.5" />
+                      <span className="max-w-[140px] truncate">{operatorCtx.effectiveName}</span>
+                      {operatorCtx.effectiveRole && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#1a52c5]">{operatorCtx.effectiveRole}</span>
+                      )}
+                    </span>
+                    {operatorCtx.pinEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => operatorCtx.lock()}
+                        className="inline-flex items-center gap-1 rounded-[10px] border border-black/[0.06] bg-white px-2.5 py-1.5 text-xs font-medium text-[#4a5578] hover:bg-black/[0.02]"
+                      >
+                        <LockIcon className="h-3.5 w-3.5" />
+                        Switch staff / Lock
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5">
 
@@ -653,7 +679,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                       Back to Dashboard
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600">
+                    <DropdownMenuItem onClick={() => requestLogout()} className="cursor-pointer text-red-600 focus:text-red-600">
                       <LogOut className="w-4 h-4 mr-2" />
                       Logout
                     </DropdownMenuItem>
@@ -661,6 +687,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 </DropdownMenu>
               </div>
             </header>
+            <DesktopSessionBanner />
             {/* (2026-10-26) The mobile context bar that used to live here
                 (second header row with the two switchers) was removed:
                 the switchers now sit in the single-row top bar above. */}
@@ -711,6 +738,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           </div>
         </div>
         <VoiceAssistant />
+        {/* v1.0.19: staff-PIN lock screen overlay (desktop, PIN-enabled
+            businesses only; renders nothing otherwise). */}
+        <OperatorLockScreen />
       </SidebarContext.Provider>
     </SidebarProvider>
   );

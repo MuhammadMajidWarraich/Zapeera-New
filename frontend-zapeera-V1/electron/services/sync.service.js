@@ -338,12 +338,29 @@ async function pushChangesToCloud() {
     }
     let totalUploaded = 0;
     let totalFailed = 0;
+    let authBlocked = false;
+    const pushableBusinessIds = new Set(getPushableBusinessIds());
     for (const [businessId, rows] of Object.entries(businessGroups)) {
+      // v1.0.19: never push a business the current account doesn't
+      // belong to — its ops stay parked PENDING, attempts untouched,
+      // until that business's own account signs in again.
+      if (!pushableBusinessIds.has(businessId)) {
+        console.log(`[Sync] Push parked for ${businessId}: not a business of the signed-in account (${rows.length} op(s) left pending)`);
+        continue;
+      }
       const operations = rows.map(buildPushOperation);
       let response;
       try {
         response = await cloudApi.pushOperations(businessId, operations);
       } catch (e) {
+        // v1.0.19: an auth rejection (dead/foreign token) is not the
+        // operations' fault — leave them PENDING instead of burning a
+        // retry attempt, and flip the state machine to AUTH_REQUIRED.
+        if (e && (e.statusCode === 401 || e.statusCode === 403)) {
+          console.log(`[Sync] Push auth-blocked for ${businessId}: ${e.message} — ops left pending`);
+          authBlocked = true;
+          continue;
+        }
         console.log(`[Sync] Push failed for ${businessId}: ${e.message}`);
         totalFailed += rows.length;
         for (const row of rows) {
@@ -372,6 +389,22 @@ async function pushChangesToCloud() {
           markOperationFailed(row, 'No result returned for operation');
           totalFailed++;
         } else if (r.status === 'ACCEPTED' || r.status === 'DUPLICATE') {
+          // v1.0.19: an R4 renumber returns serverInvoiceNumber — apply
+          // it to the local sale immediately (the printed receipt keeps
+          // the terminal number, preserved in terminalInvoiceNumber)
+          // instead of waiting for a pull that used to strip it.
+          if (r.serverInvoiceNumber && resolveLocalTable(row.entityType) === 'sales') {
+            try {
+              const local = query('SELECT invoiceNumber FROM sales WHERE id = ?', [row.entityId])[0];
+              if (local && local.invoiceNumber !== r.serverInvoiceNumber) {
+                run('UPDATE sales SET invoiceNumber = ?, terminalInvoiceNumber = ?, invoiceRenumbered = 1, updatedAt = ? WHERE id = ?',
+                  [r.serverInvoiceNumber, r.terminalInvoiceNumber || local.invoiceNumber, now(), row.entityId]);
+                console.log(`[Sync] Invoice renumbered by cloud: ${local.invoiceNumber} -> ${r.serverInvoiceNumber} (terminal number preserved)`);
+              }
+            } catch (renumberErr) {
+              console.log('[Sync] Applying serverInvoiceNumber failed (pull will reconcile):', renumberErr.message);
+            }
+          }
           markOperationCompleted(row);
           totalUploaded++;
         } else if (r.status === 'CONFLICT') {
@@ -389,6 +422,10 @@ async function pushChangesToCloud() {
       }
     }
     _syncInProgress = false;
+    if (authBlocked && totalUploaded === 0 && totalFailed === 0) {
+      setConnectionState('AUTH_REQUIRED');
+      return { status: 'AUTH_REQUIRED', uploaded: 0, failed: 0 };
+    }
     if (totalFailed > 0 && totalUploaded === 0) {
       setConnectionState('ERROR');
       return { status: 'FAILED', uploaded: 0, failed: totalFailed };
@@ -561,14 +598,27 @@ function persistProvisionedBusiness(data) {
 
   if (data.subscription) {
     const sub = data.subscription;
+    const periodEnd = sub.periodEnd || sub.currentPeriodEnd || sub.trialEndsAt || null;
     const existing = query('SELECT id FROM subscriptions WHERE companyId = ?', [biz.id]);
     if (existing && existing.length > 0) {
-      run(`UPDATE subscriptions SET plan = ?, status = ?, updatedAt = ? WHERE companyId = ?`, [sub.planId || 'BASIC', sub.status || 'ACTIVE', now(), biz.id]);
+      run(`UPDATE subscriptions SET plan = ?, status = ?, periodEnd = ?, updatedAt = ? WHERE companyId = ?`, [sub.planId || 'BASIC', sub.status || 'ACTIVE', periodEnd, now(), biz.id]);
     } else {
-      run(`INSERT INTO subscriptions (id, companyId, plan, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
-        [uuid(), biz.id, sub.planId || 'BASIC', sub.status || 'ACTIVE', now(), now()]);
+      run(`INSERT INTO subscriptions (id, companyId, plan, status, periodEnd, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [uuid(), biz.id, sub.planId || 'BASIC', sub.status || 'ACTIVE', periodEnd, now(), now()]);
     }
   }
+  // v1.0.19: persist this device's invoice register slot (1–9) so the
+  // local invoice generator mints INV-<slot><seq4> for this business.
+  // The slot is per-DEVICE (allocated on the cloud device row), so it
+  // is stored both per-business (the generator's lookup) and as a
+  // device-global fallback.
+  try {
+    const slot = Number(data.registerSlot);
+    if (Number.isInteger(slot) && slot >= 1 && slot <= 9) {
+      run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [`zapeera_register_slot_${biz.id}`, String(slot)]);
+      run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['zapeera_register_slot', String(slot)]);
+    }
+  } catch (e) { console.log('[Sync] register slot persist skipped:', e.message); }
 }
 
 function loadOperationsForPush() {
@@ -648,6 +698,45 @@ function getLocalBusinessIds() {
   if (!query) return [];
   const rows = query(`SELECT DISTINCT businessId FROM memberships WHERE status IN ('ACTIVE', 'DOWNLOADED')`);
   return (rows || []).map(r => r.businessId).filter(Boolean);
+}
+
+/**
+ * v1.0.19 (logout-guard correction): which businesses may the CURRENT
+ * cloud token push for? The pending sync queue is durable local state
+ * that survives account logout BY DESIGN — nothing in the logout path
+ * deletes sync_operations or business data. But survival alone is not
+ * enough: if a DIFFERENT account signs in on this device afterwards,
+ * the engine must never burn the parked queue's retry attempts (5
+ * failures park an op in FAILED permanently) by pushing business A's
+ * operations under business B's identity, where the cloud can only
+ * reject them. So the push drain is scoped to the businesses the
+ * token's owner is actually a member of (local memberships mirror,
+ * keyed by the token's userId — locally, users.id IS the cloud id).
+ * Parked groups are left PENDING and untouched; they resume on their
+ * own when their business's account signs in again. If the token can't
+ * be decoded or the owner has no local memberships (nothing known —
+ * e.g. mid-recovery), fall back to all local businesses, the pre-v1.0.19
+ * behaviour.
+ */
+function getPushableBusinessIds() {
+  const local = getLocalBusinessIds();
+  try {
+    const token = cloudApi && typeof cloudApi.getAuthToken === 'function' ? cloudApi.getAuthToken() : null;
+    if (!token) return local;
+    const parts = String(token).split('.');
+    if (parts.length !== 3) return local;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    const userId = payload && payload.userId;
+    if (!userId || !query) return local;
+    const rows = query(
+      `SELECT DISTINCT businessId FROM memberships WHERE userId = ? AND status IN ('ACTIVE', 'DOWNLOADED')`,
+      [userId]
+    );
+    const scoped = (rows || []).map(r => r.businessId).filter(Boolean);
+    return scoped.length > 0 ? scoped : local;
+  } catch {
+    return local;
+  }
 }
 
 function getLocalMembershipCount() {

@@ -1285,6 +1285,20 @@ export class ApiService {
         // ignore
       }
 
+      // v1.0.19: staff-PIN operator binding — the embedded backend reads
+      // x-operator-token to attribute sales/shifts/refunds to the person
+      // at the till. Only ever attached to EMBEDDED (local) requests:
+      // the cloud must never see it (and its CORS would reject the
+      // unknown header from the desktop origin).
+      try {
+        if (config.local.baseUrl && this.baseURL === config.local.baseUrl) {
+          const operatorToken = localStorage.getItem('operatorToken');
+          if (operatorToken) headers.set('x-operator-token', operatorToken);
+        }
+      } catch {
+        // ignore
+      }
+
       // Add CSRF token for state-changing requests
       const method = (options.method || 'GET').toUpperCase();
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -1469,7 +1483,15 @@ export class ApiService {
         };
       }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify(credentials),
+        // v1.0.19: desktop sign-ins identify themselves so the cloud
+        // additionally issues the desktop-scoped refresh token (30-day
+        // local session coherence). Web/mobile payloads are unchanged.
+        body: JSON.stringify({
+          ...credentials,
+          ...((typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined')
+            ? { clientType: 'desktop' }
+            : {}),
+        }),
       });
 
       if (!response) {
@@ -1501,6 +1523,17 @@ export class ApiService {
         if (sessionToken) {
           try {
             localStorage.setItem('sessionToken', sessionToken);
+          } catch { /* ignore */ }
+        }
+
+        // v1.0.19: desktop sign-ins also receive a desktop-scoped
+        // refresh token (see lib/desktop-cloud-token.ts). Persist it so
+        // the sync layer can renew the 7-day cloud access token inside
+        // the 30-day local session window.
+        const desktopRefreshToken = (response.data as any)?.desktopRefreshToken;
+        if (desktopRefreshToken) {
+          try {
+            localStorage.setItem('cloudRefreshToken', desktopRefreshToken);
           } catch { /* ignore */ }
         }
 
@@ -1572,7 +1605,15 @@ export class ApiService {
     try {
       const response = await this.request<any>('/auth/login/2fa', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        // v1.0.19: desktop 2FA completions identify themselves the same
+        // way as the password step, so the shared session issuance adds
+        // the desktop refresh token to the completed sign-in.
+        body: JSON.stringify({
+          ...payload,
+          ...((typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined')
+            ? { clientType: 'desktop' }
+            : {}),
+        }),
       });
 
       if (!response) {
@@ -1587,6 +1628,12 @@ export class ApiService {
         }
         if (sessionToken) {
           try { localStorage.setItem('sessionToken', sessionToken); } catch { /* ignore */ }
+        }
+        // v1.0.19: 2FA completions of a DESKTOP sign-in also carry the
+        // desktop refresh token (clientType sent with the 2FA request).
+        const desktopRefreshToken2fa = (response.data as any)?.desktopRefreshToken;
+        if (desktopRefreshToken2fa) {
+          try { localStorage.setItem('cloudRefreshToken', desktopRefreshToken2fa); } catch { /* ignore */ }
         }
 
         if (!user || !user.id) {
@@ -1662,9 +1709,120 @@ export class ApiService {
     });
   }
 
+  // ── v1.0.19 Phase 2B: local-first login (LOCAL client / embedded) ──
+  // Verifies credentials against the cached cloud-verified credential
+  // on this device. Success returns a local session exactly like a
+  // provisioned sign-in; failure carries a classification code
+  // (LOCAL_UNKNOWN / LOCAL_MISMATCH / LOCAL_WINDOW_EXPIRED).
+  async localFirstLogin(identifier: string, password: string) {
+    return this.request<{
+      user: any;
+      token: string;
+      sessionToken: string;
+      session: { expiresAt: string; offlineExpiresAt: string; offlineGrace: boolean } | null;
+      localFirst: boolean;
+    }>('/auth/local-first-login', {
+      method: 'POST',
+      body: JSON.stringify({ usernameOrEmail: identifier, password }),
+    });
+  }
+
+  // Destroy the cached credential for an account the cloud has
+  // definitively rejected. Called ONLY on definitive rejections.
+  async purgeLocalCredentialCache(payload: { cloudUserId?: string; identifier?: string }) {
+    return this.request<{ purged: boolean }>('/auth/local-first/purge', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ── v1.0.19: desktop cloud-token coherence ─────────────────────────
+  // Exchange the desktop-scoped refresh token for a fresh cloud access
+  // token. Called on the CLOUD client; see lib/desktop-cloud-token.ts.
+  async refreshDesktopToken(refreshToken: string) {
+    return this.request<{ accessToken: string; desktopRefreshToken: string }>('/auth/desktop/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+  }
+
+  // Push a renewed cloud access token into the embedded backend so the
+  // sync layer uses it. Called on the LOCAL client.
+  async postCloudToken(accessToken: string) {
+    return this.request<any>('/auth/cloud-token', {
+      method: 'POST',
+      body: JSON.stringify({ accessToken }),
+    });
+  }
+
+  // Local session window + per-business subscription period ends.
+  // Called on the LOCAL client (desktop).
+  async getSessionStatus() {
+    return this.request<{
+      session: { expiresAt: string | null; offlineExpiresAt: string | null; offlineGrace: boolean } | null;
+      businesses: Array<{ businessId: string; periodEnd: string | null }>;
+      serverNow: string;
+    }>('/auth/session-status', { method: 'GET' });
+  }
+
+  // Durable sync queue status. Called on the LOCAL client (desktop).
+  async getSyncStatus() {
+    return this.request<{ pendingChanges: number; failedChanges: number; connectionState: string }>('/sync/status', {
+      method: 'GET',
+    });
+  }
+
+  // ── v1.0.19: staff-PIN operator layer (LOCAL client / embedded) ────
+  async getOperatorStaff(businessId: string) {
+    return this.request<{
+      pinEnabled: boolean;
+      staff: Array<{ staffProfileId: string; userId: string; name: string; role: string | null; hasPin: boolean }>;
+    }>(`/operator/staff?businessId=${encodeURIComponent(businessId)}`, { method: 'GET' });
+  }
+
+  async verifyOperatorPin(payload: { businessId: string; staffProfileId: string; pin: string }) {
+    return this.request<{
+      operatorToken: string;
+      operator: { staffProfileId: string; userId: string; name: string; role: string | null; businessId: string };
+    }>('/operator/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async verifyManagerPin(payload: { businessId: string; staffProfileId: string; pin: string }) {
+    return this.request<{ overrideToken: string; authoriser: { staffProfileId: string; name: string; role: string | null } }>(
+      '/operator/verify-manager-pin',
+      { method: 'POST', body: JSON.stringify(payload) }
+    );
+  }
+
+  async getCurrentOperator(businessId: string) {
+    return this.request<any>(`/operator/current?businessId=${encodeURIComponent(businessId)}`, { method: 'GET' });
+  }
+
+  async clearOperatorBinding() {
+    return this.request<any>('/operator/clear', { method: 'POST', body: JSON.stringify({}) });
+  }
+
+  // ── v1.0.19: staff PIN management (cloud is source of truth) ───────
+  async setStaffPin(staffId: string, pin: string | null) {
+    return this.request<any>(`/staff/${encodeURIComponent(staffId)}/pin`, {
+      method: 'PUT',
+      body: JSON.stringify({ pin }),
+    });
+  }
+
+  async changeMyPin(payload: { currentPin?: string; newPin: string }, companyId?: string) {
+    return this.request<any>('/staff/me/pin', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      ...(companyId ? ({ companyId } as any) : {}),
+    });
+  }
+
   // Offline session login - validates existing session without password
-  async sessionLogin() {
-    const sessionToken = localStorage.getItem('sessionToken');
+  async sessionLogin() {    const sessionToken = localStorage.getItem('sessionToken');
     if (!sessionToken) {
       return { success: false, message: 'No session token available', needsReauth: true };
     }
@@ -5588,6 +5746,45 @@ export class ApiService {
         if (storedRef) companyData = { ...companyData, refCode: storedRef };
       } catch { /* localStorage unavailable — attribution is best-effort here; backoffice can attribute manually */ }
     }
+
+    // v1.0.19 (model b): on DESKTOP a business is created on the CLOUD
+    // only — never in the local database (the embedded POST /companies
+    // refuses with BUSINESS_CREATION_ONLINE_ONLY). After the cloud
+    // create succeeds, the local account sync pulls the new membership
+    // down and the sync engine provisions the business locally
+    // (provisionPendingBusinesses). Offline → a clear message and NO
+    // local insert. The cloud client itself (baseURL === cloud) takes
+    // the normal path below, as do web/mobile.
+    const isElectronRuntime =
+      typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    if (isElectronRuntime && this.baseURL !== config.cloud.baseUrl) {
+      try {
+        const { getCloudApi } = await import('./api-clients');
+        const cloud = getCloudApi();
+        const cloudResult = await cloud.createCompany(companyData);
+        if (!cloudResult?.success) {
+          const msg = cloudResult?.message || 'Failed to create business';
+          if (/failed to fetch|network|connect|internet/i.test(msg)) {
+            return {
+              success: false,
+              message: 'Creating a business needs an internet connection. Connect to the internet and try again — nothing was created on this computer.',
+            } as any;
+          }
+          return cloudResult as any;
+        }
+        // Pull-back: refresh local account metadata (memberships) from
+        // the cloud; the sync engine provisions the new business next.
+        try {
+          await this.syncAccount();
+        } catch { /* provisioning retries via the sync engine */ }
+        return cloudResult as any;
+      } catch (desktopCreateError: any) {
+        return {
+          success: false,
+          message: 'Creating a business needs an internet connection. Connect to the internet and try again — nothing was created on this computer.',
+        } as any;
+      }
+    }
     return this.request<{
       id: string;
       name: string;
@@ -6994,7 +7191,7 @@ export class ApiService {
   // business_management.staff.read grant, so GET /api/staff 403s for
   // them and the dialog could never resolve their profile. Returns
   // the single profile object (or null when the caller has none).
-  async getMyStaffProfile() {
+  async getMyStaffProfile(companyId?: string) {
     return this.request<{
       id: string;
       employeeId: string;
@@ -7015,7 +7212,7 @@ export class ApiService {
         };
         branches: Array<{ branch: { id: string; name: string } }>;
       };
-    } | null>(`/staff/me`);
+    } | null>(`/staff/me`, companyId ? ({ companyId } as any) : undefined);
   }
 
   async createStaff(staffData: {
@@ -8632,15 +8829,19 @@ export class ApiService {
       batchId?: string | null;
       saleItemId?: string | null;
     }>;
-    refundedBy: string;
+    refundedBy?: string;
+    // v1.0.19: one-action manager/owner PIN grant from
+    // /operator/verify-manager-pin, sent as x-manager-override.
+    managerOverrideToken?: string;
   }) {
+    const { managerOverrideToken, ...refundPayload } = refundData as any;
     return this.request<{
       refund: {
         id: string;
         originalSaleId: string;
         refundReason: string;
         refundAmount: string | number;
-        refundedBy: string;
+        refundedBy?: string;
         status: string;
         processedAt?: string;
         createdAt: string;
@@ -8656,7 +8857,10 @@ export class ApiService {
       }>;
     }>('/refunds', {
       method: 'POST',
-      body: JSON.stringify(refundData),
+      body: JSON.stringify(refundPayload),
+      ...(managerOverrideToken
+        ? { headers: { 'x-manager-override': managerOverrideToken } }
+        : {}),
     });
   }
 
@@ -8684,7 +8888,7 @@ export class ApiService {
         originalSaleId: string;
         refundReason: string;
         refundAmount: string | number;
-        refundedBy: string;
+        refundedBy?: string;
         status: string;
         processedAt?: string;
         createdAt: string;
@@ -8744,7 +8948,7 @@ export class ApiService {
       originalSaleId: string;
       refundReason: string;
       refundAmount: string | number;
-      refundedBy: string;
+      refundedBy?: string;
       status: string;
       processedAt?: string;
       createdAt: string;

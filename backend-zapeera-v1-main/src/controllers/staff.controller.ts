@@ -9,6 +9,24 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import logger from '../utils/logger';
 
+// ── Counter PINs (v1.0.19) ──────────────────────────────────────────────
+// A staff PIN is 4–6 digits, bcrypt-hashed into StaffProfile.pinHash.
+// The hash is NEVER returned by any API: responses carry only `hasPin`.
+// The cloud is the source of truth — PINs are set/changed here (online)
+// and the hash rides the staffProfile sync pull to desktop devices,
+// which verify it locally for the operator lock screen.
+const PIN_PATTERN = /^\d{4,6}$/;
+
+function withPinFlag<T extends Record<string, any>>(profile: T): T {
+  if (!profile) return profile;
+  const { pinHash, ...rest } = profile as any;
+  return { ...rest, hasPin: Boolean(pinHash) };
+}
+
+async function hashPin(pin: string): Promise<string> {
+  return bcrypt.hash(pin, 10);
+}
+
 const createStaffSchema = Joi.object({
   name: Joi.string().optional().allow(''),
   email: Joi.string().email({ tlds: { allow: false } }).optional().allow(''),
@@ -186,7 +204,7 @@ export const getStaff = async (req: AuthRequest, res: Response) => {
     ]);
 
     const staffWithFlatData = staffProfiles.map((sp: any) => ({
-      ...sp,
+      ...withPinFlag(sp),
       name: sp.membership?.user?.name || '',
       email: sp.membership?.user?.email || '',
       phone: sp.membership?.user?.phone || '',
@@ -259,7 +277,7 @@ export const getMyStaffProfile = async (req: AuthRequest, res: Response) => {
       return res.json({ success: true, data: null });
     }
     const profile = {
-      ...(sp as any),
+      ...withPinFlag(sp as any),
       name: (sp as any).membership?.user?.name || '',
       email: (sp as any).membership?.user?.email || '',
       phone: (sp as any).membership?.user?.phone || '',
@@ -331,7 +349,7 @@ export const getStaffMember = async (req: AuthRequest, res: Response) => {
     }
 
     const flatData = {
-      ...staffProfile,
+      ...withPinFlag(staffProfile as any),
       name: staffProfile.membership?.user?.name || '',
       email: staffProfile.membership?.user?.email || '',
       phone: staffProfile.membership?.user?.phone || '',
@@ -635,7 +653,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
     }
 
     const flatData = {
-      ...staffProfile,
+      ...withPinFlag(staffProfile as any),
       name: staffProfile.membership?.user?.name || '',
       email: staffProfile.membership?.user?.email || '',
       phone: staffProfile.membership?.user?.phone || '',
@@ -690,6 +708,10 @@ export const updateStaff = async (req: AuthRequest, res: Response) => {
     }
 
     const updateData: any = { ...req.body };
+    // v1.0.19: PINs change only through the dedicated PIN endpoints —
+    // never let a profile edit carry a raw pin/pinHash.
+    delete updateData.pin;
+    delete updateData.pinHash;
     if (updateData.joiningDate) {
       updateData.joiningDate = new Date(updateData.joiningDate);
     }
@@ -738,7 +760,7 @@ export const updateStaff = async (req: AuthRequest, res: Response) => {
     });
 
     const flatData = {
-      ...staffProfile,
+      ...withPinFlag(staffProfile as any),
       name: staffProfile.membership?.user?.name || '',
       email: staffProfile.membership?.user?.email || '',
       phone: staffProfile.membership?.user?.phone || '',
@@ -910,5 +932,76 @@ export const getStaffStats = async (req: AuthRequest, res: Response) => {
       success: false,
       message: 'Internal server error'
     });
+  }
+};
+
+// PUT /api/staff/:id/pin (v1.0.19) — owner/manager sets or resets a staff
+// member's counter PIN (route is permission-gated with update_staff).
+// Body: { pin: "1234" } to set, { pin: null } to remove the PIN. The PIN
+// itself is never echoed back; the response carries only hasPin. Setting
+// a PIN requires internet by construction (this IS the cloud) — devices
+// pick the new hash up on their next staffProfile sync pull.
+export const setStaffPin = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const { id } = req.params;
+    const pin = (req.body as any)?.pin;
+
+    const staffProfile = await prisma.staffProfile.findFirst({
+      where: {
+        id,
+        membership: { businessId: buildBranchWhereClause(req as any, {}).companyId }
+      }
+    });
+    if (!staffProfile) {
+      return res.status(404).json({ success: false, message: 'Staff not found' });
+    }
+
+    if (pin === null || pin === '') {
+      await prisma.staffProfile.update({ where: { id }, data: { pinHash: null } });
+      return res.json({ success: true, data: { id, hasPin: false } });
+    }
+    if (typeof pin !== 'string' || !PIN_PATTERN.test(pin)) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4 to 6 digits' });
+    }
+    await prisma.staffProfile.update({ where: { id }, data: { pinHash: await hashPin(pin) } });
+    return res.json({ success: true, data: { id, hasPin: true } });
+  } catch (error) {
+    logger.error('Error setting staff PIN:', { error: String(error) });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// POST /api/staff/me/pin (v1.0.19) — a staff member changes their OWN
+// counter PIN after a full (cloud) login. Own-only by construction (the
+// profile hangs off the caller's membership). If a PIN already exists,
+// the current PIN must be proven first. Registered before the module
+// gates in the router, like GET /me — cashiers hold no staff-module
+// grants but must still be able to manage their own PIN.
+export const changeMyPin = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const membershipId = (req as any).membership?.id;
+    if (!membershipId) {
+      return res.status(400).json({ success: false, message: 'No staff membership for this account' });
+    }
+    const { newPin, currentPin } = (req.body as any) || {};
+    if (typeof newPin !== 'string' || !PIN_PATTERN.test(newPin)) {
+      return res.status(400).json({ success: false, message: 'PIN must be 4 to 6 digits' });
+    }
+    const profile = await prisma.staffProfile.findFirst({ where: { membershipId: String(membershipId) } });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'No staff profile for this account' });
+    }
+    if (profile.pinHash) {
+      if (typeof currentPin !== 'string' || !(await bcrypt.compare(currentPin, profile.pinHash))) {
+        return res.status(403).json({ success: false, message: 'Current PIN is incorrect' });
+      }
+    }
+    await prisma.staffProfile.update({ where: { id: profile.id }, data: { pinHash: await hashPin(newPin) } });
+    return res.json({ success: true, data: { id: profile.id, hasPin: true } });
+  } catch (error) {
+    logger.error('Error changing own PIN:', { error: String(error) });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

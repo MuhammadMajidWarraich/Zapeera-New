@@ -14,7 +14,8 @@ import {
   restoreDesktopSession,
   type DesktopSessionRestoreOutcome,
 } from '../lib/desktop-session-restore';
-import { clearCloudToken, clearLocalToken } from '../services/api-clients';
+import { clearCloudToken, clearLocalToken, getLocalApi } from '../services/api-clients';
+import { maintainCloudToken } from '../lib/desktop-cloud-token';
 
 interface Membership {
   id: string;
@@ -99,6 +100,22 @@ interface AuthContextType {
   user: User | null;
   login: (user: User) => void;
   logout: () => void;
+  /**
+   * v1.0.19 (owner-corrected Phase 4): user-initiated logout entry
+   * point. On desktop, when the durable sync queue holds unsynced
+   * operations, this raises logoutWarning instead of logging out —
+   * a strong warning with a deliberate two-step override, never a
+   * hard block. Internal forced logouts (session expired etc.) keep
+   * calling logout() directly.
+   * NOTE (Phase 2B): with local-first login approved and shipped in
+   * this release, a user previously seen on this device signs back in
+   * locally after logging out — the old "logout ⇒ internet required
+   * to log in again" rule is superseded for those users.
+   */
+  requestLogout: () => Promise<void>;
+  logoutWarning: { pendingCount: number } | null;
+  confirmLogout: () => void;
+  cancelLogoutWarning: () => void;
   isAuthenticated: boolean;
   isInitialized: boolean;
   hasPermission: (resource: string, action: string) => boolean;
@@ -125,6 +142,10 @@ export const useAuth = () => {
               user,
               login: () => {},
               logout: () => {},
+              requestLogout: async () => {},
+              logoutWarning: null,
+              confirmLogout: () => {},
+              cancelLogoutWarning: () => {},
               isAuthenticated: true,
               isInitialized: true,
               hasPermission: () => false,
@@ -486,6 +507,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Do NOT use window.location.href as it breaks file:// URLs in Electron
   }, [user]);
 
+  // ── v1.0.19: logout guard (owner-corrected — warning + override) ──
+  const [logoutWarning, setLogoutWarning] = useState<{ pendingCount: number } | null>(null);
+
+  const requestLogout = useCallback(async () => {
+    const isDesktopRuntime =
+      typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    if (!isDesktopRuntime) {
+      logout();
+      return;
+    }
+    try {
+      const local = getLocalApi();
+      const res: any = await local.getSyncStatus();
+      const pending = Number(res?.data?.pendingChanges || 0);
+      if (res?.success && pending > 0) {
+        // The queue (and all local business data) SURVIVES the logout
+        // — it stays parked on this computer and resumes when the same
+        // business signs in again. The warning exists so the user
+        // knows the data is not on the cloud yet; the override is
+        // deliberate (two-step in LogoutGuardDialog), never a dead end.
+        setLogoutWarning({ pendingCount: pending });
+        return;
+      }
+    } catch {
+      // Queue unreadable — never trap the user behind a broken check.
+    }
+    logout();
+  }, [logout]);
+
+  const confirmLogout = useCallback(() => {
+    setLogoutWarning(null);
+    logout();
+  }, [logout]);
+
+  const cancelLogoutWarning = useCallback(() => {
+    setLogoutWarning(null);
+  }, []);
+
+  // ── v1.0.19: desktop cloud-token maintenance ──────────────────────
+  // Keeps the 7-day cloud access token fresh inside the 30-day local
+  // session via the desktop refresh token. Runs after sign-in/restore,
+  // when connectivity returns, and every 6 hours. Never touches the
+  // local session (see lib/desktop-cloud-token.ts).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const isDesktopRuntime =
+      typeof window !== 'undefined' && typeof (window as any).electronAPI !== 'undefined';
+    if (!isDesktopRuntime) return;
+    maintainCloudToken();
+    const onOnline = () => maintainCloudToken();
+    window.addEventListener('online', onOnline);
+    const timer = setInterval(() => maintainCloudToken(), 6 * 3600 * 1000);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      clearInterval(timer);
+    };
+  }, [isAuthenticated]);
+
   // Listen for authentication required events
   useEffect(() => {
     const handleAuthRequired = async (event: CustomEvent) => {
@@ -758,6 +837,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     login,
     logout,
+    requestLogout,
+    logoutWarning,
+    confirmLogout,
+    cancelLogoutWarning,
     isAuthenticated,
     isInitialized,
     hasPermission,
@@ -765,7 +848,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     canAccess,
     checkAuthStatus,
     setActiveMembershipForBusiness,
-  }), [user, login, logout, isAuthenticated, isInitialized, hasPermission, hasRole, canAccess, checkAuthStatus, setActiveMembershipForBusiness]);
+  }), [user, login, logout, requestLogout, logoutWarning, confirmLogout, cancelLogoutWarning, isAuthenticated, isInitialized, hasPermission, hasRole, canAccess, checkAuthStatus, setActiveMembershipForBusiness]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -218,7 +218,43 @@ function registerRefundsRoutes(app, authMiddleware, deps) {
           const finalReason = refundReason || reason || 'Customer return';
           const finalBranchId = branchId || sale.branchId || req.user?.branchId || null;
           const finalCompanyId = companyId || sale.companyId || req.user?.companyId || null;
-          const finalRefundedBy = refundedBy || req.user?.id || null;
+
+          // v1.0.19 (operator attribution + manager-PIN override): the
+          // refund is performed by the OPERATOR when one is bound. When
+          // the business uses PINs and the actor is not a privileged
+          // role, a one-action manager/owner PIN grant (verified locally
+          // via /api/operator/verify-manager-pin, sent as the
+          // x-manager-override header) is required; the authoriser is
+          // recorded on the refund row. Businesses without any PIN set
+          // keep the previous behaviour exactly.
+          const refundOperator = (req.operator && finalCompanyId && req.operator.businessId === finalCompanyId) ? req.operator : null;
+          const effectiveRefundUserId = refundOperator ? refundOperator.userId : (req.user?.id || null);
+          const finalRefundedBy = refundedBy || effectiveRefundUserId;
+          let refundAuthoriser = null;
+          try {
+            const operatorService = (deps && deps.operatorService) || require('../services/operator.service');
+            const pinState = finalCompanyId ? operatorService.listStaffForBusiness(finalCompanyId) : { pinEnabled: false };
+            if (pinState.pinEnabled) {
+              let actorRole = refundOperator ? refundOperator.role : null;
+              if (!refundOperator && finalCompanyId && req.user?.id) {
+                const m = query('SELECT role FROM memberships WHERE userId = ? AND businessId = ?', [req.user.id, finalCompanyId])[0];
+                actorRole = m ? m.role : (req.user?.role || null);
+              }
+              if (!operatorService.isPrivilegedRole(actorRole)) {
+                const grant = operatorService.consumeOverrideGrant(req.headers['x-manager-override'], finalCompanyId);
+                if (!grant) {
+                  return res.status(403).json({
+                    success: false,
+                    code: 'MANAGER_PIN_REQUIRED',
+                    message: 'A manager or owner PIN is required to process a refund'
+                  });
+                }
+                refundAuthoriser = grant;
+              }
+            }
+          } catch (gateErr) {
+            console.log('[Refunds] Manager-PIN gate check failed (refund proceeds):', gateErr.message);
+          }
     
           console.log('[Refunds] Creating refund:', { id, saleId: finalSaleId, refundAmount, finalBranchId, finalCompanyId, finalReason });
     
@@ -229,9 +265,9 @@ function registerRefundsRoutes(app, authMiddleware, deps) {
             return res.status(402).json({ success: false, code: 'LICENSE_REQUIRED', message: 'Your subscription has ended. Renew to create new refunds — your data stays readable and exportable.', licenseReason: licenseWrite.reason });
           }
 
-          const insertSuccess = run(`INSERT INTO refunds (id, saleId, amount, reason, branchId, companyId, status, createdBy, createdAt, updatedAt)
-               VALUES (?,?,?,?,?,?,?,?,?,?)`,
-            [id, finalSaleId, refundAmount, finalReason, finalBranchId, finalCompanyId, 'COMPLETED', finalRefundedBy, timestamp, timestamp]);
+          const insertSuccess = run(`INSERT INTO refunds (id, saleId, amount, reason, branchId, companyId, status, createdBy, authorizedBy, authorizedByName, createdAt, updatedAt)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [id, finalSaleId, refundAmount, finalReason, finalBranchId, finalCompanyId, 'COMPLETED', finalRefundedBy, refundAuthoriser ? refundAuthoriser.staffProfileId : null, refundAuthoriser ? refundAuthoriser.name : null, timestamp, timestamp]);
     
           if (!insertSuccess) {
             console.error('[Refunds] Failed to insert refund');

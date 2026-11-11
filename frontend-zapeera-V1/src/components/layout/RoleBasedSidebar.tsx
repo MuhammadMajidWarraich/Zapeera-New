@@ -327,7 +327,7 @@ function SidebarSection({
 // ─── Root sidebar ──────────────────────────────────────────────────────────────
 
 export const RoleBasedSidebar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, requestLogout } = useAuth();
   const { branding } = useBranding();
   const location = useLocation();
   const { selectedCompanyId, selectedCompany, allCompanies } = useAdmin();
@@ -408,12 +408,12 @@ export const RoleBasedSidebar: React.FC = () => {
   );
   const handleWidgetLogout = useCallback(async () => {
     try {
-      await logout();
+      await requestLogout();
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
-  }, [logout, navigate]);
+  }, [requestLogout, navigate]);
 
   // ── Dynamic Module Hierarchy from Backend ─────────────────────────────────
   // Convert dynamic hierarchy from backend to ModuleGroup format

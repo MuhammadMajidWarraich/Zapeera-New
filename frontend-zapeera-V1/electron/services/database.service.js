@@ -256,6 +256,7 @@ async function initDatabase() {
       weeklyOffDays TEXT, annualLeaveBalance INTEGER DEFAULT 0, sickLeaveBalance INTEGER DEFAULT 0,
       casualLeaveBalance INTEGER DEFAULT 0, documents TEXT, notes TEXT,
       performanceRating REAL, lastReviewDate TEXT, isActive INTEGER DEFAULT 1, isSalesman INTEGER DEFAULT 0,
+      pinHash TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS scheduled_shifts (
@@ -686,6 +687,67 @@ async function initDatabase() {
       console.log(`[DB] v1.0.12 migration: ${v1012ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
     } catch (e) {
       console.log('[DB] v1.0.12 migration: cursor reset skipped:', e.message);
+    }
+  }
+
+  // ── v1.0.19 sync-schema upgrade ─────────────────────────────────────
+  // Staff PIN layer + entitlement period-end mirror:
+  // - staff_profiles.pinHash: the bcrypt hash of a staff member's till
+  //   PIN, pulled from the cloud with the rest of the profile row so the
+  //   desktop operator lock screen can verify PINs locally, offline.
+  // - subscriptions.periodEnd: the business's current subscription
+  //   period end (currentPeriodEnd, else trialEndsAt), written by
+  //   provisioning; drives the renewal banner + read-only degrade.
+  // - memberships.subscriptionPeriodEnd: same value on the account-sync
+  //   mirror (kept in step with subscriptionPlan/Status).
+  // - operator_bindings: NEW local-only table (device state, never
+  //   synced) holding the current till operator per business.
+  // - sales.terminalInvoiceNumber: the number a desktop sale was rung
+  //   with when the cloud renumbers it on push (R4) — the pull mapper
+  //   stops stripping it in v1.0.19 so the alias survives on device.
+  // Same pattern as v1.0.8–v1.0.12: PRAGMA-guarded ALTERs + cursor reset.
+  const SYNC_SCHEMA_UPGRADES_V1019 = [
+    { table: 'staff_profiles', column: 'pinHash', definition: 'TEXT' },
+    { table: 'subscriptions', column: 'periodEnd', definition: 'TEXT' },
+    { table: 'memberships', column: 'subscriptionPeriodEnd', definition: 'TEXT' },
+    { table: 'sales', column: 'terminalInvoiceNumber', definition: 'TEXT' },
+    { table: 'sales', column: 'invoiceRenumbered', definition: 'INTEGER DEFAULT 0' },
+    { table: 'refunds', column: 'authorizedBy', definition: 'TEXT' },
+    { table: 'refunds', column: 'authorizedByName', definition: 'TEXT' },
+    // Phase 2B (local-first login): set when a REAL cloud-verified
+    // password hash is cached on the mirrored user row (provision-session
+    // placeholder hashes leave it NULL, so they never authenticate).
+    { table: 'users', column: 'credentialCachedAt', definition: 'TEXT' }
+  ];
+  let v1019ColumnsAdded = 0;
+  for (const { table, column, definition } of SYNC_SCHEMA_UPGRADES_V1019) {
+    try {
+      const cols = query(`PRAGMA table_info(${table})`);
+      if (cols && cols.some((c) => c.name === column)) continue;
+    } catch { /* fall through and attempt the ALTER */ }
+    try {
+      db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`[DB] v1.0.19 migration: added ${table}.${column}`);
+      v1019ColumnsAdded++;
+    } catch (e) {
+      console.log(`[DB] v1.0.19 migration skipped ${table}.${column}: ${e.message}`);
+    }
+  }
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS operator_bindings (
+      businessId TEXT PRIMARY KEY, staffProfileId TEXT NOT NULL, membershipId TEXT NOT NULL,
+      userId TEXT NOT NULL, operatorToken TEXT NOT NULL, boundAt TEXT,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+  } catch (e) {
+    console.log('[DB] v1.0.19 migration: operator_bindings table skipped:', e.message);
+  }
+  if (v1019ColumnsAdded > 0) {
+    try {
+      db.run(`DELETE FROM settings WHERE key LIKE 'sync_cursor_%'`);
+      console.log(`[DB] v1.0.19 migration: ${v1019ColumnsAdded} column(s) added, sync cursors reset for a full re-pull`);
+    } catch (e) {
+      console.log('[DB] v1.0.19 migration: cursor reset skipped:', e.message);
     }
   }
 

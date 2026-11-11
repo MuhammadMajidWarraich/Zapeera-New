@@ -44,6 +44,10 @@ function registerStaffRoutes(app, authMiddleware, deps) {
     delete staff.mUserId; delete staff.mBusinessId; delete staff.mRole;
     delete staff.mBranchIds; delete staff.userName; delete staff.userEmail;
     delete staff.userPhone; delete staff.userProfileImage;
+    // v1.0.19: the synced PIN hash never leaves the backend — expose
+    // only whether one is set.
+    staff.hasPin = !!staff.pinHash;
+    delete staff.pinHash;
     staff.name = row.userName || '';
     staff.email = row.userEmail || '';
     staff.phone = row.userPhone || '';

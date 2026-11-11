@@ -1552,7 +1552,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       const saleStatus = paymentStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
       const returnedAmount = saleData.returnedAmount || 0;
 
-      // Generate invoice number with retry logic to handle race conditions
+      // Generate invoice number with retry logic to handle race conditions.
+      // v1.0.19: cloud/web sales mint from the reserved SLOT-0 band
+      // (INV-0####) — desktop devices hold slots 1–9 for offline sales,
+      // so a web number can never collide with a device-band number.
+      // The sequence advances past the highest suffix in use anywhere.
       const generateUniqueInvoiceNumber = async (attempt: number = 0): Promise<string> => {
         if (attempt > 10) {
           // After 10 attempts, use timestamp-based unique number
@@ -1560,30 +1564,17 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           return `INV-${timestamp}`;
         }
 
-      // Get the last invoice number to increment, or start from 10000
-      const lastSale = await tx.sale.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { invoiceNumber: true }
-      });
-
-        let baseNumber: number;
-      if (lastSale?.invoiceNumber) {
-        // Extract number from last invoice (format: INV-XXXXX)
-        const match = lastSale.invoiceNumber.match(/INV-(\d+)/);
-        if (match) {
-            baseNumber = parseInt(match[1], 10);
-        } else {
-            // Fallback: use random number
-            baseNumber = Math.floor(Math.random() * 90000) + 10000;
+        const allSales = await tx.sale.findMany({
+          where: { invoiceNumber: { not: null } },
+          select: { invoiceNumber: true }
+        });
+        let maxSuffix = 0;
+        for (const s of allSales) {
+          const m = s.invoiceNumber ? String(s.invoiceNumber).match(/^INV-(\d{5})$/) : null;
+          if (m) maxSuffix = Math.max(maxSuffix, parseInt(m[1], 10) % 10000);
         }
-      } else {
-        // First invoice: start from 10000
-          baseNumber = 10000;
-        }
-
-        // Add attempt offset to handle concurrent requests
-        const nextNumber = ((baseNumber + attempt) % 99999) || 10000;
-        const invoiceNumber = `INV-${String(nextNumber).padStart(5, '0')}`;
+        const suffix = ((maxSuffix + attempt) % 9999) + 1;
+        const invoiceNumber = `INV-0${String(suffix).padStart(4, '0')}`;
 
         // Check if invoice number already exists (race condition check)
         const existingSale = await tx.sale.findUnique({

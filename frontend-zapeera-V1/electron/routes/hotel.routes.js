@@ -961,7 +961,7 @@ function registerHotelRoutes(app, authMiddleware, deps) {
             paymentStatus: writeOffAmount !== null ? 'PENDING' : 'COMPLETED',
             paidAmount: writeOffAmount !== null ? hotel.round2(Math.max(0, summary.nativeTotal - writeOffAmount)) : undefined,
             notes: `Hotel check-out — folio ${folio.id}`,
-            createdBy, userId: req.user?.id
+            createdBy, userId: (req.operator && req.operator.businessId === companyFilter) ? req.operator.userId : req.user?.id
           });
         } catch (e) {
           console.error('[Hotel] Check-out billing failed:', e.message);

@@ -47,6 +47,8 @@ interface RegistryEntry {
 const ENTRIES: RegistryEntry[] = [
   // ── Auth (public subpaths; everything else under /api/auth needs a user) ─
   { prefix: '/api/auth/login', policy: { kind: 'public' } },
+  // v1.0.19: the desktop refresh token is itself the credential here.
+  { prefix: '/api/auth/desktop/refresh', policy: { kind: 'public' } },
   { prefix: '/api/auth/register', policy: { kind: 'public' } },
   { prefix: '/api/auth/signup', policy: { kind: 'public' } },
   { prefix: '/api/auth/forgot-password', policy: { kind: 'public' } },

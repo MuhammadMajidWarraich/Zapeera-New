@@ -91,11 +91,33 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
     return SHIFT_PRIVILEGED_ROLES.includes(String(role || '').toUpperCase());
   }
 
+  // v1.0.19: when an OPERATOR is bound, shift privilege follows the
+  // OPERATOR's role, not the device account's — a cashier working under
+  // the owner's session must not gain open/close-for-others powers.
+  function isEffectivelyPrivileged(req, sessionRole, companyFilter) {
+    if (!isShiftPrivileged(sessionRole)) return false;
+    if (req.operator && req.operator.staffProfileId &&
+        (!companyFilter || req.operator.businessId === companyFilter)) {
+      const opSvc = (typeof deps !== 'undefined' && deps.operatorService) || require('../services/operator.service');
+      return opSvc.isPrivilegedRole(req.operator.role);
+    }
+    return true;
+  }
+
   // The caller's own staff profile, via their membership in the scoped
   // business. Falls back to the caller's single membership when no
   // business is in scope; with several memberships and no scope the
   // caller cannot be disambiguated, so null (fail closed → 403).
   function resolveCallerStaffProfileId(req, companyFilter) {
+    // v1.0.19: a bound OPERATOR is the caller for shift purposes — the
+    // person at the till opens/closes THEIR OWN shift under their own
+    // identity, regardless of whose account session the device runs.
+    // The operator binding is business-scoped; it applies when it
+    // matches the request's business filter (or no filter was given).
+    if (req.operator && req.operator.staffProfileId &&
+        (!companyFilter || req.operator.businessId === companyFilter)) {
+      return req.operator.staffProfileId;
+    }
     const userId = req.user && req.user.id;
     if (!userId) return null;
     let membership = null;
@@ -289,7 +311,7 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
       if (companyFilter && branchRow.companyId !== companyFilter) {
         return res.status(404).json({ success: false, message: 'Branch not found' });
       }
-      if (!isShiftPrivileged(role)) {
+      if (!isEffectivelyPrivileged(req, role, companyFilter)) {
         const ownProfileId = resolveCallerStaffProfileId(req, companyFilter);
         if (!ownProfileId || ownProfileId !== staffProfileId) {
           return res.status(403).json({ success: false, message: 'You can only open your own shift' });
@@ -340,7 +362,7 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
       if (companyFilter && shift.businessId !== companyFilter) {
         return res.status(404).json({ success: false, message: 'Shift not found' });
       }
-      if (!isShiftPrivileged(role)) {
+      if (!isEffectivelyPrivileged(req, role, companyFilter)) {
         const ownProfileId = resolveCallerStaffProfileId(req, companyFilter);
         if (!ownProfileId || ownProfileId !== shift.staffProfileId) {
           return res.status(403).json({ success: false, message: 'You can only close your own shift' });
@@ -391,7 +413,7 @@ function registerShiftsRoutes(app, authMiddleware, deps) {
       if (companyFilter && shift.businessId !== companyFilter) {
         return res.status(404).json({ success: false, message: 'Shift not found' });
       }
-      if (!isShiftPrivileged(role)) {
+      if (!isEffectivelyPrivileged(req, role, companyFilter)) {
         const ownProfileId = resolveCallerStaffProfileId(req, companyFilter);
         if (!ownProfileId || ownProfileId !== shift.staffProfileId) {
           return res.status(403).json({ success: false, message: 'You can only update your own shift' });

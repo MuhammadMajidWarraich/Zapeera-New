@@ -67,11 +67,11 @@ async function syncAccount(userId, email) {
         const existing = _query('SELECT id FROM memberships WHERE id = ?', [localId]);
 
         if (existing && existing.length > 0) {
-          _run(`UPDATE memberships SET role = ?, businessName = ?, businessType = ?, subscriptionPlan = ?, subscriptionStatus = ?, status = ?, updatedAt = ? WHERE id = ?`,
-            [m.role, m.businessName || '', m.businessType || '', m.subscriptionPlan || '', m.subscriptionStatus || '', m.status || 'ACTIVE', _now(), localId]);
+          _run(`UPDATE memberships SET role = ?, businessName = ?, businessType = ?, subscriptionPlan = ?, subscriptionStatus = ?, subscriptionPeriodEnd = ?, status = ?, updatedAt = ? WHERE id = ?`,
+            [m.role, m.businessName || '', m.businessType || '', m.subscriptionPlan || '', m.subscriptionStatus || '', m.subscriptionPeriodEnd || null, m.status || 'ACTIVE', _now(), localId]);
         } else {
-          _run(`INSERT INTO memberships (id, userId, businessId, businessName, businessType, role, branchIds, subscriptionPlan, subscriptionStatus, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [localId, userId, m.businessId, m.businessName || '', m.businessType || '', m.role || '', (m.branchIds || []).join(','), m.subscriptionPlan || '', m.subscriptionStatus || '', m.status || 'ACTIVE', _now(), _now()]);
+          _run(`INSERT INTO memberships (id, userId, businessId, businessName, businessType, role, branchIds, subscriptionPlan, subscriptionStatus, subscriptionPeriodEnd, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [localId, userId, m.businessId, m.businessName || '', m.businessType || '', m.role || '', (m.branchIds || []).join(','), m.subscriptionPlan || '', m.subscriptionStatus || '', m.subscriptionPeriodEnd || null, m.status || 'ACTIVE', _now(), _now()]);
         }
 
         results.memberships.push(m);

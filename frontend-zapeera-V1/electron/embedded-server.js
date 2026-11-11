@@ -18,6 +18,8 @@ const syncService = require('./services/sync.service');
 const authService = require('./services/auth/auth.service');
 const deviceService = require('./services/device.service');
 const sessionService = require('./services/session.service');
+const operatorService = require('./services/operator.service');
+const localFirstLoginService = require('./services/local-first-login.service');
 const syncAccountService = require('./services/sync-account.service');
 const syncQueueService = require('./services/sync-queue.service');
 const syncBusinessService = require('./services/sync-business.service');
@@ -154,6 +156,16 @@ async function startServer(port = 4201, userDataPath = null) {
   const serviceDeps = { ...databaseService, ...syncService, ...require('./utils/helpers'), getDataDir };
   deviceService.init(serviceDeps);
   sessionService.init(serviceDeps);
+  operatorService.init({ ...serviceDeps, bcryptjs: require('bcryptjs') });
+  // v1.0.19 Phase 2B: local-first login (cached cloud-verified credentials).
+  localFirstLoginService.init({
+    ...serviceDeps,
+    hashPasswordBcrypt: authService.hashPasswordBcrypt,
+    verifyPassword: authService.verifyPassword,
+    sessionService,
+    deviceService,
+    generateToken: authService.generateToken
+  });
   // Wire the sync engine's database handle. Without this, sync.service's
   // query/run stay null and provisionPendingBusinesses() silently returns 0
   // while pullChangesFromCloud() iterates zero businesses — the engine looks
@@ -228,6 +240,8 @@ async function startServer(port = 4201, userDataPath = null) {
     // All services
     deviceService,
     sessionService,
+    operatorService,
+    localFirstLoginService,
     syncAccountService,
     syncQueueService,
     syncBusinessService,
@@ -241,6 +255,45 @@ async function startServer(port = 4201, userDataPath = null) {
     // Additional deps that routes might need
     bcryptjs: require('bcryptjs')
   };
+
+  // ── Subscription read-only degrade (v1.0.19) ────────────────────────
+  // The decided posture for a lapsed subscription: data is never locked
+  // away — reads and exports keep working — but once the mirrored period
+  // end + the 72h grace have BOTH passed without a renewal reaching this
+  // device, business-data WRITES stop until the device reconnects and
+  // the mirror refreshes. Only rows that actually carry a periodEnd are
+  // enforced (mirrors written before v1.0.19 have none and are never
+  // degraded). Auth/sync/operator/license routes are exempt: signing in,
+  // syncing (incl. pushing already-queued operations), locking the till
+  // and license refresh must always work — they are the way OUT of the
+  // degraded state.
+  const DEGRADE_EXEMPT_PREFIXES = ['/api/auth/', '/api/sync', '/api/operator/', '/api/license', '/api/subscriptions', '/api/activation'];
+  const DEGRADE_GRACE_MS = 72 * 60 * 60 * 1000;
+  app.use((req, res, next) => {
+    try {
+      if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+      if (!req.path.startsWith('/api/')) return next();
+      if (DEGRADE_EXEMPT_PREFIXES.some((p) => req.path.startsWith(p))) return next();
+      const businessId = req.headers['x-business-id'] || req.headers['x-company-id'] ||
+        (req.body && (req.body.businessId || req.body.companyId)) ||
+        (req.query && (req.query.businessId || req.query.companyId));
+      if (!businessId) return next();
+      const rows = databaseService.query('SELECT periodEnd FROM subscriptions WHERE companyId = ?', [String(businessId)]);
+      const periodEnd = rows && rows.length > 0 ? rows[0].periodEnd : null;
+      if (!periodEnd) return next();
+      const endMs = new Date(periodEnd).getTime();
+      if (Number.isFinite(endMs) && Date.now() > endMs + DEGRADE_GRACE_MS) {
+        return res.status(403).json({
+          success: false,
+          code: 'SUBSCRIPTION_READ_ONLY',
+          message: 'This business\'s subscription period has ended and the renewal has not reached this device yet. Data stays available to view and export; connect to the internet to renew and resume selling.'
+        });
+      }
+      return next();
+    } catch {
+      return next(); // the degrade must never take the till down on its own error
+    }
+  });
 
   // Register all routes
   if (registerAllRoutes) {
@@ -278,6 +331,20 @@ async function startServer(port = 4201, userDataPath = null) {
     console.log('[Server] ✅ Database initialized');
   } catch (e) {
     console.error('[Server] ⚠️ Database initialization failed:', e.message);
+  }
+
+  // One-time repair of offline-grace windows written by builds where
+  // offlineExpiresAt landed BEFORE the primary session expiry (making the
+  // offline grace unreachable). Only still-valid ACTIVE sessions are
+  // repaired; nothing expired is resurrected. Fail-soft: a repair failure
+  // must never block startup — it is simply retried on the next boot.
+  try {
+    const repaired = sessionService.repairOfflineGraceWindows();
+    if (repaired > 0) {
+      console.log(`[Server] Repaired offline grace window for ${repaired} existing session(s)`);
+    }
+  } catch (e) {
+    console.error('[Server] ⚠️ Offline grace repair skipped:', e.message);
   }
 
   // Start server

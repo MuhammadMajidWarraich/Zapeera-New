@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import DateRangeFilter from "@/components/ui/DateRangeFilter";
 import { apiService } from "@/services/api";
+import { useOperator } from "@/contexts/OperatorContext";
 import { describeStoredLine, baseUnitWordForBusinessType } from "@/utils/units";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -63,6 +64,7 @@ interface RefundRecord {
 }
 
 const Refunds = () => {
+  const { requestManagerOverride } = useOperator();
   const { user } = useAuth();
   const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany } = useAdmin();
   // Base-unit word scoping (Muhammad, 2026-10-31): "(N tablets)" is
@@ -469,7 +471,17 @@ const Refunds = () => {
         items: itemsToRefund,
       };
 
-      const refundResponse = await apiService.createRefund(refundData);
+      let refundResponse = await apiService.createRefund(refundData);
+
+      // v1.0.19: a cashier operator needs a one-action manager/owner
+      // PIN for a refund — prompt in place and retry once with the
+      // override grant; the operator stays the cashier throughout.
+      if (!refundResponse.success && (refundResponse as any)?.code === 'MANAGER_PIN_REQUIRED') {
+        const overrideToken = await requestManagerOverride();
+        if (overrideToken) {
+          refundResponse = await apiService.createRefund({ ...refundData, managerOverrideToken: overrideToken });
+        }
+      }
 
       if (refundResponse.success) {
         toast({
