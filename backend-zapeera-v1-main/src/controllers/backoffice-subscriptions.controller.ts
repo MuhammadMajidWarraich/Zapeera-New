@@ -233,6 +233,10 @@ export const assignPlanToBusiness = async (req: AdminAuthRequest, res: Response)
           planId,
           status: isTrial ? 'TRIAL' : 'ACTIVE',
           billingStatus: assignedBillingStatus,
+          // Hotfix 2026-11-11: a paid assignment clears any stale trialEndsAt
+          // left over from the business's trial period (assignBusinessPlan's
+          // sync below enforces the same rule).
+          ...(isTrial ? {} : { trialEndsAt: null }),
           currentPeriodEnd: endDate
         }
       });
@@ -330,6 +334,9 @@ export const updateSubscriptionStatus = async (req: AdminAuthRequest, res: Respo
       where: { id: subscriptionId },
       data: {
         status,
+        // Hotfix 2026-11-11: an explicit move to ACTIVE must not leave a
+        // stale trialEndsAt behind to gate the paid subscription later.
+        ...(status === 'ACTIVE' ? { trialEndsAt: null } : {}),
         ...(endDate && { endDate: new Date(endDate) })
       },
       include: {

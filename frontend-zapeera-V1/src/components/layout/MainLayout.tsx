@@ -302,16 +302,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  if (subscriptionGate === 'inactive_owned') {
-    // While redirecting, avoid flashing the rest of the dashboard UI.
-    if (!isOnBusinessSubscriptionPage) {
-      return null;
-    }
-
-    // Subscription page should be accessible even when expired, but the rest of the
-    // business dashboard chrome should be hidden.
-    return <div className="safe-bars min-h-screen w-full bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">{children}</div>;
+  if (subscriptionGate === 'inactive_owned' && !isOnBusinessSubscriptionPage) {
+    // While redirecting to the subscription page, avoid flashing the rest
+    // of the dashboard UI.
+    return null;
   }
+
+  // Owner ruling 2026-11-11: the business subscription page ALWAYS renders
+  // inside the normal workspace shell (sidebar + header), even when the gate
+  // has classified the business inactive_owned. The gate still hard-blocks
+  // every other workspace page above; only the subscription page itself
+  // falls through to the shell render below.
 
   // Context switchers (2026-10-26): the SAME two dropdowns render in
   // the desktop header AND in the single-row mobile top bar — one
