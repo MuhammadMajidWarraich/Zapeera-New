@@ -67,7 +67,7 @@ const PharmacyExtras = () => {
             <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
               {stats.reorderCount ?? 0}
             </p>
-            <p className="text-[13px] font-semibold text-[#0a1128]">Medicines at or below their reorder level</p>
+            <p className="text-[13px] font-semibold text-[#0a1128]">Products at or below their reorder level</p>
           </div>
         </div>
 
@@ -132,7 +132,7 @@ const PharmacyExtras = () => {
           isEmpty={reorder.length === 0}
           emptyIcon={<ClipboardList className="h-6 w-6 text-green-600" strokeWidth={2} />}
           emptyTitle="No reorder suggestions"
-          emptyText="Medicines that reach their reorder level will appear here with a suggested quantity."
+          emptyText="Products that reach their reorder level will appear here with a suggested quantity."
         >
           <div className="space-y-2">
             {reorder.map((r) => (

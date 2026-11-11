@@ -130,7 +130,7 @@ const Storefront = () => {
 
   const placeOrder = async () => {
     if (cartLines.length === 0) {
-      toast({ title: "Cart is empty", description: "Add a medicine first.", variant: "destructive" });
+      toast({ title: "Cart is empty", description: "Add a product first.", variant: "destructive" });
       return;
     }
     if (!customerName.trim() || !customerPhone.trim()) {
@@ -265,7 +265,7 @@ const Storefront = () => {
           <div className="relative min-w-[240px] flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
             <Input
-              placeholder="Search medicines, brands, formulas…"
+              placeholder="Search products, brands, formulas…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-11 rounded-[10px] bg-white pl-9"
@@ -279,7 +279,7 @@ const Storefront = () => {
 
         {visibleProducts.length === 0 ? (
           <p className="rounded-[10px] border bg-white px-4 py-8 text-center text-sm text-[#5b6b8c]">
-            No medicines found{search ? ` for “${search}”` : ""}.
+            No products found{search ? ` for “${search}”` : ""}.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -332,7 +332,7 @@ const Storefront = () => {
               <Button variant="outline" size="sm" className="mt-3 bg-white" onClick={() => setOrder(null)}>Place another order</Button>
             </div>
           ) : cartLines.length === 0 ? (
-            <p className="mt-2 text-sm text-[#5b6b8c]">Your cart is empty. Add medicines above to order.</p>
+            <p className="mt-2 text-sm text-[#5b6b8c]">Your cart is empty. Add products above to order.</p>
           ) : (
             <div className="mt-3 space-y-3">
               {cartLines.map(({ product, qty }) => (

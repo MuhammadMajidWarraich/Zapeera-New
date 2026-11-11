@@ -5,10 +5,14 @@
 // Name", "Formula/Composition") for every business type, so a retail
 // store, hotel or clinic read pharmacy language throughout.
 //
-// The rule mirrors baseUnitWordForBusinessType (utils/units.ts): only
-// PHARMACY counts "medicines / tablets"; every other type sells
-// PRODUCTS counted in pieces. Pharmacy strings here are the EXACT
-// strings the UI shipped with — a pharmacy must see no wording change.
+// Owner terminology ruling (Muhammad, 2026-11-11 15:41): the item noun
+// is "Product" for EVERY business type, PHARMACY included — pharmacies
+// also sell non-medical products, so generic phrases are used
+// everywhere. The one label that stays type-specific is the stored
+// `formula` field (owner correction, 2026-11-11 15:44): PHARMACY calls
+// it "Formula"; every other type calls it "Ingredients / Composition".
+// Pharmacy wording that is NOT the item noun stays untouched (the
+// tablets base-unit word in utils/units.ts, the PCT 3004 example).
 //
 // Type resolution goes through resolveCanonicalBusinessTypeKey so the
 // legacy retail aliases (DEPARTMENTAL_STORE etc.) resolve to
@@ -32,13 +36,13 @@ export function isPharmacyBusinessType(businessType: unknown): boolean {
 }
 
 export interface BusinessTypeLabels {
-  /** Singular capitalised noun for one sellable item: "Medicine" | "Product". */
+  /** Singular capitalised noun for one sellable item: "Product" for every type (owner ruling, 2026-11-11). */
   itemNoun: string;
-  /** Plural capitalised: "Medicines" | "Products". */
+  /** Plural capitalised: "Products" for every type. */
   itemNounPlural: string;
-  /** Lower-case singular: "medicine" | "product". */
+  /** Lower-case singular: "product" for every type. */
   itemNounLower: string;
-  /** Lower-case plural: "medicines" | "products". */
+  /** Lower-case plural: "products" for every type. */
   itemNounPluralLower: string;
   /** Placeholder example for the product-name field. */
   nameExample: string;
@@ -48,18 +52,9 @@ export interface BusinessTypeLabels {
   compositionPlaceholder: string;
 }
 
-const PHARMACY_LABELS: BusinessTypeLabels = {
-  itemNoun: "Medicine",
-  itemNounPlural: "Medicines",
-  itemNounLower: "medicine",
-  itemNounPluralLower: "medicines",
-  nameExample: "e.g., Paracetamol 500mg",
-  compositionLabel: "Formula/Composition",
-  compositionPlaceholder:
-    "Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)",
-};
-
-const PRODUCT_LABELS: Omit<BusinessTypeLabels, "nameExample" | "compositionLabel" | "compositionPlaceholder"> = {
+/** The item noun is "Product" for EVERY business type (owner ruling,
+ * 2026-11-11 15:41 — pharmacies also sell non-medical products). */
+const ITEM_NOUNS: Pick<BusinessTypeLabels, "itemNoun" | "itemNounPlural" | "itemNounLower" | "itemNounPluralLower"> = {
   itemNoun: "Product",
   itemNounPlural: "Products",
   itemNounLower: "product",
@@ -67,45 +62,53 @@ const PRODUCT_LABELS: Omit<BusinessTypeLabels, "nameExample" | "compositionLabel
 };
 
 /**
- * The standardised per-type label set:
- *   PHARMACY     → Medicine / Formula/Composition (unchanged legacy wording)
- *   RETAIL_STORE → Product / Ingredients / Composition, "Sugar 1kg" example
- *   HOTEL        → Product / Composition / Details, minibar-style example
- *   CLINIC       → Product / Composition / Details, consumables example
- *   custom/other → Product with neutral examples (legacy fall-through)
+ * The standardised per-type label set. Only the composition label and
+ * the name example differ per type:
+ *   PHARMACY     → "Formula" (owner correction, 2026-11-11 15:44),
+ *                  "e.g., Paracetamol 500mg" example (a product name)
+ *   RETAIL_STORE → "Ingredients / Composition", "Sugar 1kg" example
+ *   HOTEL        → "Ingredients / Composition", minibar-style example
+ *   CLINIC       → "Ingredients / Composition", consumables example
+ *   custom/other → "Ingredients / Composition", neutral example
  */
 export function businessTypeLabels(businessType: unknown): BusinessTypeLabels {
   const canonical = resolveCanonicalBusinessTypeKey(businessType);
   switch (canonical) {
     case "PHARMACY":
-      return PHARMACY_LABELS;
+      return {
+        ...ITEM_NOUNS,
+        nameExample: "e.g., Paracetamol 500mg",
+        compositionLabel: "Formula",
+        compositionPlaceholder:
+          "Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)",
+      };
     case "RETAIL_STORE":
       return {
-        ...PRODUCT_LABELS,
+        ...ITEM_NOUNS,
         nameExample: "e.g., Sugar 1kg",
         compositionLabel: "Ingredients / Composition",
         compositionPlaceholder: "Enter ingredients or composition (e.g., Sugar, Wheat Flour, Salt)",
       };
     case "HOTEL":
       return {
-        ...PRODUCT_LABELS,
+        ...ITEM_NOUNS,
         nameExample: "e.g., Mineral Water 1.5L",
-        compositionLabel: "Composition / Details",
-        compositionPlaceholder: "Enter composition or item details",
+        compositionLabel: "Ingredients / Composition",
+        compositionPlaceholder: "Enter ingredients or composition",
       };
     case "CLINIC":
       return {
-        ...PRODUCT_LABELS,
+        ...ITEM_NOUNS,
         nameExample: "e.g., Surgical Gloves (Box of 100)",
-        compositionLabel: "Composition / Details",
-        compositionPlaceholder: "Enter composition or item details",
+        compositionLabel: "Ingredients / Composition",
+        compositionPlaceholder: "Enter ingredients or composition",
       };
     default:
       return {
-        ...PRODUCT_LABELS,
+        ...ITEM_NOUNS,
         nameExample: "Enter product name",
-        compositionLabel: "Composition",
-        compositionPlaceholder: "Enter composition or item details",
+        compositionLabel: "Ingredients / Composition",
+        compositionPlaceholder: "Enter ingredients or composition",
       };
   }
 }

@@ -283,10 +283,10 @@ const Kiosk = () => {
             {/* Pharmacy-only footnote (2026-11-11): the catalog excludes
                 prescription items for every type, but the sentence only
                 means something in a pharmacy — other types never stock
-                prescription medicines, so the note is omitted there. */}
+                prescription products, so the note is omitted there. */}
             {isPharmacyBusinessType(info.businessType) && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Medicines that need a prescription are not sold here — please ask at the counter for those.
+                Products that need a prescription are not sold here — please ask at the counter for those.
               </p>
             )}
           </section>
