@@ -94,6 +94,10 @@ export const getKioskInfo = async (req: Request, res: Response) => {
         branchId: branch.id,
         branchName: branch.name,
         companyName: branch.company.name,
+        // Business-type labels fix (2026-11-11): the kiosk UI words its
+        // prescription footnote for pharmacies only; the type was
+        // already loaded with the branch, it just was not returned.
+        businessType: branch.company.businessType,
         address: branch.address,
         phone: branch.phone,
       },

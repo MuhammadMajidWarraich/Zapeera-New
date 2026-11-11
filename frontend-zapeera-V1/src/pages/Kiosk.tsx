@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Search, ShoppingCart, Plus, Minus, Trash2, MonitorSmartphone, CheckCircle2, Loader2 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
+import { isPharmacyBusinessType } from "@/utils/business-labels";
 
 // Public self-ordering kiosk (Wave C9 — gap item 9, retail only).
 // No login, no layout: a customer on the branch tablet opens
@@ -30,7 +31,7 @@ interface KioskProduct {
 
 const Kiosk = () => {
   const { branchId = "" } = useParams<{ branchId: string }>();
-  const [info, setInfo] = useState<{ branchId: string; branchName: string; companyName: string; address: string | null; phone: string | null } | null>(null);
+  const [info, setInfo] = useState<{ branchId: string; branchName: string; companyName: string; businessType?: string | null; address: string | null; phone: string | null } | null>(null);
   const [products, setProducts] = useState<KioskProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -279,9 +280,15 @@ const Kiosk = () => {
                 Place order — pay at counter
               </Button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Medicines that need a prescription are not sold here — please ask at the counter for those.
-            </p>
+            {/* Pharmacy-only footnote (2026-11-11): the catalog excludes
+                prescription items for every type, but the sentence only
+                means something in a pharmacy — other types never stock
+                prescription medicines, so the note is omitted there. */}
+            {isPharmacyBusinessType(info.businessType) && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Medicines that need a prescription are not sold here — please ask at the counter for those.
+              </p>
+            )}
           </section>
         )}
       </main>

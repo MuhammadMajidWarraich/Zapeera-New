@@ -56,6 +56,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { cn } from "@/lib/utils";
 import { breakdownStock, baseUnitWordForBusinessType } from "@/utils/units";
+import { businessTypeLabels } from "@/utils/business-labels";
 
 function inventoryCategoryBadgeClass(name: string) {
   const n = (name || "").toLowerCase();
@@ -188,6 +189,10 @@ const Inventory = () => {
   const isPharmacyBusiness = (selectedCompany as any)?.businessType === "PHARMACY";
   const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
   const baseUnitCap = baseUnitWord === "tablet" ? "Tablets" : "Pieces";
+  // Per-type item labels (2026-11-11): the product form said "Medicine"
+  // to every business type. Pharmacy keeps the exact legacy wording;
+  // other types get their own label set from the central helper.
+  const typeLabels = businessTypeLabels((selectedCompany as any)?.businessType);
   const { toast } = useToast();
   
   // Dashboard data cache (disabled - data caching removed)
@@ -2013,7 +2018,12 @@ const Inventory = () => {
             } else if (lowerHeader.includes('barcode') || lowerHeader === 'barcode') {
               row.barcode = value;
             } else if (lowerHeader.includes('prescription') || lowerHeader === 'requires prescription') {
-              row.requiresPrescription = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value.toLowerCase() === '1';
+              // PHARMACY-only field (2026-11-11): other business types
+              // ignore an Rx column in the file entirely — the flag
+              // stays false, matching the product form's gate.
+              if (isPharmacyBusiness) {
+                row.requiresPrescription = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true' || value.toLowerCase() === '1';
+              }
             } else if (lowerHeader.includes('description') || lowerHeader === 'description') {
               row.description = value;
             }
@@ -2182,7 +2192,13 @@ const Inventory = () => {
             'diabetic': 'Diabetes'
           };
 
-          const mappedCategoryName = categoryMappings[productData.category.toLowerCase()];
+          // Pharmacy category vocabulary (2026-11-11): mapping an
+          // imported "medicine"/"drugs" category onto pharmacy
+          // departments only makes sense for a pharmacy — other types
+          // keep their imported category name as-is.
+          const mappedCategoryName = isPharmacyBusiness
+            ? categoryMappings[productData.category.toLowerCase()]
+            : undefined;
           if (mappedCategoryName) {
             finalCategoryName = mappedCategoryName; // Use mapped name
             category = categories.find(cat =>
@@ -2474,6 +2490,10 @@ const Inventory = () => {
               <Upload className="h-[17px] w-[17px]" strokeWidth={2} />
               Export
             </Button>
+            {/* Medicine master catalog is a PHARMACY-only feature
+                (2026-11-11): the button and dialog mount only there. */}
+            {isPharmacyBusiness && (
+            <>
             <Button
               type="button"
               variant="outline"
@@ -2488,6 +2508,8 @@ const Inventory = () => {
               onOpenChange={setIsCatalogImportOpen}
               onImported={() => loadData()}
             />
+            </>
+            )}
             <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -2643,7 +2665,7 @@ const Inventory = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
                   <Plus className="w-5 h-5 text-[#0c2c8a]" />
-                  <span>Add New Medicine</span>
+                  <span>Add New {typeLabels.itemNoun}</span>
                 </DialogTitle>
                 <DialogDescription>
                   Add a new product to your inventory with all necessary details.
@@ -2656,10 +2678,10 @@ const Inventory = () => {
                   <h3 className="text-lg font-semibold text-foreground border-b pb-2">Basic Information</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="name">Medicine Name *</Label>
+                    <Label htmlFor="name">{typeLabels.itemNoun} Name *</Label>
                     <Input
                       id="name"
-                      placeholder="e.g., Paracetamol 500mg"
+                      placeholder={typeLabels.nameExample}
                       value={newMedicine.name}
                       onChange={(e) => setNewMedicine({...newMedicine, name: e.target.value})}
                     />
@@ -2728,7 +2750,7 @@ const Inventory = () => {
                       id="pctCode"
                       value={newMedicine.pctCode}
                       onChange={(e) => setNewMedicine({...newMedicine, pctCode: e.target.value.replace(/[^0-9.]/g, "").slice(0, 9)})}
-                      placeholder="e.g. 3004.9000 — optional"
+                      placeholder={isPharmacyBusiness ? "e.g. 3004.9000 — optional" : "Optional — 8 digits"}
                       maxLength={9}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -2744,7 +2766,7 @@ const Inventory = () => {
                           <SelectValue placeholder="Pieces" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="PIECES">Pieces (tablets / units)</SelectItem>
+                          <SelectItem value="PIECES">{isPharmacyBusiness ? "Pieces (tablets / units)" : "Pieces (single units)"}</SelectItem>
                           <SelectItem value="KG">Kilograms — loose / by weight</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2770,7 +2792,11 @@ const Inventory = () => {
                         : `${baseUnitCap} in one full pack/box. Leave at 1 for products sold only as single units.`}
                     </p>
                   </div>
-                  {isKgForm ? null : (
+                  {/* Strips are a PHARMACY-only selling level (decided
+                      2026-10-31, v1.0.17): the field renders only there.
+                      A non-pharmacy product's stored value, if any, is
+                      left untouched in state and in the save payload. */}
+                  {isKgForm || !isPharmacyBusiness ? null : (
                   <div className="space-y-2">
                     <Label htmlFor="unitsPerStrip">Units per Strip</Label>
                     <Input
@@ -2809,10 +2835,10 @@ const Inventory = () => {
                   <h3 className="text-lg font-semibold text-foreground border-b pb-2">Product Details</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="formula">Formula/Composition</Label>
+                    <Label htmlFor="formula">{typeLabels.compositionLabel}</Label>
                     <Textarea
                       id="formula"
-                      placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+                      placeholder={typeLabels.compositionPlaceholder}
                       value={newMedicine.formula}
                       onChange={(e) => setNewMedicine({...newMedicine, formula: e.target.value})}
                       rows={3}
@@ -2900,11 +2926,13 @@ const Inventory = () => {
                       onChange={(e) => setNewMedicine({...newMedicine, reorderQuantity: e.target.value})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Fixed quantity suggested for each reorder. Quantities are in base units (tablets / pieces).
+                      Fixed quantity suggested for each reorder. Quantities are in base units ({isPharmacyBusiness ? "tablets / pieces" : `${baseUnitWord}s`}).
                     </p>
                   </div>
 
                   {/* Prescription Required Checkbox */}
+                  {isPharmacyBusiness && (
+                  <>
                   <div className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <input
                       type="checkbox"
@@ -2957,6 +2985,9 @@ const Inventory = () => {
                       </p>
                     </div>
                   )}
+                  </>
+                  )}
+                  {/* End PHARMACY-only Rx / controlled block (2026-11-11) */}
 
                 </div>
               </div>
@@ -3025,10 +3056,10 @@ const Inventory = () => {
                   <h3 className="text-lg font-semibold text-foreground border-b pb-2">Basic Information</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-name">Medicine Name *</Label>
+                    <Label htmlFor="edit-name">{typeLabels.itemNoun} Name *</Label>
                     <Input
                       id="edit-name"
-                      placeholder="e.g., Paracetamol 500mg"
+                      placeholder={typeLabels.nameExample}
                       value={newMedicine.name}
                       onChange={(e) => setNewMedicine({...newMedicine, name: e.target.value})}
                     />
@@ -3079,7 +3110,7 @@ const Inventory = () => {
                       id="edit-pctCode"
                       value={newMedicine.pctCode}
                       onChange={(e) => setNewMedicine({...newMedicine, pctCode: e.target.value.replace(/[^0-9.]/g, "").slice(0, 9)})}
-                      placeholder="e.g. 3004.9000 — optional"
+                      placeholder={isPharmacyBusiness ? "e.g. 3004.9000 — optional" : "Optional — 8 digits"}
                       maxLength={9}
                     />
                     <p className="text-xs text-muted-foreground">
@@ -3095,7 +3126,7 @@ const Inventory = () => {
                           <SelectValue placeholder="Pieces" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="PIECES">Pieces (tablets / units)</SelectItem>
+                          <SelectItem value="PIECES">{isPharmacyBusiness ? "Pieces (tablets / units)" : "Pieces (single units)"}</SelectItem>
                           <SelectItem value="KG">Kilograms — loose / by weight</SelectItem>
                         </SelectContent>
                       </Select>
@@ -3121,7 +3152,7 @@ const Inventory = () => {
                         : `${baseUnitCap} in one full pack/box. Leave at 1 for products sold only as single units.`}
                     </p>
                   </div>
-                  {isKgForm ? null : (
+                  {isKgForm || !isPharmacyBusiness ? null : (
                   <div className="space-y-2">
                     <Label htmlFor="edit-unitsPerStrip">Units per Strip</Label>
                     <Input
@@ -3160,10 +3191,10 @@ const Inventory = () => {
                   <h3 className="text-lg font-semibold text-foreground border-b pb-2">Product Details</h3>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-formula">Formula/Composition</Label>
+                    <Label htmlFor="edit-formula">{typeLabels.compositionLabel}</Label>
                     <Textarea
                       id="edit-formula"
-                      placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+                      placeholder={typeLabels.compositionPlaceholder}
                       value={newMedicine.formula}
                       onChange={(e) => setNewMedicine({...newMedicine, formula: e.target.value})}
                       rows={3}
@@ -3251,11 +3282,13 @@ const Inventory = () => {
                       onChange={(e) => setNewMedicine({...newMedicine, reorderQuantity: e.target.value})}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Fixed quantity suggested for each reorder. Quantities are in base units (tablets / pieces).
+                      Fixed quantity suggested for each reorder. Quantities are in base units ({isPharmacyBusiness ? "tablets / pieces" : `${baseUnitWord}s`}).
                     </p>
                   </div>
 
                   {/* Prescription Required Checkbox */}
+                  {isPharmacyBusiness && (
+                  <>
                   <div className="flex items-center space-x-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <input
                       type="checkbox"
@@ -3308,6 +3341,9 @@ const Inventory = () => {
                       </p>
                     </div>
                   )}
+                  </>
+                  )}
+                  {/* End PHARMACY-only Rx / controlled block (2026-11-11) */}
                 </div>
               </div>
 
@@ -4075,7 +4111,7 @@ const Inventory = () => {
                       <tr>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Product Name</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Category</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Formula</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">{isPharmacyBusiness ? "Formula" : typeLabels.compositionLabel}</th>
                         <th className="text-left py-3 px-4 font-medium text-gray-700">Barcode</th>
                       </tr>
                     </thead>
@@ -4121,7 +4157,7 @@ const Inventory = () => {
                           </td>
                           <td className="py-3 px-4">
                             <Input
-                              placeholder="Enter formula/composition"
+                              placeholder={isPharmacyBusiness ? "Enter formula/composition" : `Enter ${typeLabels.compositionLabel.toLowerCase()}`}
                               value={product.formula || ''}
                               onChange={(e) => {
                                 const updated = [...importedProducts];

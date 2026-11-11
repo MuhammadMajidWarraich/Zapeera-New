@@ -17,6 +17,7 @@ import { BarcodeGenerator } from '../components/barcode/BarcodeGenerator';
 import { useToast } from '../hooks/use-toast';
 import { apiService } from '../services/api';
 import { breakdownStock, isStructured, baseUnitWordForBusinessType } from '../utils/units';
+import { businessTypeLabels } from '../utils/business-labels';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/useAdmin';
 import { Search, Plus, Edit, Trash2, Package, Calendar, AlertTriangle, Filter, Download, Eye, Flag, RotateCcw, Printer } from 'lucide-react';
@@ -182,6 +183,7 @@ const Batches = () => {
   // breakdowns say "tablets" only in a pharmacy; stores read "pieces"
   // and never see a strip segment (pharmacy-only level).
   const isPharmacyBusiness = (selectedCompany as any)?.businessType === "PHARMACY";
+  const typeLabels = businessTypeLabels((selectedCompany as any)?.businessType);
   const baseUnitWord = baseUnitWordForBusinessType((selectedCompany as any)?.businessType);
   const scopedBreakdown = (qty: number, product: any): string =>
     breakdownStock(qty, {
@@ -1505,7 +1507,7 @@ const Batches = () => {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[15px] font-bold tracking-tight text-[#0a1128]">
-                Near expiry medicines{" "}
+                Near expiry {typeLabels.itemNounPluralLower}{" "}
                 <span className="font-extrabold text-amber-700">({nearExpiryBatches.length})</span>
               </p>
               <p className="mt-1.5 text-sm leading-relaxed text-[#8c95b0]">
@@ -2208,7 +2210,7 @@ const Batches = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Plus className="w-5 h-5 text-[#0c2c8a]" />
-              <span>Add New Medicine</span>
+              <span>Add New {typeLabels.itemNoun}</span>
             </DialogTitle>
             <DialogDescription>
               Add a new product to your inventory with all necessary details.
@@ -2796,6 +2798,10 @@ interface ProductFormProps {
 const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  // Per-type item labels (2026-11-11): this quick-create form said
+  // "Medicine Name" to every business type.
+  const { selectedCompany } = useAdmin();
+  const typeLabels = businessTypeLabels((selectedCompany as any)?.businessType);
   const [formData, setFormData] = useState({
     name: '',
     formula: '',
@@ -2909,10 +2915,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     <form onSubmit={handleSubmit}>
       <div className="space-y-4 ">
         <div className="space-y-2">
-          <Label htmlFor="productName">Medicine Name *</Label>
+          <Label htmlFor="productName">{typeLabels.itemNoun} Name *</Label>
           <Input
             id="productName"
-            placeholder="e.g., Paracetamol 500mg"
+            placeholder={typeLabels.nameExample}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
@@ -2954,10 +2960,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="productFormula">Formula/Composition</Label>
+          <Label htmlFor="productFormula">{typeLabels.compositionLabel}</Label>
           <Textarea
             id="productFormula"
-            placeholder="Enter product formula or composition (e.g., Paracetamol 500mg, Lactose, Starch)"
+            placeholder={typeLabels.compositionPlaceholder}
             value={formData.formula}
             onChange={(e) => setFormData({ ...formData, formula: e.target.value })}
             rows={3}

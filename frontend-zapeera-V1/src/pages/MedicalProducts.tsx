@@ -29,6 +29,8 @@ import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
 import { toast } from "@/hooks/use-toast";
+import { getAllowedCategoryTypes } from "@/utils/category-types";
+import { isCanonicalBusinessTypeKey } from "@/utils/business-labels";
 
 interface MedicalProduct {
   id: string;
@@ -54,7 +56,16 @@ interface MedicalProduct {
 
 const MedicalProducts = () => {
   const { user } = useAuth();
-  const { selectedCompanyId, selectedBranchId } = useAdmin();
+  const { selectedCompanyId, selectedBranchId, selectedCompany } = useAdmin();
+  // Industry gate (2026-11-11): this legacy view filters on the MEDICAL
+  // category type, which only exists in the pharmacy category set. For
+  // the other canonical types (retail = FOOD/NON_FOOD, hotel/clinic =
+  // GENERAL) the view can only ever be an empty pharmacy screen, so it
+  // renders a neutral notice instead. Custom/unknown types keep the
+  // legacy fall-through, mirroring getAllowedCategoryTypes.
+  const medicalViewApplicable =
+    !isCanonicalBusinessTypeKey((selectedCompany as any)?.businessType) ||
+    getAllowedCategoryTypes((selectedCompany as any)?.businessType).includes('MEDICAL');
   const [products, setProducts] = useState<MedicalProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +142,22 @@ const MedicalProducts = () => {
       day: 'numeric'
     });
   };
+
+  if (!medicalViewApplicable) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md px-6">
+          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-foreground mb-2">Not part of this business type</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            The Medical / Non-Medical product views belong to the pharmacy inventory layout.
+            Your products live in Inventory, grouped by your own categories.
+          </p>
+          <Button onClick={() => window.location.assign('/inventory')}>Go to Inventory</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

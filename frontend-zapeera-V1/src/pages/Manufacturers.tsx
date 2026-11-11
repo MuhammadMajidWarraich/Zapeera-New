@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { apiService } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/useAdmin";
+import { isPharmacyBusinessType } from "@/utils/business-labels";
 import { cn } from "@/lib/utils";
 
 interface Manufacturer {
@@ -56,7 +57,10 @@ const supplierCount = (m: Manufacturer) => m._count?.suppliers ?? 0;
 
 const Manufacturers: React.FC = () => {
   const { user } = useAuth();
-  const { selectedBranchId, selectedBranch, selectedCompanyId } = useAdmin();
+  const { selectedBranchId, selectedBranch, selectedCompanyId, selectedCompany } = useAdmin();
+  // "Pharmaceutical manufacturers" is pharmacy wording (2026-11-11);
+  // other types manage manufacturers without the industry adjective.
+  const isPharmacyBusiness = isPharmacyBusinessType((selectedCompany as any)?.businessType);
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -379,7 +383,7 @@ const Manufacturers: React.FC = () => {
           <div>
             <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Manufacturers</h1>
             <p className="text-sm text-[#8c95b0]">
-              Manage pharmaceutical manufacturers and linked suppliers
+              Manage {isPharmacyBusiness ? "pharmaceutical " : ""}manufacturers and linked suppliers
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
