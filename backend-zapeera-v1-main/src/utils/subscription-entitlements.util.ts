@@ -769,6 +769,8 @@ export const getAccountEntitlementsSummary = async (
 
   // If the user owns a business that has an active subscription (including TRIAL), treat the
   // account as subscribed for UI gating (so new Trial businesses can be managed immediately).
+  // Hotfix 2026-11-11: the trialEndsAt condition below applies to TRIAL rows only — a paid
+  // ACTIVE row may still carry its stale pre-conversion trial date and must not fail this check.
   let hasActiveBusinessSubscription = false;
   try {
     const rows = await prisma.$queryRaw<any[]>`
@@ -777,7 +779,7 @@ export const getAccountEntitlementsSummary = async (
       INNER JOIN businesses c ON c.id = bs."businessId"
       WHERE c."createdBy" = ${userId}
         AND (bs.status = 'ACTIVE' OR bs.status = 'TRIAL' OR bs.status = 'GRACE')
-        AND (bs."trialEndsAt" IS NULL OR bs."trialEndsAt" > NOW())
+        AND (bs.status <> 'TRIAL' OR bs."trialEndsAt" IS NULL OR bs."trialEndsAt" > NOW())
         AND (bs."currentPeriodEnd" IS NULL OR bs."currentPeriodEnd" > NOW())
       LIMIT 1
     `;
@@ -1013,7 +1015,11 @@ export const assignBusinessPlan = async (
       update: {
         planId: normalizedPlanId,
         status: isTrial ? 'TRIAL' : 'ACTIVE',
-        trialEndsAt: trialEndsAt || undefined,
+        // Hotfix 2026-11-11: converting to a paid plan must CLEAR any stale
+        // trialEndsAt. The previous `trialEndsAt || undefined` left the old
+        // trial date on the row forever (Prisma treats undefined as "do not
+        // touch"), which later flipped paid businesses to isSubscribed=false.
+        trialEndsAt: isTrial ? trialEndsAt : null,
         currentPeriodEnd,
         updatedAt: now,
       },
@@ -1021,7 +1027,7 @@ export const assignBusinessPlan = async (
         businessId: companyId,
         planId: normalizedPlanId,
         status: isTrial ? 'TRIAL' : 'ACTIVE',
-        trialEndsAt: trialEndsAt || undefined,
+        trialEndsAt: isTrial ? trialEndsAt : null,
         currentPeriodEnd,
       },
     });
@@ -1103,6 +1109,43 @@ export const ensureBusinessPlanAssigned = async (
 
   await assignBusinessPlan(prisma, params.companyId, fallbackPlan.id, 'system');
   return fallbackPlan;
+};
+
+export interface SubscriptionVerdict {
+  isSubscribed: boolean;
+  isExpired: boolean;
+}
+
+/**
+ * Single source of truth for "is this business subscribed?" from its
+ * business_subscriptions row.
+ *
+ * Hotfix 2026-11-11: the trial end date gates ONLY rows that are actually in
+ * TRIAL status. The previous formula demanded a still-valid `trialEndsAt`
+ * from paid ACTIVE rows too, so any business converted from trial to a paid
+ * plan silently flipped to isSubscribed=false the day its stale trial date
+ * passed — while its paid period was still running (QA2 Pharmacy, Seikho
+ * Medicos, C4 Probe Clinic, C5 Probe Hotel, Affiliate Probe Store).
+ * GRACE semantics are unchanged: grace rows are judged on status + period
+ * validity, never on the trial date.
+ */
+export const computeSubscriptionVerdict = (input: {
+  status?: string | null;
+  trialEndsAt?: Date | null;
+  currentPeriodEnd?: Date | null;
+  now?: Date;
+}): SubscriptionVerdict => {
+  const now = input.now ?? new Date();
+  const status = input.status ? input.status.toString().trim().toUpperCase() : null;
+  const isTrialValid = !input.trialEndsAt || input.trialEndsAt.getTime() > now.getTime();
+  const isPeriodValid = !input.currentPeriodEnd || input.currentPeriodEnd.getTime() > now.getTime();
+  const isExpired = Boolean(status && ['ACTIVE', 'TRIAL'].includes(status) && !isPeriodValid);
+  const effectiveStatus = isExpired ? 'EXPIRED' : status;
+  const isActiveStatus =
+    effectiveStatus === 'ACTIVE' || effectiveStatus === 'TRIAL' || effectiveStatus === 'GRACE';
+  const trialGateSatisfied = effectiveStatus !== 'TRIAL' || isTrialValid;
+  const isSubscribed = Boolean(isActiveStatus && trialGateSatisfied && isPeriodValid);
+  return { isSubscribed, isExpired };
 };
 
 export const getBusinessEntitlementsSummary = async (
@@ -1219,22 +1262,18 @@ export const getBusinessEntitlementsSummary = async (
   }
 
   const now = new Date();
-  const normalizedStatus = subscriptionStatus ? subscriptionStatus.toString().trim().toUpperCase() : null;
-  const isTrialValid = !trialEndsAt || trialEndsAt.getTime() > now.getTime();
-  const isPeriodValid = !currentPeriodEnd || currentPeriodEnd.getTime() > now.getTime();
+  const verdict = computeSubscriptionVerdict({
+    status: subscriptionStatus,
+    trialEndsAt,
+    currentPeriodEnd,
+    now,
+  });
 
-  const hasExpired = Boolean(
-    normalizedStatus &&
-    ['ACTIVE', 'TRIAL'].includes(normalizedStatus) &&
-    !isPeriodValid
-  );
-
-  if (hasExpired) {
+  if (verdict.isExpired) {
     subscriptionStatus = 'EXPIRED';
   }
 
-  const isActiveStatus = subscriptionStatus === 'ACTIVE' || subscriptionStatus === 'TRIAL' || subscriptionStatus === 'GRACE';
-  const isSubscribed = Boolean(isActiveStatus && (isTrialValid || subscriptionStatus === 'GRACE') && isPeriodValid);
+  const isSubscribed = verdict.isSubscribed;
   console.log(`[EntitlementDebug] getBusinessEntitlementsSummary - ${params.companyId} -> plan=${assignedPlan.id}, isSubscribed=${isSubscribed}, subscriptionStatus=${subscriptionStatus}, trialEndsAt=${trialEndsAt}, currentPeriodEnd=${currentPeriodEnd}`);
 
   return {

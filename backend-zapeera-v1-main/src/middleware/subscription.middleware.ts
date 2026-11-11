@@ -76,10 +76,13 @@ export const checkSubscription = () => {
         return next();
       }
 
-      // TRIAL / ACTIVE: check if dates are actually expired
+      // TRIAL / ACTIVE: check if dates are actually expired.
+      // Trial dates gate TRIAL rows only — a paid ACTIVE row can still carry
+      // a stale trialEndsAt from its trial period and must be judged on its
+      // paid period end alone (hotfix 2026-11-11).
       if (status === 'TRIAL' || status === 'ACTIVE') {
         const now = new Date();
-        const trialExpired = sub.trialEndsAt && new Date(sub.trialEndsAt).getTime() < now.getTime();
+        const trialExpired = status === 'TRIAL' && sub.trialEndsAt && new Date(sub.trialEndsAt).getTime() < now.getTime();
         const periodExpired = sub.currentPeriodEnd && new Date(sub.currentPeriodEnd).getTime() < now.getTime();
         if (trialExpired || periodExpired) {
           return res.status(402).json({
