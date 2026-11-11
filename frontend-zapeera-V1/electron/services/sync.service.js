@@ -145,10 +145,15 @@ for (const [entityType, table] of Object.entries(ENTITY_TYPE_TO_TABLE)) {
 // Entity types the cloud push endpoint rejects by design — never enqueue:
 // khata/loyalty are server-derived (pull-only); FBR never leaves the
 // server. (No local module writes these tables; defence in depth.)
-const PUSH_BLOCKED_ENTITY_TYPES = new Set(['customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue']);
+const PUSH_BLOCKED_ENTITY_TYPES = new Set(['customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue', 'subscription', 'businessSubscription', 'subscriptionAddon']);
 
 // Tables owned by provisioning / auth, not by the operations API.
-const NON_PUSHABLE_TABLES = new Set(['companies', 'branches', 'users', 'memberships', 'device_activation']);
+const NON_PUSHABLE_TABLES = new Set(['companies', 'branches', 'users', 'memberships', 'device_activation',
+  // v1.0.19.1: subscription/entitlement state is CLOUD-AUTHORITATIVE —
+  // the local row is a pull-only mirror (provision + account sync). A
+  // stale mirror must never be pushed back over billing state (incident
+  // 2026-11-11: General Store period-end flip investigation).
+  'subscriptions']);
 
 let _syncQueueService = null;
 function getSyncQueueService() {
@@ -313,6 +318,7 @@ async function checkCloudConnectivity(force = false) {
 }
 
 async function pushChangesToCloud() {
+  retireCloudAuthoritativeOps();
   if (_syncInProgress) {
     return { status: 'SKIPPED', message: 'Sync already in progress' };
   }
@@ -619,6 +625,28 @@ function persistProvisionedBusiness(data) {
       run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['zapeera_register_slot', String(slot)]);
     }
   } catch (e) { console.log('[Sync] register slot persist skipped:', e.message); }
+}
+
+const CLOUD_AUTHORITATIVE_ENTITY_TYPES = ['subscription', 'businessSubscription', 'subscriptionAddon'];
+
+// v1.0.19.1: retire any queued subscription ops terminally — cloud-
+// authoritative state is never pushed, and a parked billing op must not
+// inflate the unsynced count or be revived by the retry sweep
+// (attemptCount is set to the retry ceiling). Purely local hygiene, so
+// it runs at the top of every drain attempt, online or not.
+function retireCloudAuthoritativeOps() {
+  if (!query || !run) return;
+  try {
+    const stale = query(
+      `SELECT id FROM sync_operations WHERE status = 'PENDING' AND entityType IN (${CLOUD_AUTHORITATIVE_ENTITY_TYPES.map(() => '?').join(',')})`,
+      CLOUD_AUTHORITATIVE_ENTITY_TYPES
+    );
+    for (const row of stale || []) {
+      run(`UPDATE sync_operations SET status = 'FAILED', attemptCount = 5, lastError = ?, updatedAt = ? WHERE id = ?`,
+        ['Cloud-authoritative entity: subscription state is pull-only and is never pushed', now(), row.id]);
+    }
+    if (stale && stale.length > 0) saveDatabase();
+  } catch { /* retirement is best-effort; the cloud rejects these anyway */ }
 }
 
 function loadOperationsForPush() {
