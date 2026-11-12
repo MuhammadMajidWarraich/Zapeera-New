@@ -21,6 +21,7 @@ import {
   Trash2,
   Receipt,
   ArrowLeft,
+  ArrowLeftRight,
   Printer,
   Download,
   Phone,
@@ -46,7 +47,6 @@ import {
   ClipboardList,
   ScanBarcode,
   Clock,
-  UserRound,
   FileText,
   Loader2,
   PauseCircle,
@@ -351,6 +351,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   // strings (not controlled numbers) so typing "0." does not snap
   // back while the cashier is mid-typing; committed on blur/Enter.
   const [kgInputByItem, setKgInputByItem] = useState<Record<string, string>>({});
+  // Compact rail (2026-11-13): directly editable line quantity —
+  // same local-string pattern as the kg input above, so typing a
+  // large count does not snap back mid-typing; committed on blur /
+  // Enter through updateInvoiceQuantity, invalid input reverts.
+  const [qtyInputByItem, setQtyInputByItem] = useState<Record<string, string>>({});
   const [weightAmountByItem, setWeightAmountByItem] = useState<Record<string, string>>({});
   const [invoiceCustomer, setInvoiceCustomer] = useState({
     name: "",
@@ -4955,6 +4960,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           setInvoiceItems([]);
                           setDiscountPercentage(0);
                           setPaidAmount(0);
+                          // Compact rail (2026-11-13): the footer
+                          // Clear Cart button was removed, so this
+                          // header action also abandons a resumed
+                          // cart (the held order stays parked).
+                          setResumedParkedId(null);
                         }}
                         className="h-8 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
                       >
@@ -4964,69 +4974,43 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   )}
                 </div>
 
-                {/* Patient & Prescription / Customer — POS redesign:
-                    the reference layout puts who the sale is for at
-                    the TOP of the billing panel. Same invoiceCustomer
-                    state the checkout has always used (sale payload,
-                    khata, loyalty lookup, prescription patient). */}
-                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] px-4 py-2 sm:px-5 md:py-3.5">
-                  {/* Mobile flyout (2026-10-27): below md the section
-                      title row is hidden — the two fields are
-                      placeholder-only and the Change link moves under
-                      them (see below the grid). */}
-                  <div className="hidden items-center justify-between gap-2 md:flex">
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">
-                      <UserRound className="h-3.5 w-3.5 text-primary" strokeWidth={2.2} />
-                      {isPharmacyBusiness ? "Patient & Prescription" : "Customer"}
-                    </p>
+                {/* Customer — compact rail (2026-11-13): both fields
+                    always visible as bare placeholder-only inputs,
+                    with a change icon on the right (no labels, no
+                    title row). Same invoiceCustomer state and ids
+                    (sale payload, khata, loyalty lookup,
+                    prescription patient); the icon focuses the name
+                    field, as the old Change link did. */}
+                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] bg-[#fbfcfe] px-4 py-2 sm:px-5">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="customerName"
+                      autoComplete="name"
+                      aria-label={isPharmacyBusiness ? "Patient name" : "Customer name"}
+                      placeholder={isPharmacyBusiness ? "Patient name" : "Customer name"}
+                      value={invoiceCustomer.name}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#f4f6fa] px-3 text-sm font-bold text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                    />
+                    <Input
+                      id="customerPhone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      aria-label={isPharmacyBusiness ? "Phone" : "Phone number"}
+                      placeholder="Phone number"
+                      value={invoiceCustomer.phone}
+                      onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#f4f6fa] px-3 font-mono text-sm font-bold tabular-nums text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                    />
                     <button
                       type="button"
                       onClick={() => document.getElementById("customerName")?.focus()}
-                      className="text-xs font-bold text-primary hover:underline"
+                      aria-label={isPharmacyBusiness ? "Change patient" : "Change customer"}
+                      title={isPharmacyBusiness ? "Change patient" : "Change customer"}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white text-primary transition-colors hover:bg-[#f4f6fa]"
                     >
-                      {isPharmacyBusiness ? "Change Patient" : "Change"}
-                    </button>
-                  </div>
-                  {/* Mobile flyout (2026-10-27): below md the fields are
-                      flat 36px inputs, placeholder-only, no labels —
-                      the boxed wrapper + label return at md+. */}
-                  <div className="grid grid-cols-2 gap-2 md:mt-2.5">
-                    <div className="rounded-xl bg-transparent p-0 ring-0 md:bg-[#f4f6fa] md:px-3 md:py-2 md:ring-1 md:ring-[rgba(15,23,60,0.05)]">
-                      <Label htmlFor="customerName" className="hidden text-[10px] font-bold uppercase tracking-wide text-[#8c95b0] md:block">
-                        {isPharmacyBusiness ? "Patient Name" : "Customer Name"}
-                      </Label>
-                      <Input
-                        id="customerName"
-                        autoComplete="name"
-                        placeholder={isPharmacyBusiness ? "Patient name" : "Customer name"}
-                        value={invoiceCustomer.name}
-                        onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
-                        className="h-9 rounded-[9px] border border-[rgba(15,23,60,0.1)] bg-[#f8fafc] px-3 text-sm font-bold text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0 md:h-7 md:rounded-none md:border-0 md:bg-transparent md:px-0"
-                      />
-                    </div>
-                    <div className="rounded-xl bg-transparent p-0 ring-0 md:bg-[#f4f6fa] md:px-3 md:py-2 md:ring-1 md:ring-[rgba(15,23,60,0.05)]">
-                      <Label htmlFor="customerPhone" className="hidden text-[10px] font-bold uppercase tracking-wide text-[#8c95b0] md:block">
-                        {isPharmacyBusiness ? "Phone" : "Phone (WhatsApp)"}
-                      </Label>
-                      <Input
-                        id="customerPhone"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="Phone number"
-                        value={invoiceCustomer.phone}
-                        onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
-                        className="h-9 rounded-[9px] border border-[rgba(15,23,60,0.1)] bg-[#f8fafc] px-3 font-mono text-sm font-bold tabular-nums text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0 md:h-7 md:rounded-none md:border-0 md:bg-transparent md:px-0"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-1 flex justify-end md:hidden">
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById("customerName")?.focus()}
-                      className="text-xs font-bold text-primary hover:underline"
-                    >
-                      {isPharmacyBusiness ? "Change Patient" : "Change"}
+                      <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
                     </button>
                   </div>
                   {selectedPrescription && (
@@ -5059,15 +5043,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     a 600px viewport height the floor drops to 72px —
                     the items list itself scrolls, so a smaller floor
                     costs nothing but empty space. md+ unchanged. */}
-                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-1.5 sm:px-4 md:min-h-[150px] md:py-3 [@media(max-height:600px)]:min-h-[72px]">
-                {invoiceItems.length > 0 && (
-                  <div className="flex items-center justify-between px-1 pb-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#8c95b0] md:pb-2">
-                    <span>Item Description</span>
-                    <span>Qty / Price / Total</span>
-                  </div>
-                )}
+                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-2 sm:px-4 md:min-h-[150px] [@media(max-height:600px)]:min-h-[72px]">
                 {invoiceItems.length > 0 ? (
-                  <div className="space-y-2 md:space-y-2.5">
+                  <div className="space-y-2">
                   {invoiceItems.map((item) => {
                     const itemSubtotal = item.totalPrice;
                     const itemDiscount = item.discountPercentage || 0;
@@ -5095,7 +5073,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     return (
                       <div
                         key={item.id}
-                        className="rounded-[14px] border border-[rgba(15,23,60,0.06)] bg-white p-2.5 shadow-[0_1px_3px_rgba(15,23,60,0.05)] md:p-3"
+                        className="rounded-[12px] border border-[rgba(15,23,60,0.06)] bg-white px-3 py-2 shadow-[0_1px_3px_rgba(15,23,60,0.05)]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -5117,41 +5095,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             PKR {displayPrice.toFixed(2)}
                           </p>
                         </div>
-                        {item.unitLevel && (
-                          <div className="mt-1.5 flex items-center gap-2 md:mt-2">
-                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Sold by</Label>
-                            {isKgLine ? (
-                              // Loose / by-weight selling (Stage 1): a
-                              // kilo line has one level only (KG).
-                              <span className="inline-flex h-8 items-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]">
-                                KG — PKR {item.unitPrice.toFixed(2)} / kg
-                              </span>
-                            ) : (
-                            <select
-                              value={item.unitLevel}
-                              onChange={(e) => changeCartItemLevel(item.id, e.target.value as UnitLevel)}
-                              className="h-8 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]"
-                              aria-label="Selling level"
-                            >
-                              <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
-                              {item.unitsPerStrip && showStripOption ? (
-                                <option value="STRIP">Strip ({item.unitsPerStrip} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
-                              ) : null}
-                              <option value="UNIT">{baseUnitWord === "tablet" ? "Tablet" : "Piece"} — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
-                            </select>
-                            )}
-                          </div>
-                        )}
-                        <div className="mt-2 flex items-center gap-2 md:mt-2.5">
+                        <div className="mt-1.5 flex items-center gap-1.5">
                           <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-9 w-9 rounded-[10px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                              className="h-7 w-7 rounded-[8px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
                               onClick={() => updateInvoiceQuantity(item.id, item.quantity - quantityStep)}
                               aria-label="Decrease quantity"
                             >
-                              <Minus className="h-4 w-4" />
+                              <Minus className="h-3.5 w-3.5" />
                             </Button>
                             {isKgLine ? (
                               // Loose / by-weight selling (Stage 1):
@@ -5175,23 +5128,78 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                 }}
-                                className="h-9 w-20 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-[15px] font-extrabold tabular-nums text-[#0a1128]"
+                                className="h-7 w-16 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-sm font-extrabold tabular-nums text-[#0a1128]"
                               />
                             ) : (
-                            <span className="w-11 text-center text-[15px] font-extrabold tabular-nums text-[#0a1128]">
-                              {item.unitLevel ? (item.levelQuantity ?? item.quantity / (item.unitFactor || 1)) : (isBoxItem ? item.quantity : Math.max(0, item.quantity))}
-                            </span>
+                            // Compact rail (2026-11-13): the count is
+                            // directly editable — type a large quantity
+                            // instead of pressing +/− repeatedly.
+                            // Committed on blur / Enter in the DISPLAYED
+                            // units (level count for leveled lines,
+                            // pieces otherwise), the same mapping the
+                            // stepper uses; invalid input reverts.
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputMode="numeric"
+                              aria-label="Quantity"
+                              value={qtyInputByItem[item.id] ?? String(item.unitLevel ? (item.levelQuantity ?? item.quantity / (item.unitFactor || 1)) : (isBoxItem ? item.quantity : Math.max(0, item.quantity)))}
+                              onChange={(e) => setQtyInputByItem(prev => ({ ...prev, [item.id]: e.target.value }))}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={(e) => {
+                                const typed = Math.floor(parseFloat(e.target.value));
+                                if (Number.isFinite(typed) && typed >= 0) {
+                                  updateInvoiceQuantity(item.id, item.unitLevel ? typed * (item.unitFactor || 1) : typed);
+                                }
+                                setQtyInputByItem(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                if (e.key === "Escape") {
+                                  setQtyInputByItem(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              className="h-7 w-10 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-0 text-center text-sm font-extrabold tabular-nums text-[#0a1128] outline-none focus-visible:border-primary/50"
+                            />
                             )}
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-9 w-9 rounded-[10px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                              className="h-7 w-7 rounded-[8px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
                               onClick={() => updateInvoiceQuantity(item.id, item.quantity + quantityStep)}
                               aria-label="Increase quantity"
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-3.5 w-3.5" />
                             </Button>
                           </div>
+                          {/* Compact rail (2026-11-13): the selling
+                              level moved INTO the controls row (it had
+                              its own row above). Same select, same
+                              handler, same options — no label. */}
+                          {item.unitLevel && (
+                            isKgLine ? (
+                              // Loose / by-weight selling (Stage 1): a
+                              // kilo line has one level only (KG).
+                              <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]">
+                                KG — PKR {item.unitPrice.toFixed(2)} / kg
+                              </span>
+                            ) : (
+                              <select
+                                value={item.unitLevel}
+                                onChange={(e) => changeCartItemLevel(item.id, e.target.value as UnitLevel)}
+                                className="h-7 min-w-0 flex-1 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]"
+                                aria-label="Selling level"
+                              >
+                                <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                                {item.unitsPerStrip && showStripOption ? (
+                                  <option value="STRIP">Strip ({item.unitsPerStrip} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "STRIP", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                                ) : null}
+                                <option value="UNIT">{baseUnitWord === "tablet" ? "Tablet" : "Piece"} — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "UNIT", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
+                              </select>
+                            )
+                          )}
                           <div className="ml-auto flex items-center gap-1.5">
                             <Label htmlFor={`discount-${item.id}`} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">
                               Disc %
@@ -5207,16 +5215,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 const discount = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
                                 updateItemDiscount(item.id, discount);
                               }}
-                              className="h-9 w-16 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
+                              className="h-7 w-11 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
                             />
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => updateInvoiceQuantity(item.id, 0)}
-                              className="h-9 w-9 rounded-[10px] p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              className="h-7 w-7 rounded-[8px] p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
                               aria-label="Remove item"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
@@ -5226,7 +5234,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           // amount ÷ price-per-KG, rounded to whole
                           // grams. The derived weight + actual total
                           // are shown BEFORE the sale completes.
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2">
                             <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Rs ka</Label>
                             <Input
                               type="number"
@@ -5235,12 +5243,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               aria-label="Amount in rupees"
                               value={weightAmountByItem[item.id] ?? ""}
                               onChange={(e) => setWeightAmountByItem(prev => ({ ...prev, [item.id]: e.target.value }))}
-                              className="h-9 w-24 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
+                              className="h-8 w-24 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
                             />
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-9 rounded-[10px] border-[rgba(15,23,60,0.1)] px-3 text-xs font-semibold"
+                              className="h-8 rounded-[8px] border-[rgba(15,23,60,0.1)] px-3 text-xs font-semibold"
                               onClick={() => {
                                 const amount = parseFloat(weightAmountByItem[item.id] || "");
                                 if (!Number.isFinite(amount) || amount <= 0 || item.unitPrice <= 0) return;
@@ -5262,7 +5270,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </div>
                         )}
                         {itemDiscount > 0 && (
-                          <p className="mt-1.5 text-right text-[11px] font-semibold text-emerald-600">
+                          <p className="mt-1 text-right text-[11px] font-semibold text-emerald-600">
                             Discount −PKR {itemDiscountAmount.toFixed(2)}
                           </p>
                         )}
@@ -5286,14 +5294,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                 {/* Checkout footer — always visible. (The customer
                     block moved to the top of the rail — POS redesign.) */}
-                <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-2 sm:px-5 md:py-3.5">
+                <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-2.5 sm:px-5">
                 {invoiceItems.length > 0 && (
                   <>
+                    {/* Compact rail (2026-11-13): discount and
+                        subtotal share one row now. */}
                     <div className="flex items-center justify-between gap-3">
-                      <Label htmlFor="global-discount" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
-                        Discount
-                      </Label>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="global-discount" className="text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                          Discount
+                        </Label>
                         <Input
                           id="global-discount"
                           type="number"
@@ -5302,17 +5312,17 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           placeholder="0"
                           value={discountPercentage || ''}
                           onChange={(e) => setDiscountPercentage(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                          className="h-9 w-[4.25rem] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-sm font-semibold"
+                          className="h-8 w-[4.25rem] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-sm font-semibold"
                         />
                         <span className="text-sm font-semibold text-[#4a5578]">%</span>
                       </div>
-                    </div>
-
-                    <div className="mt-1.5 space-y-1 md:mt-3 md:space-y-1.5">
-                      <div className="flex justify-between text-sm">
+                      <div className="flex items-baseline gap-2 text-sm">
                         <span className="text-[#8c95b0]">Subtotal</span>
                         <span className="font-semibold tabular-nums text-[#0a1128]">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                       </div>
+                    </div>
+
+                    <div className="mt-1.5 space-y-1">
                       {discountPercentage > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-[#8c95b0]">Invoice discount ({discountPercentage}%)</span>
@@ -5331,7 +5341,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {promoEstimate.toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-1.5 md:pt-2">
+                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-1.5">
                         <span className="text-sm font-bold uppercase tracking-wide text-[#0a1128]">Grand Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
                           PKR {mainTotalAfterLoyalty.toFixed(2)}
@@ -5345,12 +5355,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         recomputes the discount. Automatic promotions
                         and Buy X Get Y need no input — they apply at
                         checkout and appear on the receipt. */}
-                    <div className="mt-1.5 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-2.5 md:mt-3 md:p-3">
-                      <Label htmlFor="coupon-code" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
-                        Coupon code
-                      </Label>
+                    {/* Compact rail (2026-11-13): coupon is one flat
+                        row now (no box, no label — the placeholder
+                        carries it). Same validation + states. */}
+                    <div className="mt-2">
                       {appliedCoupon ? (
-                        <div className="mt-1.5 flex items-center gap-2 md:mt-2">
+                        <div className="flex items-center gap-2">
                           <span className="rounded-md bg-emerald-50 px-2 py-1 font-mono text-xs font-bold tracking-wide text-emerald-700">
                             {appliedCoupon.code}
                           </span>
@@ -5366,10 +5376,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           </button>
                         </div>
                       ) : (
-                        <div className="mt-1.5 flex items-center gap-2 md:mt-2">
+                        <div className="flex items-center gap-2">
                           <Input
                             id="coupon-code"
-                            placeholder="e.g. EID10"
+                            placeholder="Coupon code — e.g. EID10"
                             value={couponCodeInput}
                             onChange={(e) => { setCouponCodeInput(e.target.value.toUpperCase()); setCouponError(""); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
@@ -5566,27 +5576,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       </div>
                     )}
 
-                    {/* POS redesign: tendering itself (methods,
-                        amount paid, split tender, paid/unpaid,
-                        salesperson) lives in the payment dialog now;
-                        this line keeps the current choice visible. */}
-                    <p className="mt-1.5 flex items-center justify-between gap-2 rounded-[10px] bg-[#f8f9fc] px-3 py-2 text-xs font-semibold text-[#4a5578] md:mt-3">
-                      <span>
-                        Payment:{" "}
-                        <span className="font-bold text-[#0a1128]">
-                          {splitEnabled
-                            ? `Split across ${splitPayments.length} method${splitPayments.length === 1 ? "" : "s"}`
-                            : `${PAYMENT_METHOD_OPTIONS.find(o => o.key === paymentMethod)?.label || paymentMethod} • ${paymentStatus === 'COMPLETED' ? "Paid" : "Unpaid (khata)"}`}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsPaymentDialogOpen(true)}
-                        className="shrink-0 font-bold text-primary hover:underline"
-                      >
-                        Change
-                      </button>
-                    </p>
+                    {/* Compact rail (2026-11-13): the Payment summary
+                        line is gone — the tender buttons below carry
+                        the method, and the Change button beside them
+                        opens the same payment dialog (method, split,
+                        paid/unpaid all live there). */}
                   </>
                 )}
 
@@ -5597,28 +5591,41 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       dialog (tendered / change / split live there).
                       The reference's third panel button, Insurance,
                       has no Zapeera backend and is deliberately absent. */}
-                  <div className="mt-2 grid grid-cols-2 gap-2 md:mt-3.5">
+                  <div className="mt-2 flex gap-2">
                     {PAYMENT_METHOD_OPTIONS.filter(o => o.key === 'CASH' || o.key === 'CARD').map(({ key, label, Icon }) => (
                       <button
                         key={key}
                         type="button"
                         disabled={invoiceItems.length === 0}
                         onClick={() => { setPaymentMethod(key); setIsPaymentDialogOpen(true); }}
-                        className="flex h-11 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
+                        className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
                         {label}
                         <Kbd>{key === "CASH" ? "Alt+C" : "Alt+B"}</Kbd>
                       </button>
                     ))}
+                    {/* Compact rail (2026-11-13): Change moved here
+                        from the removed Payment summary line. */}
+                    <button
+                      type="button"
+                      disabled={invoiceItems.length === 0}
+                      onClick={() => setIsPaymentDialogOpen(true)}
+                      aria-label="Change payment"
+                      className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-[12px] border border-primary/35 bg-[#f7fbf8] px-3.5 text-sm font-bold text-primary transition-all hover:border-primary/60 disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
+                    >
+                      <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
+                      Change
+                    </button>
                   </div>
 
                   {/* POS redesign: the rail's primary action opens the
                       payment dialog (reference layout); completing the
-                      sale happens there. Clear Cart mirrors the rail
-                      header's Clear all. Hold lives in the header —
-                      it parks this cart server-side (resume from
-                      Transactions → Held). */}
+                      sale happens there. The footer Clear Cart button
+                      was removed (compact rail 2026-11-13) — the rail
+                      header's Clear all is the single clear action.
+                      Hold lives in the header — it parks this cart
+                      server-side (resume from Transactions → Held). */}
                   <Button
                     data-testid="inflow-proceed"
                     onClick={() => setIsPaymentDialogOpen(true)}
@@ -5631,22 +5638,6 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       : "Proceed to Payment"}
                     <Kbd className="ml-2 border-white/25 bg-white/15 text-white">Ctrl+Enter</Kbd>
                   </Button>
-                  {invoiceItems.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInvoiceItems([]);
-                        setDiscountPercentage(0);
-                        setPaidAmount(0);
-                        // Abandoning a resumed cart does NOT consume
-                        // the held order — it stays parked.
-                        setResumedParkedId(null);
-                      }}
-                      className="mt-1.5 h-10 w-full rounded-[10px] bg-rose-50 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 md:mt-2"
-                    >
-                      Clear Cart
-                    </button>
-                  )}
                 </div>
               </CardContent>
             </Card>
