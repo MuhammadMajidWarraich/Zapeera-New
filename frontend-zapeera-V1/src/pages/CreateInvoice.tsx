@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { FbrQrImage, useQrDataUrl } from "@/components/common/FbrFiscal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -209,6 +210,12 @@ interface Receipt {
   // config applied, so old receipts render exactly as before.
   provincialTaxAmount?: number;
   provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
+  // Service charge (v1.0.22): the server's service-charge amount for
+  // this sale, computed from the stored per-branch/business rule.
+  // Rendered as its own receipt line; absent/0 renders as before.
+  serviceChargeAmount?: number;
+  serviceChargeType?: string | null;
+  serviceChargePercentage?: number | null;
   // FBR POS (Wave B7): fiscal invoice number + status from the server.
   // The number usually lands asynchronously (worker), so it is often
   // absent on this just-created receipt and present on reprints.
@@ -319,6 +326,9 @@ function buildWhatsAppReceiptUrl(receipt: Receipt, businessName: string, baseUni
   }
   for (const line of receipt.provincialTaxBreakdown || []) {
     lines.push(`Provincial tax — ${line.authorityName} (${line.authority}, ${Number(line.rate)}%): PKR ${Number(line.taxAmount || 0).toFixed(2)}`);
+  }
+  if (receipt.serviceChargeAmount && receipt.serviceChargeAmount > 0) {
+    lines.push(`Service charge${receipt.serviceChargeType === 'PERCENT' && receipt.serviceChargePercentage != null ? ` (${Number(receipt.serviceChargePercentage)}%)` : ''}: PKR ${Number(receipt.serviceChargeAmount).toFixed(2)}`);
   }
   if (receipt.prescription) {
     lines.push(`Rx: ${receipt.prescription.patientName}${receipt.prescription.doctorName ? ` (Dr. ${receipt.prescription.doctorName})` : ''}`);
@@ -465,6 +475,47 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
   // FBR POS (Wave B7): QR of the fiscal invoice number for print HTML.
   const currentReceiptQr = useQrDataUrl(currentReceipt?.fbrInvoiceNumber ?? null);
+  // Service charge + receipt template (v1.0.22): the effective rule
+  // and template for the sale branch, loaded on branch change.
+  // serviceChargeEnabled is the per-sale toggle; it resets to the
+  // config's applyByDefault whenever the config loads and after each
+  // successful sale, so one sale's toggle never leaks into the next.
+  const [serviceChargeConfig, setServiceChargeConfig] = useState<any>(null);
+  const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false);
+  const [receiptTemplate, setReceiptTemplate] = useState<any>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [cfgRes, tplRes] = await Promise.all([
+          apiService.getEffectiveServiceChargeConfig(selectedBranchId || undefined),
+          apiService.getEffectiveReceiptTemplate(selectedBranchId || undefined),
+        ]);
+        if (cancelled) return;
+        const cfg = cfgRes.success ? (cfgRes.data as any) : null;
+        setServiceChargeConfig(cfg);
+        setServiceChargeEnabled(!!cfg?.applyByDefault);
+        setReceiptTemplate(tplRes.success ? (tplRes.data as any) : null);
+      } catch {
+        if (!cancelled) { setServiceChargeConfig(null); setReceiptTemplate(null); }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [selectedBranchId, selectedCompanyId]);
+
+  // Receipt template (v1.0.22): resolved block flags with built-in
+  // defaults — when no template is set, every block shows, exactly
+  // as before. The logo needs both the toggle AND a logo URL. The
+  // fixed ownership footer line is NOT here: it is hardcoded in
+  // both receipt builders and never conditional.
+  const tplShow = {
+    logo: receiptTemplate?.showLogo !== false && !!receiptTemplate?.logoUrl,
+    customer: receiptTemplate?.showCustomerBlock !== false,
+    tax: receiptTemplate?.showTaxLines !== false,
+    loyalty: receiptTemplate?.showLoyalty !== false,
+    footerNote: receiptTemplate?.showFooterNote !== false && !!receiptTemplate?.footerText,
+  };
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundInvoiceNumber, setRefundInvoiceNumber] = useState(""); // Changed from receiptNumber to invoiceNumber
   const [refundReason, setRefundReason] = useState("");
@@ -1406,6 +1457,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   const loyaltyPointsToUse = Math.min(loyaltyPointsRequested, loyaltyMaxPoints);
   const loyaltyDiscountValue = Math.round(loyaltyPointsToUse * loyaltyPointValue * 100) / 100;
   const mainTotalAfterLoyalty = Math.round((mainTotalAfterPromo - loyaltyDiscountValue) * 100) / 100;
+
+  // Service charge (v1.0.22): ESTIMATE only, for the rail — the
+  // server computes the real amount from the stored rule. It is
+  // deliberately NOT folded into mainTotalAfterLoyalty: the POS
+  // client total is pre-tax and the receipt shows the server truth
+  // (same as tax and provincial tax). The toggle sends only
+  // opt-in/opt-out flags; the amount always comes from the server.
+  const serviceChargeEstimate = useMemo(() => {
+    if (!serviceChargeConfig?.enabled || !serviceChargeEnabled) return 0;
+    if (serviceChargeConfig.chargeType === "FIXED") return Math.round((Number(serviceChargeConfig.fixedAmount) || 0) * 100) / 100;
+    return Math.round(mainTotalAfterLoyalty * (Number(serviceChargeConfig.percentage) || 0)) / 100;
+  }, [serviceChargeConfig, serviceChargeEnabled, mainTotalAfterLoyalty]);
+  const serviceChargeLabel = serviceChargeConfig?.chargeType === "FIXED"
+    ? "Service charge (fixed)"
+    : `Service charge (${Number(serviceChargeConfig?.percentage) || 0}%)`;
 
   // Prescriptions (Wave C1): the distinct prescription-only products
   // in the cart, and which of them the attached record does NOT cover
@@ -2917,6 +2983,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // disarmed in the finally below so it applies to exactly
         // one submission and can never leak into the next sale.
         creditLimitOverride: creditLimitOverrideArmed || undefined,
+        // Service charge (v1.0.22): toggles only — the server computes
+        // the amount from the stored rule. When the rule applies by
+        // default the toggle can only opt OUT; when it does not, the
+        // toggle can only opt IN. No rule configured: both undefined,
+        // the server charges nothing.
+        serviceChargeOptOut: serviceChargeConfig?.enabled && serviceChargeConfig?.applyByDefault && !serviceChargeEnabled ? true : undefined,
+        serviceChargeApplied: serviceChargeConfig?.enabled && !serviceChargeConfig?.applyByDefault && serviceChargeEnabled ? true : undefined,
         branchId: branchId,
         // With split tender the server derives the headline method
         // ('MIXED' or the largest allocation) from `payments`; the
@@ -3032,6 +3105,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // server (empty when no provincial config applied).
         provincialTaxBreakdown: saleResponse.data.provincialTaxBreakdown || [],
         provincialTaxAmount: saleResponse.data.provincialTaxAmount || 0,
+        // Service charge (v1.0.22): the server's computed amount.
+        // When it applied, the receipt total is the server's stored
+        // totalAmount so the printed lines reconcile exactly — the
+        // same rule as promotions.
+        serviceChargeAmount: saleResponse.data.serviceChargeAmount || 0,
+        serviceChargeType: saleResponse.data.serviceChargeType ?? null,
+        serviceChargePercentage: saleResponse.data.serviceChargePercentage ?? null,
         // FBR POS (Wave B7): fiscal fields from the server (status is
         // PENDING at this point when FBR is enabled; the number is
         // filled in by the worker and shows on reprints).
@@ -3040,7 +3120,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         // Prescriptions (Wave C1): linked register record for the
         // receipt's "Rx: <patient> (Dr. <doctor>)" line.
         prescription: saleResponse.data.prescription ?? null,
-        total: (saleResponse.data.promotionDiscount || 0) > 0 && saleResponse.data.totalAmount != null
+        total: ((saleResponse.data.promotionDiscount || 0) > 0 || (saleResponse.data.serviceChargeAmount || 0) > 0) && saleResponse.data.totalAmount != null
           ? saleResponse.data.totalAmount
           : totalAmount,
         paymentMethod: splitPayload ? splitPayload.map(p => p.method).join(' + ') : paymentMethod.toUpperCase(),
@@ -3093,6 +3173,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       setAppliedCoupon(null);
       setCouponError("");
       setDiscountPercentage(0);
+      // Service charge (v1.0.22): reset the per-sale toggle to the
+      // config default so one sale's choice never leaks into the next.
+      setServiceChargeEnabled(!!serviceChargeConfig?.applyByDefault);
       setPaymentMethod('CASH');
       setPaymentStatus('COMPLETED');
       setSplitEnabled(false);
@@ -3324,7 +3407,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         subtotal: subtotal,
         discountAmount: discountAmount,
         discountPercentage: modalDiscountPercentage,
-        total: totalAmount,
+        // Service charge (v1.0.22): the server's computed amount
+        // (server defaults apply — the modal sends no toggles). When
+        // it applied, the receipt total is the server's stored
+        // totalAmount so the printed lines reconcile exactly.
+        serviceChargeAmount: saleResponse.data.serviceChargeAmount || 0,
+        serviceChargeType: saleResponse.data.serviceChargeType ?? null,
+        serviceChargePercentage: saleResponse.data.serviceChargePercentage ?? null,
+        total: (saleResponse.data.serviceChargeAmount || 0) > 0 && saleResponse.data.totalAmount != null
+          ? saleResponse.data.totalAmount
+          : totalAmount,
         paymentMethod: modalPaymentMethod.toUpperCase(),
         paymentStatus: modalPaymentStatus.toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING'
       };
@@ -3546,6 +3638,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div class="receipt-header">
             <h1>${escapeHtml(companyName)}</h1>
             ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
+            ${tplShow.logo ? `<img src="${escapeHtml(receiptTemplate.logoUrl)}" alt="" style="max-width: 120px; max-height: 60px; margin: 6px auto; display: block;">` : ''}
+            ${receiptTemplate?.headerText ? `<div class="tagline">${escapeHtml(receiptTemplate.headerText)}</div>` : ''}
             <div class="tagline">Your Health, Our Priority</div>
 
             ${companyAddress || companyPhone || companyEmail || companyWebsite ? `
@@ -3569,7 +3663,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </div>
           </div>
 
-          ${currentReceipt.customer ? `
+          ${tplShow.customer && currentReceipt.customer ? `
           <div class="customer-info">
             <h3>Customer Information</h3>
             <strong>Name:</strong> ${currentReceipt.customer.name}<br>
@@ -3639,7 +3733,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <span>-PKR ${currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span>
             </div>
             ` : ''}
-            ${currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 ? `
+            ${tplShow.loyalty && currentReceipt.loyaltyDiscount && currentReceipt.loyaltyDiscount > 0 ? `
             <div class="total-line" style="color: #16a34a;">
               <span>Loyalty Discount (${currentReceipt.pointsRedeemed || 0} pts):</span>
               <span>-PKR ${currentReceipt.loyaltyDiscount.toFixed(2)}</span>
@@ -3651,18 +3745,24 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <span>-PKR ${currentReceipt.promotionDiscount.toFixed(2)}</span>
             </div>
             ` : ''}
-            ${shouldShowTaxBreakdown(currentReceipt) ? (currentReceipt.taxBreakdown || []).map((line) => `
+            ${tplShow.tax && shouldShowTaxBreakdown(currentReceipt) ? (currentReceipt.taxBreakdown || []).map((line) => `
             <div class="total-line">
               <span>Tax — ${escapeHtml(line.className)} (${Number(line.rate)}%):</span>
               <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
             </div>
             `).join('') : ''}
-            ${(currentReceipt.provincialTaxBreakdown || []).map((line) => `
+            ${tplShow.tax ? (currentReceipt.provincialTaxBreakdown || []).map((line) => `
             <div class="total-line">
               <span>Provincial tax — ${escapeHtml(line.authorityName)} (${escapeHtml(line.authority)}, ${Number(line.rate)}%):</span>
               <span>PKR ${Number(line.taxAmount).toFixed(2)}</span>
             </div>
-            `).join('')}
+            `).join('') : ''}
+            ${currentReceipt.serviceChargeAmount && currentReceipt.serviceChargeAmount > 0 ? `
+            <div class="total-line">
+              <span>Service charge${currentReceipt.serviceChargeType === 'PERCENT' && currentReceipt.serviceChargePercentage != null ? ` (${Number(currentReceipt.serviceChargePercentage)}%)` : ''}:</span>
+              <span>PKR ${currentReceipt.serviceChargeAmount.toFixed(2)}</span>
+            </div>
+            ` : ''}
             <div class="total-line total-final">
               <span>TOTAL:</span>
               <span>PKR ${currentReceipt.total.toFixed(2)}</span>
@@ -3672,7 +3772,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div class="payment-info">
             <strong>Payment Method:</strong> ${currentReceipt.paymentMethod.toUpperCase()}<br>
             <strong>Status:</strong> ${currentReceipt.paymentStatus}
-            ${currentReceipt.pointsEarned ? `<br><strong>Loyalty Points Earned:</strong> ${currentReceipt.pointsEarned}` : ''}
+            ${tplShow.loyalty && currentReceipt.pointsEarned ? `<br><strong>Loyalty Points Earned:</strong> ${currentReceipt.pointsEarned}` : ''}
           </div>
           ${currentReceipt.fbrInvoiceNumber ? `
           <div class="payment-info" style="text-align: center;">
@@ -3683,6 +3783,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div class="footer">
             <p>Thank you for choosing ${companyName}!</p>
             ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : '<p>For any queries, contact us</p>'}
+            ${tplShow.footerNote ? `<p>${escapeHtml(receiptTemplate.footerText)}</p>` : ''}
             <p class="software-note">This invoice is generated using Zapeera A business management software</p>
           </div>
         </body>
@@ -3956,6 +4057,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
         <div class="receipt-header">
           <h1>${escapeHtml(companyName)}</h1>
           ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ''}
+          ${tplShow.logo ? `<img src="${escapeHtml(receiptTemplate.logoUrl)}" alt="" style="max-width: 120px; max-height: 60px; margin: 6px auto; display: block;">` : ''}
+          ${receiptTemplate?.headerText ? `<p class="tagline">${escapeHtml(receiptTemplate.headerText)}</p>` : ''}
           <p class="tagline">Your Health, Our Priority</p>
           ${companyAddress || companyPhone || companyEmail ? `
           <div class="pharmacy-info">
@@ -3977,7 +4080,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           </div>
         </div>
 
-        ${receipt.customer ? `
+        ${tplShow.customer && receipt.customer ? `
         <div class="customer-info">
           <h3>Customer Information</h3>
           <strong>Name:</strong> ${escapeHtml(receipt.customer.name)}<br>
@@ -4055,6 +4158,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <span>-PKR ${receipt.discountAmount?.toFixed(2) || '0.00'}</span>
           </div>
           ` : ''}
+          ${receipt.serviceChargeAmount && receipt.serviceChargeAmount > 0 ? `
+          <div class="total-line">
+            <span>Service charge${receipt.serviceChargeType === 'PERCENT' && receipt.serviceChargePercentage != null ? ` (${Number(receipt.serviceChargePercentage)}%)` : ''}:</span>
+            <span>PKR ${receipt.serviceChargeAmount.toFixed(2)}</span>
+          </div>
+          ` : ''}
           <div class="total-line total-final">
             <span>TOTAL:</span>
             <span>PKR ${receipt.total.toFixed(2)}</span>
@@ -4076,6 +4185,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <p class="footer-brand">Thank you for choosing ${companyName}!</p>
           ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : ''}
           <p style="font-style: italic; margin-top: 5px;">Your Health, Our Priority</p>
+          ${tplShow.footerNote ? `<p>${escapeHtml(receiptTemplate.footerText)}</p>` : ''}
           <p class="footer-software">This invoice is generated using Zapeera A business management software</p>
         </div>
       </body>
@@ -5341,6 +5451,26 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {promoEstimate.toFixed(2)}</span>
                         </div>
                       )}
+                      {/* Service charge (v1.0.22): estimate only — the
+                          server computes the real amount. The toggle
+                          opts the sale in/out; it never changes the
+                          Grand Total shown here (pre-tax client total,
+                          same as tax/provincial lines). */}
+                      {serviceChargeConfig?.enabled && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2 text-[#8c95b0]">
+                            {serviceChargeLabel}
+                            <Switch
+                              checked={serviceChargeEnabled}
+                              onCheckedChange={setServiceChargeEnabled}
+                              aria-label="Apply service charge to this sale"
+                            />
+                          </span>
+                          <span className="font-semibold tabular-nums text-[#0a1128]">
+                            {serviceChargeEnabled ? `+PKR ${serviceChargeEstimate.toFixed(2)} (est.)` : "Off for this sale"}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-1.5">
                         <span className="text-sm font-bold uppercase tracking-wide text-[#0a1128]">Grand Total</span>
                         <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
@@ -6562,24 +6692,30 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   {(currentReceipt.discountPercentage ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Discount ({currentReceipt.discountPercentage}%):</span><span>-PKR {currentReceipt.discountAmount?.toFixed(2) || '0.00'}</span></p>
                   )}
-                  {(currentReceipt.loyaltyDiscount ?? 0) > 0 && (
+                  {tplShow.loyalty && (currentReceipt.loyaltyDiscount ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Loyalty ({currentReceipt.pointsRedeemed || 0} pts):</span><span>-PKR {currentReceipt.loyaltyDiscount.toFixed(2)}</span></p>
                   )}
                   {(currentReceipt.promotionDiscount ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Promotion{currentReceipt.promotionLabel ? ` (${currentReceipt.promotionLabel})` : ''}:</span><span>-PKR {currentReceipt.promotionDiscount.toFixed(2)}</span></p>
                   )}
-                  {shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
+                  {tplShow.tax && shouldShowTaxBreakdown(currentReceipt) && (currentReceipt.taxBreakdown || []).map((line) => (
                     <p key={line.className} className="flex justify-between gap-2">
                       <span>Tax — {line.className} ({Number(line.rate)}%):</span>
                       <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
                     </p>
                   ))}
-                  {(currentReceipt.provincialTaxBreakdown || []).map((line) => (
+                  {tplShow.tax && (currentReceipt.provincialTaxBreakdown || []).map((line) => (
                     <p key={line.authority} className="flex justify-between gap-2">
                       <span>Provincial tax — {line.authorityName} ({line.authority}, {Number(line.rate)}%):</span>
                       <span>PKR {Number(line.taxAmount).toFixed(2)}</span>
                     </p>
                   ))}
+                  {(currentReceipt.serviceChargeAmount ?? 0) > 0 && (
+                    <p className="flex justify-between gap-2">
+                      <span>Service charge{currentReceipt.serviceChargeType === 'PERCENT' && currentReceipt.serviceChargePercentage != null ? ` (${Number(currentReceipt.serviceChargePercentage)}%)` : ''}:</span>
+                      <span>PKR {currentReceipt.serviceChargeAmount.toFixed(2)}</span>
+                    </p>
+                  )}
                   <p className="flex justify-between gap-2 border-t-2 border-neutral-800 pt-1.5 text-[14px] font-bold text-neutral-900">
                     <span>GRAND TOTAL:</span>
                     <span>PKR {currentReceipt.total.toFixed(2)}</span>
@@ -6590,7 +6726,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       {currentReceipt.paymentMethod.toUpperCase()} • {currentReceipt.paymentStatus === 'COMPLETED' ? 'Paid' : 'Unpaid'}
                     </span>
                   </p>
-                  {(currentReceipt.pointsEarned ?? 0) > 0 && (
+                  {tplShow.loyalty && (currentReceipt.pointsEarned ?? 0) > 0 && (
                     <p className="flex justify-between gap-2"><span>Points earned:</span><span>+{currentReceipt.pointsEarned} pts</span></p>
                   )}
                 </div>
@@ -6612,6 +6748,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   <p className="text-[11px]">Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}!</p>
                   {(selectedCompany?.phone || selectedBranch?.phone) && (
                     <p className="text-[11px]">For any queries, contact us at: {selectedCompany?.phone || selectedBranch?.phone}</p>
+                  )}
+                  {tplShow.footerNote && (
+                    <p className="text-[11px]">{receiptTemplate.footerText}</p>
                   )}
                   <p className="mt-2 text-[10px] text-neutral-400">Powered by Zapeera Business Management Software</p>
                 </div>
