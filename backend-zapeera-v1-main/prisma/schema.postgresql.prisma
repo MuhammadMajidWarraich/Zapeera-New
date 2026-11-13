@@ -67,6 +67,10 @@ model ZapeeraUser {
   signupRefCode     String? // affiliate ?ref= code captured at signup; converted to a referral at first business creation
   affiliateProfile  Affiliate?
   referredReferrals AffiliateReferral[]  @relation("referralReferredUser")
+  // v1.0.22: quotations created, wastage recorded, audit rows written.
+  quotationsCreated Quotation[]          @relation("QuotationCreatedBy")
+  wastageRecords    WastageRecord[]      @relation("WastageRecordedBy")
+  auditLogs         AuditLog[]           @relation("AuditLogUser")
 
   @@map("zapeera_users")
 }
@@ -202,6 +206,13 @@ model Business {
   giftCardTransactions      GiftCardTransaction[]
   customerWallets           CustomerWallet[]
   walletTransactions        WalletTransaction[]
+  // v1.0.22: quotations, receipt templates, service-charge configs,
+  // wastage records, audit trail.
+  quotations                Quotation[]
+  receiptTemplates          ReceiptTemplate[]
+  serviceChargeConfigs      ServiceChargeConfig[]
+  wastageRecords            WastageRecord[]
+  auditLogs                 AuditLog[]
 
   partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
 
@@ -263,6 +274,13 @@ model Branch {
   membershipBranches MembershipBranch[] @relation("membershipBranches")
   provincialTaxConfigs ProvincialTaxConfig[]
   giftCards          GiftCard[]
+  // v1.0.22: branch-scoped quotations, receipt templates,
+  // service-charge configs, wastage records, audit trail.
+  quotations         Quotation[]
+  receiptTemplates   ReceiptTemplate[]
+  serviceChargeConfigs ServiceChargeConfig[]
+  wastageRecords     WastageRecord[]
+  auditLogs          AuditLog[]
 
   @@unique([name, companyId], name: "branch_name_per_company")
   @@index([companyId], name: "idx_branch_company")
@@ -611,6 +629,8 @@ model Product {
   controlledDispenseLogs ControlledDispenseLog[]
   serviceForDoctors Doctor[]       @relation("DoctorServiceProduct")
   promotions     Promotion[]
+  quotationLines QuotationLine[]
+  wastageRecords WastageRecord[]
   taxClass       TaxClass? @relation(fields: [taxClassId], references: [id], onDelete: SetNull)
 
   @@index([companyId], name: "idx_product_company")
@@ -649,6 +669,7 @@ model ProductVariant {
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   batches   Batch[]
   saleItems SaleItem[]
+  quotationLines QuotationLine[]
 
   @@index([companyId], name: "idx_productVariant_company")
   @@index([productId], name: "idx_productVariant_product")
@@ -709,6 +730,7 @@ model Batch {
   // backward compatibility, and this relation is the audit trail
   // refunds and sale deletion restock from.
   saleItemAllocations SaleItemBatch[]
+  wastageRecords WastageRecord[]
 
   @@unique([batchNo, productId, branchId])
   @@index([companyId], name: "idx_batch_company")
@@ -823,6 +845,9 @@ model StockMovement {
   createdAt DateTime @default(now())
   createdBy String?
   product   Product  @relation(fields: [productId], references: [id])
+  // v1.0.22: the wastage record this movement was written for, when
+  // the movement is a WASTAGE write-off (null for every other type).
+  wastageRecord WastageRecord?
 
   @@index([productId], name: "idx_stockMovement_product")
   @@index([type], name: "idx_stockMovement_type")
@@ -973,6 +998,7 @@ model Customer {
   loyaltyTransactions LoyaltyTransaction[]
   wallet              CustomerWallet?
   walletTransactions  WalletTransaction[]
+  quotations          Quotation[]
 
   @@index([companyId], name: "idx_customer_company")
   @@index([branchId], name: "idx_customer_branch")
@@ -1171,6 +1197,18 @@ model Sale {
   // 0 on every sale created before this feature or with no provincial
   // config. The per-authority breakdown lives in provincialTaxLines.
   provincialTaxAmount Float @default(0)
+  // Service charge (v1.0.22): an optional per-sale charge, percent
+  // or fixed, configured per business/branch (ServiceChargeConfig)
+  // and toggled per sale at the POS. Computed server-side on the
+  // post-discount base (the same base tax uses) and added to the
+  // total AFTER tax — taxAmount / SaleTaxLine rows are untouched,
+  // so FBR payloads stay byte-identical. Null on every pre-v1.0.22
+  // sale and on sales with no service charge. serviceChargeType:
+  // PERCENT | FIXED; serviceChargePercentage holds the applied
+  // percent when PERCENT (null when FIXED).
+  serviceChargeAmount     Float?
+  serviceChargeType       String?
+  serviceChargePercentage Float?
   discountAmount     Float     @default(0)
   discountPercentage Float?    @default(0)
   // Loyalty redemption (Wave B3): points spent on this sale and the PKR
@@ -1292,6 +1330,9 @@ model Sale {
   updatedAt          DateTime  @updatedAt
 
   receipts Receipt[]
+  // v1.0.22: the quotation this sale was converted from, when the
+  // sale came from a quotation conversion (null otherwise).
+  convertedFromQuotation Quotation? @relation("QuotationConvertedSale")
   refunds  Refund[]    @relation("SaleRefunds")
   items    SaleItem[]
   controlledDispenseLogs ControlledDispenseLog[]
@@ -3552,4 +3593,222 @@ model IntegrationSyncLog {
   @@index([businessId, provider], name: "idx_integration_sync_log_business_provider")
   @@index([businessId, startedAt], name: "idx_integration_sync_log_business_started")
   @@map("integration_sync_logs")
+}
+
+// ─── v1.0.22 — Quotations / estimates ────────────────────────────────
+// A price offer to a customer that converts into a REAL sale through
+// the existing createSale path (quotation.controller lends createSale
+// a request — there is deliberately no parallel sale logic here).
+// Quotations NEVER touch stock: no batch reservation, no movement
+// rows. Lines mirror SaleItem's unit engine (quantity in BASE units
+// + unitLevel/unitFactor snapshot) so conversion replays the cart
+// exactly. Totals are computed server-side on every write, the same
+// rule as sales (client-sent totals are never trusted). Status:
+// DRAFT | SENT | ACCEPTED | REJECTED | EXPIRED | CONVERTED. Expiry
+// is evaluated on read against validUntil (no background job): a
+// DRAFT/SENT quotation past validUntil reads as EXPIRED and cannot
+// convert. No plan/add-on gate.
+model Quotation {
+  id              String    @id @default(cuid())
+  quotationNumber String    @unique
+  companyId       String
+  branchId        String
+  customerId      String?
+  userId          String
+  status          String    @default("DRAFT")
+  validUntil      DateTime?
+  subtotal        Float     @default(0)
+  discountAmount  Float     @default(0)
+  discountPercentage Float? @default(0)
+  taxAmount       Float     @default(0)
+  totalAmount     Float     @default(0)
+  notes           String?
+  sentAt          DateTime?
+  convertedSaleId String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  lines         QuotationLine[]
+  company       Business    @relation(fields: [companyId], references: [id])
+  branch        Branch      @relation(fields: [branchId], references: [id])
+  customer      Customer?   @relation(fields: [customerId], references: [id])
+  user          ZapeeraUser @relation("QuotationCreatedBy", fields: [userId], references: [id])
+  convertedSale Sale?       @relation("QuotationConvertedSale", fields: [convertedSaleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId], name: "idx_quotation_company")
+  @@index([branchId], name: "idx_quotation_branch")
+  @@index([customerId], name: "idx_quotation_customer")
+  @@index([status], name: "idx_quotation_status")
+  @@index([createdAt], name: "idx_quotation_createdAt")
+  @@map("quotations")
+}
+
+model QuotationLine {
+  id            String  @id @default(cuid())
+  quotationId   String
+  productId     String
+  variantId     String?
+  variantName   String?
+  // Base units (mirrors SaleItem on C2 lines): the entered level
+  // quantity is quantity / unitFactor, unitPrice is per LEVEL unit.
+  quantity      Int
+  unitLevel     String?
+  unitFactor    Int?
+  unitPrice     Float
+  discountAmount Float   @default(0)
+  taxAmount     Float   @default(0)
+  totalPrice    Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  quotation Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product        @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId], name: "idx_quotationLine_quotation")
+  @@index([productId], name: "idx_quotationLine_product")
+  @@index([variantId], name: "idx_quotationLine_variant")
+  @@map("quotation_lines")
+}
+
+// ─── v1.0.22 — Receipt templates ─────────────────────────────────────
+// Per-business (branchId null) or per-branch receipt presentation.
+// Resolution: branch template → business default → built-in defaults.
+// The ownership footer line ("This invoice is generated using
+// Zapeera A business management software") is NOT a field here: the
+// receipt renderer appends it unconditionally on every template, so
+// customization can never remove or edit it. footerText is an
+// ADDITIONAL custom note shown above the fixed line. logoUrl is an
+// optional image URL the business supplies; showLogo only takes
+// effect when a logoUrl is set (there is no logo upload today).
+model ReceiptTemplate {
+  id                String   @id @default(cuid())
+  companyId         String
+  branchId          String?
+  name              String   @default("Default")
+  headerText        String?
+  footerText        String?
+  logoUrl           String?
+  showLogo          Boolean  @default(true)
+  showCustomerBlock Boolean  @default(true)
+  showTaxLines      Boolean  @default(true)
+  showLoyalty       Boolean  @default(true)
+  showFooterNote    Boolean  @default(true)
+  isDefault         Boolean  @default(false)
+  createdBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+
+  @@unique([companyId, branchId, name], name: "uq_receipt_template_scope_name")
+  @@index([companyId], name: "idx_receiptTemplate_company")
+  @@index([branchId], name: "idx_receiptTemplate_branch")
+  @@map("receipt_templates")
+}
+
+// ─── v1.0.22 — POS service-charge configuration ──────────────────────
+// One config per scope (business-wide when branchId is null, else one
+// branch); branch config wins over the business config. PERCENT takes
+// `percentage` of the post-discount bill; FIXED takes `fixedAmount`.
+// applyByDefault auto-applies the charge at the POS; the cashier can
+// still toggle it off per sale. The per-sale result is stored on the
+// Sale (serviceChargeAmount/Type/Percentage) — this config only holds
+// the rule. No plan/add-on gate.
+model ServiceChargeConfig {
+  id             String   @id @default(cuid())
+  companyId      String
+  branchId       String?
+  enabled        Boolean  @default(false)
+  chargeType     String   @default("PERCENT") // PERCENT | FIXED
+  percentage     Float?
+  fixedAmount    Float?
+  applyByDefault Boolean  @default(true)
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+
+  @@unique([companyId, branchId], name: "uq_service_charge_scope")
+  @@index([companyId], name: "idx_serviceCharge_company")
+  @@index([branchId], name: "idx_serviceCharge_branch")
+  @@map("service_charge_configs")
+}
+
+// ─── v1.0.22 — Wastage / damage recording ────────────────────────────
+// A write-off event: stock removed for damage, expiry, spoilage,
+// theft or another reason. Recording writes the batch decrement AND
+// a WASTAGE StockMovement in ONE transaction (the same path stock
+// takes use), so inventory stays consistent and the stock-movement
+// history shows the write-off. Rows are append-only: corrections are
+// new rows with a reversing reason note, never edits. `quantity` is
+// base units; `unitCost` snapshots the batch purchase price at
+// recording time so the wastage report values the loss without
+// re-reading batch history. reason: DAMAGED | EXPIRED | SPOILAGE |
+// THEFT | OTHER.
+model WastageRecord {
+  id              String   @id @default(cuid())
+  companyId       String
+  branchId        String
+  productId       String
+  batchId         String?
+  quantity        Int
+  reason          String
+  reasonNote      String?
+  unitCost        Float?
+  stockMovementId String?  @unique
+  recordedBy      String?
+  recordedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company       Business      @relation(fields: [companyId], references: [id])
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+  batch         Batch?        @relation(fields: [batchId], references: [id])
+  stockMovement StockMovement? @relation(fields: [stockMovementId], references: [id], onDelete: SetNull)
+  recorder      ZapeeraUser?  @relation("WastageRecordedBy", fields: [recordedBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId], name: "idx_wastage_company")
+  @@index([branchId], name: "idx_wastage_branch")
+  @@index([productId], name: "idx_wastage_product")
+  @@index([reason], name: "idx_wastage_reason")
+  @@index([recordedAt], name: "idx_wastage_recordedAt")
+  @@map("wastage_records")
+}
+
+// ─── v1.0.22 — Audit trail / activity log ────────────────────────────
+// Append-only record of KEY mutations only: sale create/void/refund,
+// stock adjustments, staff/role changes, settings changes. Written
+// by a fire-and-forget helper (audit-log.service) that never fails
+// the mutation it logs. userName snapshots the actor's name at write
+// time (the staff member may later be removed). metadata is a small
+// JSON detail bag (ids, before/after values) — never credentials,
+// never full payloads. Rows are NEVER updated or deleted.
+model AuditLog {
+  id          String   @id @default(cuid())
+  companyId   String
+  branchId    String?
+  userId      String?
+  userName    String?
+  action      String
+  entityType  String?
+  entityId    String?
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  company Business    @relation(fields: [companyId], references: [id])
+  branch  Branch?     @relation(fields: [branchId], references: [id])
+  user    ZapeeraUser? @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId], name: "idx_auditLog_company")
+  @@index([branchId], name: "idx_auditLog_branch")
+  @@index([userId], name: "idx_auditLog_user")
+  @@index([action], name: "idx_auditLog_action")
+  @@index([createdAt], name: "idx_auditLog_createdAt")
+  @@map("audit_logs")
 }
