@@ -18,6 +18,7 @@ import {
   Edit,
   X,
   Receipt,
+  Percent,
   Download,
   Archive,
   History,
@@ -130,6 +131,17 @@ const Settings = () => {
   const [provTaxForm, setProvTaxForm] = useState({ authority: "PRA" as ProvincialAuthority, registrationNumber: "", rate: "", branchId: "", enabled: true });
   const [provTaxEditingId, setProvTaxEditingId] = useState<string | null>(null);
   const [isSavingProvTax, setIsSavingProvTax] = useState(false);
+  // Receipt templates + POS service charge (v1.0.22): same
+  // owner/manager gate as FBR (the server enforces update_settings
+  // on every route too).
+  const canManageReceiptSettings = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
+  const [receiptTemplates, setReceiptTemplates] = useState<any[]>([]);
+  const [receiptTemplateForm, setReceiptTemplateForm] = useState({ branchId: "", name: "Default", headerText: "", footerText: "", logoUrl: "", showLogo: true, showCustomerBlock: true, showTaxLines: true, showLoyalty: true, showFooterNote: true, isDefault: false });
+  const [receiptTemplateEditingId, setReceiptTemplateEditingId] = useState<string | null>(null);
+  const [isSavingReceiptTemplate, setIsSavingReceiptTemplate] = useState(false);
+  const [serviceChargeConfigs, setServiceChargeConfigs] = useState<any[]>([]);
+  const [serviceChargeForm, setServiceChargeForm] = useState({ branchId: "", enabled: false, chargeType: "PERCENT", percentage: "", fixedAmount: "", applyByDefault: true });
+  const [isSavingServiceCharge, setIsSavingServiceCharge] = useState(false);
   // Integrations framework: same owner/manager gate as FBR (the server
   // enforces OWNER/MANAGER on every integrations route too).
   const canManageIntegrations = ["OWNER", "MANAGER", "ADMIN"].includes(user?.membership?.roleName || user?.role || "");
@@ -467,6 +479,163 @@ const Settings = () => {
       }
     } catch (e: any) {
       toast({ title: "Could not retire provincial tax", description: e.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
+  // Receipt templates (v1.0.22) ─────────────────────────────────────
+  // The fixed ownership footer line is NOT part of any template — the
+  // receipt renderer appends it unconditionally, so no template here
+  // can remove or edit it. footerText is an additional note above it.
+  const loadReceiptTemplates = async () => {
+    try {
+      const res = await apiService.getReceiptTemplates();
+      if (res.success && res.data) setReceiptTemplates(res.data as any[]);
+    } catch { /* section simply stays at defaults */ }
+  };
+
+  const handleReceiptTemplateSave = async () => {
+    if (!canManageReceiptSettings) return;
+    if (!receiptTemplateForm.name.trim()) {
+      toast({ title: "Check the template", description: "Give the template a name.", variant: "destructive" });
+      return;
+    }
+    setIsSavingReceiptTemplate(true);
+    try {
+      const payload = {
+        branchId: receiptTemplateForm.branchId || null,
+        name: receiptTemplateForm.name.trim(),
+        headerText: receiptTemplateForm.headerText.trim() || null,
+        footerText: receiptTemplateForm.footerText.trim() || null,
+        logoUrl: receiptTemplateForm.logoUrl.trim() || null,
+        showLogo: receiptTemplateForm.showLogo,
+        showCustomerBlock: receiptTemplateForm.showCustomerBlock,
+        showTaxLines: receiptTemplateForm.showTaxLines,
+        showLoyalty: receiptTemplateForm.showLoyalty,
+        showFooterNote: receiptTemplateForm.showFooterNote,
+        isDefault: receiptTemplateForm.isDefault,
+      };
+      const res = receiptTemplateEditingId
+        ? await apiService.updateReceiptTemplate(receiptTemplateEditingId, payload)
+        : await apiService.createReceiptTemplate(payload);
+      if (res.success) {
+        toast({ title: "Receipt template saved", description: "New receipts use this template. The ownership footer line always stays on every receipt." });
+        setReceiptTemplateForm({ branchId: "", name: "Default", headerText: "", footerText: "", logoUrl: "", showLogo: true, showCustomerBlock: true, showTaxLines: true, showLoyalty: true, showFooterNote: true, isDefault: false });
+        setReceiptTemplateEditingId(null);
+        loadReceiptTemplates();
+      } else {
+        toast({ title: "Could not save the template", description: res.message || "Please check the values and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not save the template", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSavingReceiptTemplate(false);
+    }
+  };
+
+  const handleReceiptTemplateEdit = (tpl: any) => {
+    setReceiptTemplateEditingId(tpl.id);
+    setReceiptTemplateForm({
+      branchId: tpl.branchId || "",
+      name: tpl.name || "Default",
+      headerText: tpl.headerText || "",
+      footerText: tpl.footerText || "",
+      logoUrl: tpl.logoUrl || "",
+      showLogo: tpl.showLogo !== false,
+      showCustomerBlock: tpl.showCustomerBlock !== false,
+      showTaxLines: tpl.showTaxLines !== false,
+      showLoyalty: tpl.showLoyalty !== false,
+      showFooterNote: tpl.showFooterNote !== false,
+      isDefault: !!tpl.isDefault,
+    });
+  };
+
+  const handleReceiptTemplateDelete = async (tpl: any) => {
+    if (!canManageReceiptSettings) return;
+    try {
+      const res = await apiService.deleteReceiptTemplate(tpl.id);
+      if (res.success) {
+        toast({ title: "Receipt template deleted", description: "Receipts fall back to the next template or the built-in layout." });
+        loadReceiptTemplates();
+      } else {
+        toast({ title: "Could not delete the template", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not delete the template", description: e.message || "Please try again.", variant: "destructive" });
+    }
+  };
+
+  // POS service charge (v1.0.22) ────────────────────────────────────
+  // One config per scope (business-wide or one branch); saving a
+  // scope again updates it. The amount is always computed by the
+  // server from this rule — the POS only toggles it per sale.
+  const loadServiceCharges = async () => {
+    try {
+      const res = await apiService.getServiceChargeConfigs();
+      if (res.success && res.data) setServiceChargeConfigs(res.data as any[]);
+    } catch { /* section simply stays at defaults */ }
+  };
+
+  useEffect(() => { loadReceiptTemplates(); loadServiceCharges(); }, [selectedCompanyId]);
+
+  const handleServiceChargeSave = async () => {
+    if (!canManageReceiptSettings) return;
+    const pct = parseFloat(serviceChargeForm.percentage);
+    const fixed = parseFloat(serviceChargeForm.fixedAmount);
+    if (serviceChargeForm.chargeType === "PERCENT" && (Number.isNaN(pct) || pct < 0 || pct > 100)) {
+      toast({ title: "Check the service charge", description: "Enter a percentage between 0 and 100.", variant: "destructive" });
+      return;
+    }
+    if (serviceChargeForm.chargeType === "FIXED" && (Number.isNaN(fixed) || fixed < 0)) {
+      toast({ title: "Check the service charge", description: "Enter a fixed amount of 0 or more.", variant: "destructive" });
+      return;
+    }
+    setIsSavingServiceCharge(true);
+    try {
+      const res = await apiService.upsertServiceChargeConfig({
+        branchId: serviceChargeForm.branchId || null,
+        enabled: serviceChargeForm.enabled,
+        chargeType: serviceChargeForm.chargeType,
+        percentage: serviceChargeForm.chargeType === "PERCENT" ? pct : null,
+        fixedAmount: serviceChargeForm.chargeType === "FIXED" ? fixed : null,
+        applyByDefault: serviceChargeForm.applyByDefault,
+      });
+      if (res.success) {
+        toast({ title: "Service charge saved", description: "New sales use this rule. Past invoices are unchanged." });
+        setServiceChargeForm({ branchId: "", enabled: false, chargeType: "PERCENT", percentage: "", fixedAmount: "", applyByDefault: true });
+        loadServiceCharges();
+      } else {
+        toast({ title: "Could not save the service charge", description: res.message || "Please check the values and try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not save the service charge", description: e.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSavingServiceCharge(false);
+    }
+  };
+
+  const handleServiceChargeEdit = (cfg: any) => {
+    setServiceChargeForm({
+      branchId: cfg.branchId || "",
+      enabled: !!cfg.enabled,
+      chargeType: cfg.chargeType || "PERCENT",
+      percentage: cfg.percentage != null ? String(cfg.percentage) : "",
+      fixedAmount: cfg.fixedAmount != null ? String(cfg.fixedAmount) : "",
+      applyByDefault: cfg.applyByDefault !== false,
+    });
+  };
+
+  const handleServiceChargeDelete = async (cfg: any) => {
+    if (!canManageReceiptSettings) return;
+    try {
+      const res = await apiService.deleteServiceChargeConfig(cfg.id);
+      if (res.success) {
+        toast({ title: "Service charge removed", description: "New sales no longer carry a service charge for this scope." });
+        loadServiceCharges();
+      } else {
+        toast({ title: "Could not remove the service charge", description: res.message || "Please try again.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not remove the service charge", description: e.message || "Please try again.", variant: "destructive" });
     }
   };
 
@@ -2036,6 +2205,319 @@ toast({
             {provTaxConfigs.length === 0 && (
               <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
                 No provincial tax configured — invoices charge FBR/general tax only, as today.
+              </p>
+            )}
+          </div>
+        </section>
+        {/* Receipt Templates (v1.0.22) */}
+        <section
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          style={{ animationDelay: "235ms" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+              Receipt Templates
+            </div>
+            <div className="text-xs font-medium text-[#8c95b0]">Owner / Manager</div>
+          </div>
+          <div className="flex flex-col px-[30px] py-[30px]">
+            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+              Shape how printed receipts look — a custom header line, a logo, and which blocks
+              show. A branch template wins over the business-wide default. The ownership footer
+              line stays on every receipt no matter what is set here; the footer note below is
+              an extra line above it.
+            </p>
+            {!canManageReceiptSettings && (
+              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                Only the business owner or a manager can change receipt templates.
+              </p>
+            )}
+            {canManageReceiptSettings && (
+              <>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-name" className="mb-2 block text-sm font-bold text-[#0a1128]">Template name</Label>
+                  <Input
+                    id="receipt-template-name"
+                    value={receiptTemplateForm.name}
+                    onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, name: e.target.value })}
+                    placeholder="e.g. Default"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                  <select
+                    id="receipt-template-branch"
+                    value={receiptTemplateForm.branchId}
+                    onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, branchId: e.target.value })}
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  >
+                    <option value="">All branches (business-wide)</option>
+                    {provTaxBranches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name} only</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    A branch template overrides the business-wide template for that branch&apos;s receipts.
+                  </p>
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-header" className="mb-2 block text-sm font-bold text-[#0a1128]">Header text (optional)</Label>
+                  <Input
+                    id="receipt-template-header"
+                    value={receiptTemplateForm.headerText}
+                    onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, headerText: e.target.value })}
+                    placeholder="e.g. Thank you for shopping with us"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-logo" className="mb-2 block text-sm font-bold text-[#0a1128]">Logo URL (optional)</Label>
+                  <Input
+                    id="receipt-template-logo"
+                    value={receiptTemplateForm.logoUrl}
+                    onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, logoUrl: e.target.value })}
+                    placeholder="https://…/logo.png"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">The logo prints only when a URL is set and the logo toggle below is on.</p>
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-footer" className="mb-2 block text-sm font-bold text-[#0a1128]">Footer note (optional)</Label>
+                  <Input
+                    id="receipt-template-footer"
+                    value={receiptTemplateForm.footerText}
+                    onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, footerText: e.target.value })}
+                    placeholder="e.g. Goods once sold are not returnable"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  />
+                </div>
+                {([
+                  { key: "showLogo", label: "Show logo", hint: "Print the logo URL above at the top of the receipt" },
+                  { key: "showCustomerBlock", label: "Show customer block", hint: "Print the customer's name, phone and address" },
+                  { key: "showTaxLines", label: "Show tax lines", hint: "Print the tax and provincial-tax breakdown lines" },
+                  { key: "showLoyalty", label: "Show loyalty", hint: "Print loyalty discounts and points earned" },
+                  { key: "showFooterNote", label: "Show footer note", hint: "Print the footer note above the fixed ownership line" },
+                  { key: "isDefault", label: "Default for this scope", hint: "Only one default per scope — setting this clears the others" },
+                ] as const).map((row) => (
+                  <div key={row.key} className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#0a1128]">{row.label}</h4>
+                      <p className="text-[13px] text-[#8c95b0]">{row.hint}</p>
+                    </div>
+                    <Switch
+                      className={ZV3_POS_SWITCH}
+                      checked={(receiptTemplateForm as any)[row.key]}
+                      onCheckedChange={(checked) => setReceiptTemplateForm({ ...receiptTemplateForm, [row.key]: checked })}
+                    />
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-2 pt-[22px]">
+                  <Button
+                    type="button"
+                    onClick={handleReceiptTemplateSave}
+                    disabled={isSavingReceiptTemplate}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSavingReceiptTemplate ? "Saving…" : receiptTemplateEditingId ? "Update Template" : "Save Template"}
+                  </Button>
+                  {receiptTemplateEditingId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => { setReceiptTemplateEditingId(null); setReceiptTemplateForm({ branchId: "", name: "Default", headerText: "", footerText: "", logoUrl: "", showLogo: true, showCustomerBlock: true, showTaxLines: true, showLoyalty: true, showFooterNote: true, isDefault: false }); }}
+                      className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                    >
+                      Cancel Edit
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+            {receiptTemplates.length > 0 && (
+              <div className="pt-[22px]">
+                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                {receiptTemplates.map((tpl: any) => (
+                  <div key={tpl.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                    <div className="text-[13px] leading-relaxed">
+                      <span className="font-bold text-[#0a1128]">{tpl.name}</span>
+                      <span className="text-[#8c95b0]"> · {tpl.branch ? `${tpl.branch.name} only` : "All branches"}</span>
+                      {tpl.isDefault && <span className="ml-2 font-semibold text-[#1a52c5]">Default</span>}
+                      <span className="block text-[#8c95b0]">
+                        {[
+                          tpl.showLogo ? null : "no logo",
+                          tpl.showCustomerBlock ? null : "no customer block",
+                          tpl.showTaxLines ? null : "no tax lines",
+                          tpl.showLoyalty ? null : "no loyalty",
+                          tpl.showFooterNote ? null : "no footer note",
+                        ].filter(Boolean).join(" · ") || "All blocks shown"}
+                      </span>
+                    </div>
+                    {canManageReceiptSettings && (
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={() => handleReceiptTemplateEdit(tpl)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        <Button type="button" variant="outline" onClick={() => handleReceiptTemplateDelete(tpl)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Delete</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {receiptTemplates.length === 0 && (
+              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+                No custom templates — receipts print with the built-in layout, including the ownership footer line.
+              </p>
+            )}
+          </div>
+        </section>
+        {/* POS Service Charge (v1.0.22) */}
+        <section
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          style={{ animationDelay: "240ms" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
+              <Percent className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+              POS Service Charge
+            </div>
+            <div className="text-xs font-medium text-[#8c95b0]">Owner / Manager</div>
+          </div>
+          <div className="flex flex-col px-[30px] py-[30px]">
+            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+              A configurable charge on each sale — a percentage of the discounted bill or a fixed
+              amount — added after tax and shown as its own receipt line. Tax is never computed
+              on it. The cashier can still toggle it per sale at the POS; with nothing configured
+              here, invoices are exactly as they are today.
+            </p>
+            {!canManageReceiptSettings && (
+              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                Only the business owner or a manager can change the service charge.
+              </p>
+            )}
+            {canManageReceiptSettings && (
+              <>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="service-charge-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                  <select
+                    id="service-charge-branch"
+                    value={serviceChargeForm.branchId}
+                    onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, branchId: e.target.value })}
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  >
+                    <option value="">All branches (business-wide)</option>
+                    {provTaxBranches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name} only</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    A branch row overrides the business-wide row for that branch&apos;s sales. Saving a scope again updates it.
+                  </p>
+                </div>
+                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <Label htmlFor="service-charge-type" className="mb-2 block text-sm font-bold text-[#0a1128]">Charge type</Label>
+                  <select
+                    id="service-charge-type"
+                    value={serviceChargeForm.chargeType}
+                    onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, chargeType: e.target.value })}
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                  >
+                    <option value="PERCENT">Percentage of the bill</option>
+                    <option value="FIXED">Fixed amount per sale</option>
+                  </select>
+                </div>
+                {serviceChargeForm.chargeType === "PERCENT" ? (
+                  <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                    <Label htmlFor="service-charge-pct" className="mb-2 block text-sm font-bold text-[#0a1128]">Percentage (%)</Label>
+                    <Input
+                      id="service-charge-pct"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={serviceChargeForm.percentage}
+                      onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, percentage: e.target.value })}
+                      placeholder="e.g. 5"
+                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    />
+                  </div>
+                ) : (
+                  <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                    <Label htmlFor="service-charge-fixed" className="mb-2 block text-sm font-bold text-[#0a1128]">Fixed amount (PKR)</Label>
+                    <Input
+                      id="service-charge-fixed"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={serviceChargeForm.fixedAmount}
+                      onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, fixedAmount: e.target.value })}
+                      placeholder="e.g. 50"
+                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#0a1128]">Apply by default</h4>
+                    <p className="text-[13px] text-[#8c95b0]">Charge every sale unless the cashier turns it off for that sale</p>
+                  </div>
+                  <Switch
+                    className={ZV3_POS_SWITCH}
+                    checked={serviceChargeForm.applyByDefault}
+                    onCheckedChange={(checked) => setServiceChargeForm({ ...serviceChargeForm, applyByDefault: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <div>
+                    <h4 className="text-sm font-bold text-[#0a1128]">Enabled</h4>
+                    <p className="text-[13px] text-[#8c95b0]">Charge the service charge on new sales</p>
+                  </div>
+                  <Switch
+                    className={ZV3_POS_SWITCH}
+                    checked={serviceChargeForm.enabled}
+                    onCheckedChange={(checked) => setServiceChargeForm({ ...serviceChargeForm, enabled: checked })}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-[22px]">
+                  <Button
+                    type="button"
+                    onClick={handleServiceChargeSave}
+                    disabled={isSavingServiceCharge}
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSavingServiceCharge ? "Saving…" : "Save Service Charge"}
+                  </Button>
+                </div>
+              </>
+            )}
+            {serviceChargeConfigs.length > 0 && (
+              <div className="pt-[22px]">
+                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                {serviceChargeConfigs.map((cfg: any) => (
+                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                    <div className="text-[13px] leading-relaxed">
+                      <span className="font-bold text-[#0a1128]">
+                        {cfg.chargeType === "PERCENT" ? `${Number(cfg.percentage)}% of the bill` : `PKR ${Number(cfg.fixedAmount).toFixed(2)} per sale`}
+                      </span>
+                      <span className="text-[#8c95b0]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
+                      <span className="text-[#8c95b0]"> · {cfg.applyByDefault ? "applies by default" : "cashier opts in per sale"}</span>
+                      {!cfg.enabled && <span className="ml-2 font-semibold text-red-600">Disabled</span>}
+                    </div>
+                    {canManageReceiptSettings && (
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={() => handleServiceChargeEdit(cfg)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        <Button type="button" variant="outline" onClick={() => handleServiceChargeDelete(cfg)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Remove</Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {serviceChargeConfigs.length === 0 && (
+              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+                No service charge configured — invoices carry no service-charge line, as today.
               </p>
             )}
           </div>
