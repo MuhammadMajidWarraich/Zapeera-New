@@ -61,6 +61,9 @@ const RoomsPage = React.lazy(() => import("./pages/Rooms"));
 const ReservationsPage = React.lazy(() => import("./pages/Reservations"));
 const FoliosPage = React.lazy(() => import("./pages/Folios"));
 const StockTakesPage = React.lazy(() => import("./pages/StockTakes"));
+const QuotationsPage = React.lazy(() => import("./pages/Quotations"));
+const WastagePage = React.lazy(() => import("./pages/Wastage"));
+const AuditTrailPage = React.lazy(() => import("./pages/AuditTrail"));
 const SyncReviewPage = React.lazy(() => import("./pages/SyncReview"));
 const ReportsPage = React.lazy(() => import("./pages/Reports"));
 const AdvancedReportsPage = React.lazy(() => import("./pages/AdvancedReports"));
@@ -488,6 +491,40 @@ const AppRoutes = () => {
               <AutoModuleGuard>
                 <MainLayout>
                   <StockTakesPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        {/* v1.0.22 depth fixes: quotations, wastage, audit trail */}
+        <Route path="/quotations" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <QuotationsPage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/wastage" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <WastagePage />
+                </MainLayout>
+              </AutoModuleGuard>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/audit-trail" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <AutoModuleGuard>
+                <MainLayout>
+                  <AuditTrailPage />
                 </MainLayout>
               </AutoModuleGuard>
             </BusinessTypeGuard>
@@ -1533,6 +1570,47 @@ const AppRoutes = () => {
                 <AutoModuleGuard>
                   <MainLayout>
                     <StockTakesPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+
+        {/* v1.0.22 depth fixes (business-slug routes) */}
+        <Route path="/business/:businessSlug/quotations" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <QuotationsPage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/wastage" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <WastagePage />
+                  </MainLayout>
+                </AutoModuleGuard>
+              </BusinessSlugGate>
+            </BusinessTypeGuard>
+          </AuthStatus>
+        } />
+        <Route path="/business/:businessSlug/audit-trail" element={
+          <AuthStatus>
+            <BusinessTypeGuard>
+              <BusinessSlugGate>
+                <AutoModuleGuard>
+                  <MainLayout>
+                    <AuditTrailPage />
                   </MainLayout>
                 </AutoModuleGuard>
               </BusinessSlugGate>

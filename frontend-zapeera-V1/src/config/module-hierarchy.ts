@@ -48,6 +48,8 @@ import {
   BookOpen,
   ConciergeBell,
   ClipboardList,
+  AlertTriangle,
+  History,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -125,6 +127,16 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         key: 'invoices',
         label: 'Invoices',
         href: '/invoices',
+        icon: FileText,
+        module: 'sales',
+        roles: ['OWNER', 'MANAGER', 'CASHIER'],
+      },
+      {
+        // Quotations / estimates (v1.0.22) — pre-sale documents
+        // guarded via the ModuleGuard's invoices mapping.
+        key: 'quotations',
+        label: 'Quotations',
+        href: '/quotations',
         icon: FileText,
         module: 'sales',
         roles: ['OWNER', 'MANAGER', 'CASHIER'],
@@ -238,6 +250,16 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         label: 'Batches',
         href: '/batches',
         icon: Package,
+        module: 'inventory',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        // Wastage / damage recording (v1.0.22) — guarded via the
+        // ModuleGuard's products mapping.
+        key: 'wastage',
+        label: 'Wastage & Damage',
+        href: '/wastage',
+        icon: AlertTriangle,
         module: 'inventory',
         roles: ['OWNER', 'MANAGER'],
       },
@@ -574,6 +596,16 @@ export const MODULE_HIERARCHY: ModuleGroup[] = [
         label: 'Accounting',
         href: '/accounting',
         icon: BarChart3,
+        module: 'reports',
+        roles: ['OWNER', 'MANAGER'],
+      },
+      {
+        // Audit trail (v1.0.22) — guarded via the ModuleGuard's
+        // reports mapping.
+        key: 'audit-trail',
+        label: 'Audit Trail',
+        href: '/audit-trail',
+        icon: History,
         module: 'reports',
         roles: ['OWNER', 'MANAGER'],
       },

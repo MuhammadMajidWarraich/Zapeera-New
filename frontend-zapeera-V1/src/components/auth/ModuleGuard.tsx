@@ -354,6 +354,12 @@ export const ROUTE_TO_MODULE: Record<string, string> = {
   '/promotions': 'sales',
   // Tax classes (Wave B5) live under Sales too.
   '/tax-classes': 'sales',
+  // Quotations (v1.0.22) live under Sales, next to invoices.
+  '/quotations': 'sales',
+  // Wastage / damage recording (v1.0.22) lives under Inventory.
+  '/wastage': 'inventory',
+  // Audit trail (v1.0.22) lives under Reports.
+  '/audit-trail': 'reports',
   '/suppliers': 'purchases',
   '/order-purchase': 'purchases',
   '/purchases': 'purchases',
@@ -411,6 +417,12 @@ const BUSINESS_SEGMENT_TO_MODULE: Record<string, string> = {
   'reorder-suggestions': 'purchases',
   invoices: 'sales',
   refunds: 'sales',
+  // Quotations (v1.0.22): rides sales.
+  quotations: 'sales',
+  // Wastage (v1.0.22): rides inventory.
+  wastage: 'inventory',
+  // Audit trail (v1.0.22): rides reports.
+  'audit-trail': 'reports',
   pos: 'sales',
   // Gift Cards & Wallet (Wave C9 — gap item 9): rides sales.
   'gift-cards': 'sales',
@@ -457,6 +469,16 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   // Tax classes (Wave B5): guarded by the invoicing submodule, same as
   // Promotions — writes are OWNER/MANAGER enforced by the API.
   '/tax-classes': { parentModule: 'sales', subModuleKey: 'invoices', label: 'Tax Classes' },
+  // Quotations (v1.0.22): guarded by the invoicing submodule, same as
+  // Promotions — a quotation is a pre-sale document.
+  '/quotations': { parentModule: 'sales', subModuleKey: 'invoices', label: 'Quotations' },
+  // Wastage (v1.0.22): guarded by the products submodule — recording
+  // a write-off rewrites batch quantities; writes are additionally
+  // gated to update_product by the API.
+  '/wastage': { parentModule: 'inventory', subModuleKey: 'products', label: 'Wastage & Damage' },
+  // Audit trail (v1.0.22): guarded by the reports submodule.
+  // Read-only by design.
+  '/audit-trail': { parentModule: 'reports', subModuleKey: 'reports', label: 'Audit Trail' },
   // Gift Cards & Wallet (Wave C9 — gap item 9): guarded by the POS
   // submodule — every role that can sell can use it; voids are
   // OWNER/MANAGER enforced by the API.
@@ -498,6 +520,12 @@ const ROUTE_TO_SUBMODULE: Record<string, SubModuleRoute> = {
 const BUSINESS_SEGMENT_TO_SUBMODULE: Record<string, SubModuleRoute> = {
   pos: { parentModule: 'sales', subModuleKey: 'pos', label: 'Point of Sale' },
   invoices: { parentModule: 'sales', subModuleKey: 'invoices', label: 'Invoices' },
+  // Quotations (v1.0.22): rides the invoices submodule.
+  quotations: { parentModule: 'sales', subModuleKey: 'invoices', label: 'Quotations' },
+  // Wastage (v1.0.22): rides the products submodule.
+  wastage: { parentModule: 'inventory', subModuleKey: 'products', label: 'Wastage & Damage' },
+  // Audit trail (v1.0.22): rides the reports submodule.
+  'audit-trail': { parentModule: 'reports', subModuleKey: 'reports', label: 'Audit Trail' },
   refunds: { parentModule: 'sales', subModuleKey: 'refunds', label: 'Refunds' },
   // Gift Cards & Wallet (Wave C9 — gap item 9): rides the POS submodule.
   'gift-cards': { parentModule: 'sales', subModuleKey: 'pos', label: 'Gift Cards & Wallet' },

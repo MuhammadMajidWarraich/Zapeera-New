@@ -2789,6 +2789,196 @@ export class ApiService {
     });
   }
 
+  // ─── v1.0.22 depth fixes ──────────────────────────────────────────
+  // Quotations, wastage, audit trail, receipt templates, POS service
+  // charges, financial position, basket size, comparison matrices.
+
+  async getQuotations(params?: { branchId?: string; customerId?: string; status?: string; search?: string; from?: string; to?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/quotations${query ? `?${query}` : ''}`);
+  }
+
+  async getQuotation(id: string) {
+    return this.request<any>(`/quotations/${id}`);
+  }
+
+  async createQuotation(data: any) {
+    return this.request<any>('/quotations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateQuotation(id: string, data: any) {
+    return this.request<any>(`/quotations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteQuotation(id: string) {
+    return this.request<any>(`/quotations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async markQuotationSent(id: string) {
+    return this.request<any>(`/quotations/${id}/mark-sent`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async acceptQuotation(id: string) {
+    return this.request<any>(`/quotations/${id}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async rejectQuotation(id: string) {
+    return this.request<any>(`/quotations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  async convertQuotation(id: string, data: { paymentMethod: string; paidAmount?: number; paymentStatus?: string }) {
+    return this.request<any>(`/quotations/${id}/convert`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWastageRecords(params?: { branchId?: string; productId?: string; reason?: string; from?: string; to?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/wastage${query ? `?${query}` : ''}`);
+  }
+
+  async recordWastage(data: { branchId: string; productId: string; batchId: string; quantity: number; reason: string; reasonNote?: string }) {
+    return this.request<any>('/wastage', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWastageReport(params?: { branchId?: string; from?: string; to?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/wastage/report${query ? `?${query}` : ''}`);
+  }
+
+  async getAuditLogs(params?: { branchId?: string; userId?: string; action?: string; entityType?: string; search?: string; from?: string; to?: string; page?: number; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/audit-logs${query ? `?${query}` : ''}`);
+  }
+
+  async getReceiptTemplates(params?: { branchId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.branchId) queryParams.append('branchId', params.branchId);
+    const query = queryParams.toString();
+    return this.request<any>(`/receipt-templates${query ? `?${query}` : ''}`);
+  }
+
+  async getEffectiveReceiptTemplate(branchId?: string) {
+    const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+    return this.request<any>(`/receipt-templates/effective${query}`);
+  }
+
+  async createReceiptTemplate(data: any) {
+    return this.request<any>('/receipt-templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateReceiptTemplate(id: string, data: any) {
+    return this.request<any>(`/receipt-templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteReceiptTemplate(id: string) {
+    return this.request<any>(`/receipt-templates/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getServiceChargeConfigs() {
+    return this.request<any>('/service-charges');
+  }
+
+  async getEffectiveServiceChargeConfig(branchId?: string) {
+    const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+    return this.request<any>(`/service-charges/effective${query}`);
+  }
+
+  async upsertServiceChargeConfig(data: any) {
+    return this.request<any>('/service-charges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteServiceChargeConfig(id: string) {
+    return this.request<any>(`/service-charges/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getFinancialPosition(params?: { branchId?: string; companyId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/reports/accounting/position${query ? `?${query}` : ''}`);
+  }
+
+  async getBasketSize(params?: any) {
+    return this.request<any>(`/reports/basket-size${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
+  async getComparisonMatrix(params?: any) {
+    return this.request<any>(`/reports/comparison-matrix${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
+  }
+
   async bulkDeleteProducts(productIds: string[]) {
     return this.request<{
       message: string;
@@ -4110,6 +4300,10 @@ export class ApiService {
     // Credit-limit override (gap item 7): explicit owner/manager flag
     // allowing this one credit sale to exceed the customer's limit.
     creditLimitOverride?: boolean;
+    // Service charge (v1.0.22): per-sale toggles only — the server
+    // computes the amount from the stored rule.
+    serviceChargeApplied?: boolean;
+    serviceChargeOptOut?: boolean;
     paidAmount?: number;
     returnedAmount?: number;
     discountAmount?: number;
@@ -4170,6 +4364,11 @@ export class ApiService {
       // provincialTaxAmount (separate from taxAmount / FBR).
       provincialTaxAmount?: number;
       provincialTaxBreakdown?: ProvincialTaxBreakdownLine[];
+      // Service charge (v1.0.22): the server's computed amount +
+      // the rule it came from (PERCENT with percentage, or FIXED).
+      serviceChargeAmount?: number;
+      serviceChargeType?: string | null;
+      serviceChargePercentage?: number | null;
       // Prescriptions (Wave C1): the attached register summary, and
       // the warning flag set when Rx items were sold without one
       // while the business has enforcement off.
