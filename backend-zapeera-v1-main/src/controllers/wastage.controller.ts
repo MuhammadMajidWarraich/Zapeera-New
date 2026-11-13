@@ -137,6 +137,12 @@ export const recordWastage = async (req: AuthRequest, res: Response) => {
 
 // ─── GET /wastage ────────────────────────────────────────────────────
 
+// A bare YYYY-MM-DD `to` means the whole day, not its first instant:
+// date pickers send bare dates, and `lte: new Date("2026-11-14")` is
+// midnight at the START of the 14th, which would drop that day's rows.
+// Full datetimes pass through unchanged.
+const endOfDayOrAsIs = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T23:59:59.999`) : new Date(v);
+
 export const getWastageRecords = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -152,7 +158,7 @@ export const getWastageRecords = async (req: AuthRequest, res: Response) => {
     if (from || to) {
       where.recordedAt = {};
       if (from) where.recordedAt.gte = new Date(from);
-      if (to) where.recordedAt.lte = new Date(to);
+      if (to) where.recordedAt.lte = endOfDayOrAsIs(to);
     }
 
     const [rows, total] = await Promise.all([
@@ -182,7 +188,7 @@ export const getWastageReport = async (req: AuthRequest, res: Response) => {
     if (from || to) {
       where.recordedAt = {};
       if (from) where.recordedAt.gte = new Date(from);
-      if (to) where.recordedAt.lte = new Date(to);
+      if (to) where.recordedAt.lte = endOfDayOrAsIs(to);
     }
 
     const rows = await prisma.wastageRecord.findMany({

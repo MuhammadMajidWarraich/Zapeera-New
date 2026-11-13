@@ -61,6 +61,8 @@ const Wastage: React.FC = () => {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [reasonFilter, setReasonFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -85,6 +87,8 @@ const Wastage: React.FC = () => {
     try {
       const scope: any = {};
       if (selectedBranchId) scope.branchId = selectedBranchId;
+      if (fromDate) scope.from = fromDate;
+      if (toDate) scope.to = toDate;
       const [listRes, reportRes] = await Promise.all([
         apiService.getWastageRecords({ ...scope, reason: reasonFilter || undefined, page, limit: 25 }),
         apiService.getWastageReport(scope),
@@ -99,7 +103,7 @@ const Wastage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedBranchId, reasonFilter, page]);
+  }, [selectedBranchId, reasonFilter, fromDate, toDate, page]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -390,15 +394,19 @@ const Wastage: React.FC = () => {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Write-off history</CardTitle>
-            <Select value={reasonFilter || "all"} onValueChange={(v) => { setReasonFilter(v === "all" ? "" : v); setPage(1); }}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All reasons</SelectItem>
-                {REASONS.map((r) => (
-                  <SelectItem key={r} value={r}>{r}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} aria-label="From date" className="w-[160px]" />
+              <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} aria-label="To date" className="w-[160px]" />
+              <Select value={reasonFilter || "all"} onValueChange={(v) => { setReasonFilter(v === "all" ? "" : v); setPage(1); }}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All reasons</SelectItem>
+                  {REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

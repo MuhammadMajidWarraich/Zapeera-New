@@ -24,6 +24,12 @@ const auditInclude = {
   user: { select: { id: true, name: true } },
 } as const;
 
+// A bare YYYY-MM-DD `to` means the whole day, not its first instant:
+// date pickers send bare dates, and `lte: new Date("2026-11-14")` is
+// midnight at the START of the 14th, which would drop that day's rows.
+// Full datetimes pass through unchanged.
+const endOfDayOrAsIs = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T23:59:59.999`) : new Date(v);
+
 export const getAuditLogs = async (req: AuthRequest, res: Response) => {
   try {
     const prisma = await getPrisma();
@@ -40,7 +46,7 @@ export const getAuditLogs = async (req: AuthRequest, res: Response) => {
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = new Date(from);
-      if (to) where.createdAt.lte = new Date(to);
+      if (to) where.createdAt.lte = endOfDayOrAsIs(to);
     }
     if (search) {
       where.OR = [
