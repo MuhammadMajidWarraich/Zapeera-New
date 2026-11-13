@@ -28,6 +28,8 @@ export interface CreateSaleData {
   folioId?: string | null; // Hotel pack (Wave C5): charge-to-room — the OPEN folio this sale's total is posted to as a SERVICE folio charge; the sale itself is stored unpaid with paymentMethod 'FOLIO'
   salespersonId?: string | null; // Salesperson attribution (Wave C6): the staff member credited with the sale when not the cashier; commissions read salespersonId ?? userId
   creditLimitOverride?: boolean; // Credit limit (gap item 7): explicit owner/manager flag allowing this one credit sale to exceed the customer's credit limit
+  serviceChargeApplied?: boolean; // Service charge (v1.0.22): explicit per-sale opt-in — used only when the stored config does not auto-apply; the amount is always computed server-side from the config
+  serviceChargeOptOut?: boolean; // Service charge (v1.0.22): explicit per-sale opt-out — always wins over the config
   channel?: string | null; // Online store (Wave C5 — gap item 5) + gift cards / eWallet + kiosk (Wave C9 — gap item 9) + sales-channel imports (Shopify/Daraz/WooCommerce): POS (default, all history) | ONLINE_STORE (customer order from the branch storefront) | KIOSK (in-store self-ordering order, pay at counter) | 'shopify' | 'daraz' | 'woocommerce' (imported vendor order)
   deliveryAddress?: string | null; // Online store: delivery address for ONLINE_STORE sales
   deliveryPhone?: string | null; // Online store: customer phone for ONLINE_STORE sales

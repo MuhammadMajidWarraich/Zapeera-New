@@ -8,6 +8,7 @@ import { recordLoyaltyTransaction, loyaltyPointsEarnedForSale } from '../utils/l
 import { enqueueFbrCreditNote, attemptImmediateFbr } from '../services/fbr.service';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { planRefundRestock } from '../utils/fefo.util';
+import { logAuditEvent } from '../services/audit-log.service';
 import Joi from 'joi';
 
 // Utility function to convert BigInt, Decimal, and Date values to strings for JSON serialization
@@ -734,6 +735,19 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
     enqueueFbrCreditNote(prisma, result.refund.id)
       .then(row => { if (row) attemptImmediateFbr(row.id); })
       .catch(err => console.error('[FBR] credit-note enqueue failed (refund unaffected):', err.message));
+
+    // Audit trail (v1.0.22): fire-and-forget, never blocks the refund.
+    void logAuditEvent({
+      companyId: originalSale?.companyId || '',
+      branchId: originalSale?.branchId || null,
+      userId: req.user?.id || null,
+      userName: (req.user as any)?.name || null,
+      action: 'REFUND_CREATE',
+      entityType: 'Refund',
+      entityId: result.refund.id,
+      description: `Refund of PKR ${Number(result.refund.refundAmount || 0).toFixed(2)} on sale ${originalSale?.invoiceNumber || result.refund.originalSaleId}`,
+      metadata: { refundId: result.refund.id, originalSaleId: result.refund.originalSaleId, refundAmount: result.refund.refundAmount },
+    });
 
     res.status(201).json({
       success: true,

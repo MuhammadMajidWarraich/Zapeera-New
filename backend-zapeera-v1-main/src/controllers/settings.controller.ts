@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { logAuditEvent } from '../services/audit-log.service';
 import Joi from 'joi';
 
 const updateSettingsSchema = Joi.object({
@@ -196,6 +197,29 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
           }
         });
       }
+    });
+
+    // Audit trail (v1.0.22): fire-and-forget. Settings are keyed
+    // by the admin, not by a business, so the entry scopes to the
+    // currently selected business when one is in context — and is
+    // skipped (by the writer) when none is. Only the changed KEYS
+    // are recorded, never the values.
+    void logAuditEvent({
+      companyId:
+        req.membership?.business_id ||
+        req.business_id ||
+        (req.headers['x-company-id'] as string) ||
+        (req.headers['x-business-id'] as string) ||
+        req.user?.selectedCompanyId ||
+        req.user?.companyId ||
+        '',
+      userId: req.user?.id || null,
+      userName: (req.user as any)?.name || null,
+      action: 'SETTINGS_CHANGE',
+      entityType: 'Settings',
+      entityId: null,
+      description: `Settings changed: ${Object.keys(settingsData).join(', ')}`,
+      metadata: { changedKeys: Object.keys(settingsData) },
     });
 
     res.json({

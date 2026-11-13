@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
 import { completionAdjustments, lineVariance, summarizeStockTake } from '../utils/stock-take.util';
+import { logAuditEvent } from '../services/audit-log.service';
 
 // ─── Stock-takes (Wave C6 — Retail pack) ─────────────────────────────
 // A formal physical count of one branch. The session is OPEN while
@@ -343,6 +344,20 @@ export const completeStockTake = async (req: AuthRequest, res: Response) => {
         data: { status: 'COMPLETED', completedBy, completedAt: new Date() },
         include: { lines: { include: lineInclude, orderBy: { createdAt: 'asc' } } }
       });
+    });
+
+    // Audit trail (v1.0.22): fire-and-forget — the stock-take
+    // completion is the canonical stock adjustment.
+    void logAuditEvent({
+      companyId,
+      branchId: take.branchId || null,
+      userId: completedBy,
+      userName: (req.user as any)?.name || null,
+      action: 'STOCK_ADJUST',
+      entityType: 'StockTake',
+      entityId: take.id,
+      description: `Stock-take completed — ${adjustments.length} batch(es) adjusted`,
+      metadata: { stockTakeId: take.id, adjustedBatches: adjustments.length, countedLines: countedLines.length },
     });
 
     return res.json({

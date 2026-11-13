@@ -12,6 +12,8 @@ import { getLoyaltyPointValue, recordLoyaltyTransaction, loyaltyPointsEarnedForS
 import { evaluatePromotions, normalizeCouponCode, resolveCouponPromotion, PromoLineInput, PromotionEvaluation } from '../utils/promotion.util';
 import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, TaxGroup } from '../utils/tax.util';
 import { computeProvincialTax, resolveProvincialTaxConfig, serializeProvincialTaxBreakdown, ProvincialTaxLine } from '../utils/provincial-tax.util';
+import { computeServiceCharge, resolveServiceChargeConfig } from '../utils/service-charge.util';
+import { logAuditEvent } from '../services/audit-log.service';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { appendControlledDispenseEntries, ControlledDispenseLineInput } from '../services/controlled-medicines.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
@@ -121,6 +123,14 @@ const createSaleSchema = Joi.object({
   // credit limit. Without it an over-limit credit sale is blocked
   // (402 CREDIT_LIMIT_EXCEEDED). Cashiers cannot override.
   creditLimitOverride: Joi.boolean().optional(),
+  // Service charge (v1.0.22): the ONLY service-charge inputs a
+  // client may send are these two toggles. The amount is always
+  // computed server-side from the stored per-business/branch config
+  // (the promotions rule) — there is deliberately no client-sent
+  // service-charge amount anywhere in this schema. optOut wins over
+  // the config; applied opts in when the config does not auto-apply.
+  serviceChargeApplied: Joi.boolean().optional(),
+  serviceChargeOptOut: Joi.boolean().optional(),
   // Channel (converged: gap items 5/9 + sales-channel imports):
   // POS / ONLINE_STORE / KIOSK for counter, storefront and kiosk
   // sales; 'shopify' / 'daraz' / 'woocommerce' for imported vendor
@@ -1165,7 +1175,53 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         }
       }
     }
-    const totalAmount = subtotalAfterDiscount + taxAmount + provincialTaxAmount;
+    // Service charge (v1.0.22): a configurable POS charge on the
+    // SAME post-discount base as tax, added to the total AFTER tax —
+    // tax is never computed on it, so taxAmount / SaleTaxLine rows
+    // (and therefore FBR payloads) stay byte-identical. The branch
+    // row wins, else the business row; no config (or a disabled one)
+    // → 0, so the invoice is byte-identical to today. A failure
+    // resolving the config never fails the sale (the FBR/provincial
+    // pattern): it logs and the sale proceeds without the charge.
+    let serviceChargeAmount = 0;
+    let serviceChargeType: string | null = null;
+    let serviceChargePercentage: number | null = null;
+    {
+      let scCompanyId: string | null = null;
+      let scBranchId: string | null = null;
+      if (req.user?.selectedCompanyId && req.user?.selectedBranchId) {
+        scCompanyId = req.user.selectedCompanyId;
+        scBranchId = req.user.selectedBranchId;
+      } else if (saleData.branchId) {
+        const scBranchRow = await prisma.branch.findUnique({
+          where: { id: saleData.branchId },
+          select: { companyId: true }
+        });
+        scCompanyId = scBranchRow?.companyId || null;
+        scBranchId = saleData.branchId;
+      }
+      if (scCompanyId) {
+        try {
+          const scConfigs = await prisma.serviceChargeConfig.findMany({
+            where: { companyId: scCompanyId }
+          });
+          const scResult = computeServiceCharge(
+            subtotalAfterDiscount,
+            resolveServiceChargeConfig(scConfigs, scBranchId),
+            { applied: saleData.serviceChargeApplied, optOut: saleData.serviceChargeOptOut }
+          );
+          serviceChargeAmount = scResult.amount;
+          serviceChargeType = scResult.type;
+          serviceChargePercentage = scResult.percentage;
+        } catch (serviceChargeError) {
+          console.warn('Could not compute service charge, skipping:', serviceChargeError);
+          serviceChargeAmount = 0;
+          serviceChargeType = null;
+          serviceChargePercentage = null;
+        }
+      }
+    }
+    const totalAmount = subtotalAfterDiscount + taxAmount + provincialTaxAmount + serviceChargeAmount;
 
     // Points this sale earns — the long-standing rule, unchanged:
     // 1 point per full PKR 100 of the FINAL total (so a redemption
@@ -1606,6 +1662,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
           subtotal,
           taxAmount,
           provincialTaxAmount,
+          // Service charge (v1.0.22): computed above from the stored
+          // config; null type/percentage when no charge applied.
+          serviceChargeAmount,
+          serviceChargeType,
+          serviceChargePercentage,
           discountAmount: discountAmount,
           discountPercentage: saleData.discountPercentage || 0,
           // Loyalty (Wave B3): redemption facts + points earned, so
@@ -1669,6 +1730,11 @@ export const createSale = async (req: AuthRequest, res: Response) => {
               subtotal,
               taxAmount,
               provincialTaxAmount,
+              // Service charge (v1.0.22): same values as the first
+              // attempt above.
+              serviceChargeAmount,
+              serviceChargeType,
+              serviceChargePercentage,
               discountAmount: discountAmount,
               discountPercentage: saleData.discountPercentage || 0,
               loyaltyPointsRedeemed: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : null,
@@ -2635,6 +2701,19 @@ export const createSale = async (req: AuthRequest, res: Response) => {
       attemptImmediateFbr(fbrRow.id);
     }
 
+    // Audit trail (v1.0.22): fire-and-forget, never blocks the sale.
+    void logAuditEvent({
+      companyId: completeSale.companyId,
+      branchId: completeSale.branchId,
+      userId: req.user?.id || null,
+      userName: (req.user as any)?.name || null,
+      action: 'SALE_CREATE',
+      entityType: 'Sale',
+      entityId: completeSale.id,
+      description: `Sale ${completeSale.invoiceNumber || completeSale.id} created — PKR ${Number(completeSale.totalAmount || 0).toFixed(2)}`,
+      metadata: { saleId: completeSale.id, invoiceNumber: completeSale.invoiceNumber, totalAmount: completeSale.totalAmount, serviceChargeAmount: (completeSale as any).serviceChargeAmount ?? 0 },
+    });
+
     return res.status(201).json({
       success: true,
       data: {
@@ -2664,6 +2743,9 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         // behind provincialTaxAmount (empty when no config applied).
         provincialTaxBreakdown: serializeProvincialTaxBreakdown(completeSale),
         provincialTaxAmount: completeSale.provincialTaxAmount ?? 0,
+        // Service charge (v1.0.22): the stored charge as a plain
+        // number (the type/percentage ride along in the spread).
+        serviceChargeAmount: (completeSale as any).serviceChargeAmount ?? 0,
         // FBR POS (Wave B7): fiscal status at response time (the
         // number itself is filled in asynchronously by the worker).
         fbrStatus,
@@ -2877,7 +2959,14 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
         console.warn('Could not recompute provincial tax for sale update, keeping stored value:', provincialTaxError);
         newProvincialTaxGroups = null;
       }
-      newTotalAmount = subtotalAfterDiscount + newTaxAmount + newProvincialTaxAmount;
+      // Service charge (v1.0.22): the stored charge is a component
+      // of the sale's total exactly like the stored loyalty and
+      // promotion discounts, so the recompute keeps it — dropping it
+      // would silently re-bill (or under-bill) the customer. It is
+      // NOT recomputed from the current config: the per-sale toggle
+      // the cashier chose is not stored as a flag, so recomputing
+      // could resurrect a charge the cashier opted out of.
+      newTotalAmount = subtotalAfterDiscount + newTaxAmount + newProvincialTaxAmount + Number((existingSale as any).serviceChargeAmount || 0);
     }
 
     // Determine new payment status and sale status
@@ -3008,6 +3097,7 @@ export const updateSale = async (req: AuthRequest, res: Response) => {
       subtotal: Number(updatedSale.subtotal),
       taxAmount: Number(updatedSale.taxAmount),
       provincialTaxAmount: Number((updatedSale as any).provincialTaxAmount || 0),
+      serviceChargeAmount: Number((updatedSale as any).serviceChargeAmount || 0),
       discountAmount: Number(updatedSale.discountAmount),
       discountPercentage: updatedSale.discountPercentage ? Number(updatedSale.discountPercentage) : null,
       totalAmount: Number(updatedSale.totalAmount),
@@ -3396,6 +3486,20 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('sale', 'delete', existingSale).catch(err => {
       console.error('[Sync] Sale delete sync failed:', err.message);
+    });
+
+    // Audit trail (v1.0.22): fire-and-forget. The sale row is gone,
+    // so the entry keeps the invoice number readable in the note.
+    void logAuditEvent({
+      companyId: existingSale.companyId,
+      branchId: existingSale.branchId,
+      userId: req.user?.id || null,
+      userName: (req.user as any)?.name || null,
+      action: 'SALE_DELETE',
+      entityType: 'Sale',
+      entityId: id,
+      description: `Sale ${existingSale.invoiceNumber || id} deleted — PKR ${Number(existingSale.totalAmount || 0).toFixed(2)}`,
+      metadata: { saleId: id, invoiceNumber: existingSale.invoiceNumber, totalAmount: existingSale.totalAmount },
     });
 
     return res.json({

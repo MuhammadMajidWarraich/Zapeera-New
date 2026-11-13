@@ -5,6 +5,7 @@ import { isBusinessCreator } from '../utils/membership-bridge.util';
 import { ROLE_PERMISSIONS, getRolePermissions as getRolePermissionsConfig, getAccessibleResources as getAccessibleResourcesConfig, getAllowedActions as getAllowedActionsConfig, hasPermission } from '../config/permissions';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { logAuditEvent } from '../services/audit-log.service';
 
 // Get all available roles and their permissions
 export const getRoles = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -310,6 +311,18 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
     // 🔄 IMMEDIATE BIDIRECTIONAL SYNC
     syncAfterOperation('membership', 'update', updatedMembership).catch(err => {
       console.error('[Sync] Membership role update sync failed:', err.message);
+    });
+
+    // Audit trail (v1.0.22): fire-and-forget.
+    void logAuditEvent({
+      companyId: businessId,
+      userId: req.user?.id || null,
+      userName: (req.user as any)?.name || null,
+      action: 'ROLE_CHANGE',
+      entityType: 'Membership',
+      entityId: updatedMembership.id,
+      description: `Staff member role changed to ${role}`,
+      metadata: { membershipId: updatedMembership.id, targetUserId: userId, newRole: role },
     });
 
     res.json({
