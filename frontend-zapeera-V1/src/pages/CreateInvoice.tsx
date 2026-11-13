@@ -5633,9 +5633,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     className="mt-1.5 h-[52px] w-full rounded-[12px] text-base font-bold shadow-medium transition-all hover:-translate-y-0.5 hover:shadow-strong disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none md:mt-2"
                   >
                     <Receipt className="mr-2 h-5 w-5" />
-                    {invoiceItems.length > 0
-                      ? `Proceed to Payment • PKR ${mainTotalAfterLoyalty.toFixed(2)}`
-                      : "Proceed to Payment"}
+                    Proceed to Payment
                     <Kbd className="ml-2 border-white/25 bg-white/15 text-white">Ctrl+Enter</Kbd>
                   </Button>
                 </div>
