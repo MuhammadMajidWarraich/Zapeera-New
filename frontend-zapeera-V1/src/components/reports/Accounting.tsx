@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   BookOpenCheck, RefreshCw, Printer, TrendingUp, TrendingDown,
-  Wallet, Users, Truck, AlertTriangle,
+  Wallet, Users, Truck, AlertTriangle, Scale,
 } from "lucide-react";
 import { apiService } from "@/services/api";
 import { useAdmin } from "@/contexts/useAdmin";
@@ -77,6 +77,9 @@ const Accounting = () => {
   const [cashbook, setCashbook] = useState<any>(null);
   const [ageing, setAgeing] = useState<any>(null);
   const [payables, setPayables] = useState<any>(null);
+  // Derived financial position (v1.0.22): point-in-time, so it takes
+  // scope only, no period — like ageing and payables.
+  const [position, setPosition] = useState<any>(null);
 
   const fetchAll = useCallback(async () => {
     if (!selectedCompanyId) return;
@@ -86,19 +89,21 @@ const Accounting = () => {
       if (selectedBranchId) scopeParams.branchId = selectedBranchId;
       const periodParams = { ...scopeParams, period };
 
-      const [pnlRes, cmpRes, cashRes, ageRes, payRes] = await Promise.all([
+      const [pnlRes, cmpRes, cashRes, ageRes, payRes, posRes] = await Promise.all([
         apiService.getAccountingPnl(periodParams),
         apiService.getPnlComparison(periodParams),
         apiService.getCashbook(periodParams),
         apiService.getReceivablesAgeing(scopeParams),
         apiService.getPayables(scopeParams),
+        apiService.getFinancialPosition(scopeParams),
       ]);
       if (pnlRes.success) setPnl(pnlRes.data);
       if (cmpRes.success) setPnlCompare(cmpRes.data);
       if (cashRes.success) setCashbook(cashRes.data);
       if (ageRes.success) setAgeing(ageRes.data);
       if (payRes.success) setPayables(payRes.data);
-      if (!pnlRes.success || !cashRes.success || !ageRes.success || !payRes.success) {
+      if (posRes.success) setPosition(posRes.data);
+      if (!pnlRes.success || !cashRes.success || !ageRes.success || !payRes.success || !posRes.success) {
         toast({ title: "Error", description: "Some accounting figures failed to load", variant: "destructive" });
       }
     } catch (err: any) {
@@ -275,6 +280,121 @@ const Accounting = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* ─── Financial Position — derived balance sheet + trial balance (v1.0.22) ─── */}
+      {/* Zapeera has no double-entry ledger, so this is a DERIVED position
+          built from real inventory, khata, bank, purchase, gift-card,
+          wallet and cumulative P&L figures. The unreconciled difference
+          is shown, never plugged. Point-in-time: the period selector
+          above does not apply. */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="print:shadow-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" /> Balance Sheet (Derived)
+              {position && <span className="text-sm font-normal text-muted-foreground">as of {formatDate(position.asOf)}</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!position ? (
+              <p className="text-muted-foreground">{loading ? "Loading…" : "No data"}</p>
+            ) : (
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h4 className="mb-1 font-semibold">Assets</h4>
+                  {position.assets.lines.map((line: any) => (
+                    <StatementRow key={line.label} label={line.label} value={line.amount} />
+                  ))}
+                  <div className="flex items-center justify-between border-t pt-2 font-bold">
+                    <span>Total assets</span>
+                    <span>{formatPKR(position.assets.total)}</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-1 font-semibold">Liabilities</h4>
+                  {position.liabilities.lines.map((line: any) => (
+                    <StatementRow key={line.label} label={line.label} value={line.amount} />
+                  ))}
+                  <div className="flex items-center justify-between border-t pt-2 font-bold">
+                    <span>Total liabilities</span>
+                    <span>{formatPKR(position.liabilities.total)}</span>
+                  </div>
+                </div>
+                <StatementRow label="Retained profit (system-era cumulative net profit)" value={position.retainedProfit} bold />
+                <div className="flex items-center justify-between rounded-md bg-amber-50 px-3 py-2 font-semibold text-amber-800">
+                  <span>Unreconciled difference (shown, never plugged)</span>
+                  <span>{formatPKR(position.unreconciledDifference)}</span>
+                </div>
+                {position.unknownCostLines > 0 && (
+                  <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                    {position.unknownCostLines} cumulative sale line(s) have no batch cost on record, so the
+                    retained-profit figure understates cost for those lines.
+                  </p>
+                )}
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Derived from real records — not a double-entry ledger. Inventory is valued at batch
+                  purchase cost; bank figures come from entered statements and opening balances.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="print:shadow-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" /> Trial Balance (Derived)
+              {position && <span className="text-sm font-normal text-muted-foreground">all history to {formatDate(position.asOf)}</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!position ? (
+              <p className="text-muted-foreground">{loading ? "Loading…" : "No data"}</p>
+            ) : (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="text-right">Debit</TableHead>
+                      <TableHead className="text-right">Credit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {position.trialBalance.rows.map((row: any) => (
+                      <TableRow key={row.account}>
+                        <TableCell>
+                          {row.account}
+                          <span className="block text-xs text-muted-foreground">{row.source}</span>
+                        </TableCell>
+                        <TableCell className="text-right">{row.debit ? formatPKR(row.debit) : "—"}</TableCell>
+                        <TableCell className="text-right">{row.credit ? formatPKR(row.credit) : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold">
+                      <TableCell>Totals</TableCell>
+                      <TableCell className="text-right">{formatPKR(position.trialBalance.totalDebits)}</TableCell>
+                      <TableCell className="text-right">{formatPKR(position.trialBalance.totalCredits)}</TableCell>
+                    </TableRow>
+                    <TableRow className="font-semibold text-amber-800">
+                      <TableCell>Difference (debits − credits)</TableCell>
+                      <TableCell className="text-right" colSpan={2}>{formatPKR(position.trialBalance.difference)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+                <div>
+                  <h4 className="mb-1 text-sm font-semibold">Why the books do not balance</h4>
+                  <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
+                    {position.gaps.map((gap: string) => (
+                      <li key={gap}>{gap}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ─── Bank Reconciliation (Item 8) ─── */}
       <BankReconciliation />
