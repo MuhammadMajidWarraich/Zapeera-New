@@ -280,3 +280,116 @@ export function comparePnl(current: PnlStatement, previous: PnlStatement): PnlCo
     netProfit: delta(current.netProfit, previous.netProfit),
   };
 }
+
+// ─── Financial position (v1.0.22 — derived, NOT a double-entry GL) ───
+// Zapeera has no chart of accounts and no debit/credit postings, so a
+// true trial balance / balance sheet cannot be built from real data.
+// What CAN be built honestly is a position summary whose every line
+// traces to an operational aggregate (batches, khata ledger,
+// purchases, gift-card/wallet ledgers, bank statements, cumulative
+// P&L). The summary NEVER plugs equity: the unreconciled difference
+// (assets − liabilities − system-era retained profit) is shown
+// explicitly, with the list of untracked areas, so the reader sees
+// exactly what is missing instead of a forced balance. The
+// trial-balance presentation below lists the same derived accounts
+// debit/credit-style over ALL history (cumulative flows + as-of
+// stocks); its difference equals the unreconciled difference by
+// construction, and it is labelled as derived everywhere it renders.
+
+export interface PositionInputs {
+  /** Σ active Batch.quantity × Batch.purchasePrice. */
+  inventoryAtCost: number;
+  /** Σ positive per-customer khata balances. */
+  receivables: number;
+  /** Σ latest statement closing balances (accounts with a statement). */
+  bankStatementBacked: number;
+  /** Σ opening balances (accounts with NO statement on file). */
+  bankOpeningOnly: number;
+  /** Σ Purchase.outstanding (> 0, not CANCELLED). */
+  payables: number;
+  /** Σ |negative per-customer khata balances| (store credit owed). */
+  customerAdvances: number;
+  /** Σ ACTIVE GiftCard.balance. */
+  giftCardLiability: number;
+  /** Σ CustomerWallet.balance. */
+  walletLiability: number;
+  /** Cumulative P&L over all history (same definitions as computePnl). */
+  cumulative: PnlStatement;
+}
+
+export interface PositionLine {
+  label: string;
+  amount: number;
+  /** Where the figure comes from, in plain words. */
+  source: string;
+}
+
+export interface TrialBalanceRow {
+  account: string;
+  debit: number;
+  credit: number;
+  source: string;
+}
+
+export interface PositionSummary {
+  assets: { lines: PositionLine[]; total: number };
+  liabilities: { lines: PositionLine[]; total: number };
+  /** System-era retained profit = cumulative net profit. Excludes all pre-system history. */
+  retainedProfit: number;
+  /** Assets − liabilities − retained profit. Shown, never plugged. */
+  unreconciledDifference: number;
+  trialBalance: { rows: TrialBalanceRow[]; totalDebits: number; totalCredits: number; difference: number };
+  /** Areas Zapeera does not track — the reason the books do not balance. */
+  gaps: string[];
+}
+
+export const POSITION_GAPS: string[] = [
+  'Cash on hand is not tracked (no cash account or opening cash) — excluded.',
+  'Owner capital, contributions and drawings are not recorded — no equity accounts exist.',
+  'Fixed assets, depreciation and loans/borrowings are not recorded.',
+  'Tax collected is known, but tax payments/remittances are not recorded — no tax payable is stated.',
+  'No opening balances except bank accounts — supplier/customer history starts at go-live.',
+  'Inventory and bank figures are as-of now only; past dates cannot be reconstructed.',
+];
+
+export function buildPositionSummary(i: PositionInputs): PositionSummary {
+  const assetLines: PositionLine[] = [
+    { label: 'Inventory at cost', amount: round2(i.inventoryAtCost), source: 'Active batches × purchase price' },
+    { label: 'Trade receivables (khata dues)', amount: round2(i.receivables), source: 'Customer ledger balances owed' },
+    { label: 'Bank balances (per latest statement)', amount: round2(i.bankStatementBacked), source: 'Latest statement closing balance per account' },
+    { label: 'Bank balances (opening balance only, no statement)', amount: round2(i.bankOpeningOnly), source: 'Bank account opening balance — unconfirmed by a statement' },
+  ];
+  const liabilityLines: PositionLine[] = [
+    { label: 'Trade payables (supplier outstanding)', amount: round2(i.payables), source: 'Unpaid purchase balances' },
+    { label: 'Customer advances (store credit owed)', amount: round2(i.customerAdvances), source: 'Customer ledger overpayments' },
+    { label: 'Outstanding gift cards', amount: round2(i.giftCardLiability), source: 'Active gift-card balances' },
+    { label: 'Customer wallet balances', amount: round2(i.walletLiability), source: 'Stored-value wallet balances' },
+  ];
+  const totalAssets = round2(assetLines.reduce((s, l) => s + l.amount, 0));
+  const totalLiabilities = round2(liabilityLines.reduce((s, l) => s + l.amount, 0));
+  const retainedProfit = round2(i.cumulative.netProfit);
+  const unreconciledDifference = round2(totalAssets - totalLiabilities - retainedProfit);
+
+  const rows: TrialBalanceRow[] = [
+    { account: 'Inventory at cost', debit: round2(i.inventoryAtCost), credit: 0, source: 'Active batches × purchase price' },
+    { account: 'Trade receivables', debit: round2(i.receivables), credit: 0, source: 'Customer ledger balances owed' },
+    { account: 'Bank balances', debit: round2(i.bankStatementBacked + i.bankOpeningOnly), credit: 0, source: 'Statements + opening balances' },
+    { account: 'Cost of goods sold (all history)', debit: round2(i.cumulative.cogs.net), credit: 0, source: 'Batch-cost COGS, net of refund reversals' },
+    { account: 'Expenses (all history)', debit: round2(i.cumulative.expenses), credit: 0, source: 'Recorded expenses' },
+    { account: 'Trade payables', debit: 0, credit: round2(i.payables), source: 'Unpaid purchase balances' },
+    { account: 'Customer advances', debit: 0, credit: round2(i.customerAdvances), source: 'Customer ledger overpayments' },
+    { account: 'Gift-card liability', debit: 0, credit: round2(i.giftCardLiability), source: 'Active gift-card balances' },
+    { account: 'Wallet liability', debit: 0, credit: round2(i.walletLiability), source: 'Stored-value wallet balances' },
+    { account: 'Net revenue (all history)', debit: 0, credit: round2(i.cumulative.revenue.net), source: 'Sales net of refunds' },
+  ];
+  const totalDebits = round2(rows.reduce((s, r) => s + r.debit, 0));
+  const totalCredits = round2(rows.reduce((s, r) => s + r.credit, 0));
+  return {
+    assets: { lines: assetLines, total: totalAssets },
+    liabilities: { lines: liabilityLines, total: totalLiabilities },
+    retainedProfit,
+    unreconciledDifference,
+    trialBalance: { rows, totalDebits, totalCredits, difference: round2(totalDebits - totalCredits) },
+    gaps: [...POSITION_GAPS],
+  };
+}
