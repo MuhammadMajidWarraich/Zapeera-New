@@ -69,6 +69,9 @@ const TABS: TabConfig[] = [
   { key: "product", label: "Product Performance", icon: BarChart3 },
   { key: "turnover", label: "Inventory Turnover", icon: PieChartIcon },
   { key: "daily", label: "Daily Sales Trends", icon: Calendar },
+  // v1.0.22 depth fixes: basket size + comparison matrices
+  { key: "basket", label: "Basket Size", icon: ShoppingCart },
+  { key: "matrix", label: "Comparison Matrix", icon: BarChart3 },
 ];
 
 const AdvancedReports = () => {
@@ -78,6 +81,10 @@ const AdvancedReports = () => {
   const [period, setPeriod] = useState("today");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Record<string, any>>({});
+  // Comparison matrix (v1.0.22): kind/dimension selectors. They join
+  // fetchReport's deps so changing one refetches the matrix.
+  const [matrixKind, setMatrixKind] = useState("sales");
+  const [matrixDimension, setMatrixDimension] = useState("category");
 
   const fetchReport = useCallback(async (tab: string) => {
     if (!selectedCompanyId) return;
@@ -166,6 +173,12 @@ const AdvancedReports = () => {
         case "daily":
           response = await apiService.getAdvancedDailyReport?.(params) || { success: true, data: {} };
           break;
+        case "basket":
+          response = await apiService.getBasketSize(params);
+          break;
+        case "matrix":
+          response = await apiService.getComparisonMatrix({ ...params, kind: matrixKind, dimension: matrixDimension });
+          break;
         default:
           response = { success: true, data: {} };
       }
@@ -180,7 +193,7 @@ const AdvancedReports = () => {
     } finally {
       setLoading(false);
     }
-  }, [period, selectedBranchId, selectedCompanyId]);
+  }, [period, selectedBranchId, selectedCompanyId, matrixKind, matrixDimension]);
 
   useEffect(() => {
     fetchReport(activeTab);
@@ -1175,6 +1188,149 @@ const AdvancedReports = () => {
     );
   };
 
+  // ─── Basket size (v1.0.22) ────────────────────────────────────────
+  // Average bill value = total sales / bill count. Refunded bills are
+  // excluded by the server. Service-charge totals are shown separately
+  // (they are part of the bill total, not added on top of it).
+  const renderBasketTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const o = d.overall || {};
+    const byBranch = d.byBranch || [];
+    const byDay = (d.byDay || []).map((r: any) => ({ ...r, day: r.date }));
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard label="Average Bill Value" value={formatPKR(o.averageBillValue || 0)} icon={ShoppingCart} tone="green" />
+          <SummaryCard label="Total Sales" value={formatPKR(o.totalSales || 0)} icon={DollarSign} tone="blue" />
+          <SummaryCard label="Bill Count" value={o.billCount || 0} icon={Receipt} tone="purple" />
+          <SummaryCard label="Service Charge Collected" value={formatPKR(o.serviceChargeTotal || 0)} icon={Percent} tone="amber" />
+        </div>
+        {byBranch.length > 0 && (
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">By Branch (all branches)</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Branch</TableHead>
+                    <TableHead className="text-right">Bills</TableHead>
+                    <TableHead className="text-right">Total sales</TableHead>
+                    <TableHead className="text-right">Avg bill value</TableHead>
+                    <TableHead className="text-right">Service charge</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byBranch.map((b: any) => (
+                    <TableRow key={b.branchId}>
+                      <TableCell className="font-medium">{b.branchName}</TableCell>
+                      <TableCell className="text-right">{b.billCount}</TableCell>
+                      <TableCell className="text-right">{formatPKR(b.totalSales)}</TableCell>
+                      <TableCell className="text-right">{formatPKR(b.averageBillValue)}</TableCell>
+                      <TableCell className="text-right">{formatPKR(b.serviceChargeTotal)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Average Bill Value by Day</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={byDay}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
+                  <Tooltip formatter={(v: any, name: any) => [formatPKR(v), name === "averageBillValue" ? "Avg bill" : name]} />
+                  <Bar dataKey="averageBillValue" name="Avg bill" fill="#007bff" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  // ─── Comparison matrix (v1.0.22) ────────────────────────────────────
+  // Current vs previous equal-length period, grouped by category or
+  // supplier — the dimensions that exist. Brand/department do not
+  // exist in the data model, so they are not offered.
+  const renderMatrixTab = () => {
+    const d = currentData;
+    if (!d) return <div className="p-8 text-center text-slate-400">No data available</div>;
+    const rows = d.rows || [];
+    const t = d.totals || { current: { amount: 0, count: 0 }, previous: { amount: 0, count: 0 }, change: 0, pctChange: null };
+    const fmtPct = (v: number | null) => (v === null || v === undefined ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={matrixKind} onValueChange={setMatrixKind}>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sales">Sales</SelectItem>
+              <SelectItem value="purchases">Purchases</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={matrixDimension} onValueChange={setMatrixDimension}>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="category">By category</SelectItem>
+              <SelectItem value="supplier">By supplier</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-slate-500">
+            Current period vs the equal-length previous period. Brand and department breakdowns
+            are not available — products carry no brand and departments do not exist in Zapeera.
+          </p>
+        </div>
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-slate-700">Comparison Matrix</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{matrixDimension === "category" ? "Category" : "Supplier"}</TableHead>
+                  <TableHead className="text-right">Current</TableHead>
+                  <TableHead className="text-right">Previous</TableHead>
+                  <TableHead className="text-right">Change</TableHead>
+                  <TableHead className="text-right">Change %</TableHead>
+                  <TableHead className="text-right">Lines (cur / prev)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-slate-400">No lines in either period</TableCell></TableRow>
+                )}
+                {rows.map((r: any) => (
+                  <TableRow key={r.dimensionId || r.dimensionName}>
+                    <TableCell className="font-medium">{r.dimensionName}</TableCell>
+                    <TableCell className="text-right">{formatPKR(r.current.amount)}</TableCell>
+                    <TableCell className="text-right">{formatPKR(r.previous.amount)}</TableCell>
+                    <TableCell className={`text-right ${r.change >= 0 ? "text-green-600" : "text-red-600"}`}>{formatPKR(r.change)}</TableCell>
+                    <TableCell className={`text-right ${r.pctChange === null ? "" : r.pctChange >= 0 ? "text-green-600" : "text-red-600"}`}>{fmtPct(r.pctChange)}</TableCell>
+                    <TableCell className="text-right">{r.current.count} / {r.previous.count}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-bold">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-right">{formatPKR(t.current.amount)}</TableCell>
+                  <TableCell className="text-right">{formatPKR(t.previous.amount)}</TableCell>
+                  <TableCell className={`text-right ${t.change >= 0 ? "text-green-600" : "text-red-600"}`}>{formatPKR(t.change)}</TableCell>
+                  <TableCell className={`text-right ${t.pctChange === null ? "" : t.pctChange >= 0 ? "text-green-600" : "text-red-600"}`}>{fmtPct(t.pctChange)}</TableCell>
+                  <TableCell className="text-right">{t.current.count} / {t.previous.count}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
   const renderActiveTab = () => {
     if (loading) {
       return (
@@ -1220,6 +1376,8 @@ const AdvancedReports = () => {
       case "product": return renderProductTab();
       case "turnover": return renderTurnoverTab();
       case "daily": return renderDailyTab();
+      case "basket": return renderBasketTab();
+      case "matrix": return renderMatrixTab();
       default: return <div className="p-8 text-center text-slate-400">Report coming soon</div>;
     }
   };
