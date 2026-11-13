@@ -56,6 +56,9 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/categories': { module: 'inventory', page: 'categories' },
   '/api/suppliers': { module: 'inventory', page: 'suppliers' },
   '/api/manufacturers': { module: 'inventory', page: 'manufacturers' },
+  // Wastage / damage recording (v1.0.22): a stock write-off surface,
+  // so it rides the inventory overview page (transfers precedent).
+  '/api/wastage': { module: 'inventory', page: 'overview' },
 
   // Sales & POS
   '/api/sales': { module: 'sales', page: 'invoices' },
@@ -67,6 +70,9 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   // sales.invoices page, the same precedent as tax classes / FBR
   // (which the registry maps to sales.invoices).
   '/api/provincial-tax': { module: 'sales', page: 'invoices' },
+  // Quotations/estimates (v1.0.22): pre-sale documents, so they
+  // share the sales.invoices page (provincial-tax precedent).
+  '/api/quotations': { module: 'sales', page: 'invoices' },
 
   // Purchases
   '/api/purchases': { module: 'purchases', page: 'order-purchase' },
@@ -84,12 +90,19 @@ export const MODULE_PAGE_ROUTE_MAP: Record<string, { module: string; page: strin
   '/api/reports': { module: 'reports', page: 'reports' },
   // Controlled / narcotics register (Gap item 2): a reports-page surface.
   '/api/controlled-medicines': { module: 'reports', page: 'reports' },
+  // Audit trail (v1.0.22): a reports-page surface.
+  '/api/audit-logs': { module: 'reports', page: 'reports' },
 
   // Business Management (settings, roles, billing, admin)
   '/api/settings': { module: 'business_management', page: 'settings' },
   // Integrations framework: the UI lives in Settings, so it shares the
   // settings page key (same precedent as /api/settings above).
   '/api/integrations': { module: 'business_management', page: 'settings' },
+  // Receipt templates + POS service-charge config (v1.0.22): the UI
+  // lives in Settings, so both share the settings page key (same
+  // precedent as /api/integrations above).
+  '/api/receipt-templates': { module: 'business_management', page: 'settings' },
+  '/api/service-charges': { module: 'business_management', page: 'settings' },
   '/api/billing-profiles': { module: 'business_management', page: 'billing' },
   '/api/roles': { module: 'business_management', page: 'roles' },
   '/api/admin': { module: 'business_management', page: 'admin' },

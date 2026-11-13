@@ -161,6 +161,9 @@ const ENTRIES: RegistryEntry[] = [
   { prefix: '/api/shelves', policy: { kind: 'module', resourceKey: 'inventory.shelves' } },
   { prefix: '/api/batches', policy: { kind: 'module', resourceKey: 'inventory.batches' } },
   { prefix: '/api/transfers', policy: { kind: 'module', resourceKey: 'inventory.overview' } },
+  // Wastage / damage recording (v1.0.22): a stock write-off surface
+  // on the inventory overview key (transfers precedent).
+  { prefix: '/api/wastage', policy: { kind: 'module', resourceKey: 'inventory.overview' } },
   // Stock-take (Wave C6): its own module key in the Inventory family
   // (stock_takes.stock-takes) — a formal count is a manager-grade
   // register of its own, not a products sub-page.
@@ -198,6 +201,10 @@ const ENTRIES: RegistryEntry[] = [
   // share the same sales.invoices key on the same precedent; config
   // writes are additionally gated to OWNER in the controller.
   { prefix: '/api/provincial-tax', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
+  // Quotations/estimates (v1.0.22): pre-sale documents, so they share
+  // the sales.invoices key on the same precedent; the router
+  // additionally applies the sale permissions per operation.
+  { prefix: '/api/quotations', policy: { kind: 'module', resourceKey: 'sales.invoices' } },
   // FBR POS fiscal integration (Wave B7): fiscalizes invoices, so it
   // shares the sales.invoices key on the same precedent; config writes
   // and manual retries are additionally gated to OWNER/MANAGER in the
@@ -277,8 +284,18 @@ const ENTRIES: RegistryEntry[] = [
   // shares the reports.reports resource key (OWNER/MANAGER-only).
   { prefix: '/api/controlled-medicines', policy: { kind: 'module', resourceKey: 'reports.reports' } },
 
+  // ── Audit trail (v1.0.22) ───────────────────────────────────────────
+  // A report surface: the trail lives on the reports page, so it
+  // shares the reports.reports resource key. Read-only by design.
+  { prefix: '/api/audit-logs', policy: { kind: 'module', resourceKey: 'reports.reports' } },
+
   // ── Business management module ────────────────────────────────────────────
   { prefix: '/api/settings', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
+  // Receipt templates + POS service-charge config (v1.0.22): the UI
+  // lives in Settings, so both share the settings key on the same
+  // precedent as /api/integrations.
+  { prefix: '/api/receipt-templates', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
+  { prefix: '/api/service-charges', policy: { kind: 'module', resourceKey: 'business_management.settings' } },
   { prefix: '/api/billing-profiles', policy: { kind: 'module', resourceKey: 'business_management.billing' } },
   { prefix: '/api/roles', policy: { kind: 'module', resourceKey: 'business_management.roles' } },
   { prefix: '/api/admin', policy: { kind: 'module', resourceKey: 'business_management.admin' } },

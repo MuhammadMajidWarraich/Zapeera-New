@@ -109,6 +109,11 @@ import roomRoutes from './routes/room.routes';
 import reservationRoutes from './routes/reservation.routes';
 import folioRoutes from './routes/folio.routes';
 import stockTakeRoutes from './routes/stock-take.routes';
+import quotationRoutes from './routes/quotation.routes';
+import wastageRoutes from './routes/wastage.routes';
+import auditLogRoutes from './routes/audit-log.routes';
+import receiptTemplateRoutes from './routes/receipt-template.routes';
+import serviceChargeRoutes from './routes/service-charge.routes';
 import brandingRoutes from './routes/branding.routes';
 import partnerRoutes from './routes/partner.routes';
 import backupRoutes from './routes/backup.routes';
@@ -701,6 +706,13 @@ app.use('/api/v1/rooms', roomRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
 app.use('/api/v1/folios', folioRoutes);
 app.use('/api/v1/stock-takes', stockTakeRoutes);
+// v1.0.22 depth fixes: quotations, wastage, audit trail, receipt
+// templates, POS service charges.
+app.use('/api/v1/quotations', quotationRoutes);
+app.use('/api/v1/wastage', wastageRoutes);
+app.use('/api/v1/audit-logs', auditLogRoutes);
+app.use('/api/v1/receipt-templates', receiptTemplateRoutes);
+app.use('/api/v1/service-charges', serviceChargeRoutes);
 app.use('/api/v1/branding', brandingRoutes);
 app.use('/api/v1/partners', partnerRoutes);
 app.use('/api/v1/backup', backupRoutes);
@@ -778,6 +790,12 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/folios', folioRoutes);
 app.use('/api/stock-takes', stockTakeRoutes);
+// v1.0.22 depth fixes (same routers, unversioned prefix).
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/wastage', wastageRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/receipt-templates', receiptTemplateRoutes);
+app.use('/api/service-charges', serviceChargeRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/partners', partnerRoutes);
 app.use('/api/backup', backupRoutes);
