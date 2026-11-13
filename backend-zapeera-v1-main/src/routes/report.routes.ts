@@ -41,8 +41,13 @@ import {
   getPnlComparison,
   getReceivablesAgeing,
   getPayables,
-  getCashbook
+  getCashbook,
+  getFinancialPosition
 } from '../controllers/accounting-report.controller';
+import {
+  getBasketSize,
+  getComparisonMatrix
+} from '../controllers/comparison-report.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import {
   getSupplierAgingReport,
@@ -142,6 +147,14 @@ router.get('/accounting/pnl/compare', checkPermission('reports.read'), getPnlCom
 router.get('/accounting/receivables-ageing', checkPermission('reports.read'), getReceivablesAgeing);
 router.get('/accounting/payables', checkPermission('reports.read'), getPayables);
 router.get('/accounting/cashbook', checkPermission('reports.read'), getCashbook);
+// Derived trial balance + balance sheet (v1.0.22): same Finance Pack /
+// Growth+ gate as the rest of /accounting/* above.
+router.get('/accounting/position', checkPermission('reports.read'), getFinancialPosition);
+
+// Basket size + comparison matrices (v1.0.22): plain reports.read,
+// deliberately OUTSIDE the /advanced and /accounting add-on gates.
+router.get('/basket-size', checkPermission('reports.read'), getBasketSize);
+router.get('/comparison-matrix', checkPermission('reports.read'), getComparisonMatrix);
 
 // Bank reconciliation (Wave B — Item 8): accounts, statements, matching,
 // per-period reconciliation state. Same Finance Pack / Growth+ gate as

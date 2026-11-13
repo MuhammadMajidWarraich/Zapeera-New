@@ -10,6 +10,7 @@ import {
   mergeTenderRows,
   sumTenderRows,
   round2,
+  buildPositionSummary,
   TenderRow,
   PnlStatement,
 } from '../utils/accounting.util';
@@ -582,6 +583,132 @@ export const getCashbook = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('Cashbook error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// ─── GET /reports/accounting/position ────────────────────────────────
+// Item: trial balance + balance sheet (v1.0.22) — a DERIVED position
+// summary, point-in-time (as-of now), from real rows only. Zapeera
+// has no double-entry ledger, so a true trial balance cannot be
+// built: see the header of utils/accounting.util.ts for the exact
+// derivation, the identity, and the gaps. The response labels the
+// summary as derived and carries the gap list; the frontend renders
+// both. Branch scoping is strict: a single-branch view includes
+// only rows belonging to that branch (business-wide bank accounts,
+// branchId null, appear only in the all-branches view). The
+// cumulative P&L reuses buildPnlStatement over all history, so the
+// retained-profit figure uses the exact P&L definitions.
+
+export const getFinancialPosition = async (req: AuthRequest, res: Response) => {
+  try {
+    const prisma = await getPrisma();
+    const scope = resolveScope(req);
+    const asOf = new Date();
+
+    const scopeWhere: any = {};
+    if (scope.companyId) scopeWhere.companyId = scope.companyId;
+    if (scope.branchId) scopeWhere.branchId = scope.branchId;
+
+    const [
+      batches,
+      ledgerSums,
+      bankAccounts,
+      payablesAgg,
+      giftAgg,
+      walletAgg,
+      cumulative,
+    ] = await Promise.all([
+      prisma.batch.findMany({
+        where: { ...scopeWhere, isActive: true },
+        select: { quantity: true, purchasePrice: true },
+      }),
+      prisma.customerLedgerEntry.groupBy({
+        by: ['customerId'],
+        where: {
+          ...(scope.companyId ? { companyId: scope.companyId } : {}),
+          ...(scope.branchId ? { customer: { branchId: scope.branchId } } : {}),
+        },
+        _sum: { amount: true },
+      }),
+      prisma.bankAccount.findMany({
+        where: { ...scopeWhere, isActive: true },
+        select: {
+          id: true,
+          openingBalance: true,
+          statements: {
+            orderBy: [{ periodEnd: 'desc' }, { createdAt: 'desc' }],
+            take: 1,
+            select: { closingBalance: true },
+          },
+        },
+      }),
+      prisma.purchase.aggregate({
+        where: { ...scopeWhere, outstanding: { gt: 0 }, status: { not: 'CANCELLED' } },
+        _sum: { outstanding: true },
+      }),
+      prisma.giftCard.aggregate({
+        where: { ...scopeWhere, status: 'ACTIVE' },
+        _sum: { balance: true },
+      }),
+      prisma.customerWallet.aggregate({
+        where: {
+          ...(scope.companyId ? { companyId: scope.companyId } : {}),
+          ...(scope.branchId ? { customer: { branchId: scope.branchId } } : {}),
+        },
+        _sum: { balance: true },
+      }),
+      buildPnlStatement(prisma, scope, { gte: new Date(0), lte: asOf }),
+    ]);
+
+    const inventoryAtCost = (batches as any[]).reduce(
+      (sum, b) => sum + (Number(b.quantity) || 0) * (Number(b.purchasePrice) || 0),
+      0
+    );
+    let receivables = 0;
+    let customerAdvances = 0;
+    for (const g of ledgerSums as any[]) {
+      const balance = g._sum?.amount || 0;
+      if (balance > 0) receivables = round2(receivables + balance);
+      else if (balance < 0) customerAdvances = round2(customerAdvances + Math.abs(balance));
+    }
+    let bankStatementBacked = 0;
+    let bankOpeningOnly = 0;
+    for (const a of bankAccounts as any[]) {
+      if (a.statements && a.statements.length > 0) {
+        bankStatementBacked = round2(bankStatementBacked + (Number(a.statements[0].closingBalance) || 0));
+      } else {
+        bankOpeningOnly = round2(bankOpeningOnly + (Number(a.openingBalance) || 0));
+      }
+    }
+
+    const summary = buildPositionSummary({
+      inventoryAtCost,
+      receivables,
+      bankStatementBacked,
+      bankOpeningOnly,
+      payables: payablesAgg._sum?.outstanding || 0,
+      customerAdvances,
+      giftCardLiability: giftAgg._sum?.balance || 0,
+      walletLiability: walletAgg._sum?.balance || 0,
+      cumulative: toPnlStatement(cumulative),
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        asOf: asOf.toISOString(),
+        derived: true,
+        scope: { companyId: scope.companyId || null, branchId: scope.branchId || null },
+        cumulativePeriod: cumulative.period,
+        cumulativeCounts: cumulative.counts,
+        unknownCostLines: cumulative.cogs.unknownCostLines,
+        unknownCostUnits: cumulative.cogs.unknownCostUnits,
+        ...summary,
+      },
+    });
+  } catch (error: any) {
+    console.error('Financial position error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
