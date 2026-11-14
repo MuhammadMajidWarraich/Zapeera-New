@@ -97,14 +97,15 @@ describe('balanceDraft', () => {
 // ─── Chart ───────────────────────────────────────────────────────────
 
 describe('system chart', () => {
-  it('has 15 accounts with unique codes and valid types', () => {
-    expect(SYSTEM_CHART).toHaveLength(15);
+  it('has 16 accounts with unique codes and valid types', () => {
+    expect(SYSTEM_CHART).toHaveLength(16);
     const codes = SYSTEM_CHART.map((a) => a.code);
-    expect(new Set(codes).size).toBe(15);
+    expect(new Set(codes).size).toBe(16);
     for (const a of SYSTEM_CHART) {
       expect(['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE']).toContain(a.type);
     }
     expect(ACCOUNT_CODES.CASH).toBe('1000');
+    expect(ACCOUNT_CODES.SUPPLIER_ADVANCES).toBe('1300');
     expect(ACCOUNT_CODES.OWNERS_EQUITY).toBe('3000');
     expect(ACCOUNT_CODES.SALES_RETURNS).toBe('4010');
   });
@@ -115,7 +116,9 @@ describe('system chart', () => {
     expect(tenderAccountCode('JAZZCASH')).toBe('1010');
     expect(tenderAccountCode('GIFT_CARD')).toBe('2200');
     expect(tenderAccountCode('EWALLET')).toBe('2210');
-    expect(tenderAccountCode(null)).toBe('1010');
+    expect(tenderAccountCode(null)).toBe('1000');
+    expect(tenderAccountCode('')).toBe('1000');
+    expect(tenderAccountCode('MOBILE')).toBe('1010');
   });
 });
 
@@ -152,6 +155,39 @@ describe('buildSalePosting', () => {
     expect(lineFor(lines, '5000')?.debit).toBe(400);
     expect(lineFor(lines, '1200')?.credit).toBe(400);
     expect(lineFor(lines, '1100')).toBeUndefined();
+  });
+
+  it('posts a no-method / MIXED remainder to Cash, with an exception note', () => {
+    for (const method of [null, 'MIXED'] as const) {
+      const { lines, exceptions } = buildSalePosting({
+        ...baseSale,
+        paymentMethod: method,
+        allocations: [],
+      });
+      expectBalanced(lines);
+      expect(lineFor(lines, '1000')?.debit).toBe(1028.5);
+      expect(lineFor(lines, '1010')).toBeUndefined();
+      expect(exceptions.join(' ')).toMatch(/posted to Cash/);
+    }
+  });
+
+  it('rejects a residue above one cent (adversarial rounding)', () => {
+    expect(() =>
+      balanceDraft(
+        [
+          { code: '1000', debit: 100, credit: 0 },
+          { code: '4000', debit: 0, credit: 33.33 },
+          { code: '2100', debit: 0, credit: 66.65 },
+        ],
+        'residue bound',
+      ),
+    ).toThrow(LedgerUnbalancedError);
+  });
+
+  it('rejects non-finite legs', () => {
+    expect(() =>
+      balanceDraft([{ code: '1000', debit: NaN, credit: 0 }], 'non-finite'),
+    ).toThrow(LedgerUnbalancedError);
   });
 
   it('posts the unpaid remainder to Receivables (credit / FOLIO sale)', () => {
@@ -265,6 +301,7 @@ describe('buildRefundPosting', () => {
       saleTotalAmount: 1028.5,
       saleTaxAmount: 136,
       saleProvincialTaxAmount: 0,
+      saleServiceChargeAmount: 0,
       salePaidAmount: 1028.5,
       priorRefundTotal: 0,
       cogsReversal: { knownCost: 80, unknownLines: 0 },
@@ -286,6 +323,7 @@ describe('buildRefundPosting', () => {
       saleTotalAmount: 1000,
       saleTaxAmount: 0,
       saleProvincialTaxAmount: 0,
+      saleServiceChargeAmount: 0,
       salePaidAmount: 600,
       priorRefundTotal: 100,
       cogsReversal: { knownCost: 0, unknownLines: 0 },
@@ -294,6 +332,42 @@ describe('buildRefundPosting', () => {
     expectBalanced(lines);
     expect(lineFor(lines, '1100')?.credit).toBe(200);
     expect(lineFor(lines, '1000')).toBeUndefined();
+  });
+
+  it('splits the service-charge share out of Sales Returns', () => {
+    const { lines } = buildRefundPosting({
+      refundAmount: 500,
+      refundMethod: 'CASH',
+      saleTotalAmount: 1000,
+      saleTaxAmount: 160,
+      saleProvincialTaxAmount: 0,
+      saleServiceChargeAmount: 40,
+      salePaidAmount: 1000,
+      priorRefundTotal: 0,
+      cogsReversal: { knownCost: 0, unknownLines: 0 },
+    });
+    expectBalanced(lines);
+    expect(lineFor(lines, '2100')?.debit).toBe(80);
+    expect(lineFor(lines, '4100')?.debit).toBe(20);
+    expect(lineFor(lines, '4010')?.debit).toBe(400);
+    expect(lineFor(lines, '1000')?.credit).toBe(500);
+  });
+
+  it('never reverses more tax than the sale collected', () => {
+    const { lines } = buildRefundPosting({
+      refundAmount: 2000,
+      refundMethod: 'CASH',
+      saleTotalAmount: 1000,
+      saleTaxAmount: 160,
+      saleProvincialTaxAmount: 0,
+      saleServiceChargeAmount: 0,
+      salePaidAmount: 1000,
+      priorRefundTotal: 0,
+      cogsReversal: { knownCost: 0, unknownLines: 0 },
+    });
+    expectBalanced(lines);
+    expect(lineFor(lines, '2100')?.debit).toBe(160);
+    expect(lineFor(lines, '4010')?.debit).toBe(1840);
   });
 });
 
@@ -306,8 +380,17 @@ describe('buildPurchasePosting', () => {
     expect(lineFor(lines, '2000')?.credit).toBe(6000);
   });
 
-  it('rejects paid amounts above the total', () => {
-    expect(() => buildPurchasePosting({ totalAmount: 100, paidAmount: 150 })).toThrow(
+  it('posts an overpayment to Supplier Advances, keeping the inventory leg', () => {
+    const { lines } = buildPurchasePosting({ totalAmount: 100, paidAmount: 150 });
+    expectBalanced(lines);
+    expect(lineFor(lines, '1200')?.debit).toBe(100);
+    expect(lineFor(lines, '1300')?.debit).toBe(50);
+    expect(lineFor(lines, '1000')?.credit).toBe(150);
+    expect(lineFor(lines, '2000')).toBeUndefined();
+  });
+
+  it('rejects negative figures', () => {
+    expect(() => buildPurchasePosting({ totalAmount: -5, paidAmount: 0 })).toThrow(
       LedgerUnbalancedError,
     );
   });
@@ -368,6 +451,7 @@ describe('buildOpeningPosting', () => {
       inventoryValue: 50000,
       receivables: 12000,
       bankValue: 80000,
+      supplierAdvances: 0,
       payables: 20000,
       advances: 5000,
       giftCardLiability: 3000,
@@ -382,6 +466,7 @@ describe('buildOpeningPosting', () => {
       inventoryValue: 1000,
       receivables: 0,
       bankValue: 0,
+      supplierAdvances: 0,
       payables: 5000,
       advances: 0,
       giftCardLiability: 0,
@@ -395,11 +480,29 @@ describe('buildOpeningPosting', () => {
       inventoryValue: 0,
       receivables: 0,
       bankValue: 0,
+      supplierAdvances: 0,
       payables: 0,
       advances: 0,
       giftCardLiability: 0,
     });
     expect(lines).toEqual([]);
+  });
+
+  it('posts supplier advances and flips a negative bank balance to the credit side', () => {
+    const { lines } = buildOpeningPosting({
+      inventoryValue: 10000,
+      receivables: 0,
+      bankValue: -5000,
+      supplierAdvances: 2000,
+      payables: 0,
+      advances: 0,
+      giftCardLiability: 0,
+    });
+    expectBalanced(lines);
+    expect(lineFor(lines, '1200')?.debit).toBe(10000);
+    expect(lineFor(lines, '1300')?.debit).toBe(2000);
+    expect(lineFor(lines, '1010')?.credit).toBe(5000);
+    expect(lineFor(lines, '3000')?.credit).toBe(7000);
   });
 });
 
@@ -433,7 +536,7 @@ describe('trial balance + balance sheet', () => {
     const postings = [
       buildOpeningPosting({
         inventoryValue: 50000, receivables: 12000, bankValue: 80000,
-        payables: 20000, advances: 5000, giftCardLiability: 3000,
+        supplierAdvances: 0, payables: 20000, advances: 5000, giftCardLiability: 3000,
       }).lines,
       buildSalePosting(baseSale).lines,
       buildSalePosting({
@@ -443,7 +546,8 @@ describe('trial balance + balance sheet', () => {
       }).lines,
       buildRefundPosting({
         refundAmount: 200, refundMethod: 'CASH', saleTotalAmount: 1028.5,
-        saleTaxAmount: 136, saleProvincialTaxAmount: 0, salePaidAmount: 1028.5,
+        saleTaxAmount: 136, saleProvincialTaxAmount: 0, saleServiceChargeAmount: 0,
+        salePaidAmount: 1028.5,
         priorRefundTotal: 0, cogsReversal: { knownCost: 80, unknownLines: 0 },
       }).lines,
       buildPurchasePosting({ totalAmount: 10000, paidAmount: 4000 }).lines,
@@ -506,7 +610,11 @@ describe('ledger schema', () => {
         expect(text).toContain(model);
       }
       expect(text).toContain('uq_journalEntry_source_reversal');
-      expect(text).toContain('@@unique([sourceType, sourceId, reversalOfId]');
+      // The key must be NULL-proof: a nullable column is distinct per
+      // row in UNIQUE indexes under PG and SQLite (recon F1), so the
+      // key uses the non-null isReversal Boolean.
+      expect(text).toContain('@@unique([sourceType, sourceId, isReversal]');
+      expect(text).toContain('isReversal');
     }
   });
 });

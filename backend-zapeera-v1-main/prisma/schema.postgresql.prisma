@@ -3828,9 +3828,12 @@ model AuditLog {
 // balances are flagged opening entries derived once from live
 // operational data at cutover (no historical backfill). The derived
 // /reports/accounting/position summary remains as a cross-check.
-// JournalEntry (sourceType, sourceId, reversalOfId) is the
-// idempotency key: one primary posting per source operation; a
-// reversal carries the original entry's id and never collides.
+// JournalEntry (sourceType, sourceId, isReversal) is the
+// idempotency key: one primary posting per source operation, plus at
+// most one reversal. isReversal is a non-null Boolean ON PURPOSE — a
+// nullable reversalOfId in the key would not constrain anything,
+// because NULLs are distinct in UNIQUE indexes under both PostgreSQL
+// and SQLite (recon F1, 2026-11-14).
 model ChartOfAccount {
   id        String   @id @default(cuid())
   companyId String
@@ -3864,6 +3867,7 @@ model JournalEntry {
   sourceId     String
   status       String   @default("POSTED")
   isOpening    Boolean  @default(false)
+  isReversal   Boolean  @default(false)
   reversalOfId String?
   createdBy    String?
   createdAt    DateTime @default(now())
@@ -3875,7 +3879,7 @@ model JournalEntry {
   reversalOf JournalEntry?  @relation("JournalReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
   reversals  JournalEntry[] @relation("JournalReversal")
 
-  @@unique([sourceType, sourceId, reversalOfId], name: "uq_journalEntry_source_reversal")
+  @@unique([sourceType, sourceId, isReversal], name: "uq_journalEntry_source_reversal")
   @@index([companyId], name: "idx_journalEntry_company")
   @@index([branchId], name: "idx_journalEntry_branch")
   @@index([entryDate], name: "idx_journalEntry_date")

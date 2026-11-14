@@ -939,8 +939,9 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
         console.error(`[CloudSync] Stock replay failed for sale ${saleId}:`, e.message);
       }
       // Double-entry ledger (v1.0.22): the cloud copy's own posting
-      // for a pushed sale — idempotent, never throws (journals do
-      // not sync, so the desktop's local posting cannot double-post).
+      // for a pushed sale — idempotent, never throws (the desktop
+      // posts nothing locally, it has no ledger tables, and journals
+      // do not sync, so this is the sale's only posting).
       await postPushedSaleJournal(prisma, saleId);
     }
     for (const refundId of restockRefundIds) {

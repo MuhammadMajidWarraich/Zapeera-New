@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation } from '../utils/sync-helper';
+import { postPurchaseJournal, postWithGuard } from '../services/ledger.service';
 import {
   computeSuggestion,
   assertTransition,
@@ -450,6 +451,16 @@ export const approvePurchaseSuggestion = async (req: AuthRequest, res: Response)
           purchaseId: purchase.id,
         },
       });
+      // Double-entry ledger (v1.0.22): same purchase posting as the
+      // purchase controller's creators — Dr Inventory / Cr Payables
+      // (paidAmount 0 here, so the whole amount is payable). Guarded,
+      // never blocks the approval. (Recon F2: this third creator was
+      // unwired and undocumented.)
+      await postWithGuard(
+        tx,
+        { companyId, branchId, sourceType: 'PURCHASE', sourceId: purchase.id },
+        () => postPurchaseJournal(tx, purchase.id, req.user?.id || null),
+      );
       return { purchase, updated };
     });
 

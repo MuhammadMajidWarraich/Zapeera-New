@@ -37,7 +37,7 @@ export interface SystemAccountDef {
 }
 
 /**
- * The 15 system accounts created lazily per business (branchId null —
+ * The 16 system accounts created lazily per business (branchId null —
  * the chart is business-wide; journal entries carry the branch).
  * No Retained Earnings account: the balance sheet computes retained
  * profit from income − expense journals directly, so it can never
@@ -48,6 +48,7 @@ export const SYSTEM_CHART: SystemAccountDef[] = [
   { code: '1010', name: 'Bank', type: 'ASSET', subtype: 'CURRENT' },
   { code: '1100', name: 'Accounts Receivable', type: 'ASSET', subtype: 'CURRENT' },
   { code: '1200', name: 'Inventory', type: 'ASSET', subtype: 'CURRENT' },
+  { code: '1300', name: 'Supplier Advances', type: 'ASSET', subtype: 'CURRENT' },
   { code: '2000', name: 'Accounts Payable', type: 'LIABILITY', subtype: 'CURRENT' },
   { code: '2100', name: 'Tax Payable', type: 'LIABILITY', subtype: 'CURRENT' },
   { code: '2200', name: 'Gift Card Liability', type: 'LIABILITY', subtype: 'CURRENT' },
@@ -66,6 +67,7 @@ export const ACCOUNT_CODES = {
   BANK: '1010',
   RECEIVABLES: '1100',
   INVENTORY: '1200',
+  SUPPLIER_ADVANCES: '1300',
   PAYABLES: '2000',
   TAX_PAYABLE: '2100',
   GIFT_CARD_LIABILITY: '2200',
@@ -81,12 +83,15 @@ export const ACCOUNT_CODES = {
 
 /** Tender method → debit-side balance-sheet account for money received. */
 export function tenderAccountCode(method: string | null | undefined): string {
-  const m = String(method || '').toUpperCase();
+  // No method recorded: money at the till is cash. (Recon F3: the
+  // texts always said Cash; the code must agree.)
+  if (method == null || String(method).trim() === '') return ACCOUNT_CODES.CASH;
+  const m = String(method).toUpperCase();
   if (m === 'CASH') return ACCOUNT_CODES.CASH;
   if (m === 'GIFT_CARD') return ACCOUNT_CODES.GIFT_CARD_LIABILITY;
   if (m === 'EWALLET') return ACCOUNT_CODES.CUSTOMER_ADVANCES;
   // CARD, JAZZCASH, EASYPAISA, BANK_TRANSFER, MOBILE — and anything
-  // unrecognised — settle through the bank account.
+  // unrecognised but recorded — settle through the bank account.
   return ACCOUNT_CODES.BANK;
 }
 
@@ -127,9 +132,12 @@ const sumSide = (lines: DraftLine[], side: 'debit' | 'credit'): number =>
  */
 export function balanceDraft(lines: DraftLine[], context: string): DraftLine[] {
   const clean = lines
-    .map((l) => ({ ...l, debit: round2(l.debit || 0), credit: round2(l.credit || 0) }))
+    .map((l) => ({ ...l, debit: round2(l.debit ?? 0), credit: round2(l.credit ?? 0) }))
     .filter((l) => l.debit !== 0 || l.credit !== 0);
   for (const l of clean) {
+    if (!Number.isFinite(l.debit) || !Number.isFinite(l.credit)) {
+      throw new LedgerUnbalancedError(`${context}: non-finite leg on ${l.code}`, NaN, NaN);
+    }
     if (l.debit < 0 || l.credit < 0) {
       throw new LedgerUnbalancedError(`${context}: negative leg on ${l.code}`, sumSide(clean, 'debit'), sumSide(clean, 'credit'));
     }
@@ -150,6 +158,10 @@ export function balanceDraft(lines: DraftLine[], context: string): DraftLine[] {
   }
   if (!target) throw new LedgerUnbalancedError(`${context}: no ${side} line to absorb residue`, debits, credits);
   target[side] = round2(target[side] + Math.abs(diff));
+  // Re-verify after the fix: the draft must balance exactly now.
+  if (round2(sumSide(clean, 'debit') - sumSide(clean, 'credit')) !== 0) {
+    throw new LedgerUnbalancedError(context, sumSide(clean, 'debit'), sumSide(clean, 'credit'));
+  }
   return clean;
 }
 
@@ -279,12 +291,17 @@ export function buildSalePosting(input: SalePostingInput): PostingBuild {
     }
     if (remainder > 0) {
       const method = String(input.paymentMethod || '').toUpperCase();
+      // No method / MIXED without allocations: remainder is cash at
+      // the till (the exception text and the account must agree —
+      // recon F3). Known methods route through tenderAccountCode.
+      const code =
+        !input.paymentMethod || method === 'MIXED' ? ACCOUNT_CODES.CASH : tenderAccountCode(input.paymentMethod);
       if (!input.paymentMethod) {
         exceptions.push('Sale has no payment method; remainder posted to Cash.');
       } else if (method === 'MIXED') {
         exceptions.push('Mixed-tender sale without allocation rows; remainder posted to Cash.');
       }
-      addTender(tenderAccountCode(input.paymentMethod), remainder);
+      addTender(code, remainder);
     }
   }
 
@@ -318,6 +335,8 @@ export interface RefundPostingInput {
   saleTotalAmount: number;
   saleTaxAmount: number;
   saleProvincialTaxAmount: number;
+  /** Service charge on the original sale (0 when none). */
+  saleServiceChargeAmount: number;
   salePaidAmount: number;
   /** Σ refunds already recorded against this sale, excluding this one. */
   priorRefundTotal: number;
@@ -327,20 +346,40 @@ export interface RefundPostingInput {
 
 /**
  * Refund posting. The refund first reduces any outstanding khata due
- * on the original sale; the rest is money out by refund method. The
- * tax portion is PRO-RATA (refund ÷ sale total × sale tax) — the
- * refund flow records no per-line tax, so the memo says so. COGS
- * reversal restocks inventory value at the same batch-cost basis.
+ * on the original sale; the rest is money out by refund method.
+ *
+ * refundAmount is the money movement (goods value as refunded by the
+ * operational flow, which prices refunds from stored line totals and
+ * adds no tax gross-up). The tax and service-charge portions are
+ * PRO-RATA SHARES OF THAT SAME MONEY (refund ÷ sale total × the
+ * component) — a revenue-base gross-up would debit more than the
+ * money actually refunded. Cumulative tax/service reversals are
+ * capped at what the sale collected (net of prior refunds, estimated
+ * on the same pro-rata basis), so inconsistent pushed refunds can
+ * never reverse more tax than was charged. The service-charge share
+ * reverses Service Charge Income, not Sales Returns. The memo on the
+ * tax line says the basis is pro-rata: the refund flow records no
+ * per-line tax.
  */
 export function buildRefundPosting(input: RefundPostingInput): PostingBuild {
   const exceptions: string[] = [];
   const refund = round2(input.refundAmount);
   if (refund <= 0) return { lines: [], exceptions };
   const saleTaxTotal = round2(input.saleTaxAmount + input.saleProvincialTaxAmount);
-  const taxPortion =
-    input.saleTotalAmount > 0
-      ? Math.min(refund, round2((refund * saleTaxTotal) / input.saleTotalAmount))
-      : 0;
+  const saleService = round2(input.saleServiceChargeAmount || 0);
+  const saleTotal = round2(input.saleTotalAmount);
+  // Pro-rata shares of the refunded money, capped at the unreversed
+  // remainder of each component (prior refunds estimated pro-rata).
+  const proRata = (component: number): number =>
+    saleTotal > 0 ? round2((refund * component) / saleTotal) : 0;
+  const priorShare = (component: number): number =>
+    saleTotal > 0 ? round2((round2(input.priorRefundTotal) * component) / saleTotal) : 0;
+  const taxPortion = Math.max(0, Math.min(refund, proRata(saleTaxTotal), Math.max(0, round2(saleTaxTotal - priorShare(saleTaxTotal)))));
+  const servicePortion = Math.max(
+    0,
+    Math.min(round2(refund - taxPortion), proRata(saleService), Math.max(0, round2(saleService - priorShare(saleService)))),
+  );
+  const returnsPortion = round2(refund - taxPortion - servicePortion);
   const outstandingDue = Math.max(
     0,
     round2(input.saleTotalAmount - input.salePaidAmount - input.priorRefundTotal),
@@ -349,9 +388,12 @@ export function buildRefundPosting(input: RefundPostingInput): PostingBuild {
   const moneyOut = round2(refund - dueReduction);
 
   const lines: DraftLine[] = [];
-  lines.push(dr(ACCOUNT_CODES.SALES_RETURNS, round2(refund - taxPortion), 'Refund — sales returns'));
+  lines.push(dr(ACCOUNT_CODES.SALES_RETURNS, returnsPortion, 'Refund — sales returns'));
   if (positive(taxPortion)) {
     lines.push(dr(ACCOUNT_CODES.TAX_PAYABLE, taxPortion, 'Refund — tax portion, pro-rata of sale tax'));
+  }
+  if (positive(servicePortion)) {
+    lines.push(dr(ACCOUNT_CODES.SERVICE_CHARGE_INCOME, servicePortion, 'Refund — service-charge portion, pro-rata'));
   }
   if (positive(dueReduction)) lines.push(cr(ACCOUNT_CODES.RECEIVABLES, dueReduction, 'Refund — reduces outstanding khata due'));
   if (positive(moneyOut)) {
@@ -385,19 +427,23 @@ export interface PurchasePostingInput {
 /**
  * Purchase posting. Purchases record NO payment method, so the paid
  * leg is posted to Cash and the memo says so — never invent a method.
+ * An overpayment (paid > total) posts the excess to Supplier
+ * Advances (1300) instead of failing the whole entry: the inventory
+ * received must still reach the books (recon F9).
  */
 export function buildPurchasePosting(input: PurchasePostingInput): PostingBuild {
   const total = round2(input.totalAmount);
   const paid = round2(input.paidAmount);
   const outstanding = round2(total - paid);
-  if (total < 0 || paid < 0 || outstanding < 0) {
+  if (total < 0 || paid < 0) {
     throw new LedgerUnbalancedError(
-      `purchase ${input.invoiceNumber || ''}: inconsistent figures (total ${total}, paid ${paid})`,
+      `purchase ${input.invoiceNumber || ''}: negative figures (total ${total}, paid ${paid})`,
       0, 0,
     );
   }
   const lines: DraftLine[] = [];
   if (positive(total)) lines.push(dr(ACCOUNT_CODES.INVENTORY, total, 'Purchase — inventory at cost'));
+  if (outstanding < 0) lines.push(dr(ACCOUNT_CODES.SUPPLIER_ADVANCES, round2(-outstanding), 'Purchase — overpayment held as supplier advance'));
   if (positive(paid)) lines.push(cr(ACCOUNT_CODES.CASH, paid, 'Purchase — payment method not recorded, posted to Cash'));
   if (positive(outstanding)) lines.push(cr(ACCOUNT_CODES.PAYABLES, outstanding, 'Purchase — unpaid balance'));
   return { lines: balanceDraft(lines, `purchase ${input.invoiceNumber || ''}`), exceptions: [] };
@@ -493,6 +539,7 @@ export interface OpeningPostingInput {
   receivables: number;
   bankValue: number;
   bankMemo?: string;
+  supplierAdvances: number;
   payables: number;
   advances: number;
   advancesMemo?: string;
@@ -505,12 +552,18 @@ export interface OpeningPostingInput {
  * cutover, never a hidden number. A zero-value scope still posts an
  * (empty) entry marker so the routine stays idempotent per scope; the
  * service decides whether to write when every figure is zero.
+ * Negative bank/inventory values (overdrawn bank, negative stock
+ * value) post on the OPPOSITE side at their absolute value — they are
+ * real positions, not zeros to drop (recon N5).
  */
 export function buildOpeningPosting(input: OpeningPostingInput): PostingBuild {
   const lines: DraftLine[] = [];
   if (positive(input.inventoryValue)) lines.push(dr(ACCOUNT_CODES.INVENTORY, input.inventoryValue, 'Opening — inventory at batch cost'));
+  else if (round2(input.inventoryValue) < 0) lines.push(cr(ACCOUNT_CODES.INVENTORY, round2(-input.inventoryValue), 'Opening — negative inventory value'));
   if (positive(input.receivables)) lines.push(dr(ACCOUNT_CODES.RECEIVABLES, input.receivables, 'Opening — khata receivables'));
   if (positive(input.bankValue)) lines.push(dr(ACCOUNT_CODES.BANK, input.bankValue, input.bankMemo || 'Opening — bank/cash from statements'));
+  else if (round2(input.bankValue) < 0) lines.push(cr(ACCOUNT_CODES.BANK, round2(-input.bankValue), input.bankMemo || 'Opening — overdrawn bank/cash'));
+  if (positive(input.supplierAdvances)) lines.push(dr(ACCOUNT_CODES.SUPPLIER_ADVANCES, input.supplierAdvances, 'Opening — supplier advances (overpaid purchases)'));
   if (positive(input.payables)) lines.push(cr(ACCOUNT_CODES.PAYABLES, input.payables, 'Opening — supplier payables'));
   if (positive(input.advances)) lines.push(cr(ACCOUNT_CODES.CUSTOMER_ADVANCES, input.advances, input.advancesMemo || 'Opening — customer advances + wallet balances'));
   if (positive(input.giftCardLiability)) lines.push(cr(ACCOUNT_CODES.GIFT_CARD_LIABILITY, input.giftCardLiability, 'Opening — outstanding gift-card balances'));

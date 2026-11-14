@@ -130,10 +130,21 @@ export const topUpWallet = async (req: AuthRequest, res: Response) => {
       });
       // Double-entry ledger (v1.0.22): a top-up is a LIABILITY
       // (customer advance), never revenue. Guarded, never blocks the
-      // top-up.
+      // top-up. The guard context carries the customer's branch so a
+      // posting-failure exception shows in branch-filtered lists
+      // (recon F11) — the entry itself is branched by the service.
+      const topUpCustomer = await tx.customer.findUnique({
+        where: { id: req.params.customerId },
+        select: { branchId: true },
+      });
       await postWithGuard(
         tx,
-        { companyId: businessId, branchId: null, sourceType: 'WALLET_TOPUP', sourceId: created.transactionId },
+        {
+          companyId: businessId,
+          branchId: topUpCustomer?.branchId || null,
+          sourceType: 'WALLET_TOPUP',
+          sourceId: created.transactionId,
+        },
         () => postWalletTopUpJournal(tx, created.transactionId, req.user?.id || null),
       );
       return created;

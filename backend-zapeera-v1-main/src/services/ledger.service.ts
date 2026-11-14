@@ -15,9 +15,16 @@
  * LedgerException in the same transaction and the source operation
  * still commits. An unbalanced entry is NEVER written.
  *
- * IDEMPOTENCY: JournalEntry (sourceType, sourceId, reversalOfId) is
- * unique. Re-posting the same source is a no-op that returns the
- * existing entry id — safe for retries and sync replays.
+ * IDEMPOTENCY: JournalEntry (sourceType, sourceId, isReversal) is
+ * unique — isReversal is a NON-NULL Boolean because NULLs are
+ * distinct in UNIQUE indexes under both PostgreSQL and SQLite, so a
+ * nullable key column would constrain nothing (recon F1). Re-posting
+ * the same source is a no-op that returns the existing entry id —
+ * safe for retries and sync replays. Concurrent creators never rely
+ * on catching a unique violation inside the transaction (a failed
+ * statement aborts a PostgreSQL transaction — recon F10): chart and
+ * entry writes use createMany with skipDuplicates, which conflicts
+ * silently instead of erroring.
  */
 
 import { round2 } from '../utils/accounting.util';
@@ -45,15 +52,15 @@ import {
 
 type Tx = any;
 
-const isUniqueViolation = (e: any): boolean => e?.code === 'P2002';
-
 // ─── Chart ───────────────────────────────────────────────────────────
 
 /**
- * Lazily create the 15 system accounts for a business (branchId null
+ * Lazily create the 16 system accounts for a business (branchId null
  * — the chart is business-wide; entries carry the branch). Idempotent
- * and race-safe: a concurrent creator wins the unique constraint and
- * the loser re-reads. Returns code → account id.
+ * and race-safe WITHOUT catching a unique violation: createMany with
+ * skipDuplicates conflicts silently (a failed statement would abort
+ * a PostgreSQL transaction — recon F10), and the re-read below
+ * verifies completeness. Returns code → account id.
  */
 export async function ensureSystemAccounts(tx: Tx, companyId: string): Promise<Map<string, string>> {
   const existing = await (tx as any).chartOfAccount.findMany({
@@ -61,25 +68,20 @@ export async function ensureSystemAccounts(tx: Tx, companyId: string): Promise<M
     select: { id: true, code: true },
   });
   const have = new Set((existing as any[]).map((a) => a.code));
-  for (const def of SYSTEM_CHART) {
-    if (have.has(def.code)) continue;
-    try {
-      await (tx as any).chartOfAccount.create({
-        data: {
-          companyId,
-          branchId: null,
-          code: def.code,
-          name: def.name,
-          type: def.type,
-          subtype: def.subtype || null,
-          isSystem: true,
-        },
-      });
-    } catch (e: any) {
-      // A concurrent creator won the race — the re-read below picks
-      // the row up. Anything else is a real failure.
-      if (!isUniqueViolation(e)) throw e;
-    }
+  const missing = SYSTEM_CHART.filter((d) => !have.has(d.code));
+  if (missing.length > 0) {
+    await (tx as any).chartOfAccount.createMany({
+      data: missing.map((def) => ({
+        companyId,
+        branchId: null,
+        code: def.code,
+        name: def.name,
+        type: def.type,
+        subtype: def.subtype || null,
+        isSystem: true,
+      })),
+      skipDuplicates: true,
+    });
   }
   const rows = await (tx as any).chartOfAccount.findMany({
     where: { companyId, branchId: null },
@@ -87,9 +89,9 @@ export async function ensureSystemAccounts(tx: Tx, companyId: string): Promise<M
   });
   const map = new Map<string, string>();
   for (const r of rows as any[]) map.set(r.code, r.id);
-  const missing = SYSTEM_CHART.filter((d) => !map.has(d.code));
-  if (missing.length > 0) {
-    throw new Error(`System chart incomplete for ${companyId}: missing ${missing.map((d) => d.code).join(', ')}`);
+  const stillMissing = SYSTEM_CHART.filter((d) => !map.has(d.code));
+  if (stillMissing.length > 0) {
+    throw new Error(`System chart incomplete for ${companyId}: missing ${stillMissing.map((d) => d.code).join(', ')}`);
   }
   return map;
 }
@@ -99,6 +101,8 @@ export async function ensureSystemAccounts(tx: Tx, companyId: string): Promise<M
 export interface PostEntryInput {
   companyId: string;
   branchId: string | null;
+  /** Business date of the entry (source transaction date); posting time when absent. */
+  entryDate?: Date | null;
   sourceType: string;
   sourceId: string;
   memo?: string | null;
@@ -112,14 +116,18 @@ export interface PostEntryInput {
 /**
  * Validate + write one balanced entry. Returns the entry id, or null
  * when there are no lines to post. Re-posting the same source returns
- * the existing entry id (no duplicate).
+ * the existing entry id (no duplicate). Concurrent creation uses
+ * createMany + skipDuplicates, so the loser never sees a unique
+ * violation (which would abort a PostgreSQL transaction — recon
+ * F10); the entry row is then re-read to obtain its id for the lines.
  */
 export async function postJournalEntry(tx: Tx, input: PostEntryInput): Promise<string | null> {
   const lines = balanceDraft(input.lines, `${input.sourceType}:${input.sourceId}`);
   if (lines.length === 0) return null;
-  const reversalOfId = input.reversalOfId || null;
+  const isReversal = Boolean(input.reversalOfId);
+  const key = { sourceType: input.sourceType, sourceId: input.sourceId, isReversal };
   const existing = await (tx as any).journalEntry.findFirst({
-    where: { sourceType: input.sourceType, sourceId: input.sourceId, reversalOfId },
+    where: key,
     select: { id: true },
   });
   if (existing) return existing.id;
@@ -128,31 +136,47 @@ export async function postJournalEntry(tx: Tx, input: PostEntryInput): Promise<s
     if (!accountId) throw new Error(`No account for code ${l.code} in business ${input.companyId}`);
     return { accountId, debit: l.debit, credit: l.credit, memo: l.memo || null };
   });
-  try {
-    const entry = await (tx as any).journalEntry.create({
-      data: {
+  const created = await (tx as any).journalEntry.createMany({
+    data: [
+      {
         companyId: input.companyId,
         branchId: input.branchId || null,
+        entryDate: input.entryDate || new Date(),
         memo: input.memo || null,
         sourceType: input.sourceType,
         sourceId: input.sourceId,
         status: 'POSTED',
         isOpening: input.isOpening || false,
-        reversalOfId,
+        isReversal,
+        reversalOfId: input.reversalOfId || null,
         createdBy: input.createdBy || null,
-        lines: { create: lineData },
       },
-      select: { id: true },
-    });
-    return entry.id;
-  } catch (e: any) {
-    if (!isUniqueViolation(e)) throw e;
-    const raced = await (tx as any).journalEntry.findFirst({
-      where: { sourceType: input.sourceType, sourceId: input.sourceId, reversalOfId },
-      select: { id: true },
-    });
+    ],
+    skipDuplicates: true,
+  });
+  if (created.count === 0) {
+    // A concurrent creator won the race — return its entry.
+    const raced = await (tx as any).journalEntry.findFirst({ where: key, select: { id: true } });
     return raced ? raced.id : null;
   }
+  const entry = await (tx as any).journalEntry.findFirst({ where: key, select: { id: true } });
+  if (!entry) return null;
+  try {
+    await (tx as any).journalLine.createMany({
+      data: lineData.map((l) => ({ ...l, entryId: entry.id })),
+    });
+  } catch (e: any) {
+    // Best-effort cleanup: a lineless entry would block every future
+    // re-post of this source. If the transaction is already aborted
+    // the delete fails too and the guard records the failure.
+    try {
+      await (tx as any).journalEntry.delete({ where: { id: entry.id } });
+    } catch {
+      /* the guard records the original failure */
+    }
+    throw e;
+  }
+  return entry.id;
 }
 
 export async function recordLedgerException(
@@ -220,6 +244,13 @@ export interface CogsResult {
  * allocations (legacy / desktop-pushed lines). Service lines cost 0
  * (knowable, not unknown). Batch purchasePrice is immutable, so
  * reading it at posting time in-transaction is exact.
+ *
+ * Two silences are guarded (recon F5): when allocations cover FEWER
+ * units than the line deducted (oversold / partially-drawn pushed
+ * sales — replaySaleStock records the remainder as shortfall), the
+ * undrawn remainder is costed at the header batch or counted unknown;
+ * and an allocation whose batch row is missing costs at unknown,
+ * never at 0.
  */
 export async function computeSaleCogs(tx: Tx, saleId: string): Promise<CogsResult> {
   const items = await tx.saleItem.findMany({
@@ -235,19 +266,41 @@ export async function computeSaleCogs(tx: Tx, saleId: string): Promise<CogsResul
   let unknownUnits = 0;
   for (const item of items as any[]) {
     if (item.product?.isService) continue;
+    const expectedUnits = Number(item.unitsDeducted ?? item.quantity ?? 0);
     const allocs = item.allocations || [];
     if (allocs.length > 0) {
+      let drawnUnits = 0;
+      let lineUnknown = false;
       for (const a of allocs) {
-        knownCost += (Number(a.quantity) || 0) * (Number(a.batch?.purchasePrice) || 0);
+        const qty = Number(a.quantity) || 0;
+        drawnUnits += qty;
+        const price = a.batch?.purchasePrice;
+        if (price === null || price === undefined) {
+          lineUnknown = true;
+          unknownUnits += qty;
+        } else {
+          knownCost += qty * Number(price);
+        }
+      }
+      if (lineUnknown) unknownLines += 1;
+      // Undrawn remainder: header batch if it has a price, else unknown.
+      const remainder = round2(expectedUnits - drawnUnits);
+      if (remainder > 0) {
+        const headerPrice = item.batch?.purchasePrice;
+        if (headerPrice === null || headerPrice === undefined) {
+          unknownLines += 1;
+          unknownUnits += remainder;
+        } else {
+          knownCost += remainder * Number(headerPrice);
+        }
       }
     } else {
-      const units = Number(item.unitsDeducted ?? item.quantity ?? 0);
       const price = item.batch?.purchasePrice;
       if (price === null || price === undefined) {
         unknownLines += 1;
-        unknownUnits += units;
+        unknownUnits += expectedUnits;
       } else {
-        knownCost += units * Number(price);
+        knownCost += expectedUnits * Number(price);
       }
     }
   }
@@ -255,9 +308,18 @@ export async function computeSaleCogs(tx: Tx, saleId: string): Promise<CogsResul
 }
 
 /**
- * Refund COGS reversal, mirroring the house P&L method exactly (first
- * original line per product, header batch cost, service lines at 0)
- * so the ledger and the derived cross-check stay comparable.
+ * Refund COGS reversal in BASE units at the original lines' FEFO
+ * cost, so it reverses the sale leg the ledger actually posted
+ * (recon F4). RefundItem.quantity is in SOLD units (boxes for a BOX
+ * line); the base units are derived from each original line's own
+ * unitsDeducted ÷ quantity ratio — the same derivation the refund
+ * flow uses for restock units. Per product, the original lines'
+ * total base units and total cost (FEFO allocations preferred,
+ * header batch fallback, service 0) give a blended unit cost, which
+ * the refunded base units are priced at. This is deliberately MORE
+ * precise than the house P&L method (first line per product, header
+ * batch, sold units), which under-reverses BOX lines; the difference
+ * is expected and shows in the reconciliation note.
  */
 export async function computeRefundCogsReversal(
   tx: Tx,
@@ -271,32 +333,64 @@ export async function computeRefundCogsReversal(
   if ((refundItems as any[]).length === 0) return { knownCost: 0, unknownLines: 0, unknownUnits: 0 };
   const originalItems = await tx.saleItem.findMany({
     where: { saleId: originalSaleId },
-    include: { batch: { select: { purchasePrice: true } } },
+    include: {
+      allocations: { include: { batch: { select: { purchasePrice: true } } } },
+      product: { select: { isService: true } },
+      batch: { select: { purchasePrice: true } },
+    },
   });
-  const productIds = [...new Set((originalItems as any[]).map((oi: any) => oi.productId))];
-  const serviceRows = productIds.length
-    ? await tx.product.findMany({ where: { id: { in: productIds }, isService: true }, select: { id: true } })
-    : [];
-  const serviceIds = new Set((serviceRows as any[]).map((p: any) => p.id));
-  const costByProduct = new Map<string, number | null>();
+  // Per product: sold qty, base units, total cost, known?
+  const basisByProduct = new Map<string, { soldQty: number; baseUnits: number; cost: number; known: boolean }>();
   for (const oi of originalItems as any[]) {
-    if (!costByProduct.has(oi.productId)) {
-      costByProduct.set(
-        oi.productId,
-        oi.batch ? Number(oi.batch.purchasePrice) : serviceIds.has(oi.productId) ? 0 : null,
-      );
+    const soldQty = Number(oi.quantity) || 0;
+    const baseUnits = Number(oi.unitsDeducted ?? oi.quantity ?? 0);
+    let entry = basisByProduct.get(oi.productId);
+    if (!entry) {
+      entry = { soldQty: 0, baseUnits: 0, cost: 0, known: true };
+      basisByProduct.set(oi.productId, entry);
+    }
+    entry.soldQty += soldQty;
+    entry.baseUnits += baseUnits;
+    if (oi.product?.isService) continue; // cost 0, known
+    const allocs = oi.allocations || [];
+    if (allocs.length > 0) {
+      for (const a of allocs) {
+        const price = a.batch?.purchasePrice;
+        if (price === null || price === undefined) entry.known = false;
+        else entry.cost += (Number(a.quantity) || 0) * Number(price);
+      }
+      // Undrawn remainder at the header batch, mirroring computeSaleCogs.
+      const drawn = allocs.reduce((s: number, a: any) => s + (Number(a.quantity) || 0), 0);
+      const remainder = round2(baseUnits - drawn);
+      if (remainder > 0) {
+        const headerPrice = oi.batch?.purchasePrice;
+        if (headerPrice === null || headerPrice === undefined) entry.known = false;
+        else entry.cost += remainder * Number(headerPrice);
+      }
+    } else {
+      const price = oi.batch?.purchasePrice;
+      if (price === null || price === undefined) entry.known = false;
+      else entry.cost += baseUnits * Number(price);
     }
   }
   let knownCost = 0;
   let unknownLines = 0;
   let unknownUnits = 0;
   for (const ri of refundItems as any[]) {
-    const price = costByProduct.get(ri.productId) ?? null;
-    if (price === null) {
+    const entry = basisByProduct.get(ri.productId);
+    const soldQty = Number(ri.quantity) || 0;
+    if (!entry || entry.soldQty <= 0) {
+      // No original line to price from — unknown, never invented.
       unknownLines += 1;
-      unknownUnits += Number(ri.quantity) || 0;
+      unknownUnits += soldQty;
+      continue;
+    }
+    const refundBaseUnits = round2((soldQty * entry.baseUnits) / entry.soldQty);
+    if (!entry.known || entry.baseUnits <= 0) {
+      unknownLines += 1;
+      unknownUnits += refundBaseUnits;
     } else {
-      knownCost += price * (Number(ri.quantity) || 0);
+      knownCost += refundBaseUnits * (entry.cost / entry.baseUnits);
     }
   }
   return { knownCost: round2(knownCost), unknownLines, unknownUnits };
@@ -354,6 +448,7 @@ export async function postSaleJournal(tx: Tx, saleId: string, createdBy?: string
   const entryId = await postJournalEntry(tx, {
     companyId: sale.companyId,
     branchId: sale.branchId || null,
+    entryDate: sale.saleDate || sale.createdAt || null,
     sourceType: 'SALE',
     sourceId: saleId,
     memo: `Sale ${sale.invoiceNumber || saleId}`,
@@ -374,6 +469,7 @@ export async function postRefundJournal(tx: Tx, refundId: string, createdBy?: st
       totalAmount: true,
       taxAmount: true,
       provincialTaxAmount: true,
+      serviceChargeAmount: true,
       paidAmount: true,
       invoiceNumber: true,
       companyId: true,
@@ -398,6 +494,7 @@ export async function postRefundJournal(tx: Tx, refundId: string, createdBy?: st
     saleTotalAmount: Number(originalSale.totalAmount) || 0,
     saleTaxAmount: Number(originalSale.taxAmount) || 0,
     saleProvincialTaxAmount: Number(originalSale.provincialTaxAmount) || 0,
+    saleServiceChargeAmount: Number(originalSale.serviceChargeAmount) || 0,
     salePaidAmount: Number(originalSale.paidAmount) || 0,
     priorRefundTotal,
     cogsReversal,
@@ -406,6 +503,7 @@ export async function postRefundJournal(tx: Tx, refundId: string, createdBy?: st
   const entryId = await postJournalEntry(tx, {
     companyId: originalSale.companyId,
     branchId: originalSale.branchId || null,
+    entryDate: refund.createdAt || null,
     sourceType: 'REFUND',
     sourceId: refundId,
     memo: `Refund against ${originalSale.invoiceNumber || originalSale.id}`,
@@ -429,6 +527,7 @@ export async function postPurchaseJournal(tx: Tx, purchaseId: string, createdBy?
   return postJournalEntry(tx, {
     companyId: purchase.companyId,
     branchId: purchase.branchId || null,
+    entryDate: purchase.purchaseDate || purchase.createdAt || null,
     sourceType: 'PURCHASE',
     sourceId: purchaseId,
     memo: `Purchase ${purchaseId}`,
@@ -453,6 +552,7 @@ export async function postExpenseJournal(tx: Tx, expenseId: string, createdBy?: 
   return postJournalEntry(tx, {
     companyId: expense.companyId,
     branchId: expense.branchId || null,
+    entryDate: expense.expenseDate || expense.createdAt || null,
     sourceType: 'EXPENSE',
     sourceId: expenseId,
     memo: `Expense — ${expense.title || expenseId}`,
@@ -484,6 +584,7 @@ export async function postKhataPaymentJournal(tx: Tx, entryId: string, createdBy
   return postJournalEntry(tx, {
     companyId: entry.companyId,
     branchId: customer.branchId || null,
+    entryDate: entry.createdAt || null,
     sourceType: 'KHATA_PAYMENT',
     sourceId: entryId,
     memo: `Khata payment — customer ${entry.customerId}`,
@@ -504,6 +605,7 @@ export async function postGiftCardSaleJournal(tx: Tx, giftCardId: string, create
   return postJournalEntry(tx, {
     companyId: card.companyId,
     branchId: card.branchId || null,
+    entryDate: card.createdAt || null,
     sourceType: 'GIFT_CARD_SALE',
     sourceId: giftCardId,
     memo: `Gift card ${card.code || giftCardId} sold`,
@@ -527,6 +629,7 @@ export async function postWalletTopUpJournal(tx: Tx, transactionId: string, crea
   return postJournalEntry(tx, {
     companyId: txnRow.companyId,
     branchId: customer.branchId || null,
+    entryDate: txnRow.createdAt || null,
     sourceType: 'WALLET_TOPUP',
     sourceId: transactionId,
     memo: `Wallet top-up — customer ${txnRow.customerId}`,
@@ -555,6 +658,7 @@ export async function postWastageJournal(tx: Tx, wastageRecordId: string, create
   return postJournalEntry(tx, {
     companyId: record.companyId,
     branchId: record.branchId || null,
+    entryDate: record.recordedAt || record.createdAt || null,
     sourceType: 'WASTAGE',
     sourceId: wastageRecordId,
     memo: `Wastage (${record.reason || 'write-off'}) — product ${record.productId}`,
@@ -572,7 +676,7 @@ export async function postWastageJournal(tx: Tx, wastageRecordId: string, create
  */
 export async function reverseSaleJournal(tx: Tx, saleId: string, createdBy?: string | null): Promise<string | null> {
   const original = await (tx as any).journalEntry.findFirst({
-    where: { sourceType: 'SALE', sourceId: saleId, reversalOfId: null },
+    where: { sourceType: 'SALE', sourceId: saleId, isReversal: false },
     include: { lines: { include: { account: { select: { code: true } } } } },
   });
   if (!original) return null;
@@ -602,13 +706,22 @@ export async function reverseSaleJournal(tx: Tx, saleId: string, createdBy?: str
 
 /**
  * Post a journal for a sale that arrived via the cloud sync-push API
- * (desktop → cloud). The desktop already posts locally; journals do
- * NOT sync, so this is the cloud copy's own posting — idempotent via
- * the (sourceType, sourceId) key. Never throws: a failure is logged
- * and recorded as an exception inside the transaction where possible.
+ * (desktop → cloud). This is the sale's ONLY posting: the desktop
+ * posts nothing locally (it has no ledger tables — posting there
+ * degrades gracefully inside postWithGuard) and journals do NOT sync,
+ * so no double-post is possible. Idempotent via the (sourceType,
+ * sourceId, isReversal) key. Never throws: a failure is logged and
+ * recorded as an exception inside the transaction where possible.
  * Sales arriving via full-table replication (sync.service.ts bulk
  * sync) do NOT pass through here — see the honest-limits note in the
  * v1.0.22 report.
+ *
+ * SPLIT-BATCH GUARD (recon F6): a sale whose op lands in one push
+ * batch and whose items land in a later one must NOT post yet — a
+ * revenue entry written before the items arrive would freeze COGS at
+ * 0 forever (the later posting is a no-op because the entry exists).
+ * With no items on file the posting is skipped; the batch that
+ * delivers the items re-triggers the replay loop, which posts then.
  */
 export async function postPushedSaleJournal(prisma: Tx, saleId: string): Promise<void> {
   try {
@@ -617,6 +730,11 @@ export async function postPushedSaleJournal(prisma: Tx, saleId: string): Promise
       select: { companyId: true, branchId: true },
     });
     if (!sale) return;
+    const itemCount = await prisma.saleItem.count({ where: { saleId } });
+    if (itemCount === 0) {
+      console.info(`[Ledger] Pushed sale ${saleId} has no items yet; posting deferred to the batch that delivers them.`);
+      return;
+    }
     await prisma.$transaction(async (tx: Tx) => {
       await postWithGuard(
         tx,
@@ -629,7 +747,10 @@ export async function postPushedSaleJournal(prisma: Tx, saleId: string): Promise
   }
 }
 
-/** Same as postPushedSaleJournal, for refunds restocked via the push API. */
+/**
+ * Same as postPushedSaleJournal, for refunds restocked via the push
+ * API — with the same split-batch guard on refund items.
+ */
 export async function postPushedRefundJournal(prisma: Tx, refundId: string): Promise<void> {
   try {
     const refund = await prisma.refund.findUnique({
@@ -642,6 +763,11 @@ export async function postPushedRefundJournal(prisma: Tx, refundId: string): Pro
       select: { companyId: true, branchId: true },
     });
     if (!originalSale) return;
+    const itemCount = await prisma.refundItem.count({ where: { refundId } });
+    if (itemCount === 0) {
+      console.info(`[Ledger] Pushed refund ${refundId} has no items yet; posting deferred to the batch that delivers them.`);
+      return;
+    }
     await prisma.$transaction(async (tx: Tx) => {
       await postWithGuard(
         tx,
@@ -662,6 +788,7 @@ export interface OpeningScopeResult {
     inventory: number;
     receivables: number;
     bank: number;
+    supplierAdvances: number;
     payables: number;
     advances: number;
     giftCardLiability: number;
@@ -681,7 +808,9 @@ export const openingSourceId = (companyId: string, branchId: string | null): str
  * balance sums without double-counting.
  *
  * IDEMPOTENT: a scope with an existing OPENING entry is skipped, and
- * the unique constraint guards races. NEVER rewrites existing
+ * concurrent runs are guarded by the (sourceType, sourceId,
+ * isReversal) unique key written via createMany + skipDuplicates —
+ * the loser re-reads instead of erroring. NEVER rewrites existing
  * sales/purchases/ledger data. NO HISTORICAL BACKFILL: only new
  * postings get journals from cutover forward; this routine carries
  * the prior position.
@@ -703,15 +832,33 @@ export async function postOpeningBalances(
   for (const scope of scopes) {
     const sourceId = openingSourceId(companyId, scope);
     const existing = await (tx as any).journalEntry.findFirst({
-      where: { sourceType: 'OPENING', sourceId, reversalOfId: null },
-      select: { id: true },
+      where: { sourceType: 'OPENING', sourceId, isReversal: false },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     if (existing) {
+      // Report the ACTUAL posted figures, not zeros (recon N6).
+      const netByCode = new Map<string, number>();
+      for (const l of (existing.lines || []) as any[]) {
+        const code = l.account?.code;
+        if (!code) continue;
+        netByCode.set(code, round2((netByCode.get(code) || 0) + (Number(l.debit) || 0) - (Number(l.credit) || 0)));
+      }
+      const netDebit = (code: string): number => round2(netByCode.get(code) || 0);
+      const netCredit = (code: string): number => round2(-(netByCode.get(code) || 0));
       results.push({
         branchId: scope,
         status: 'skipped-existing',
         entryId: existing.id,
-        totals: { inventory: 0, receivables: 0, bank: 0, payables: 0, advances: 0, giftCardLiability: 0, plug: 0 },
+        totals: {
+          inventory: netDebit(ACCOUNT_CODES.INVENTORY),
+          receivables: netDebit(ACCOUNT_CODES.RECEIVABLES),
+          bank: netDebit(ACCOUNT_CODES.BANK),
+          supplierAdvances: netDebit(ACCOUNT_CODES.SUPPLIER_ADVANCES),
+          payables: netCredit(ACCOUNT_CODES.PAYABLES),
+          advances: netCredit(ACCOUNT_CODES.CUSTOMER_ADVANCES),
+          giftCardLiability: netCredit(ACCOUNT_CODES.GIFT_CARD_LIABILITY),
+          plug: netCredit(ACCOUNT_CODES.OWNERS_EQUITY),
+        },
       });
       continue;
     }
@@ -724,6 +871,7 @@ export async function postOpeningBalances(
     let receivables = 0;
     let advances = 0;
     let payables = 0;
+    let supplierAdvances = 0;
     let giftCardLiability = 0;
     if (scope) {
       const batches = await tx.batch.findMany({
@@ -748,6 +896,13 @@ export async function postOpeningBalances(
         _sum: { outstanding: true },
       });
       payables = round2(Number(payablesAgg._sum?.outstanding) || 0);
+      // Overpaid purchases (negative outstanding) are supplier
+      // advances, not negative payables (recon F9).
+      const advancesAgg = await tx.purchase.aggregate({
+        where: { companyId, branchId: scope, outstanding: { lt: 0 }, status: { not: 'CANCELLED' } },
+        _sum: { outstanding: true },
+      });
+      supplierAdvances = round2(Math.abs(Number(advancesAgg._sum?.outstanding) || 0));
       const giftAgg = await tx.giftCard.aggregate({
         where: { companyId, branchId: scope, status: 'ACTIVE' },
         _sum: { balance: true },
@@ -787,6 +942,7 @@ export async function postOpeningBalances(
       receivables,
       bankValue: bank,
       bankMemo: `Opening — bank/cash (${bankStatementBacked} statement-backed, ${bankOpeningOnly} opening-only)`,
+      supplierAdvances,
       payables,
       advances,
       advancesMemo: 'Opening — customer advances (negative khata) + wallet balances',
@@ -798,25 +954,34 @@ export async function postOpeningBalances(
     if (build.lines.length === 0) {
       // Zero-value scope: still write the entry marker (no lines) so
       // the routine stays idempotent and the opening-posted flag
-      // reflects that cutover ran for this scope.
-      const entry = await (tx as any).journalEntry.create({
-        data: {
-          companyId,
-          branchId: scope,
-          memo: 'Opening balances — zero opening position at cutover (no inventory, receivables, payables, bank or liabilities)',
-          sourceType: 'OPENING',
-          sourceId,
-          status: 'POSTED',
-          isOpening: true,
-          createdBy: createdBy || null,
-        },
+      // reflects that cutover ran for this scope. createMany +
+      // skipDuplicates: a concurrent run's marker wins silently and
+      // the loser re-reads it (recon F1/F10).
+      await (tx as any).journalEntry.createMany({
+        data: [
+          {
+            companyId,
+            branchId: scope,
+            memo: 'Opening balances — zero opening position at cutover (no inventory, receivables, payables, bank or liabilities)',
+            sourceType: 'OPENING',
+            sourceId,
+            status: 'POSTED',
+            isOpening: true,
+            isReversal: false,
+            createdBy: createdBy || null,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      const entry = await (tx as any).journalEntry.findFirst({
+        where: { sourceType: 'OPENING', sourceId, isReversal: false },
         select: { id: true },
       });
       results.push({
         branchId: scope,
         status: 'created-zero',
-        entryId: entry.id,
-        totals: { inventory, receivables, bank, payables, advances, giftCardLiability, plug: 0 },
+        entryId: entry?.id || null,
+        totals: { inventory, receivables, bank, supplierAdvances, payables, advances, giftCardLiability, plug: 0 },
       });
       continue;
     }
@@ -835,7 +1000,7 @@ export async function postOpeningBalances(
       branchId: scope,
       status: 'created',
       entryId,
-      totals: { inventory, receivables, bank, payables, advances, giftCardLiability, plug },
+      totals: { inventory, receivables, bank, supplierAdvances, payables, advances, giftCardLiability, plug },
     });
   }
   return results;
@@ -866,22 +1031,32 @@ async function readLedgerData(tx: Tx, companyId: string, branchId: string | null
     },
     select: { accountId: true, debit: true, credit: true },
   });
-  // Opening-complete semantics: a branch view needs that branch's
-  // opening entry; the all-branches view needs one per branch plus
-  // the business-level entry.
+  // Opening-complete semantics (recon F7): verify ONE opening entry
+  // per EXPECTED sourceId, scoped to the as-of date — counting
+  // entries lets a duplicate for one scope mask a missing scope, and
+  // ignores entries deleted-branch scopes. A TB as-of before cutover
+  // correctly reports openingPosted: false.
   let openingPosted: boolean;
   if (branchId) {
     const found = await (tx as any).journalEntry.findFirst({
-      where: { companyId, branchId, isOpening: true },
+      where: {
+        companyId,
+        isOpening: true,
+        sourceId: openingSourceId(companyId, branchId),
+        entryDate: { lte: asOf },
+      },
       select: { id: true },
     });
     openingPosted = Boolean(found);
   } else {
     const branches = await tx.branch.findMany({ where: { companyId }, select: { id: true } });
-    const openingCount = await (tx as any).journalEntry.count({
-      where: { companyId, isOpening: true },
+    const expected = [...(branches as any[]).map((b) => openingSourceId(companyId, b.id)), openingSourceId(companyId, null)];
+    const found = await (tx as any).journalEntry.findMany({
+      where: { companyId, isOpening: true, sourceId: { in: expected }, entryDate: { lte: asOf } },
+      select: { sourceId: true },
     });
-    openingPosted = openingCount >= branches.length + 1;
+    const foundSet = new Set((found as any[]).map((f) => f.sourceId));
+    openingPosted = expected.every((s) => foundSet.has(s));
   }
   return {
     accounts: accounts as LedgerAccountRow[],
