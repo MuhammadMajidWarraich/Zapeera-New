@@ -1044,6 +1044,7 @@ const Invoices = () => {
           <div class="footer">
             <p>Thank you for choosing ${escapeHtml(invoice.branch.name)}!</p>
             <p>For any queries, please contact us at your nearest branch.</p>
+            <p>This invoice is generated using Zapeera A business management software</p>
           </div>
         </div>
       </body>
