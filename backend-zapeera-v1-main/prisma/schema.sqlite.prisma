@@ -213,6 +213,9 @@ model Business {
   serviceChargeConfigs      ServiceChargeConfig[]
   wastageRecords            WastageRecord[]
   auditLogs                 AuditLog[]
+  chartOfAccounts           ChartOfAccount[]
+  journalEntries            JournalEntry[]
+  ledgerExceptions          LedgerException[]
 
   partner                   Partner?               @relation("businessPartner", fields: [partnerId], references: [id], onDelete: SetNull)
 
@@ -281,6 +284,9 @@ model Branch {
   serviceChargeConfigs ServiceChargeConfig[]
   wastageRecords     WastageRecord[]
   auditLogs          AuditLog[]
+  chartOfAccounts  ChartOfAccount[]
+  journalEntries   JournalEntry[]
+  ledgerExceptions LedgerException[]
 
   @@unique([name, companyId], name: "branch_name_per_company")
   @@index([companyId], name: "idx_branch_company")
@@ -3811,4 +3817,111 @@ model AuditLog {
   @@index([action], name: "idx_auditLog_action")
   @@index([createdAt], name: "idx_auditLog_createdAt")
   @@map("audit_logs")
+}
+
+// ─── v1.0.22 — Double-entry ledger ───────────────────────────────────
+// A real chart of accounts + balanced journal entries, posted by the
+// service paths (sale, refund, purchase, expense, khata payment,
+// gift-card sale, wallet top-up, wastage) inside their own
+// transactions. Every entry balances (Σ debits == Σ credits) or the
+// write is rejected — see src/services/ledger.service.ts. Opening
+// balances are flagged opening entries derived once from live
+// operational data at cutover (no historical backfill). The derived
+// /reports/accounting/position summary remains as a cross-check.
+// JournalEntry (sourceType, sourceId, reversalOfId) is the
+// idempotency key: one primary posting per source operation; a
+// reversal carries the original entry's id and never collides.
+model ChartOfAccount {
+  id        String   @id @default(cuid())
+  companyId String
+  branchId  String?
+  code      String
+  name      String
+  type      String   // ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
+  subtype   String?
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+  lines   JournalLine[]
+
+  @@unique([companyId, code], name: "uq_chartOfAccount_company_code")
+  @@index([companyId], name: "idx_chartOfAccount_company")
+  @@index([branchId], name: "idx_chartOfAccount_branch")
+  @@index([type], name: "idx_chartOfAccount_type")
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id           String   @id @default(cuid())
+  companyId    String
+  branchId     String?
+  entryDate    DateTime @default(now())
+  memo         String?
+  sourceType   String   // SALE | REFUND | PURCHASE | EXPENSE | KHATA_PAYMENT | GIFT_CARD_SALE | WALLET_TOPUP | WASTAGE | OPENING
+  sourceId     String
+  status       String   @default("POSTED")
+  isOpening    Boolean  @default(false)
+  reversalOfId String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company    Business       @relation(fields: [companyId], references: [id])
+  branch     Branch?        @relation(fields: [branchId], references: [id])
+  lines      JournalLine[]
+  reversalOf JournalEntry?  @relation("JournalReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversals  JournalEntry[] @relation("JournalReversal")
+
+  @@unique([sourceType, sourceId, reversalOfId], name: "uq_journalEntry_source_reversal")
+  @@index([companyId], name: "idx_journalEntry_company")
+  @@index([branchId], name: "idx_journalEntry_branch")
+  @@index([entryDate], name: "idx_journalEntry_date")
+  @@index([sourceType], name: "idx_journalEntry_sourceType")
+  @@index([isOpening], name: "idx_journalEntry_opening")
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id        String   @id @default(cuid())
+  entryId   String
+  accountId String
+  debit     Float    @default(0)
+  credit    Float    @default(0)
+  memo      String?
+  createdAt DateTime @default(now())
+
+  entry   JournalEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([entryId], name: "idx_journalLine_entry")
+  @@index([accountId], name: "idx_journalLine_account")
+  @@map("journal_lines")
+}
+
+// Postings that could not be constructed (unknown cost, unbalanced
+// source figures, missing data) are recorded here instead of blocking
+// the source operation — the operation commits, the gap stays visible
+// on the trial-balance report until resolved.
+model LedgerException {
+  id         String    @id @default(cuid())
+  companyId  String
+  branchId   String?
+  sourceType String
+  sourceId   String
+  reason     String
+  detail     Json?
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  company Business @relation(fields: [companyId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+
+  @@index([companyId], name: "idx_ledgerException_company")
+  @@index([branchId], name: "idx_ledgerException_branch")
+  @@index([sourceType], name: "idx_ledgerException_sourceType")
+  @@index([createdAt], name: "idx_ledgerException_createdAt")
+  @@map("ledger_exceptions")
 }
