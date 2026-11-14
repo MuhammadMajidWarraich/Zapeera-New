@@ -13,11 +13,15 @@ import { toast } from "@/hooks/use-toast";
 import BankReconciliation from "./BankReconciliation";
 
 /**
- * Accounting (Wave B8) — accounting-lite, read-only.
+ * Accounting (Wave B8) — accounting-lite, read-only, plus the
+ * double-entry ledger (v1.0.22 full scope).
  * Every number on this page comes from the /reports/accounting/*
  * endpoints, which compute from real rows (sales, batch costs,
- * refunds, expenses, purchases, khata ledger, sale payments).
- * No figure is estimated or derived in the browser.
+ * refunds, expenses, purchases, khata ledger, sale payments) or from
+ * balanced journal entries. No figure is estimated or derived in the
+ * browser, except the ledger-vs-derived reconciliation note, which
+ * subtracts the two endpoint responses. The page's only write action
+ * is posting opening balances (idempotent, server-side).
  */
 
 const PERIOD_OPTIONS = [
@@ -80,6 +84,12 @@ const Accounting = () => {
   // Derived financial position (v1.0.22): point-in-time, so it takes
   // scope only, no period — like ageing and payables.
   const [position, setPosition] = useState<any>(null);
+  // Double-entry ledger (v1.0.22 full scope): the PRIMARY trial
+  // balance / balance sheet, from journals + opening balances. The
+  // derived position above stays as a cross-check.
+  const [ledgerTb, setLedgerTb] = useState<any>(null);
+  const [ledgerBs, setLedgerBs] = useState<any>(null);
+  const [postingOpening, setPostingOpening] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!selectedCompanyId) return;
@@ -89,13 +99,15 @@ const Accounting = () => {
       if (selectedBranchId) scopeParams.branchId = selectedBranchId;
       const periodParams = { ...scopeParams, period };
 
-      const [pnlRes, cmpRes, cashRes, ageRes, payRes, posRes] = await Promise.all([
+      const [pnlRes, cmpRes, cashRes, ageRes, payRes, posRes, ledTbRes, ledBsRes] = await Promise.all([
         apiService.getAccountingPnl(periodParams),
         apiService.getPnlComparison(periodParams),
         apiService.getCashbook(periodParams),
         apiService.getReceivablesAgeing(scopeParams),
         apiService.getPayables(scopeParams),
         apiService.getFinancialPosition(scopeParams),
+        apiService.getLedgerTrialBalance(scopeParams),
+        apiService.getLedgerBalanceSheet(scopeParams),
       ]);
       if (pnlRes.success) setPnl(pnlRes.data);
       if (cmpRes.success) setPnlCompare(cmpRes.data);
@@ -103,7 +115,9 @@ const Accounting = () => {
       if (ageRes.success) setAgeing(ageRes.data);
       if (payRes.success) setPayables(payRes.data);
       if (posRes.success) setPosition(posRes.data);
-      if (!pnlRes.success || !cashRes.success || !ageRes.success || !payRes.success || !posRes.success) {
+      if (ledTbRes.success) setLedgerTb(ledTbRes.data);
+      if (ledBsRes.success) setLedgerBs(ledBsRes.data);
+      if (!pnlRes.success || !cashRes.success || !ageRes.success || !payRes.success || !posRes.success || !ledTbRes.success || !ledBsRes.success) {
         toast({ title: "Error", description: "Some accounting figures failed to load", variant: "destructive" });
       }
     } catch (err: any) {
@@ -115,7 +129,40 @@ const Accounting = () => {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Opening balances (v1.0.22): idempotent — scopes already posted
+  // are skipped server-side. Runs for the selected branch, or every
+  // scope of the business when no branch is selected.
+  const handlePostOpening = async () => {
+    if (!selectedCompanyId) return;
+    setPostingOpening(true);
+    try {
+      const body: any = {};
+      if (selectedBranchId) body.branchId = selectedBranchId;
+      const res = await apiService.postLedgerOpeningBalances(body);
+      if (res.success) {
+        const created = (res.data?.results || []).filter((r: any) => r.status === 'created' || r.status === 'created-zero').length;
+        const skipped = (res.data?.results || []).filter((r: any) => r.status === 'skipped-existing').length;
+        toast({ title: "Opening balances posted", description: `${created} scope(s) posted, ${skipped} already posted.` });
+        fetchAll();
+      } else {
+        toast({ title: "Error", description: "Failed to post opening balances", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to post opening balances", variant: "destructive" });
+    } finally {
+      setPostingOpening(false);
+    }
+  };
+
   const unknownCostLines = (pnl?.cogs?.unknownCostLines || 0) + (pnl?.cogs?.unknownRefundCostLines || 0);
+  const ledgerOpeningPosted = ledgerTb?.openingPosted === true && ledgerBs?.openingPosted === true;
+  const ledgerExceptions = ledgerTb?.exceptions;
+  // Reconciliation note (computed in the browser from the two
+  // responses — no new endpoint): ledger vs derived cross-check.
+  const recon = ledgerBs && position ? {
+    assetsDiff: Math.round((Number(ledgerBs.totalAssets) || 0) - (Number(position.assets?.total) || 0)),
+    equitySideDiff: Math.round(((Number(ledgerBs.totalLiabilities) || 0) + (Number(ledgerBs.totalEquity) || 0)) - ((Number(position.liabilities?.total) || 0) + (Number(position.retainedProfit) || 0))),
+  } : null;
 
   return (
     <div className="space-y-6 p-4 md:p-6 print:p-0">
@@ -281,17 +328,165 @@ const Accounting = () => {
         </CardContent>
       </Card>
 
-      {/* ─── Financial Position — derived balance sheet + trial balance (v1.0.22) ─── */}
-      {/* Zapeera has no double-entry ledger, so this is a DERIVED position
-          built from real inventory, khata, bank, purchase, gift-card,
-          wallet and cumulative P&L figures. The unreconciled difference
-          is shown, never plugged. Point-in-time: the period selector
-          above does not apply. */}
+      {/* ─── Ledger — double-entry trial balance + balance sheet (v1.0.22 full scope) ─── */}
+      {/* PRIMARY display: built from balanced journal entries posted by
+          the sale, refund, purchase, expense, khata, gift-card, wallet
+          and wastage flows, plus flagged opening balances derived once
+          from live data at cutover. No historical backfill: journals
+          record postings from cutover forward. Point-in-time: the
+          period selector above does not apply. */}
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="print:shadow-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-primary" /> Balance Sheet (Derived)
+              <Scale className="h-5 w-5 text-primary" /> Trial Balance (Ledger)
+              {ledgerTb && <span className="text-sm font-normal text-muted-foreground">as of {formatDate(ledgerTb.asOf)}</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!ledgerTb ? (
+              <p className="text-muted-foreground">{loading ? "Loading…" : "No data"}</p>
+            ) : (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="text-right">Debit</TableHead>
+                      <TableHead className="text-right">Credit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ledgerTb.rows.length === 0 && (
+                      <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No journal entries yet — post opening balances to start the books.</TableCell></TableRow>
+                    )}
+                    {ledgerTb.rows.map((row: any) => (
+                      <TableRow key={row.accountId}>
+                        <TableCell>
+                          {row.code} — {row.name}
+                          <span className="block text-xs text-muted-foreground">{row.type}</span>
+                        </TableCell>
+                        <TableCell className="text-right">{row.debitTotal ? formatPKR(row.debitTotal) : "—"}</TableCell>
+                        <TableCell className="text-right">{row.creditTotal ? formatPKR(row.creditTotal) : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold">
+                      <TableCell>Totals</TableCell>
+                      <TableCell className="text-right">{formatPKR(ledgerTb.totalDebits)}</TableCell>
+                      <TableCell className="text-right">{formatPKR(ledgerTb.totalCredits)}</TableCell>
+                    </TableRow>
+                    <TableRow className="font-semibold text-amber-800">
+                      <TableCell>Difference (debits − credits, shown, never plugged)</TableCell>
+                      <TableCell className="text-right" colSpan={2}>{formatPKR(ledgerTb.difference)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+                {!ledgerOpeningPosted && (
+                  <div className="space-y-2 rounded-md bg-amber-50 px-3 py-2 text-amber-800">
+                    <p className="text-xs leading-relaxed">
+                      Opening balances have not been posted for this scope yet. The ledger only holds
+                      postings from cutover forward — post opening balances once to carry the prior
+                      position (inventory, khata, payables, bank, gift cards, wallets) into the books.
+                    </p>
+                    <Button size="sm" onClick={handlePostOpening} disabled={postingOpening}>
+                      {postingOpening ? "Posting…" : "Post opening balances"}
+                    </Button>
+                  </div>
+                )}
+                {ledgerExceptions && ledgerExceptions.unresolvedCount > 0 && (
+                  <div className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                    <span className="font-semibold">{ledgerExceptions.unresolvedCount} posting exception(s):</span>{" "}
+                    postings that could not be fully constructed (e.g. unknown batch cost) — the source
+                    operations completed, the gaps are listed here, never hidden.
+                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                      {ledgerExceptions.recent.slice(0, 5).map((e: any) => (
+                        <li key={e.id}>{e.sourceType} — {e.reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="print:shadow-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" /> Balance Sheet (Ledger)
+              {ledgerBs && <span className="text-sm font-normal text-muted-foreground">as of {formatDate(ledgerBs.asOf)}</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!ledgerBs ? (
+              <p className="text-muted-foreground">{loading ? "Loading…" : "No data"}</p>
+            ) : (
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h4 className="mb-1 font-semibold">Assets</h4>
+                  {ledgerBs.assets.length === 0 && <p className="text-muted-foreground">No asset balances yet.</p>}
+                  {ledgerBs.assets.map((line: any) => (
+                    <StatementRow key={line.code} label={`${line.code} — ${line.name}`} value={line.value} />
+                  ))}
+                  <div className="flex items-center justify-between border-t pt-2 font-bold">
+                    <span>Total assets</span>
+                    <span>{formatPKR(ledgerBs.totalAssets)}</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-1 font-semibold">Liabilities</h4>
+                  {ledgerBs.liabilities.length === 0 && <p className="text-muted-foreground">No liability balances yet.</p>}
+                  {ledgerBs.liabilities.map((line: any) => (
+                    <StatementRow key={line.code} label={`${line.code} — ${line.name}`} value={line.value} />
+                  ))}
+                  <div className="flex items-center justify-between border-t pt-2 font-bold">
+                    <span>Total liabilities</span>
+                    <span>{formatPKR(ledgerBs.totalLiabilities)}</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-1 font-semibold">Equity</h4>
+                  {ledgerBs.equityAccounts.map((line: any) => (
+                    <StatementRow key={line.code} label={`${line.code} — ${line.name}`} value={line.value} />
+                  ))}
+                  <StatementRow label="Retained profit (from income − expense journals)" value={ledgerBs.netIncome} />
+                  <div className="flex items-center justify-between border-t pt-2 font-bold">
+                    <span>Total equity</span>
+                    <span>{formatPKR(ledgerBs.totalEquity)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-md bg-amber-50 px-3 py-2 font-semibold text-amber-800">
+                  <span>Difference (assets − liabilities − equity, shown, never plugged)</span>
+                  <span>{formatPKR(ledgerBs.difference)}</span>
+                </div>
+                {recon && (
+                  <p className="rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                    Reconciliation vs the derived cross-check below: assets differ by {formatPKR(Math.abs(recon.assetsDiff))}
+                    {recon.assetsDiff === 0 ? " (agree)" : recon.assetsDiff > 0 ? " (ledger higher)" : " (derived higher)"};
+                    liabilities + equity differ by {formatPKR(Math.abs(recon.equitySideDiff))}
+                    {recon.equitySideDiff === 0 ? " (agree)" : recon.equitySideDiff > 0 ? " (ledger higher)" : " (derived higher)"}.
+                    Differences point at postings the ledger could not construct (see exceptions above),
+                    edits made after posting, or activity the ledger does not yet cover (folio
+                    settlements, supplier payments, khata adjustments).
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── Financial Position — derived balance sheet + trial balance (v1.0.22) ─── */}
+      {/* CROSS-CHECK ONLY: a DERIVED position built from real inventory,
+          khata, bank, purchase, gift-card, wallet and cumulative P&L
+          figures. The ledger cards above are the primary books. The
+          unreconciled difference is shown, never plugged. Point-in-time:
+          the period selector above does not apply. */}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card className="print:shadow-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" /> Balance Sheet (Derived — cross-check only)
               {position && <span className="text-sm font-normal text-muted-foreground">as of {formatDate(position.asOf)}</span>}
             </CardTitle>
           </CardHeader>
@@ -343,7 +538,7 @@ const Accounting = () => {
         <Card className="print:shadow-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-primary" /> Trial Balance (Derived)
+              <Scale className="h-5 w-5 text-primary" /> Trial Balance (Derived — cross-check only)
               {position && <span className="text-sm font-normal text-muted-foreground">all history to {formatDate(position.asOf)}</span>}
             </CardTitle>
           </CardHeader>

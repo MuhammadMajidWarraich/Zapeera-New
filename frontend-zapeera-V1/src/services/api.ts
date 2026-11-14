@@ -2971,6 +2971,55 @@ export class ApiService {
     return this.request<any>(`/reports/accounting/position${query ? `?${query}` : ''}`);
   }
 
+  // Double-entry ledger (v1.0.22): trial balance + balance sheet from
+  // journals, the posting-exceptions list, and the idempotent
+  // opening-balances routine.
+  async getLedgerTrialBalance(params?: { branchId?: string; companyId?: string; asOf?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/reports/accounting/trial-balance${query ? `?${query}` : ''}`);
+  }
+
+  async getLedgerBalanceSheet(params?: { branchId?: string; companyId?: string; asOf?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/reports/accounting/balance-sheet${query ? `?${query}` : ''}`);
+  }
+
+  async getLedgerExceptions(params?: { branchId?: string; companyId?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return this.request<any>(`/reports/accounting/exceptions${query ? `?${query}` : ''}`);
+  }
+
+  async postLedgerOpeningBalances(body?: { branchId?: string }) {
+    return this.request<any>('/reports/accounting/opening-balances', {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    });
+  }
+
   async getBasketSize(params?: any) {
     return this.request<any>(`/reports/basket-size${this.buildAdvancedReportQuery(params) ? `?${this.buildAdvancedReportQuery(params)}` : ''}`);
   }
