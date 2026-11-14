@@ -251,7 +251,17 @@ const SYNC_TABLES = [
   { name: 'reservations', priority: 49 },
   { name: 'folios', priority: 50 },
   { name: 'folio_charges', priority: 51 },
-  { name: 'folio_payments', priority: 52 }
+  { name: 'folio_payments', priority: 52 },
+  // v1.0.22 tables, parents before children (quotations before
+  // quotation_lines). Directions are enforced cloud-side: wastage +
+  // audit push-only, quotations bidirectional, receipt templates +
+  // service-charge configs pull-only (see sync-cloud-api.controller).
+  { name: 'quotations', priority: 53 },
+  { name: 'quotation_lines', priority: 54 },
+  { name: 'receipt_templates', priority: 55 },
+  { name: 'service_charge_configs', priority: 56 },
+  { name: 'wastage_records', priority: 57 },
+  { name: 'audit_logs', priority: 58 }
 ].sort((a, b) => a.priority - b.priority);
 
 let cloudApi = null;

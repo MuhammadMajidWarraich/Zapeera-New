@@ -93,7 +93,21 @@ const TABLE_MAPPINGS: Record<string, string> = {
   // Retail pack (C6) — two-way
   'productVariant': 'product_variants',
   'stockTake': 'stock_takes',
-  'stockTakeLine': 'stock_take_lines'
+  'stockTakeLine': 'stock_take_lines',
+  // ── v1.0.22 tables ─────────────────────────────────────────────────
+  // Quotations — two-way (parent before child in every ordered list).
+  'quotation': 'quotations',
+  'quotationLine': 'quotation_lines',
+  // Receipt templates + service-charge configs — config, PULL-ONLY:
+  // cloud-authoritative, desktop push blocked (see PUSH_BLOCKED_ENTITY_TYPES
+  // in sync-cloud-api.controller.ts). Mapped here so pull paths resolve;
+  // deliberately absent from every push list in sync.service.ts.
+  'receiptTemplate': 'receipt_templates',
+  'serviceChargeConfig': 'service_charge_configs',
+  // Wastage + audit — device-originated append-only PUSH. Wastage is also
+  // pull-listed (web can record it); audit is NEVER pulled down.
+  'wastageRecord': 'wastage_records',
+  'auditLog': 'audit_logs'
   // ── EXCLUDED FROM SYNC BY DESIGN (B7): fbr_configs + fbr_invoice_queue ──
   // fbr_configs holds the business's PRAL API token (write-only secret) which
   // must never leave the server, and fbr_invoice_queue is server-side fiscal

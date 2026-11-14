@@ -717,6 +717,16 @@ class SyncService {
         { pg: 'folios', sqlite: 'folio' },
         { pg: 'folio_charges', sqlite: 'folioCharge' },
         { pg: 'folio_payments', sqlite: 'folioPayment' },
+        // v1.0.22 tables (quotations before lines; configs pull-only by
+        // design — cloud-authoritative; wastage pulls because the web
+        // can record it too). AuditLog is DELIBERATELY ABSENT: the
+        // audit trail is device-originated append-only push and must
+        // never be pulled down to overwrite.
+        { pg: 'quotations', sqlite: 'quotation' },
+        { pg: 'quotation_lines', sqlite: 'quotationLine' },
+        { pg: 'receipt_templates', sqlite: 'receiptTemplate' },
+        { pg: 'service_charge_configs', sqlite: 'serviceChargeConfig' },
+        { pg: 'wastage_records', sqlite: 'wastageRecord' },
         // NOTE (B7): fbr_configs / fbr_invoice_queue are intentionally NOT
         // synced — the config holds a write-only PRAL API token that must
         // never leave the server, and the queue is server-side worker state.
@@ -1590,12 +1600,21 @@ class SyncService {
       'folio',
       'folioCharge',
       'folioPayment',
+      // v1.0.22 pushables: quotations (parent before child) + the two
+      // device-originated append-only tables. The configs are
+      // deliberately absent (see below).
+      'quotation',
+      'quotationLine',
+      'wastageRecord',
+      'auditLog',
       // DELIBERATELY ABSENT from push (see pull list + sync-helper.ts):
       // - customerLedgerEntry + loyaltyTransaction (B2/B3): PULL-ONLY —
       //   server-derived ledgers; pushing desktop copies would double-post.
       // - fbrConfig + fbrInvoiceQueue (B7): EXCLUDED from sync entirely —
       //   the config holds a write-only PRAL token; the queue is server-side
       //   worker state. sales.fbrInvoiceNumber/fbrStatus ride with 'sale'.
+      // - receiptTemplate + serviceChargeConfig (v1.0.22): PULL-ONLY —
+      //   cloud-authoritative config; desktop push is blocked cloud-side.
       // Employee management
       'attendance',
       'shift',
@@ -2280,9 +2299,17 @@ class SyncService {
       { prisma: 'folio', pg: 'folios' },
       { prisma: 'folioCharge', pg: 'folio_charges' },
       { prisma: 'folioPayment', pg: 'folio_payments' },
+      // v1.0.22 pushables: quotations (parent before child) + the two
+      // device-originated append-only tables.
+      { prisma: 'quotation', pg: 'quotations' },
+      { prisma: 'quotationLine', pg: 'quotation_lines' },
+      { prisma: 'wastageRecord', pg: 'wastage_records' },
+      { prisma: 'auditLog', pg: 'audit_logs' },
       // DELIBERATELY ABSENT from push: customerLedgerEntry +
-      // loyaltyTransaction (pull-only, server-derived) and the FBR tables
-      // (excluded from sync by design) — see syncAllTables above.
+      // loyaltyTransaction (pull-only, server-derived), the FBR tables
+      // (excluded from sync by design), and receiptTemplate +
+      // serviceChargeConfig (v1.0.22, pull-only config) — see
+      // syncAllTables above.
       { prisma: 'attendance', pg: 'attendance' },
       { prisma: 'shift', pg: 'shifts' },
       { prisma: 'scheduledShift', pg: 'scheduled_shifts' },

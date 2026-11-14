@@ -341,8 +341,12 @@ export const cloudProvisionBusiness = async (req: AuthRequest, res: Response) =>
 // - fbrConfig / fbrInvoiceQueue (B7): excluded from sync by design — the
 //   config holds a write-only PRAL API token; the queue is server-side
 //   worker state.
+// - receiptTemplate / serviceChargeConfig (v1.0.22): cloud-authoritative
+//   config (PULL-ONLY) — a desktop copy must never overwrite the
+//   business's receipt template or service-charge setup.
 const PUSH_BLOCKED_ENTITY_TYPES = new Set([
   'customerLedgerEntry', 'loyaltyTransaction', 'fbrConfig', 'fbrInvoiceQueue',
+  'receiptTemplate', 'serviceChargeConfig',
   // v1.0.19.1 — subscription / entitlement state is CLOUD-AUTHORITATIVE:
   // devices PULL it (provision + /sync/account + pull), they never PUSH
   // it. A stale device mirror must never regress billing state (incident
@@ -381,7 +385,12 @@ const ENTITY_DEPENDENCY_RANK: Record<string, number> = {
   promotion: 340, taxClass: 350,
   prescription: 410, prescriptionItem: 420,
   patient: 430, doctor: 440, appointment: 450, doctorSettlement: 460,
-  roomType: 470, room: 480, reservation: 490, folio: 500, folioCharge: 510, folioPayment: 520
+  roomType: 470, room: 480, reservation: 490, folio: 500, folioCharge: 510, folioPayment: 520,
+  // v1.0.22 tables (quotation before quotationLine; the two configs
+  // are pull-only but ranked for any batch that carries one).
+  quotation: 530, quotationLine: 540,
+  receiptTemplate: 550, serviceChargeConfig: 560,
+  wastageRecord: 570, auditLog: 580
 };
 const DEFAULT_DEPENDENCY_RANK = 9999;
 
@@ -481,7 +490,7 @@ function staleVerdict(payload: any, existing: any, serverNowMs: number = Date.no
 //   per-unit, so it is divided by quantity.
 // - stockMovement: local referenceId -> cloud reference.
 const PUSH_FIELD_ALLOWLIST: Record<string, Set<string>> = {
-  sale: new Set(['id', 'invoiceNumber', 'customerId', 'userId', 'branchId', 'companyId', 'createdBy', 'subtotal', 'taxAmount', 'provincialTaxAmount', 'discountAmount', 'discountPercentage', 'loyaltyPointsRedeemed', 'loyaltyDiscount', 'loyaltyPointsEarned', 'promotionDiscount', 'fbrInvoiceNumber', 'fbrStatus', 'postexTrackingNumber', 'postexShipmentStatus', 'prescriptionId', 'folioId', 'salespersonId', 'shiftId', 'channel', 'externalOrderId', 'deliveryAddress', 'deliveryPhone', 'deliveryNotes', 'giftCardAmount', 'walletAmount', 'totalAmount', 'paidAmount', 'returnedAmount', 'paymentMethod', 'paymentStatus', 'status', 'saleDate', 'membershipId', 'uuid', 'syncStatus', 'createdAt', 'updatedAt']),
+  sale: new Set(['id', 'invoiceNumber', 'customerId', 'userId', 'branchId', 'companyId', 'createdBy', 'subtotal', 'taxAmount', 'provincialTaxAmount', 'discountAmount', 'discountPercentage', 'loyaltyPointsRedeemed', 'loyaltyDiscount', 'loyaltyPointsEarned', 'promotionDiscount', 'serviceChargeAmount', 'serviceChargeType', 'serviceChargePercentage', 'fbrInvoiceNumber', 'fbrStatus', 'postexTrackingNumber', 'postexShipmentStatus', 'prescriptionId', 'folioId', 'salespersonId', 'shiftId', 'channel', 'externalOrderId', 'deliveryAddress', 'deliveryPhone', 'deliveryNotes', 'giftCardAmount', 'walletAmount', 'totalAmount', 'paidAmount', 'returnedAmount', 'paymentMethod', 'paymentStatus', 'status', 'saleDate', 'membershipId', 'uuid', 'syncStatus', 'createdAt', 'updatedAt']),
   saleItem: new Set(['id', 'saleId', 'productId', 'batchId', 'createdBy', 'quantity', 'unitsDeducted', 'unitsPerBox', 'saleType', 'unitLevel', 'unitFactor', 'variantId', 'variantName', 'unitPrice', 'totalPrice', 'batchNumber', 'expiryDate']),
   // Shift fix (2026-10-27, B2): the desktop pushes real shift rows now.
   // Deliberately NO companyId in this set: the Shift model has no
@@ -494,7 +503,15 @@ const PUSH_FIELD_ALLOWLIST: Record<string, Set<string>> = {
   purchaseItem: new Set(['id', 'purchaseId', 'productId', 'batchId', 'quantity', 'unitPrice', 'totalPrice', 'createdAt', 'updatedAt']),
   refund: new Set(['id', 'originalSaleId', 'refundReason', 'refundAmount', 'refundMethod', 'refundReference', 'refundedBy', 'createdBy', 'status', 'processedAt', 'createdAt', 'updatedAt']),
   refundItem: new Set(['id', 'refundId', 'productId', 'createdBy', 'quantity', 'unitPrice', 'reason']),
-  stockMovement: new Set(['id', 'productId', 'type', 'quantity', 'reason', 'reference', 'createdAt', 'createdBy'])
+  stockMovement: new Set(['id', 'productId', 'type', 'quantity', 'reason', 'reference', 'createdAt', 'createdBy']),
+  // v1.0.22 pushables — exact schema fields. The two pull-only configs
+  // (receiptTemplate, serviceChargeConfig) have NO allowlist entry:
+  // their pushes are blocked outright above. AuditLog has no
+  // updatedAt — its entries are append-only, keyed by createdAt.
+  quotation: new Set(['id', 'quotationNumber', 'companyId', 'branchId', 'customerId', 'userId', 'status', 'validUntil', 'subtotal', 'discountAmount', 'discountPercentage', 'taxAmount', 'totalAmount', 'notes', 'sentAt', 'convertedSaleId', 'createdAt', 'updatedAt']),
+  quotationLine: new Set(['id', 'quotationId', 'productId', 'variantId', 'variantName', 'quantity', 'unitLevel', 'unitFactor', 'unitPrice', 'discountAmount', 'taxAmount', 'totalPrice', 'createdAt', 'updatedAt']),
+  wastageRecord: new Set(['id', 'companyId', 'branchId', 'productId', 'batchId', 'quantity', 'reason', 'reasonNote', 'unitCost', 'stockMovementId', 'recordedBy', 'recordedAt', 'createdAt', 'updatedAt']),
+  auditLog: new Set(['id', 'companyId', 'branchId', 'userId', 'userName', 'action', 'entityType', 'entityId', 'description', 'metadata', 'createdAt'])
 };
 
 function sanitizePushData(entityType: string, data: any): Record<string, any> {
@@ -1216,7 +1233,12 @@ export const cloudPullChanges = async (req: AuthRequest, res: Response) => {
       'roomType', 'room', 'reservation', 'folio',
       'productVariant', 'stockTake',
       'customerLedgerEntry', 'loyaltyTransaction',
-      'shift', 'staffProfile'
+      'shift', 'staffProfile',
+      // v1.0.22 companyId-scoped parents. quotationLine is a child
+      // WITHOUT companyId — it moves via push/full-table replication
+      // like other children, not the cursor pull. auditLog is
+      // push-only and never pulled down.
+      'quotation', 'receiptTemplate', 'serviceChargeConfig', 'wastageRecord'
     ];
     let maxSeen: { ms: number; id: string } | null = null;
     const truncatedFrontiers: Array<{ ms: number; id: string }> = [];
