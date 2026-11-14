@@ -6,6 +6,7 @@ import { getPrisma } from '../utils/db.util';
 import { createSearchConditions } from '../utils/query-helper';
 import { AuthRequest } from '../middleware/auth.middleware';
 import Joi from 'joi';
+import { postExpenseJournal, postWithGuard } from '../services/ledger.service';
 
 // ─── Validation schemas ─────────────────────────────────────────────────────
 
@@ -370,25 +371,36 @@ export const createExpense = async (req: AuthRequest, res: Response) => {
       category?.name ||
       'Expense';
 
-    const expense = await prisma.expense.create({
-      data: {
-        title,
-        description: emptyToNull(value.description),
-        vendor: emptyToNull(value.vendor),
-        amount: value.amount,
-        expenseDate: parseDateStart(toDateOnly(value.expenseDate) || String(value.expenseDate)) || new Date(value.expenseDate),
-        paymentMethod: value.paymentMethod || 'CASH',
-        reference: emptyToNull(value.reference),
-        status: value.status || 'PENDING',
-        companyId,
-        branchId,
-        categoryId: category ? category.id : null,
-        createdBy: req.user?.id || null
-      },
-      include: {
-        category: { select: { id: true, name: true } },
-        branch: { select: { id: true, name: true } }
-      }
+    // Double-entry ledger (v1.0.22): the expense and its journal
+    // commit in one transaction. The posting is guarded — a failure
+    // records a LedgerException and never blocks the expense.
+    const expense = await prisma.$transaction(async (tx: any) => {
+      const created = await tx.expense.create({
+        data: {
+          title,
+          description: emptyToNull(value.description),
+          vendor: emptyToNull(value.vendor),
+          amount: value.amount,
+          expenseDate: parseDateStart(toDateOnly(value.expenseDate) || String(value.expenseDate)) || new Date(value.expenseDate),
+          paymentMethod: value.paymentMethod || 'CASH',
+          reference: emptyToNull(value.reference),
+          status: value.status || 'PENDING',
+          companyId,
+          branchId,
+          categoryId: category ? category.id : null,
+          createdBy: req.user?.id || null
+        },
+        include: {
+          category: { select: { id: true, name: true } },
+          branch: { select: { id: true, name: true } }
+        }
+      });
+      await postWithGuard(
+        tx,
+        { companyId, branchId: branchId || null, sourceType: 'EXPENSE', sourceId: created.id },
+        () => postExpenseJournal(tx, created.id, req.user?.id || null),
+      );
+      return created;
     });
 
     return res.status(201).json({ success: true, data: serializeExpense(expense) });

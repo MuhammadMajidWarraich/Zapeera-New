@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { postPurchaseJournal, postWithGuard } from '../services/ledger.service';
 
 // Joi schemas for validation
 // One line-item shape shared by create and update (Roadmap A10): an update
@@ -390,6 +391,16 @@ export const createPurchase = async (req: AuthRequest, res: Response) => {
 
         purchaseItems.push(purchaseItem);
       }
+
+      // Double-entry ledger (v1.0.22): post the purchase journal in
+      // the same transaction — inventory vs payables/cash. Guarded:
+      // a posting failure records a LedgerException and never blocks
+      // the purchase.
+      await postWithGuard(
+        tx,
+        { companyId: purchase.companyId, branchId: purchase.branchId || null, sourceType: 'PURCHASE', sourceId: purchase.id },
+        () => postPurchaseJournal(tx, purchase.id, req.user?.id || null),
+      );
 
       return { purchase, purchaseItems };
     });
@@ -1161,6 +1172,16 @@ export const createPurchaseFromSuggestions = async (req: AuthRequest, res: Respo
         });
         purchaseItems.push(purchaseItem);
       }
+
+      // Double-entry ledger (v1.0.22): same purchase posting as
+      // createPurchase — purchases from reorder suggestions must not
+      // bypass the journal. Guarded, never blocks the purchase.
+      await postWithGuard(
+        tx,
+        { companyId: purchase.companyId, branchId: purchase.branchId || null, sourceType: 'PURCHASE', sourceId: purchase.id },
+        () => postPurchaseJournal(tx, purchase.id, req.user?.id || null),
+      );
+
       return { purchase, purchaseItems };
     });
 

@@ -22,6 +22,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { GiftCardKioskError, topUpWalletAtomic } from '../utils/giftcard-kiosk.util';
 import { requireGiftCardKiosk } from './giftcard.controller';
 import { GIFT_CARD_PAYMENT_METHODS } from './giftcard.controller';
+import { postWalletTopUpJournal, postWithGuard } from '../services/ledger.service';
 
 const topUpSchema = Joi.object({
   amount: Joi.number().positive().required(),
@@ -118,16 +119,25 @@ export const topUpWallet = async (req: AuthRequest, res: Response) => {
       });
     }
     const prisma = await getPrisma();
-    const result = await prisma.$transaction((tx: any) =>
-      topUpWalletAtomic(tx, {
+    const result = await prisma.$transaction(async (tx: any) => {
+      const created = await topUpWalletAtomic(tx, {
         customerId: req.params.customerId,
         companyId: businessId,
         amount: value.amount,
         method: value.method || null,
         createdBy: req.user?.id || null,
         note: value.note || null,
-      })
-    );
+      });
+      // Double-entry ledger (v1.0.22): a top-up is a LIABILITY
+      // (customer advance), never revenue. Guarded, never blocks the
+      // top-up.
+      await postWithGuard(
+        tx,
+        { companyId: businessId, branchId: null, sourceType: 'WALLET_TOPUP', sourceId: created.transactionId },
+        () => postWalletTopUpJournal(tx, created.transactionId, req.user?.id || null),
+      );
+      return created;
+    });
     return res.status(201).json({ success: true, data: result });
   } catch (error) {
     return sendWalletError(res, error);

@@ -14,6 +14,7 @@ import { computeSaleTax, serializeTaxBreakdown, IMPLICIT_DEFAULT_CLASS_NAME, Tax
 import { computeProvincialTax, resolveProvincialTaxConfig, serializeProvincialTaxBreakdown, ProvincialTaxLine } from '../utils/provincial-tax.util';
 import { computeServiceCharge, resolveServiceChargeConfig } from '../utils/service-charge.util';
 import { logAuditEvent } from '../services/audit-log.service';
+import { postSaleJournal, postWithGuard, reverseSaleJournal } from '../services/ledger.service';
 import { enqueueFbrForSale, attemptImmediateFbr } from '../services/fbr.service';
 import { appendControlledDispenseEntries, ControlledDispenseLineInput } from '../services/controlled-medicines.service';
 import { isPrescriptionEnforced } from '../utils/prescription.util';
@@ -2545,6 +2546,16 @@ export const createSale = async (req: AuthRequest, res: Response) => {
         }
       });
 
+      // Double-entry ledger (v1.0.22): post the sale journal in the
+      // same transaction — revenue, tax, service charge, tender,
+      // receivables and COGS. Guarded: a posting failure records a
+      // LedgerException and never blocks the sale.
+      await postWithGuard(
+        tx,
+        { companyId: sale.companyId, branchId: sale.branchId || null, sourceType: 'SALE', sourceId: sale.id },
+        () => postSaleJournal(tx, sale.id, req.user?.id || null),
+      );
+
       return { sale, saleItems, receipt };
       }, {
         timeout: 60000 // 60 seconds timeout for long-running transactions
@@ -3467,6 +3478,15 @@ export const deleteSale = async (req: AuthRequest, res: Response) => {
           data: { usedCount: { decrement: 1 } }
         });
       }
+
+      // Double-entry ledger (v1.0.22): reverse the sale's journal
+      // before the sale row is deleted. A no-op for pre-cutover
+      // sales that never posted. Guarded — never blocks the delete.
+      await postWithGuard(
+        tx,
+        { companyId: existingSale.companyId, branchId: existingSale.branchId || null, sourceType: 'SALE', sourceId: id },
+        () => reverseSaleJournal(tx, id, req.user?.id || null),
+      );
 
       // Delete the sale
       await tx.sale.delete({

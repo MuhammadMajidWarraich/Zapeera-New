@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getPrisma } from '../utils/db.util';
 import { replaySaleStock, restockRefundStock, saleLineUnits } from '../services/sync-stock-replay.service';
+import { postPushedRefundJournal, postPushedSaleJournal } from '../services/ledger.service';
 import { runReconciliation, createStockTakesFromReconciliation, resolveReconciliation } from '../services/stock-reconciliation.service';
 import { issueLicenseForBusiness, readDeviceBinding } from '../services/license.service';
 
@@ -920,6 +921,10 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
       } catch (e: any) {
         console.error(`[CloudSync] Stock replay failed for sale ${saleId}:`, e.message);
       }
+      // Double-entry ledger (v1.0.22): the cloud copy's own posting
+      // for a pushed sale — idempotent, never throws (journals do
+      // not sync, so the desktop's local posting cannot double-post).
+      await postPushedSaleJournal(prisma, saleId);
     }
     for (const refundId of restockRefundIds) {
       try {
@@ -927,6 +932,9 @@ export const cloudPushOperations = async (req: AuthRequest, res: Response) => {
       } catch (e: any) {
         console.error(`[CloudSync] Refund restock failed for refund ${refundId}:`, e.message);
       }
+      // Double-entry ledger (v1.0.22): the cloud copy's own posting
+      // for a pushed refund — idempotent, never throws.
+      await postPushedRefundJournal(prisma, refundId);
     }
 
     res.json({ success: true, data: { results } });

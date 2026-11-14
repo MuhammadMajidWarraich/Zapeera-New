@@ -9,6 +9,7 @@ import { enqueueFbrCreditNote, attemptImmediateFbr } from '../services/fbr.servi
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
 import { planRefundRestock } from '../utils/fefo.util';
 import { logAuditEvent } from '../services/audit-log.service';
+import { postRefundJournal, postWithGuard } from '../services/ledger.service';
 import Joi from 'joi';
 
 // Utility function to convert BigInt, Decimal, and Date values to strings for JSON serialization
@@ -712,6 +713,16 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
           }
         }
       }
+
+      // Double-entry ledger (v1.0.22): post the refund journal in the
+      // same transaction — sales returns, pro-rata tax, khata-due
+      // reduction, money out, COGS reversal. Guarded: a posting
+      // failure records a LedgerException and never blocks the refund.
+      await postWithGuard(
+        tx,
+        { companyId: originalSale.companyId, branchId: originalSale.branchId || null, sourceType: 'REFUND', sourceId: refund.id },
+        () => postRefundJournal(tx, refund.id, actorId),
+      );
 
       return { refund, refundItems };
     });

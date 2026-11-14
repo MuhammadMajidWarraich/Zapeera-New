@@ -10,6 +10,7 @@ import { getLoyaltyPointValue, recordLoyaltyTransaction } from '../utils/loyalty
 import { checkCreditLimit, CREDIT_LIMIT_EXCEEDED } from '../utils/credit-limit.util';
 import { notifyCustomerChange } from '../routes/sse.routes';
 import { syncAfterOperation, pullLatestFromLive } from '../utils/sync-helper';
+import { postKhataPaymentJournal, postWithGuard } from '../services/ledger.service';
 import Joi from 'joi';
 
 // Validation schemas
@@ -855,7 +856,7 @@ const findLedgerCustomer = async (req: AuthRequest, res: Response, customerId: s
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, companyId: businessId },
-    select: { id: true, name: true, phone: true, creditLimit: true }
+    select: { id: true, name: true, phone: true, creditLimit: true, branchId: true }
   });
 
   if (!customer) {
@@ -970,20 +971,30 @@ export const recordCustomerPayment = async (req: AuthRequest, res: Response) => 
     // Stored negative: a payment reduces what the customer owes.
     // Overpayment is allowed on purpose — the balance goes negative,
     // which is exactly how a khata shows an advance / store credit.
-    const entry = await prisma.customerLedgerEntry.create({
-      data: {
-        companyId: businessId,
-        customerId: customer.id,
-        type: 'PAYMENT',
-        amount: -ledgerRound2(Number(value.amount)),
-        method: value.method,
-        reference: value.reference || null,
-        note: value.note || null,
-        createdBy: req.user?.id || null
-      }
+    // Double-entry ledger (v1.0.22): the entry and its journal commit
+    // in one transaction; the posting is guarded and never blocks the
+    // payment.
+    const { entry, balance } = await prisma.$transaction(async (tx: any) => {
+      const created = await tx.customerLedgerEntry.create({
+        data: {
+          companyId: businessId,
+          customerId: customer.id,
+          type: 'PAYMENT',
+          amount: -ledgerRound2(Number(value.amount)),
+          method: value.method,
+          reference: value.reference || null,
+          note: value.note || null,
+          createdBy: req.user?.id || null
+        }
+      });
+      await postWithGuard(
+        tx,
+        { companyId: businessId, branchId: customer.branchId || null, sourceType: 'KHATA_PAYMENT', sourceId: created.id },
+        () => postKhataPaymentJournal(tx, created.id, req.user?.id || null),
+      );
+      const bal = await sumLedgerBalance(tx, customer.id, businessId);
+      return { entry: created, balance: bal };
     });
-
-    const balance = await sumLedgerBalance(prisma, customer.id, businessId);
 
     syncAfterOperation('customer', 'update', customer).catch(err => {
       console.error('[Sync] Customer khata payment sync failed:', err.message);

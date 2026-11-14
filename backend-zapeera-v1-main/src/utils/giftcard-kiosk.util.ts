@@ -324,7 +324,7 @@ export async function topUpWalletAtomic(tx: any, input: TopUpWalletInput) {
     create: { customerId: input.customerId, companyId: input.companyId, balance: amount },
   });
   const balanceAfter = round2(Number(wallet.balance) || 0);
-  await tx.walletTransaction.create({
+  const txnRow = await tx.walletTransaction.create({
     data: {
       walletId: wallet.id,
       customerId: input.customerId,
@@ -337,7 +337,8 @@ export async function topUpWalletAtomic(tx: any, input: TopUpWalletInput) {
       createdBy: input.createdBy || null,
     },
   });
-  return { walletId: wallet.id, customerId: input.customerId, balanceAfter };
+  // transactionId: the ledger posting keys on the TOPUP row (v1.0.22).
+  return { walletId: wallet.id, customerId: input.customerId, balanceAfter, transactionId: txnRow.id };
 }
 
 export interface PurchaseGiftCardInput {

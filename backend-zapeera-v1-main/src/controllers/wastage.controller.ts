@@ -3,6 +3,7 @@ import { getPrisma } from '../utils/db.util';
 import Joi from 'joi';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { logAuditEvent } from '../services/audit-log.service';
+import { postWastageJournal, postWithGuard } from '../services/ledger.service';
 import { round2 } from '../utils/quotation.util';
 
 // ─── Wastage / damage recording (v1.0.22) ────────────────────────────
@@ -109,6 +110,15 @@ export const recordWastage = async (req: AuthRequest, res: Response) => {
           createdBy: createdBy || 'system',
         },
       });
+      // Double-entry ledger (v1.0.22): post the wastage journal in
+      // the same transaction — wastage loss vs inventory at the
+      // snapshotted batch cost. Guarded: never blocks the write-off.
+      await postWithGuard(
+        tx,
+        { companyId, branchId: value.branchId, sourceType: 'WASTAGE', sourceId: created.id },
+        () => postWastageJournal(tx, created.id, createdBy),
+      );
+
       return tx.wastageRecord.update({
         where: { id: created.id },
         data: { stockMovementId: movement.id },

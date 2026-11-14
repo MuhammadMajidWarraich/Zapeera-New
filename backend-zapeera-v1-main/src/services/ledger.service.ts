@@ -192,7 +192,7 @@ export async function recordLedgerException(
 export async function postWithGuard(
   tx: Tx,
   ctx: { companyId: string; branchId?: string | null; sourceType: string; sourceId: string },
-  fn: () => Promise<void>,
+  fn: () => Promise<unknown>,
 ): Promise<void> {
   try {
     await fn();
@@ -599,6 +599,60 @@ export async function reverseSaleJournal(tx: Tx, saleId: string, createdBy?: str
 }
 
 // ─── Opening balances ────────────────────────────────────────────────
+
+/**
+ * Post a journal for a sale that arrived via the cloud sync-push API
+ * (desktop → cloud). The desktop already posts locally; journals do
+ * NOT sync, so this is the cloud copy's own posting — idempotent via
+ * the (sourceType, sourceId) key. Never throws: a failure is logged
+ * and recorded as an exception inside the transaction where possible.
+ * Sales arriving via full-table replication (sync.service.ts bulk
+ * sync) do NOT pass through here — see the honest-limits note in the
+ * v1.0.22 report.
+ */
+export async function postPushedSaleJournal(prisma: Tx, saleId: string): Promise<void> {
+  try {
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      select: { companyId: true, branchId: true },
+    });
+    if (!sale) return;
+    await prisma.$transaction(async (tx: Tx) => {
+      await postWithGuard(
+        tx,
+        { companyId: sale.companyId, branchId: sale.branchId || null, sourceType: 'SALE', sourceId: saleId },
+        () => postSaleJournal(tx, saleId, null),
+      );
+    });
+  } catch (e: any) {
+    console.error(`[Ledger] Pushed-sale posting failed for ${saleId}:`, e?.message);
+  }
+}
+
+/** Same as postPushedSaleJournal, for refunds restocked via the push API. */
+export async function postPushedRefundJournal(prisma: Tx, refundId: string): Promise<void> {
+  try {
+    const refund = await prisma.refund.findUnique({
+      where: { id: refundId },
+      select: { originalSaleId: true },
+    });
+    if (!refund) return;
+    const originalSale = await prisma.sale.findUnique({
+      where: { id: refund.originalSaleId },
+      select: { companyId: true, branchId: true },
+    });
+    if (!originalSale) return;
+    await prisma.$transaction(async (tx: Tx) => {
+      await postWithGuard(
+        tx,
+        { companyId: originalSale.companyId, branchId: originalSale.branchId || null, sourceType: 'REFUND', sourceId: refundId },
+        () => postRefundJournal(tx, refundId, null),
+      );
+    });
+  } catch (e: any) {
+    console.error(`[Ledger] Pushed-refund posting failed for ${refundId}:`, e?.message);
+  }
+}
 
 export interface OpeningScopeResult {
   branchId: string | null;

@@ -22,6 +22,7 @@ import { Response } from 'express';
 import Joi from 'joi';
 import { getPrisma } from '../utils/db.util';
 import { AuthRequest, getUserRole } from '../middleware/auth.middleware';
+import { postGiftCardSaleJournal, postWithGuard } from '../services/ledger.service';
 import {
   GiftCardKioskError,
   isGiftCardKioskEnabled,
@@ -116,8 +117,8 @@ export const purchaseGiftCard = async (req: AuthRequest, res: Response) => {
         return res.status(400).json({ success: false, message: 'The purchasing customer was not found in this business.' });
       }
     }
-    const card = await prisma.$transaction((tx: any) =>
-      purchaseGiftCardAtomic(tx, {
+    const card = await prisma.$transaction(async (tx: any) => {
+      const created = await purchaseGiftCardAtomic(tx, {
         companyId: businessId,
         branchId: value.branchId,
         value: value.value,
@@ -127,8 +128,17 @@ export const purchaseGiftCard = async (req: AuthRequest, res: Response) => {
         paymentMethod: value.paymentMethod || null,
         expiresAt: value.expiresAt || null,
         createdBy: req.user?.id || null,
-      })
-    );
+      });
+      // Double-entry ledger (v1.0.22): a gift-card sale is a
+      // LIABILITY, never revenue — Dr cash/bank, Cr gift-card
+      // liability. Guarded, never blocks the sale.
+      await postWithGuard(
+        tx,
+        { companyId: businessId, branchId: value.branchId, sourceType: 'GIFT_CARD_SALE', sourceId: created.id },
+        () => postGiftCardSaleJournal(tx, created.id, req.user?.id || null),
+      );
+      return created;
+    });
     return res.status(201).json({ success: true, data: card });
   } catch (error) {
     return sendGiftCardError(res, error);
