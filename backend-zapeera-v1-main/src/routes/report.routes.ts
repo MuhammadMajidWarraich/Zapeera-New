@@ -48,6 +48,12 @@ import {
   getBasketSize,
   getComparisonMatrix
 } from '../controllers/comparison-report.controller';
+import {
+  getLedgerBalanceSheet,
+  getLedgerExceptionList,
+  getLedgerTrialBalance,
+  postLedgerOpeningBalances
+} from '../controllers/ledger-report.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import {
   getSupplierAgingReport,
@@ -150,6 +156,13 @@ router.get('/accounting/cashbook', checkPermission('reports.read'), getCashbook)
 // Derived trial balance + balance sheet (v1.0.22): same Finance Pack /
 // Growth+ gate as the rest of /accounting/* above.
 router.get('/accounting/position', checkPermission('reports.read'), getFinancialPosition);
+// True double-entry ledger (v1.0.22 full scope): journals + opening
+// balances. Same Finance gate; the derived /position endpoint stays
+// as a cross-check.
+router.get('/accounting/trial-balance', checkPermission('reports.read'), getLedgerTrialBalance);
+router.get('/accounting/balance-sheet', checkPermission('reports.read'), getLedgerBalanceSheet);
+router.get('/accounting/exceptions', checkPermission('reports.read'), getLedgerExceptionList);
+router.post('/accounting/opening-balances', checkPermission('reports.read'), postLedgerOpeningBalances);
 
 // Basket size + comparison matrices (v1.0.22): plain reports.read,
 // deliberately OUTSIDE the /advanced and /accounting add-on gates.
