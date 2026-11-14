@@ -253,9 +253,10 @@ const SYNC_TABLES = [
   { name: 'folio_charges', priority: 51 },
   { name: 'folio_payments', priority: 52 },
   // v1.0.22 tables, parents before children (quotations before
-  // quotation_lines). Directions are enforced cloud-side: wastage +
-  // audit push-only, quotations bidirectional, receipt templates +
-  // service-charge configs pull-only (see sync-cloud-api.controller).
+  // quotation_lines). Directions are enforced cloud-side: audit
+  // push-only, quotations bidirectional, wastage push + pull (the web
+  // can record it too), receipt templates + service-charge configs
+  // pull-only (see sync-cloud-api.controller).
   { name: 'quotations', priority: 53 },
   { name: 'quotation_lines', priority: 54 },
   { name: 'receipt_templates', priority: 55 },

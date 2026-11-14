@@ -1455,7 +1455,16 @@ class SyncService {
       'folioPayment': 'folio_payments',
       'productVariant': 'product_variants',
       'stockTake': 'stock_takes',
-      'stockTakeLine': 'stock_take_lines'
+      'stockTakeLine': 'stock_take_lines',
+      // v1.0.22 tables — every synced model needs an entry here: the
+      // fallback returns the model name verbatim, which is not a PG
+      // table (recon catch, 2026-11-14).
+      'quotation': 'quotations',
+      'quotationLine': 'quotation_lines',
+      'receiptTemplate': 'receipt_templates',
+      'serviceChargeConfig': 'service_charge_configs',
+      'wastageRecord': 'wastage_records',
+      'auditLog': 'audit_logs'
     };
 
     return tableMap[modelName] || modelName;
@@ -1517,7 +1526,14 @@ class SyncService {
       'folio_payments': 'folioPayment',
       'product_variants': 'productVariant',
       'stock_takes': 'stockTake',
-      'stock_take_lines': 'stockTakeLine'
+      'stock_take_lines': 'stockTakeLine',
+      // v1.0.22 tables (symmetric with getPostgreSQLTableName above).
+      'quotations': 'quotation',
+      'quotation_lines': 'quotationLine',
+      'receipt_templates': 'receiptTemplate',
+      'service_charge_configs': 'serviceChargeConfig',
+      'wastage_records': 'wastageRecord',
+      'audit_logs': 'auditLog'
     };
 
     return modelMap[tableName] || tableName;

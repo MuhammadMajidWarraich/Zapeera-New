@@ -550,10 +550,30 @@ describe('v1.0.22 sync registration', () => {
       expect(text).toContain(`'${model}',`);
       expect(text).toContain(`{ prisma: '${model}', pg:`);
     }
-    expect(text).not.toContain(`'receiptTemplate',`);
-    expect(text).not.toContain(`'serviceChargeConfig',`);
+    // Bare list entries only (line-anchored): the name maps below
+    // legitimately contain 'receiptTemplate' as a VALUE.
+    expect(text).not.toMatch(/^\s+'receiptTemplate',$/m);
+    expect(text).not.toMatch(/^\s+'serviceChargeConfig',$/m);
     expect(text).not.toContain(`{ prisma: 'receiptTemplate'`);
     expect(text).not.toContain(`{ prisma: 'serviceChargeConfig'`);
+  });
+
+  it('maps all six tables in getPostgreSQLTableName and its reverse map', () => {
+    // Recon catch (2026-11-14): without these entries the fallback
+    // returns the model name verbatim, which is not a PG table, and
+    // the queue drain / scheduler / event push paths fail or skip.
+    const text = readText('..', 'src', 'services', 'sync.service.ts');
+    for (const [model, table] of [
+      ['quotation', 'quotations'],
+      ['quotationLine', 'quotation_lines'],
+      ['receiptTemplate', 'receipt_templates'],
+      ['serviceChargeConfig', 'service_charge_configs'],
+      ['wastageRecord', 'wastage_records'],
+      ['auditLog', 'audit_logs'],
+    ]) {
+      expect(text).toContain(`'${model}': '${table}'`);
+      expect(text).toContain(`'${table}': '${model}'`);
+    }
   });
 
   it('ranks, blocks, allowlists and cursor-pulls per the intended directions', () => {
