@@ -234,15 +234,15 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
     <section className="mt-10">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-[18px] font-extrabold tracking-tight text-[#0a1128]">Add-ons</h2>
-          <p className="mt-0.5 text-[13px] text-[#8c95b0]">
+          <h2 className="text-[18px] font-extrabold tracking-tight text-[#032125]">Add-ons</h2>
+          <p className="mt-0.5 text-[13px] text-[#437278]">
             Add just the features you need to a plan — no full upgrade required. Prices are monthly; pay for several months at once if you prefer, at the same monthly rate.
           </p>
         </div>
         <select
           value={businessId}
           onChange={(e) => setBusinessId(e.target.value)}
-          className="h-10 shrink-0 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-3 text-sm font-semibold text-[#0a1128]"
+          className="h-10 shrink-0 rounded-[10px] border border-[rgba(3,33,37,0.12)] bg-white px-3 text-sm font-semibold text-[#032125]"
           aria-label="Choose a business"
         >
           {businesses.map((b: any) => (
@@ -254,36 +254,36 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
       </div>
 
       {data?.isTrial && (
-        <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-[13px] text-[#4a5578]">
+        <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-[13px] text-[#354D51]">
           Add-ons are available on paid plans. The 15-day free trial is owner-only — choose a plan for this business to add features.
         </div>
       )}
 
       {showNudge && next && (
-        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[#1a52c5]/15 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] p-4">
-          <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-[#1a52c5]" />
-          <p className="text-[13px] text-[#4a5578]">
-            <span className="font-bold text-[#0a1128]">Worth a look:</span> your add-ons cost{" "}
-            <span className="font-semibold text-[#0a1128]">{fmtMoney(spend)}/mo</span> on top of {planName} ({fmtMoney(planPrice)}/mo) —{" "}
-            {fmtMoney(planPrice + spend)}/mo in total. <span className="font-semibold text-[#0a1128]">{next.name} is {fmtMoney(nextPrice)}/mo</span>{" "}
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[#0B363B]/15 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] p-4">
+          <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-[#0B363B]" />
+          <p className="text-[13px] text-[#354D51]">
+            <span className="font-bold text-[#032125]">Worth a look:</span> your add-ons cost{" "}
+            <span className="font-semibold text-[#032125]">{fmtMoney(spend)}/mo</span> on top of {planName} ({fmtMoney(planPrice)}/mo) —{" "}
+            {fmtMoney(planPrice + spend)}/mo in total. <span className="font-semibold text-[#032125]">{next.name} is {fmtMoney(nextPrice)}/mo</span>{" "}
             and includes {next.includes}. Upgrading could cost about the same and give you more.
           </p>
         </div>
       )}
 
       {data && (
-        <div className="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-medium text-[#4a5578]">
+        <div className="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-medium text-[#354D51]">
           <span>
-            Branches: <span className="font-bold text-[#0a1128]">{data.limits.maxBranches}</span>
+            Branches: <span className="font-bold text-[#032125]">{data.limits.maxBranches}</span>
           </span>
           <span>
-            Staff seats: <span className="font-bold text-[#0a1128]">{data.limits.staffAllowed ? data.limits.maxStaffSeats : "Owner only"}</span>
+            Staff seats: <span className="font-bold text-[#032125]">{data.limits.staffAllowed ? data.limits.maxStaffSeats : "Owner only"}</span>
           </span>
           <span>
-            Voice AI quota: <span className="font-bold text-[#0a1128]">{data.limits.voiceTokenQuota.toLocaleString()} tokens/mo</span>
+            Voice AI quota: <span className="font-bold text-[#032125]">{data.limits.voiceTokenQuota.toLocaleString()} tokens/mo</span>
           </span>
           <span>
-            Add-on spend: <span className="font-bold text-[#0a1128]">{fmtMoney(spend)}/mo</span>
+            Add-on spend: <span className="font-bold text-[#032125]">{fmtMoney(spend)}/mo</span>
           </span>
         </div>
       )}
@@ -291,7 +291,7 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
       {loading ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div key={i} className="h-40 animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white" />
           ))}
         </div>
       ) : (
@@ -305,28 +305,28 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
             return (
               <div
                 key={item.type}
-                className="flex flex-col rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]"
+                className="flex flex-col rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-white">
                       <Puzzle className="h-4 w-4" />
                     </div>
-                    <h3 className="text-[15px] font-bold text-[#0a1128]">{item.name}</h3>
+                    <h3 className="text-[15px] font-bold text-[#032125]">{item.name}</h3>
                   </div>
-                  <span className="shrink-0 text-[15px] font-extrabold text-[#0a1128]">
+                  <span className="shrink-0 text-[15px] font-extrabold text-[#032125]">
                     {fmtMoney(item.priceMonthly)}
-                    <span className="text-[11px] font-semibold text-[#8c95b0]">/mo{item.stackable && item.unitLabel ? ` per ${item.unitLabel}` : ""}</span>
+                    <span className="text-[11px] font-semibold text-[#437278]">/mo{item.stackable && item.unitLabel ? ` per ${item.unitLabel}` : ""}</span>
                   </span>
                 </div>
-                <p className="mt-2.5 flex-1 text-[13px] leading-relaxed text-[#4a5578]">{item.description}</p>
+                <p className="mt-2.5 flex-1 text-[13px] leading-relaxed text-[#354D51]">{item.description}</p>
 
                 {owned ? (
                   <div className="mt-4 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       {statusChip(owned)}
                       {item.stackable && (
-                        <span className="text-[12px] font-semibold text-[#4a5578]">
+                        <span className="text-[12px] font-semibold text-[#354D51]">
                           Quantity: {owned.quantity} {item.unitLabel || ""}
                           {owned.quantity !== 1 && item.unitLabel ? "s" : ""}
                         </span>
@@ -334,18 +334,18 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
                     </div>
                     {item.stackable && owned.status !== "PENDING" && (
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="inline-flex items-center rounded-lg border border-[rgba(15,23,60,0.12)]">
+                        <div className="inline-flex items-center rounded-lg border border-[rgba(3,33,37,0.12)]">
                           <button
                             type="button"
-                            className="px-2.5 py-1.5 text-sm font-bold text-[#4a5578]"
+                            className="px-2.5 py-1.5 text-sm font-bold text-[#354D51]"
                             onClick={() => setQtySel((s) => ({ ...s, [item.type]: Math.max(1, qty - 1) }))}
                           >
                             −
                           </button>
-                          <span className="min-w-8 text-center text-sm font-bold text-[#0a1128]">{qty}</span>
+                          <span className="min-w-8 text-center text-sm font-bold text-[#032125]">{qty}</span>
                           <button
                             type="button"
-                            className="px-2.5 py-1.5 text-sm font-bold text-[#4a5578]"
+                            className="px-2.5 py-1.5 text-sm font-bold text-[#354D51]"
                             onClick={() => setQtySel((s) => ({ ...s, [item.type]: qty + 1 }))}
                           >
                             +
@@ -354,7 +354,7 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
                         <Button
                           disabled={busy || data?.isTrial}
                           onClick={() => handlePurchase(item)}
-                          className="h-9 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 text-xs font-semibold text-white hover:opacity-95"
+                          className="h-9 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-4 text-xs font-semibold text-white hover:opacity-95"
                         >
                           Update quantity
                         </Button>
@@ -375,25 +375,25 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
                   <div className="mt-4 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       {item.stackable && (
-                        <div className="inline-flex items-center rounded-lg border border-[rgba(15,23,60,0.12)]">
+                        <div className="inline-flex items-center rounded-lg border border-[rgba(3,33,37,0.12)]">
                           <button
                             type="button"
-                            className="px-2.5 py-1.5 text-sm font-bold text-[#4a5578]"
+                            className="px-2.5 py-1.5 text-sm font-bold text-[#354D51]"
                             onClick={() => setQtySel((s) => ({ ...s, [item.type]: Math.max(1, qty - 1) }))}
                           >
                             −
                           </button>
-                          <span className="min-w-8 text-center text-sm font-bold text-[#0a1128]">{qty}</span>
+                          <span className="min-w-8 text-center text-sm font-bold text-[#032125]">{qty}</span>
                           <button
                             type="button"
-                            className="px-2.5 py-1.5 text-sm font-bold text-[#4a5578]"
+                            className="px-2.5 py-1.5 text-sm font-bold text-[#354D51]"
                             onClick={() => setQtySel((s) => ({ ...s, [item.type]: qty + 1 }))}
                           >
                             +
                           </button>
                         </div>
                       )}
-                      <div className="inline-flex overflow-hidden rounded-lg border border-[rgba(15,23,60,0.12)]">
+                      <div className="inline-flex overflow-hidden rounded-lg border border-[rgba(3,33,37,0.12)]">
                         {MONTH_CHOICES.map((m) => (
                           <button
                             key={m}
@@ -401,7 +401,7 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
                             onClick={() => setMonthsSel((s) => ({ ...s, [item.type]: m }))}
                             className={cn(
                               "px-2.5 py-1.5 text-xs font-bold",
-                              months === m ? "bg-[#1a52c5] text-white" : "text-[#4a5578] hover:bg-[#f0f2f7]"
+                              months === m ? "bg-[#0B363B] text-white" : "text-[#354D51] hover:bg-[#EAFDE8]"
                             )}
                           >
                             {m} mo
@@ -409,15 +409,15 @@ const BusinessAddons = ({ businesses }: { businesses: any[] }) => {
                         ))}
                       </div>
                     </div>
-                    <p className="text-[12px] font-medium text-[#4a5578]">
+                    <p className="text-[12px] font-medium text-[#354D51]">
                       {fmtMoney(item.priceMonthly)}/mo — pay for {months} month{months !== 1 ? "s" : ""}:{" "}
-                      <span className="font-bold text-[#0a1128]">{fmtMoney(monthlyTotal * months)} upfront</span>
-                      <span className="text-[#8c95b0]"> (capped at your plan's paid-through date)</span>
+                      <span className="font-bold text-[#032125]">{fmtMoney(monthlyTotal * months)} upfront</span>
+                      <span className="text-[#437278]"> (capped at your plan's paid-through date)</span>
                     </p>
                     <Button
                       disabled={busy || data?.isTrial}
                       onClick={() => handlePurchase(item)}
-                      className="h-9 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-4 text-xs font-semibold text-white hover:opacity-95"
+                      className="h-9 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-4 text-xs font-semibold text-white hover:opacity-95"
                     >
                       Add {item.name}
                     </Button>

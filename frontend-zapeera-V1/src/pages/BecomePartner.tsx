@@ -142,8 +142,8 @@ const BecomePartner: React.FC = () => {
             <CheckCircle2 className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold text-[#0a1128]">You're a Tickimo partner 🎉</h1>
-            <p className="mt-1 max-w-xl text-sm text-[#4a5578]">
+            <h1 className="text-2xl font-bold text-[#032125]">You're a Tickimo partner 🎉</h1>
+            <p className="mt-1 max-w-xl text-sm text-[#354D51]">
               {application?.createdPartner
                 ? <>Your partner <b>{application.createdPartner.name}</b> is active. Open the Partner Portal to manage your branding, join link and businesses.</>
                 : <>Your partner account is active. Open the Partner Portal to manage your branding, join link and businesses.</>}
@@ -166,10 +166,10 @@ const BecomePartner: React.FC = () => {
           </span>
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-[#0a1128]">Application under review</h1>
+              <h1 className="text-2xl font-bold text-[#032125]">Application under review</h1>
               {statusBadge(application.status)}
             </div>
-            <p className="max-w-xl text-sm text-[#4a5578]">
+            <p className="max-w-xl text-sm text-[#354D51]">
               You applied to sell Tickimo as <b>{application.companyName}</b> on {fmtDate(application.createdAt)}.
               Our team reviews every application personally — once approved, this account becomes the
               partner admin and your portal, branding and join link switch on here.
@@ -183,8 +183,8 @@ const BecomePartner: React.FC = () => {
   return shell(
     <>
       <div>
-        <h1 className="text-2xl font-bold text-[#0a1128]">Become a Partner</h1>
-        <p className="mt-1 text-sm text-[#4a5578]">
+        <h1 className="text-2xl font-bold text-[#032125]">Become a Partner</h1>
+        <p className="mt-1 text-sm text-[#354D51]">
           Sell Tickimo under your own brand — your name, your logo, your color. We handle the software,
           hosting and updates; you handle your customers.
         </p>
@@ -198,9 +198,9 @@ const BecomePartner: React.FC = () => {
         ].map((f) => (
           <Card key={f.title}>
             <CardContent className="space-y-2 py-5">
-              <f.icon className="h-5 w-5 text-[#1a52c5]" />
-              <p className="text-sm font-semibold text-[#0a1128]">{f.title}</p>
-              <p className="text-sm text-[#4a5578]">{f.body}</p>
+              <f.icon className="h-5 w-5 text-[#0B363B]" />
+              <p className="text-sm font-semibold text-[#032125]">{f.title}</p>
+              <p className="text-sm text-[#354D51]">{f.body}</p>
             </CardContent>
           </Card>
         ))}
@@ -224,7 +224,7 @@ const BecomePartner: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Store className="h-5 w-5 text-[#1a52c5]" /> Partner application
+            <Store className="h-5 w-5 text-[#0B363B]" /> Partner application
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -253,7 +253,7 @@ const BecomePartner: React.FC = () => {
             <div className="space-y-1.5">
               <Label htmlFor="bp-email">Email</Label>
               <Input id="bp-email" value={user?.email || application?.email || ""} disabled readOnly />
-              <p className="text-xs text-[#8c95b0]">Approval designates this account as the partner admin.</p>
+              <p className="text-xs text-[#437278]">Approval designates this account as the partner admin.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bp-phone">Phone / WhatsApp *</Label>

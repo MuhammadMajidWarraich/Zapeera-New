@@ -201,7 +201,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Pill className="w-5 h-5 text-blue-600" />
+            <Pill className="w-5 h-5 text-spruce-700" />
             <span>Import from Product Catalog</span>
           </DialogTitle>
           <DialogDescription>
@@ -263,7 +263,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
         <div className="flex-1 overflow-y-auto border rounded-md">
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-spruce-700" />
               <span className="ml-2 text-gray-600">Loading catalog...</span>
             </div>
           ) : filtered.length === 0 ? (
@@ -360,7 +360,7 @@ const MedicineCatalogImport: React.FC<MedicineCatalogImportProps> = ({
             <Button
               onClick={handleImport}
               disabled={importing || selected.size === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-spruce-700 hover:bg-spruce-900 text-white"
             >
               {importing ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -72,18 +72,18 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <Card className={cn("overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]", className)}>
+    <Card className={cn("overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]", className)}>
       {(title || action) && (
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <div className="min-w-0">
-            {title && <CardTitle className="text-[15px] font-bold tracking-tight text-[#0a1128]">{title}</CardTitle>}
-            {subtitle && <p className="mt-0.5 truncate text-xs text-[#8c95b0]">{subtitle}</p>}
+            {title && <CardTitle className="text-[15px] font-bold tracking-tight text-[#032125]">{title}</CardTitle>}
+            {subtitle && <p className="mt-0.5 truncate text-xs text-[#437278]">{subtitle}</p>}
           </div>
           {action && (
             <button
               type="button"
               onClick={action}
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#1a52c5] transition-colors hover:text-[#28c2ce]"
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#0B363B] transition-colors hover:text-[#437278]"
             >
               {actionLabel || "View All"}
               <ChevronRight className="h-3.5 w-3.5" />
@@ -143,10 +143,10 @@ export function AccountStats() {
       : 0;
 
     return [
-      { key: "owned", label: "Businesses Owned", value: owned, icon: Building2, tint: "bg-[#1a52c5]/10 text-[#1a52c5]" },
-      { key: "joined", label: "Businesses Joined", value: joined, icon: UserPlus, tint: "bg-teal-500/10 text-teal-600" },
+      { key: "owned", label: "Businesses Owned", value: owned, icon: Building2, tint: "bg-[#0B363B]/10 text-[#0B363B]" },
+      { key: "joined", label: "Businesses Joined", value: joined, icon: UserPlus, tint: "bg-spruce-500/10 text-spruce-500" },
       { key: "invites", label: "Pending Invitations", value: pendingInvites, icon: AlarmClock, tint: "bg-orange-500/10 text-orange-500", onClick: () => navigate("/zapeera/invitations") },
-      { key: "desktop", label: "Desktop Connected", value: desktopConnectedCount, icon: Laptop, tint: "bg-violet-500/10 text-violet-600", desktop: desktopConnectedCount > 0 },
+      { key: "desktop", label: "Desktop Connected", value: desktopConnectedCount, icon: Laptop, tint: "bg-spruce-500/10 text-spruce-500", desktop: desktopConnectedCount > 0 },
     ];
   }, [allCompanies, user, desktopConnectedCount]);
 
@@ -160,7 +160,7 @@ export function AccountStats() {
             type="button"
             onClick={s.onClick}
             className={cn(
-              "group flex items-center gap-3 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white px-4 py-5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
+              "group flex items-center gap-3 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white px-4 py-5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
               s.onClick && "cursor-pointer"
             )}
           >
@@ -168,8 +168,8 @@ export function AccountStats() {
               <Icon className="h-6 w-6" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[26px] font-extrabold leading-none tracking-tight text-[#0a1128]">{s.value}</span>
-              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] font-medium leading-tight tracking-[-0.01em] text-[#8c95b0]">
+              <span className="block text-[26px] font-extrabold leading-none tracking-tight text-[#032125]">{s.value}</span>
+              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] font-medium leading-tight tracking-[-0.01em] text-[#437278]">
                 <span className="min-w-0">{s.label}</span>
                 {s.desktop ? (
                   <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-bold", setupPending ? "bg-amber-500/10 text-amber-600" : "bg-green-500/10 text-green-600")}>
@@ -209,25 +209,25 @@ export function SecurityCard() {
             return (
               <div key={it.key} className="flex items-center gap-2.5 text-sm">
                 {it.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
-                <Icon className="h-4 w-4 shrink-0 text-[#1a52c5]" />
-                <span className="text-[#4a5578]">{it.label}</span>
+                <Icon className="h-4 w-4 shrink-0 text-[#0B363B]" />
+                <span className="text-[#354D51]">{it.label}</span>
               </div>
             );
           })}
         {status && (
           <div className="flex items-center gap-2.5 text-sm">
             {status.twoFactorOn ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
-            <Shield className="h-4 w-4 shrink-0 text-[#1a52c5]" />
-            <span className="text-[#4a5578]">Two Factor Authentication</span>
+            <Shield className="h-4 w-4 shrink-0 text-[#0B363B]" />
+            <span className="text-[#354D51]">Two Factor Authentication</span>
           </div>
         )}
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigate("/settings")}
-          className="mt-2 w-full border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+          className="mt-2 w-full border-[rgba(3,33,37,0.1)] font-semibold text-[#032125] hover:bg-[#EAFDE8]"
         >
-          <ShieldCheck className="mr-1.5 h-4 w-4 text-[#1a52c5]" />
+          <ShieldCheck className="mr-1.5 h-4 w-4 text-[#0B363B]" />
           Open Security Settings
         </Button>
       </div>
@@ -265,20 +265,20 @@ export function AccountCompletion() {
     <Panel title="Account Completion" subtitle={`${doneCount} of ${items.length} completed`}>
       <div className="p-4 pt-2">
         <div className="mb-3 flex items-center gap-2">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f0f2f7]">
-            <div className="h-full rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#EAFDE8]">
+            <div className="h-full rounded-full bg-gradient-to-br from-[#0B363B] to-[#437278] transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-xs font-bold text-[#1a52c5]">{pct}%</span>
+          <span className="text-xs font-bold text-[#0B363B]">{pct}%</span>
         </div>
         <div className="space-y-1.5">
           {items.map((it) => {
             const Icon = it.icon;
             return (
-              <button key={it.key} type="button" onClick={() => navigate(it.to)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-left text-[13px] transition-colors hover:bg-[#f0f2f7]">
+              <button key={it.key} type="button" onClick={() => navigate(it.to)} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-left text-[13px] transition-colors hover:bg-[#EAFDE8]">
                 {it.done ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
-                <Icon className="h-4 w-4 shrink-0 text-[#8c95b0]" />
-                <span className={cn("flex-1", it.done ? "text-[#4a5578]" : "font-medium text-[#0a1128]")}>{it.label}</span>
-                {!it.done && <ChevronRight className="h-3.5 w-3.5 text-[#8c95b0]" />}
+                <Icon className="h-4 w-4 shrink-0 text-[#437278]" />
+                <span className={cn("flex-1", it.done ? "text-[#354D51]" : "font-medium text-[#032125]")}>{it.label}</span>
+                {!it.done && <ChevronRight className="h-3.5 w-3.5 text-[#437278]" />}
               </button>
             );
           })}
@@ -297,40 +297,40 @@ export function SupportWidget() {
       <div className="space-y-2 p-4 pt-1">
         <a
           href={callUrl()}
-          className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#1a52c5]/20 hover:bg-[#f0f2f7]"
+          className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#0B363B]/20 hover:bg-[#EAFDE8]"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-[#0B363B] to-[#437278] text-white">
             <Phone className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-[#0a1128]">Call Us</span>
-            <span className="block text-xs text-[#8c95b0]">{SUPPORT_PHONE_DISPLAY}</span>
+            <span className="block text-[13px] font-semibold text-[#032125]">Call Us</span>
+            <span className="block text-xs text-[#437278]">{SUPPORT_PHONE_DISPLAY}</span>
           </span>
         </a>
         <a
           href={whatsappUrl("Hello! I need support with Tickimo.")}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#1a52c5]/20 hover:bg-[#f0f2f7]"
+          className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#0B363B]/20 hover:bg-[#EAFDE8]"
         >
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-green-500 text-white">
             <MessageCircle className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-[#0a1128]">WhatsApp Support</span>
-            <span className="block text-xs text-[#8c95b0]">Chat with our team</span>
+            <span className="block text-[13px] font-semibold text-[#032125]">WhatsApp Support</span>
+            <span className="block text-xs text-[#437278]">Chat with our team</span>
           </span>
         </a>
         <a
           href={emailUrl("Tickimo Support", "Hello, I need help with Tickimo.")}
-          className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#1a52c5]/20 hover:bg-[#f0f2f7]"
+          className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#0B363B]/20 hover:bg-[#EAFDE8]"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#1a52c5]/10 text-[#1a52c5]">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#0B363B]/10 text-[#0B363B]">
             <Mail className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-[#0a1128]">Email Support</span>
-            <span className="block text-xs text-[#8c95b0]">{config.support.email}</span>
+            <span className="block text-[13px] font-semibold text-[#032125]">Email Support</span>
+            <span className="block text-xs text-[#437278]">{config.support.email}</span>
           </span>
         </a>
       </div>
@@ -356,15 +356,15 @@ export function DesktopStatusCard() {
     return (
       <Panel title="Desktop App">
         <div className="p-4 pt-1">
-          <p className="text-[13px] text-[#4a5578]">Use Tickimo offline with the desktop app — your data stays in sync automatically.</p>
+          <p className="text-[13px] text-[#354D51]">Use Tickimo offline with the desktop app — your data stays in sync automatically.</p>
           <Button
             asChild
             variant="outline"
             size="sm"
-            className="mt-3 w-full border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+            className="mt-3 w-full border-[rgba(3,33,37,0.1)] font-semibold text-[#032125] hover:bg-[#EAFDE8]"
           >
             <a href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
-              <Laptop className="mr-1.5 h-4 w-4 text-[#1a52c5]" />
+              <Laptop className="mr-1.5 h-4 w-4 text-[#0B363B]" />
               Download Desktop App
             </a>
           </Button>
@@ -380,30 +380,30 @@ export function DesktopStatusCard() {
     <Panel title="Desktop Status">
       <div className="space-y-2.5 p-4 pt-1">
         <div className="flex items-center justify-between text-[13px]">
-          <span className="flex items-center gap-2 text-[#4a5578]">
+          <span className="flex items-center gap-2 text-[#354D51]">
             {online ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-gray-400" />}
             Desktop Connected
           </span>
           <span className={cn("font-bold", online ? "text-green-600" : "text-gray-400")}>{online ? "Connected" : "Offline"}</span>
         </div>
         <div className="flex items-center justify-between text-[13px]">
-          <span className="flex items-center gap-2 text-[#4a5578]">
-            <Clock className="h-4 w-4 text-[#1a52c5]" />
+          <span className="flex items-center gap-2 text-[#354D51]">
+            <Clock className="h-4 w-4 text-[#0B363B]" />
             Last Sync
           </span>
-          <span className="font-semibold text-[#0a1128]">
+          <span className="font-semibold text-[#032125]">
             {runtime.lastSyncAt || status.lastSyncAt ? formatAgo(runtime.lastSyncAt || status.lastSyncAt) : "Never"}
           </span>
         </div>
         <div className="flex items-center justify-between text-[13px]">
-          <span className="flex items-center gap-2 text-[#4a5578]">
-            <Database className="h-4 w-4 text-[#1a52c5]" />
+          <span className="flex items-center gap-2 text-[#354D51]">
+            <Database className="h-4 w-4 text-[#0B363B]" />
             Offline Businesses
           </span>
-          <span className="font-semibold text-[#0a1128]">{businessCount}</span>
+          <span className="font-semibold text-[#032125]">{businessCount}</span>
         </div>
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || status.syncState === "syncing"} className="w-full border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]">
-          <RefreshCw className={cn("mr-1.5 h-4 w-4 text-[#1a52c5]", syncing && "animate-spin")} />
+        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || status.syncState === "syncing"} className="w-full border-[rgba(3,33,37,0.1)] font-semibold text-[#032125] hover:bg-[#EAFDE8]">
+          <RefreshCw className={cn("mr-1.5 h-4 w-4 text-[#0B363B]", syncing && "animate-spin")} />
           {syncing ? "Syncing…" : "Sync Now"}
         </Button>
       </div>
@@ -424,10 +424,10 @@ export function ActivityTimeline({ compact }: { compact?: boolean }) {
     const list: ActivityItem[] = [];
     const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
     if (desktopCount > 0) {
-      list.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
+      list.push({ id: "desktop", icon: Laptop, tint: "bg-spruce-500", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
     }
-    list.push({ id: "login", icon: Shield, tint: "bg-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]", title: "Account created on Tickimo", time: "Sign up" });
+    list.push({ id: "login", icon: Shield, tint: "bg-[#0B363B]", title: "New login from your account", time: "Today" });
+    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#437278]", title: "Account created on Tickimo", time: "Sign up" });
     void user;
     return list;
   }, [runtime.desktopBusinessStates]);
@@ -435,7 +435,7 @@ export function ActivityTimeline({ compact }: { compact?: boolean }) {
   return (
     <Panel title="Account Activity" subtitle="Recent events in your account">
       <div className="relative p-4 pt-2">
-        <span className="absolute left-[21px] top-3 bottom-3 w-px bg-[rgba(15,23,60,0.08)]" aria-hidden />
+        <span className="absolute left-[21px] top-3 bottom-3 w-px bg-[rgba(3,33,37,0.08)]" aria-hidden />
         <ul className="space-y-4">
           {(compact ? items.slice(0, 3) : items).map((it) => {
             const Icon = it.icon;
@@ -445,8 +445,8 @@ export function ActivityTimeline({ compact }: { compact?: boolean }) {
                   <Icon className="h-3 w-3 text-white" strokeWidth={2.5} />
                 </span>
                 <div className="min-w-0 pt-0.5">
-                  <p className="text-[13px] font-medium text-[#0a1128]">{it.title}</p>
-                  <p className="text-xs text-[#8c95b0]">{it.time}</p>
+                  <p className="text-[13px] font-medium text-[#032125]">{it.title}</p>
+                  <p className="text-xs text-[#437278]">{it.time}</p>
                 </div>
               </li>
             );
@@ -479,13 +479,13 @@ export function RecentlyAccessed({ onOpen }: { onOpen: (slug?: string | null, id
             key={b.id}
             type="button"
             onClick={() => onOpen(b.slug, b.id)}
-            className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#f0f2f7]"
+            className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#EAFDE8]"
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
               <Building2 className="h-4 w-4" />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0a1128]">{b.name}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#032125]">{b.name}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[#437278]" />
           </button>
         ))}
       </div>
@@ -516,13 +516,13 @@ export function FavoriteBusinesses({ onOpen }: { onOpen: (slug?: string | null, 
             key={b.id}
             type="button"
             onClick={() => onOpen(b.slug, b.id)}
-            className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#f0f2f7]"
+            className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#EAFDE8]"
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-500">
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0a1128]">{b.name}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#032125]">{b.name}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[#437278]" />
           </button>
         ))}
       </div>
@@ -553,7 +553,7 @@ export function InvitationsWidget() {
     return (
       <Panel title="Invitations" action={() => navigate("/zapeera/invitations")} actionLabel="View All">
         <div className="p-4 pt-1">
-          <p className="text-[13px] text-[#8c95b0]">You're all caught up — no pending invitations.</p>
+          <p className="text-[13px] text-[#437278]">You're all caught up — no pending invitations.</p>
         </div>
       </Panel>
     );
@@ -563,20 +563,20 @@ export function InvitationsWidget() {
     <Panel title="Pending Invitations" subtitle={`${invites.length} need${invites.length === 1 ? "s" : ""} your action`} action={() => navigate("/zapeera/invitations")} actionLabel="View All">
       <div className="space-y-2 p-3 pt-1">
         {invites.map((inv) => (
-          <div key={inv.businessId} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3 py-3">
+          <div key={inv.businessId} className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3 py-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
               <UserPlus className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-[#0a1128]">{inv.businessName}</p>
-              <p className="truncate text-xs text-[#8c95b0]">
-                Invited as <b className="text-[#4a5578]">{inv.role}</b>
+              <p className="truncate text-[13px] font-semibold text-[#032125]">{inv.businessName}</p>
+              <p className="truncate text-xs text-[#437278]">
+                Invited as <b className="text-[#354D51]">{inv.role}</b>
               </p>
             </div>
             <button
               type="button"
               onClick={() => navigate("/zapeera/invitations")}
-              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#0B363B] to-[#437278] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)] hover:opacity-95"
             >
               Review
             </button>
@@ -626,10 +626,10 @@ export function RecentNotifications() {
   const typeIcons: Record<string, { icon: React.ElementType; tint: string }> = {
     sale: { icon: DollarSign, tint: "bg-green-500/12 text-green-600" },
     inventory: { icon: Package, tint: "bg-orange-500/12 text-orange-600" },
-    subscription: { icon: CreditCard, tint: "bg-blue-500/12 text-blue-600" },
+    subscription: { icon: CreditCard, tint: "bg-spruce-500/12 text-spruce-700" },
     invitation: { icon: UserPlus, tint: "bg-amber-500/12 text-amber-600" },
-    staff: { icon: Users, tint: "bg-purple-500/12 text-purple-600" },
-    billing: { icon: CreditCard, tint: "bg-indigo-500/12 text-indigo-600" },
+    staff: { icon: Users, tint: "bg-spruce-500/12 text-spruce-500" },
+    billing: { icon: CreditCard, tint: "bg-spruce-500/12 text-spruce-700" },
     system: { icon: Bell, tint: "bg-gray-500/12 text-gray-600" },
   };
 
@@ -646,14 +646,14 @@ export function RecentNotifications() {
 
   const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
   if (runtime.isDesktop && desktopCount > 0) {
-    items.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500/12 text-violet-600", title: "Offline ready", body: `${desktopCount} business${desktopCount > 1 ? "es" : ""} are available offline on your desktop.`, to: "/zapeera" });
+    items.push({ id: "desktop", icon: Laptop, tint: "bg-spruce-500/12 text-spruce-500", title: "Offline ready", body: `${desktopCount} business${desktopCount > 1 ? "es" : ""} are available offline on your desktop.`, to: "/zapeera" });
   }
 
   if (items.length === 0) {
     return (
       <Panel title="Recent Notifications" action={() => navigate("/zapeera/notifications")} actionLabel="View All">
         <div className="p-4 pt-1">
-          <p className="text-[13px] text-[#8c95b0]">{loading ? "Loading notifications…" : "No unread notifications right now."}</p>
+          <p className="text-[13px] text-[#437278]">{loading ? "Loading notifications…" : "No unread notifications right now."}</p>
         </div>
       </Panel>
     );
@@ -669,14 +669,14 @@ export function RecentNotifications() {
               key={n.id}
               type="button"
               onClick={() => n.to && navigate(n.to)}
-              className="flex w-full items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[#f0f2f7]"
+              className="flex w-full items-start gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[#EAFDE8]"
             >
               <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", n.tint)}>
                 <Icon className="h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[13px] font-semibold text-[#0a1128]">{n.title}</span>
-                <span className="block text-xs text-[#8c95b0]">{n.body}</span>
+                <span className="block text-[13px] font-semibold text-[#032125]">{n.title}</span>
+                <span className="block text-xs text-[#437278]">{n.body}</span>
               </span>
             </button>
           );

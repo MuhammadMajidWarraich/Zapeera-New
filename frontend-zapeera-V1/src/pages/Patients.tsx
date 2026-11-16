@@ -66,9 +66,9 @@ const emptyForm: PatientFormState = {
 
 const statusBadge = (appt: { status: string }) => {
   const styles: Record<string, string> = {
-    BOOKED: "bg-blue-100 text-blue-800",
+    BOOKED: "bg-verdant-100 text-spruce-900",
     CHECKED_IN: "bg-amber-100 text-amber-800",
-    IN_VISIT: "bg-purple-100 text-purple-800",
+    IN_VISIT: "bg-verdant-100 text-spruce-900",
     COMPLETED: "bg-green-100 text-green-800",
     CANCELLED: "bg-gray-200 text-gray-700",
     NO_SHOW: "bg-red-100 text-red-800",
@@ -306,7 +306,7 @@ const PatientsPage: React.FC = () => {
             ) : (
               records.map((record) => (
                 <tr key={record.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-[#0a1128]">{record.name}</td>
+                  <td className="px-4 py-3 font-medium text-[#032125]">{record.name}</td>
                   <td className="px-4 py-3">{record.phone || "—"}</td>
                   <td className="px-4 py-3">
                     {[record.age != null ? `${record.age} yrs` : null, record.gender || null].filter(Boolean).join(" · ") || "—"}
@@ -441,7 +441,7 @@ const PatientsPage: React.FC = () => {
               {detail?.notes && (
                 <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{detail.notes}</p>
               )}
-              <h3 className="pt-2 text-sm font-semibold text-[#0a1128]">Visit history</h3>
+              <h3 className="pt-2 text-sm font-semibold text-[#032125]">Visit history</h3>
               {(detail?.appointments || []).length === 0 ? (
                 <p className="text-sm text-gray-500">No visits yet.</p>
               ) : (

@@ -116,13 +116,13 @@ const ProductPicker: React.FC<{
 
   if (value.productId) {
     return (
-      <div className="flex h-9 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-2.5">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#0a1128]">{value.productName}</span>
+      <div className="flex h-9 items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white px-2.5">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#032125]">{value.productName}</span>
         <button
           type="button"
           disabled={disabled}
           onClick={() => { onChange("", ""); setQuery(""); setOpen(true); }}
-          className="text-xs font-bold text-[#1a52c5] hover:underline"
+          className="text-xs font-bold text-[#0B363B] hover:underline"
         >
           Change
         </button>
@@ -142,19 +142,19 @@ const ProductPicker: React.FC<{
         className="h-9 rounded-[10px] bg-white"
       />
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-48 overflow-y-auto rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white shadow-lg">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-48 overflow-y-auto rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white shadow-lg">
           {searching ? (
-            <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-[#8c95b0]">
+            <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-[#437278]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
             </div>
           ) : results.length === 0 ? (
-            <div className="px-3 py-2.5 text-xs text-[#8c95b0]">No products found</div>
+            <div className="px-3 py-2.5 text-xs text-[#437278]">No products found</div>
           ) : (
             results.map((product) => (
               <button
                 key={product.id}
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm text-[#0a1128] hover:bg-[#f4f6fa]"
+                className="block w-full px-3 py-2 text-left text-sm text-[#032125] hover:bg-[#FFFCF6]"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { onChange(product.id, product.name); setOpen(false); }}
               >
@@ -408,7 +408,7 @@ const Prescriptions = () => {
 
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" />
           <Input
             placeholder="Search patient name or phone…"
             value={searchQuery}
@@ -451,16 +451,16 @@ const Prescriptions = () => {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-[14px] border border-[rgba(15,23,60,0.08)] bg-white">
+      <div className="overflow-hidden rounded-[14px] border border-[rgba(3,33,37,0.08)] bg-white">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-[#8c95b0]">
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-[#437278]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading prescriptions…
           </div>
         ) : records.length === 0 ? (
           <div className="py-16 text-center">
             <Stethoscope className="mx-auto mb-3 h-8 w-8 text-[#c3cad9]" />
-            <p className="text-sm font-semibold text-[#0a1128]">No prescriptions found</p>
-            <p className="mx-auto mt-1 max-w-[520px] text-sm text-[#8c95b0]">
+            <p className="text-sm font-semibold text-[#032125]">No prescriptions found</p>
+            <p className="mx-auto mt-1 max-w-[520px] text-sm text-[#437278]">
               Record the paper prescriptions customers bring in — the POS can then attach sales of
               prescription-only medicines to them.
             </p>
@@ -468,7 +468,7 @@ const Prescriptions = () => {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] text-left text-xs uppercase tracking-wide text-[#8c95b0]">
+              <tr className="border-b border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] text-left text-xs uppercase tracking-wide text-[#437278]">
                 <th className="px-4 py-3 font-semibold">Issued</th>
                 <th className="px-4 py-3 font-semibold">Patient</th>
                 <th className="px-4 py-3 font-semibold">Doctor</th>
@@ -480,22 +480,22 @@ const Prescriptions = () => {
             </thead>
             <tbody>
               {records.map((record) => (
-                <tr key={record.id} className="border-b border-[rgba(15,23,60,0.05)] last:border-0 hover:bg-[#f8f9fc]/60">
-                  <td className="whitespace-nowrap px-4 py-3 text-[#4a5578]">{formatDate(record.issuedDate)}</td>
+                <tr key={record.id} className="border-b border-[rgba(3,33,37,0.05)] last:border-0 hover:bg-[#FFFCF6]/60">
+                  <td className="whitespace-nowrap px-4 py-3 text-[#354D51]">{formatDate(record.issuedDate)}</td>
                   <td className="px-4 py-3">
-                    <span className="font-semibold text-[#0a1128]">{record.patientName}</span>
-                    {record.patientPhone && <span className="block text-xs text-[#8c95b0]">{record.patientPhone}</span>}
+                    <span className="font-semibold text-[#032125]">{record.patientName}</span>
+                    {record.patientPhone && <span className="block text-xs text-[#437278]">{record.patientPhone}</span>}
                   </td>
-                  <td className="px-4 py-3 text-[#4a5578]">
+                  <td className="px-4 py-3 text-[#354D51]">
                     {record.doctorName ? `Dr. ${record.doctorName}` : "—"}
-                    {record.doctorReg && <span className="block text-xs text-[#8c95b0]">{record.doctorReg}</span>}
+                    {record.doctorReg && <span className="block text-xs text-[#437278]">{record.doctorReg}</span>}
                   </td>
-                  <td className="max-w-[260px] px-4 py-3 text-[#4a5578]">
+                  <td className="max-w-[260px] px-4 py-3 text-[#354D51]">
                     <span className="block truncate">
                       {(record.items || []).map((item) => `${item.productName} ×${item.quantity}`).join(", ") || "—"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[#4a5578]">{record._count?.sales ?? 0}</td>
+                  <td className="px-4 py-3 text-[#354D51]">{record._count?.sales ?? 0}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {record.isActive ? (
@@ -523,7 +523,7 @@ const Prescriptions = () => {
                         type="button"
                         onClick={() => openDetail(record)}
                         aria-label={`View prescription for ${record.patientName}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-[#4a5578] transition-colors hover:bg-[#f4f6fa]"
+                        className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-[#354D51] transition-colors hover:bg-[#FFFCF6]"
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
@@ -532,7 +532,7 @@ const Prescriptions = () => {
                           type="button"
                           onClick={() => openEdit(record)}
                           aria-label={`Edit prescription for ${record.patientName}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-[#4a5578] transition-colors hover:bg-[#f4f6fa]"
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-[#354D51] transition-colors hover:bg-[#FFFCF6]"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -542,7 +542,7 @@ const Prescriptions = () => {
                           type="button"
                           onClick={() => { setVoiding(record); setVoidReason(""); }}
                           aria-label={`Void prescription for ${record.patientName}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
                         >
                           <Ban className="h-3.5 w-3.5" />
                         </button>
@@ -559,7 +559,7 @@ const Prescriptions = () => {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-          <span className="text-sm text-[#8c95b0]">Page {page} of {totalPages}</span>
+          <span className="text-sm text-[#437278]">Page {page} of {totalPages}</span>
           <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
         </div>
       )}
@@ -626,20 +626,20 @@ const Prescriptions = () => {
                 <Label>Prescription image</Label>
                 {form.imageUrl ? (
                   <div className="flex items-center gap-3">
-                    <img src={form.imageUrl} alt="Prescription" className="h-11 w-11 rounded-[8px] border border-[rgba(15,23,60,0.1)] object-cover" />
-                    <span className="flex-1 text-xs text-[#8c95b0]">Image attached</span>
+                    <img src={form.imageUrl} alt="Prescription" className="h-11 w-11 rounded-[8px] border border-[rgba(3,33,37,0.1)] object-cover" />
+                    <span className="flex-1 text-xs text-[#437278]">Image attached</span>
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, imageUrl: "" })}
-                      className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 hover:bg-red-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-red-500 hover:bg-red-50"
                       aria-label="Remove prescription image"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ) : (
-                  <label className="flex h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-[rgba(15,23,60,0.2)] px-3 text-sm text-[#4a5578] hover:bg-[#f8f9fc]">
-                    <ImagePlus className="h-4 w-4 text-[#1a52c5]" />
+                  <label className="flex h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-dashed border-[rgba(3,33,37,0.2)] px-3 text-sm text-[#354D51] hover:bg-[#FFFCF6]">
+                    <ImagePlus className="h-4 w-4 text-[#0B363B]" />
                     <span>Attach a photo / scan (max 2MB)</span>
                     <input
                       type="file"
@@ -702,7 +702,7 @@ const Prescriptions = () => {
                     type="button"
                     disabled={form.items.length <= 1}
                     onClick={() => setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }))}
-                    className="flex h-9 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50 disabled:opacity-40"
+                    className="flex h-9 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50 disabled:opacity-40"
                     aria-label="Remove medicine row"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -712,7 +712,7 @@ const Prescriptions = () => {
               <button
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, items: [...prev.items, { productId: "", productName: "", quantity: "1", dosage: "", durationDays: "" }] }))}
-                className="flex items-center gap-1 rounded-[8px] border border-dashed border-[#1a52c5]/40 px-2.5 py-1.5 text-xs font-bold text-[#1a52c5] transition-colors hover:bg-[#1a52c5]/5"
+                className="flex items-center gap-1 rounded-[8px] border border-dashed border-[#0B363B]/40 px-2.5 py-1.5 text-xs font-bold text-[#0B363B] transition-colors hover:bg-[#0B363B]/5"
               >
                 <Plus className="h-3.5 w-3.5" /> Add medicine
               </button>
@@ -720,7 +720,7 @@ const Prescriptions = () => {
 
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={submitting} className="bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-90">
+              <Button onClick={handleSubmit} disabled={submitting} className="bg-gradient-to-br from-[#0B363B] to-[#437278] text-white hover:opacity-90">
                 {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 {editing ? "Save changes" : "Record prescription"}
               </Button>
@@ -755,42 +755,42 @@ const Prescriptions = () => {
                 <div className="rounded-[10px] border px-3 py-2.5">
                   <span className="font-bold">Online upload — review {String(detail.reviewStatus || "REVIEWED").toLowerCase()}</span>
                   {detail.reviewedAt && <span> on {formatDate(detail.reviewedAt)}</span>}
-                  {detail.reviewNote && <span className="block text-xs text-[#5b6b8c]">Pharmacist note: {detail.reviewNote}</span>}
+                  {detail.reviewNote && <span className="block text-xs text-[#354D51]">Pharmacist note: {detail.reviewNote}</span>}
                   {detail.reviewStatus === "PENDING" && (
-                    <span className="block text-xs text-[#5b6b8c]">Approve or reject it from the Online Store page — it cannot be dispensed against until approved.</span>
+                    <span className="block text-xs text-[#354D51]">Approve or reject it from the Online Store page — it cannot be dispensed against until approved.</span>
                   )}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Patient</span>
-                  <span className="font-medium text-[#0a1128]">{detail.patientName}</span>
-                  {detail.patientPhone && <span className="block text-xs text-[#8c95b0]">{detail.patientPhone}</span>}
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#437278]">Patient</span>
+                  <span className="font-medium text-[#032125]">{detail.patientName}</span>
+                  {detail.patientPhone && <span className="block text-xs text-[#437278]">{detail.patientPhone}</span>}
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Doctor</span>
-                  <span className="font-medium text-[#0a1128]">{detail.doctorName ? `Dr. ${detail.doctorName}` : "—"}</span>
-                  {detail.doctorReg && <span className="block text-xs text-[#8c95b0]">{detail.doctorReg}</span>}
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#437278]">Doctor</span>
+                  <span className="font-medium text-[#032125]">{detail.doctorName ? `Dr. ${detail.doctorName}` : "—"}</span>
+                  {detail.doctorReg && <span className="block text-xs text-[#437278]">{detail.doctorReg}</span>}
                 </div>
               </div>
               {detail.notes && (
                 <div>
-                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Notes</span>
-                  <p className="text-[#4a5578]">{detail.notes}</p>
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-[#437278]">Notes</span>
+                  <p className="text-[#354D51]">{detail.notes}</p>
                 </div>
               )}
               {detail.imageUrl && (
                 <div>
-                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Prescription image</span>
-                  <img src={detail.imageUrl} alt={`Prescription for ${detail.patientName}`} className="max-h-64 rounded-[10px] border border-[rgba(15,23,60,0.1)] object-contain" />
+                  <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#437278]">Prescription image</span>
+                  <img src={detail.imageUrl} alt={`Prescription for ${detail.patientName}`} className="max-h-64 rounded-[10px] border border-[rgba(3,33,37,0.1)] object-contain" />
                 </div>
               )}
               <div>
-                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Medicines</span>
-                <div className="overflow-hidden rounded-[10px] border border-[rgba(15,23,60,0.08)]">
+                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#437278]">Medicines</span>
+                <div className="overflow-hidden rounded-[10px] border border-[rgba(3,33,37,0.08)]">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-[#f8f9fc] text-left text-xs uppercase tracking-wide text-[#8c95b0]">
+                      <tr className="bg-[#FFFCF6] text-left text-xs uppercase tracking-wide text-[#437278]">
                         <th className="px-3 py-2 font-semibold">Medicine</th>
                         <th className="px-3 py-2 font-semibold">Qty</th>
                         <th className="px-3 py-2 font-semibold">Dosage</th>
@@ -799,11 +799,11 @@ const Prescriptions = () => {
                     </thead>
                     <tbody>
                       {(detail.items || []).map((item) => (
-                        <tr key={item.id} className="border-t border-[rgba(15,23,60,0.05)]">
-                          <td className="px-3 py-2 font-medium text-[#0a1128]">{item.productName}</td>
-                          <td className="px-3 py-2 text-[#4a5578]">{item.quantity}</td>
-                          <td className="px-3 py-2 text-[#4a5578]">{item.dosage || "—"}</td>
-                          <td className="px-3 py-2 text-[#4a5578]">{item.durationDays != null ? `${item.durationDays} days` : "—"}</td>
+                        <tr key={item.id} className="border-t border-[rgba(3,33,37,0.05)]">
+                          <td className="px-3 py-2 font-medium text-[#032125]">{item.productName}</td>
+                          <td className="px-3 py-2 text-[#354D51]">{item.quantity}</td>
+                          <td className="px-3 py-2 text-[#354D51]">{item.dosage || "—"}</td>
+                          <td className="px-3 py-2 text-[#354D51]">{item.durationDays != null ? `${item.durationDays} days` : "—"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -811,16 +811,16 @@ const Prescriptions = () => {
                 </div>
               </div>
               <div>
-                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Sales against this prescription</span>
+                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#437278]">Sales against this prescription</span>
                 {(detail.sales || []).length === 0 ? (
-                  <p className="text-[#8c95b0]">No sales yet.</p>
+                  <p className="text-[#437278]">No sales yet.</p>
                 ) : (
                   <div className="space-y-1">
                     {(detail.sales || []).map((sale) => (
-                      <div key={sale.id} className="flex items-center justify-between rounded-[8px] bg-[#f8f9fc] px-3 py-2">
-                        <span className="font-medium text-[#0a1128]">{sale.invoiceNumber || sale.id.slice(-8)}</span>
-                        <span className="text-xs text-[#8c95b0]">{formatDate(sale.createdAt)}</span>
-                        <span className="font-semibold tabular-nums text-[#0a1128]">PKR {Number(sale.totalAmount).toFixed(2)}</span>
+                      <div key={sale.id} className="flex items-center justify-between rounded-[8px] bg-[#FFFCF6] px-3 py-2">
+                        <span className="font-medium text-[#032125]">{sale.invoiceNumber || sale.id.slice(-8)}</span>
+                        <span className="text-xs text-[#437278]">{formatDate(sale.createdAt)}</span>
+                        <span className="font-semibold tabular-nums text-[#032125]">PKR {Number(sale.totalAmount).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

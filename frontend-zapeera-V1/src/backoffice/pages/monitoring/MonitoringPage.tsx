@@ -85,7 +85,7 @@ export function MonitoringPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-50 rounded-lg"><Database className="w-5 h-5 text-blue-600" /></div>
+            <div className="p-2 bg-verdant-100 rounded-lg"><Database className="w-5 h-5 text-spruce-700" /></div>
             <div className="flex items-center gap-2">
               <StatusDot ok={health ? dbOk : null} />
               <h3 className="font-semibold text-gray-900">Database</h3>
@@ -103,7 +103,7 @@ export function MonitoringPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-indigo-50 rounded-lg"><Wifi className="w-5 h-5 text-indigo-600" /></div>
+            <div className="p-2 bg-verdant-100 rounded-lg"><Wifi className="w-5 h-5 text-spruce-700" /></div>
             <h3 className="font-semibold text-gray-900">API</h3>
           </div>
           <div className="space-y-2">
@@ -119,7 +119,7 @@ export function MonitoringPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-violet-50 rounded-lg"><Server className="w-5 h-5 text-violet-600" /></div>
+            <div className="p-2 bg-verdant-100 rounded-lg"><Server className="w-5 h-5 text-spruce-500" /></div>
             <h3 className="font-semibold text-gray-900">Host Metrics</h3>
           </div>
           <div className="flex gap-2 text-sm text-gray-500">

@@ -266,7 +266,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
     return (
       <div className="grid grid-cols-1 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-[190px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white md:h-[118px]" />
+          <div key={i} className="h-[190px] animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white md:h-[118px]" />
         ))}
       </div>
     );
@@ -278,26 +278,26 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
     // first-run empty state.
     if (excludeBusinessId) return null;
     return (
-      <div className="rounded-2xl border border-dashed border-[rgba(15,23,60,0.12)] bg-white/60 p-10 text-center">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+      <div className="rounded-2xl border border-dashed border-[rgba(3,33,37,0.12)] bg-white/60 p-10 text-center">
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
           <Building2 className="h-7 w-7" />
         </div>
-        <h3 className="text-lg font-bold text-[#0a1128]">Create Your First Business</h3>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-[#8c95b0]">
+        <h3 className="text-lg font-bold text-[#032125]">Create Your First Business</h3>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-[#437278]">
           Start managing sales, inventory and staff in minutes. Or join an existing business with an invitation.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           <button
             type="button"
             onClick={() => navigate("/zapeera?create=1")}
-            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
           >
             Create Your First Business
           </button>
           <button
             type="button"
             onClick={() => navigate("/zapeera/invitations")}
-            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-5 py-2.5 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white px-5 py-2.5 text-sm font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
           >
             Join Existing Business
           </button>
@@ -330,17 +330,17 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
           return (
             <div
               key={b.id}
-              className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_44px_rgba(0,0,0,0.09)] md:flex-row md:items-center md:gap-6"
+              className="group relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_44px_rgba(0,0,0,0.09)] md:flex-row md:items-center md:gap-6"
             >
               <div className="min-w-0 md:flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-lg font-bold text-white shadow-[0_6px_18px_rgba(26,82,197,0.25)]">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#0B363B] to-[#437278] text-lg font-bold text-white shadow-[0_6px_18px_rgba(11,54,59,0.25)]">
                     {b.name?.charAt(0).toUpperCase() || "B"}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="truncate text-base font-bold tracking-tight text-[#0a1128]">{b.name}</p>
+                      <p className="truncate text-base font-bold tracking-tight text-[#032125]">{b.name}</p>
                       <button
                         type="button"
                         onClick={() => toggleFavorite(b)}
@@ -350,7 +350,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                         <Star className={cn("h-3.5 w-3.5", isFav ? "fill-amber-400 text-amber-400" : "text-[#c3cadb] hover:text-amber-400")} />
                       </button>
                     </div>
-                    <p className="truncate text-xs text-[#8c95b0]">
+                    <p className="truncate text-xs text-[#437278]">
                       {String(b.businessType || "").replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) || "Business"}
                     </p>
                   </div>
@@ -359,20 +359,20 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8c95b0] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#437278] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
                       aria-label="Quick actions"
                     >
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[210px] rounded-xl border border-[rgba(15,23,60,0.06)] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)]">
-                    <DropdownMenuItem onClick={() => openWorkspace(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-semibold text-[#1a52c5]">
+                  <DropdownMenuContent align="end" className="w-[210px] rounded-xl border border-[rgba(3,33,37,0.06)] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)]">
+                    <DropdownMenuItem onClick={() => openWorkspace(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-semibold text-[#0B363B]">
                       <ExternalLink className="h-4 w-4" />
                       Open Workspace
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => b.slug && navigate(`/business/${encodeURIComponent(b.slug)}/subscription`)}
-                      className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
+                      className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#354D51]"
                     >
                       <CreditCard className="h-4 w-4 opacity-60" />
                       Manage Subscription
@@ -387,7 +387,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
                       <DropdownMenuItem
                         onClick={() => handleSyncNow(b)}
                         disabled={syncingBusinessId === b.id}
-                        className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]"
+                        className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#354D51]"
                       >
                         {syncingBusinessId === b.id ? (
                           <RefreshCw className="h-4 w-4 animate-spin opacity-60" />
@@ -415,7 +415,7 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#4a5578]">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAFDE8] px-2.5 py-1 text-[11px] font-semibold text-[#354D51]">
                   <User className="h-3 w-3 opacity-60" /> {role}
                 </span>
                 {entLoading ? (
@@ -434,18 +434,18 @@ export function BusinessCardGrid({ excludeBusinessId }: { excludeBusinessId?: st
 
               <div className="shrink-0 md:w-72">
               <div className="grid grid-cols-2 gap-3 text-[13px] md:flex md:flex-col md:gap-2">
-                <div className="flex items-center gap-2 text-[#4a5578]">
-                  <Layers className="h-4 w-4 text-[#8c95b0]" />
+                <div className="flex items-center gap-2 text-[#354D51]">
+                  <Layers className="h-4 w-4 text-[#437278]" />
                   {branchCount} {branchCount === 1 ? "Branch" : "Branches"}
                 </div>
-                <div className="flex items-center gap-2 text-[#4a5578]">
-                  <CalendarDays className="h-4 w-4 text-[#8c95b0]" />
+                <div className="flex items-center gap-2 text-[#354D51]">
+                  <CalendarDays className="h-4 w-4 text-[#437278]" />
                   <span className="truncate">{entLoading ? "Checking plan…" : expiryLabel(status, ent)}</span>
                 </div>
               </div>
 
               {/* Desktop sync status */}
-              <div className="mt-3 flex items-center gap-2 border-t border-[rgba(15,23,60,0.05)] pt-3 text-xs text-[#8c95b0]">
+              <div className="mt-3 flex items-center gap-2 border-t border-[rgba(3,33,37,0.05)] pt-3 text-xs text-[#437278]">
                 {runtime.isDesktop ? (
                   desktopState?.availableOffline ? (
                     <>

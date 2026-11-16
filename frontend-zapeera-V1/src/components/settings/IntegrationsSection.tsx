@@ -98,7 +98,7 @@ function StatusPill({ status, connectable }: { status: IntegrationProviderInfo["
     );
   }
   return (
-    <span className="rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-bold text-[#4a5578]">
+    <span className="rounded-full bg-[#EAFDE8] px-2.5 py-1 text-[11px] font-bold text-[#354D51]">
       Not connected
     </span>
   );
@@ -200,10 +200,10 @@ function PostExShipmentPanel({ canManage }: { canManage: boolean }) {
   };
 
   return (
-    <div className="mt-4 rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
-      <div className="text-[13px] font-bold text-[#0a1128]">Shipments</div>
+    <div className="mt-4 rounded-[10px] border border-[rgba(3,33,37,0.08)] px-4 py-3">
+      <div className="text-[13px] font-bold text-[#032125]">Shipments</div>
       <div className="mt-3 flex flex-col gap-2">
-        <Label htmlFor="postex-sale-ref" className="text-xs font-bold text-[#0a1128]">
+        <Label htmlFor="postex-sale-ref" className="text-xs font-bold text-[#032125]">
           Book a shipment from a sale
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -213,16 +213,16 @@ function PostExShipmentPanel({ canManage }: { canManage: boolean }) {
             onChange={(e) => setSaleRef(e.target.value)}
             placeholder="Invoice number, e.g. INV-1001"
             disabled={!canManage || busy !== null}
-            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white"
           />
-          <Button type="button" size="sm" onClick={handleBook} disabled={!canManage || busy !== null} className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white">
+          <Button type="button" size="sm" onClick={handleBook} disabled={!canManage || busy !== null} className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-xs font-semibold text-white">
             <Truck className="h-3.5 w-3.5" /> {busy === "book" ? "Booking…" : "Book shipment"}
           </Button>
         </div>
-        <p className="text-[11px] leading-relaxed text-[#8c95b0]">
+        <p className="text-[11px] leading-relaxed text-[#437278]">
           Recipient comes from the sale&apos;s customer, COD from the unpaid balance (fully-paid sales book as prepaid, COD 0). The tracking number is stored on the sale.
         </p>
-        <Label htmlFor="postex-tracking" className="mt-1 text-xs font-bold text-[#0a1128]">
+        <Label htmlFor="postex-tracking" className="mt-1 text-xs font-bold text-[#032125]">
           Track a shipment
         </Label>
         <div className="flex flex-wrap gap-2">
@@ -232,15 +232,15 @@ function PostExShipmentPanel({ canManage }: { canManage: boolean }) {
             onChange={(e) => setTrackingInput(e.target.value)}
             placeholder="Tracking (CN) number"
             disabled={!canManage || busy !== null}
-            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+            className="h-9 min-w-[180px] flex-1 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white"
           />
           <Button type="button" size="sm" variant="outline" onClick={handleTrack} disabled={!canManage || busy !== null} className="rounded-lg text-xs font-semibold">
             {busy === "track" ? "Checking…" : "Track"}
           </Button>
         </div>
         {tracking && (
-          <div className="rounded-[10px] bg-[#f0f2f7] px-3 py-2 text-[12px] leading-relaxed text-[#4a5578]">
-            <span className="font-bold text-[#0a1128]">{tracking.trackingNumber}</span> · {tracking.status}
+          <div className="rounded-[10px] bg-[#EAFDE8] px-3 py-2 text-[12px] leading-relaxed text-[#354D51]">
+            <span className="font-bold text-[#032125]">{tracking.trackingNumber}</span> · {tracking.status}
             {tracking.events.length > 0 && (
               <ul className="mt-1 flex flex-col gap-1">
                 {tracking.events.map((event, i) => (
@@ -263,7 +263,7 @@ function PostExShipmentPanel({ canManage }: { canManage: boolean }) {
             </div>
           </div>
         )}
-        <p className="text-[11px] leading-relaxed text-[#8c95b0]">
+        <p className="text-[11px] leading-relaxed text-[#437278]">
           PostEx publishes no public API docs — the API address comes from your PostEx merchant account. Webhook updates arrive without a signature (PostEx publishes none), so confirm a status with Track before acting on it.
         </p>
       </div>
@@ -303,15 +303,15 @@ function IntegrationProviderCard({
   const isPaymentRail = provider.category === "payments";
 
   return (
-    <div className="flex flex-col rounded-[16px] border border-[rgba(15,23,60,0.08)] bg-white p-5">
+    <div className="flex flex-col rounded-[16px] border border-[rgba(3,33,37,0.08)] bg-white p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#1a52c5]/[0.08]">
-            <Icon className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#0B363B]/[0.08]">
+            <Icon className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
           </div>
           <div>
-            <div className="text-[15px] font-bold leading-tight text-[#0a1128]">{provider.displayName}</div>
-            <div className="text-xs font-medium text-[#8c95b0]">
+            <div className="text-[15px] font-bold leading-tight text-[#032125]">{provider.displayName}</div>
+            <div className="text-xs font-medium text-[#437278]">
               {CATEGORY_LABEL[provider.category]}
               {provider.tier === 1 ? " · Tier 1" : " · Tier 2"}
               {provider.sandboxAvailable ? " · Sandbox available" : ""}
@@ -323,17 +323,17 @@ function IntegrationProviderCard({
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {provider.capabilities.map((cap) => (
-          <span key={cap} className="rounded-full bg-[#f0f2f7] px-2 py-0.5 text-[11px] font-semibold text-[#4a5578]">
+          <span key={cap} className="rounded-full bg-[#EAFDE8] px-2 py-0.5 text-[11px] font-semibold text-[#354D51]">
             {cap}
           </span>
         ))}
       </div>
 
       {provider.limitation && (
-        <p className="mt-3 text-[13px] leading-relaxed text-[#8c95b0]">{provider.limitation}</p>
+        <p className="mt-3 text-[13px] leading-relaxed text-[#437278]">{provider.limitation}</p>
       )}
 
-      <div className="mt-3 flex items-center gap-2 text-xs font-medium text-[#8c95b0]">
+      <div className="mt-3 flex items-center gap-2 text-xs font-medium text-[#437278]">
         <Clock className="h-3.5 w-3.5 shrink-0" />
         {isPaymentRail
           ? connected
@@ -350,7 +350,7 @@ function IntegrationProviderCard({
           href={`https://docs.google.com/spreadsheets/d/${provider.config.spreadsheetId}`}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#1a52c5] hover:underline"
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0B363B] hover:underline"
         >
           Open spreadsheet <ExternalLink className="h-3 w-3" />
         </a>
@@ -361,13 +361,13 @@ function IntegrationProviderCard({
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[rgba(15,23,60,0.06)] pt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[rgba(3,33,37,0.06)] pt-4">
         {provider.connectable ? (
           <>
             {connected ? (
               <>
                 {isPaymentRail ? (
-                  <p className="text-[13px] leading-relaxed text-[#4a5578]">
+                  <p className="text-[13px] leading-relaxed text-[#354D51]">
                     Payments happen at checkout, not by sync — take JazzCash payments from a sale and they
                     land on that sale&apos;s record.
                   </p>
@@ -382,7 +382,7 @@ function IntegrationProviderCard({
                     size="sm"
                     onClick={() => onSync(provider)}
                     disabled={!canManage || syncing}
-                    className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white"
+                    className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-xs font-semibold text-white"
                   >
                     <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} />
                     {provider.id === "google-sheets"
@@ -438,7 +438,7 @@ function IntegrationProviderCard({
                 size="sm"
                 onClick={() => onConnect(provider)}
                 disabled={!canManage}
-                className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-xs font-semibold text-white"
+                className="gap-1.5 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-xs font-semibold text-white"
               >
                 <Plug className="h-3.5 w-3.5" /> Connect
               </Button>
@@ -454,7 +454,7 @@ function IntegrationProviderCard({
           size="sm"
           variant="ghost"
           onClick={() => onToggleLogs(provider)}
-          className="gap-1.5 rounded-lg text-xs font-semibold text-[#4a5578]"
+          className="gap-1.5 rounded-lg text-xs font-semibold text-[#354D51]"
         >
           <History className="h-3.5 w-3.5" /> {logsOpen ? "Hide logs" : "View logs"}
         </Button>
@@ -463,7 +463,7 @@ function IntegrationProviderCard({
             href={provider.docsUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#1a52c5] hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B363B] hover:underline"
           >
             Docs <ExternalLink className="h-3 w-3" />
           </a>
@@ -473,15 +473,15 @@ function IntegrationProviderCard({
       {provider.id === "postex" && connected && <PostExShipmentPanel canManage={canManage} />}
 
       {logsOpen && (
-        <div className="mt-4 rounded-[10px] bg-[#f0f2f7] px-4 py-3">
+        <div className="mt-4 rounded-[10px] bg-[#EAFDE8] px-4 py-3">
           {logsLoading ? (
-            <p className="text-[13px] text-[#8c95b0]">Loading logs…</p>
+            <p className="text-[13px] text-[#437278]">Loading logs…</p>
           ) : logs.length === 0 ? (
-            <p className="text-[13px] text-[#8c95b0]">No sync runs yet for this provider.</p>
+            <p className="text-[13px] text-[#437278]">No sync runs yet for this provider.</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {logs.map((log) => (
-                <li key={log.id} className="text-[12px] leading-relaxed text-[#4a5578]">
+                <li key={log.id} className="text-[12px] leading-relaxed text-[#354D51]">
                   <span
                     className={cn(
                       "mr-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold",
@@ -776,18 +776,18 @@ export function IntegrationsSection({
 
   return (
     <section
-      className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+      className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
       style={{ animationDelay: "220ms" }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-        <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-          <Link2 className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+        <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+          <Link2 className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
           Integrations
         </div>
-        <div className="text-xs font-medium text-[#8c95b0]">Owner / manager only</div>
+        <div className="text-xs font-medium text-[#437278]">Owner / manager only</div>
       </div>
       <div className="flex flex-col px-[30px] py-[30px]">
-        <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+        <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
           Connect your sales channels, payment wallets, couriers, accounting tools and SMS gateways so Tickimo
           can sync products, stock, orders and customers with them. Payment providers don&apos;t sync —
           once connected, their payments are taken at checkout and land on the sale&apos;s record.
@@ -796,7 +796,7 @@ export function IntegrationsSection({
           so it polls instead).
         </p>
         {!canManage && (
-          <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+          <p className="mb-[18px] rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
             Only the owner or a manager can manage integrations.
           </p>
         )}
@@ -806,7 +806,7 @@ export function IntegrationsSection({
           </p>
         )}
         {providers === null && !loadError ? (
-          <p className="text-[13px] text-[#8c95b0]">Loading integrations…</p>
+          <p className="text-[13px] text-[#437278]">Loading integrations…</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {(providers ?? []).map((provider) => (
@@ -836,14 +836,14 @@ export function IntegrationsSection({
           {dialogProvider && (
             <div className="flex flex-col gap-4 pt-2">
               {dialogProvider.credentialFields.length === 0 ? (
-                <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                <p className="rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                   {dialogProvider.displayName} connects with OAuth — you will sign in on the provider’s own
                   page. No credentials are typed here.
                 </p>
               ) : (
                 dialogProvider.credentialFields.map((field) => (
                   <div key={field.key}>
-                    <Label htmlFor={`int-cred-${field.key}`} className="mb-2 block text-sm font-bold text-[#0a1128]">
+                    <Label htmlFor={`int-cred-${field.key}`} className="mb-2 block text-sm font-bold text-[#032125]">
                       {field.label}
                       {field.optional ? " (optional)" : ""}
                     </Label>
@@ -854,21 +854,21 @@ export function IntegrationsSection({
                       value={credValues[field.key] ?? ""}
                       onChange={(e) => setCredValues({ ...credValues, [field.key]: e.target.value })}
                       placeholder={field.placeholder ?? ""}
-                      className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+                      className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white"
                     />
                   </div>
                 ))
               )}
               {dialogProvider.category === "sales-channel" && (
                 <div>
-                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Tickimo branch</Label>
+                  <Label className="mb-2 block text-sm font-bold text-[#032125]">Tickimo branch</Label>
                   <Select
                     value={configDraft.branchId ?? "default"}
                     onValueChange={(v) =>
                       setConfigDraft({ ...configDraft, branchId: v === "default" ? null : v })
                     }
                   >
-                    <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm">
+                    <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -882,15 +882,15 @@ export function IntegrationsSection({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                     One store maps to one branch — only this branch&apos;s products and stock sync to{" "}
                     {dialogProvider.displayName}, and its orders land in this branch.
                   </p>
                 </div>
               )}
               {dialogProvider.id === "shopify" && (
-                <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
-                  <p className="text-[13px] leading-relaxed text-[#4a5578]">
+                <div className="rounded-[10px] border border-[rgba(3,33,37,0.08)] px-4 py-3">
+                  <p className="text-[13px] leading-relaxed text-[#354D51]">
                     Prefer OAuth? Install the Tickimo app on your store instead of pasting a token — the
                     access token is issued by Shopify and stored encrypted.
                   </p>
@@ -907,7 +907,7 @@ export function IntegrationsSection({
                     <Plug className="h-3.5 w-3.5" /> Connect with Shopify (OAuth)
                   </Button>
                   {!credValues.shopDomain?.trim() && (
-                    <p className="mt-1.5 text-xs text-[#8c95b0]">Enter the shop domain above first.</p>
+                    <p className="mt-1.5 text-xs text-[#437278]">Enter the shop domain above first.</p>
                   )}
                 </div>
               )}
@@ -915,7 +915,7 @@ export function IntegrationsSection({
               {dialogProvider.id === "google-sheets" && (
                 <>
                   <div>
-                    <Label htmlFor="int-sheets-spreadsheet" className="mb-2 block text-sm font-bold text-[#0a1128]">
+                    <Label htmlFor="int-sheets-spreadsheet" className="mb-2 block text-sm font-bold text-[#032125]">
                       Spreadsheet ID (optional)
                     </Label>
                     <Input
@@ -925,22 +925,22 @@ export function IntegrationsSection({
                       value={configDraft.spreadsheetId ?? ""}
                       onChange={(e) => setConfigDraft({ ...configDraft, spreadsheetId: e.target.value })}
                       placeholder="Leave blank to create a new spreadsheet"
-                      className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white"
+                      className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white"
                     />
-                    <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                       The ID in the sheet&apos;s URL: docs.google.com/spreadsheets/d/
-                      <span className="font-semibold text-[#4a5578]">this-part</span>/edit
+                      <span className="font-semibold text-[#354D51]">this-part</span>/edit
                     </p>
                   </div>
                   <div>
-                    <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Branch</Label>
+                    <Label className="mb-2 block text-sm font-bold text-[#032125]">Branch</Label>
                     <Select
                       value={configDraft.branchId ?? "all"}
                       onValueChange={(v) =>
                         setConfigDraft({ ...configDraft, branchId: v === "all" ? undefined : v })
                       }
                     >
-                      <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm">
+                      <SelectTrigger className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -952,11 +952,11 @@ export function IntegrationsSection({
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                       Every exported row carries its branch, so “All branches” never mixes them silently.
                     </p>
                   </div>
-                  <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                  <p className="rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                     Export only — Google Sheets has no webhooks, so Tickimo exports on demand instead of
                     live-syncing. Each export appends Sales, Stock, Customers and Khata rows to their own
                     tabs; previous exports are kept.
@@ -965,7 +965,7 @@ export function IntegrationsSection({
               )}
 
               {dialogProvider.category === "payments" ? (
-                <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+                <p className="rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                   {dialogProvider.displayName} is a payment rail, not a sync — no products, stock,
                   orders or customers sync. Once connected, payments are taken at checkout and land on
                   the sale&apos;s record.
@@ -974,8 +974,8 @@ export function IntegrationsSection({
                 null
               ) : (
                 <div>
-                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">What syncs</Label>
-                <div className="flex flex-col gap-3 rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
+                  <Label className="mb-2 block text-sm font-bold text-[#032125]">What syncs</Label>
+                <div className="flex flex-col gap-3 rounded-[10px] border border-[rgba(3,33,37,0.08)] px-4 py-3">
                   {(
                     [
                       ["syncProducts", "Products"],
@@ -985,7 +985,7 @@ export function IntegrationsSection({
                     ] as Array<["syncProducts" | "syncStock" | "syncOrders" | "syncCustomers", string]>
                   ).map(([key, label]) => (
                     <div key={key} className="flex items-center justify-between gap-3">
-                      <span className="text-[13px] font-medium text-[#0a1128]">{label}</span>
+                      <span className="text-[13px] font-medium text-[#032125]">{label}</span>
                       <Switch
                         checked={configDraft[key]}
                         onCheckedChange={(checked) => setConfigDraft({ ...configDraft, [key]: checked })}
@@ -993,7 +993,7 @@ export function IntegrationsSection({
                     </div>
                   ))}
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13px] font-medium text-[#0a1128]">Direction</span>
+                    <span className="text-[13px] font-medium text-[#032125]">Direction</span>
                     <Select
                       value={configDraft.direction}
                       onValueChange={(v) =>
@@ -1013,7 +1013,7 @@ export function IntegrationsSection({
                 </div>
                 </div>
               )}
-              <p className="text-xs leading-relaxed text-[#8c95b0]">
+              <p className="text-xs leading-relaxed text-[#437278]">
                 Credentials are encrypted on the server before they are stored, and are never shown back. The
                 connection is verified against {dialogProvider.displayName} before anything is saved.
               </p>
@@ -1023,7 +1023,7 @@ export function IntegrationsSection({
                     type="button"
                     onClick={handleGoogleSheetsConnect}
                     disabled={isSaving}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white"
                   >
                     {isSaving ? "Redirecting…" : "Connect with Google"}
                   </Button>
@@ -1032,7 +1032,7 @@ export function IntegrationsSection({
                     type="button"
                     onClick={handleConnectSave}
                     disabled={isSaving}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white"
                   >
                     {isSaving ? "Connecting…" : "Connect"}
                   </Button>

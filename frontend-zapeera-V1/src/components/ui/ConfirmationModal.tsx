@@ -66,13 +66,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         };
       case 'info':
         return {
-          iconBg: 'bg-blue-100',
-          iconColor: 'text-blue-600',
-          borderColor: 'border-blue-200',
-          bgColor: 'bg-blue-50',
-          textColor: 'text-blue-800',
-          detailColor: 'text-blue-700',
-          buttonClass: 'bg-blue-600 hover:bg-blue-700',
+          iconBg: 'bg-verdant-100',
+          iconColor: 'text-spruce-700',
+          borderColor: 'border-spruce-200',
+          bgColor: 'bg-verdant-100',
+          textColor: 'text-spruce-900',
+          detailColor: 'text-spruce-900',
+          buttonClass: 'bg-spruce-700 hover:bg-spruce-900',
           defaultIcon: <X className="w-4 h-4" />,
         };
       default:

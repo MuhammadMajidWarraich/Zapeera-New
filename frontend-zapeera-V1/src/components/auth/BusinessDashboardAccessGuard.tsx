@@ -181,18 +181,18 @@ const BusinessDashboardAccessGuard = ({
             onEscapeKeyDown={(e) => e.preventDefault()}
           >
             <DialogHeader>
-              <DialogTitle className="text-[#0a1128] flex items-center gap-3 text-2xl font-bold">
+              <DialogTitle className="text-[#032125] flex items-center gap-3 text-2xl font-bold">
                 <div className="p-2 rounded-full bg-red-50 text-red-500">
                   <AlertCircle className="w-6 h-6" />
                 </div>
                 Access Denied
               </DialogTitle>
-              <DialogDescription className="text-[#4a5578] pt-4 text-lg leading-relaxed">
+              <DialogDescription className="text-[#354D51] pt-4 text-lg leading-relaxed">
                 {message}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="mt-6 mb-8 rounded-[12px] border border-[#1a52c5]/10 bg-[#1a52c5]/[0.04] px-5 py-4 text-sm text-[#1a52c5] flex items-center justify-between">
+            <div className="mt-6 mb-8 rounded-[12px] border border-[#0B363B]/10 bg-[#0B363B]/[0.04] px-5 py-4 text-sm text-[#0B363B] flex items-center justify-between">
               <span className="opacity-70">Your role in this business:</span>
               <span className="font-bold tracking-wide">{businessRole}</span>
             </div>
@@ -202,14 +202,14 @@ const BusinessDashboardAccessGuard = ({
                 type="button"
                 variant="outline"
                 onClick={() => navigate('/zapeera/my-businesses')}
-                className="h-12 rounded-[12px] border-[rgba(15,23,60,0.12)] px-8 font-semibold text-[#4a5578] hover:bg-[#f0f2f7] transition-colors"
+                className="h-12 rounded-[12px] border-[rgba(3,33,37,0.12)] px-8 font-semibold text-[#354D51] hover:bg-[#EAFDE8] transition-colors"
               >
                 Switch Business
               </Button>
               <Button
                 type="button"
                 onClick={() => navigate('/zapeera')}
-                className="h-12 rounded-[12px] bg-gradient-to-r from-[#1a52c5] to-[#28c2ce] px-8 font-semibold text-white shadow-lg shadow-blue-500/20 hover:opacity-90 transition-opacity"
+                className="h-12 rounded-[12px] bg-gradient-to-r from-[#0B363B] to-[#437278] px-8 font-semibold text-white shadow-lg shadow-spruce-500/20 hover:opacity-90 transition-opacity"
               >
                 Go to Home
               </Button>

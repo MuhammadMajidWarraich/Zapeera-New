@@ -131,7 +131,7 @@ const StockMovements = () => {
       case "OUT":
         return <ArrowDown className="w-4 h-4 text-red-600" />;
       case "RETURN":
-        return <RotateCcw className="w-4 h-4 text-blue-600" />;
+        return <RotateCcw className="w-4 h-4 text-spruce-700" />;
       case "ADJUSTMENT":
         return <Package className="w-4 h-4 text-orange-600" />;
       default:
@@ -146,7 +146,7 @@ const StockMovements = () => {
       case "OUT":
         return <Badge className="bg-red-100 text-red-800">Stock Out</Badge>;
       case "RETURN":
-        return <Badge className="bg-blue-100 text-blue-800">Return</Badge>;
+        return <Badge className="bg-verdant-100 text-spruce-900">Return</Badge>;
       case "ADJUSTMENT":
         return <Badge className="bg-orange-100 text-orange-800">Adjustment</Badge>;
       default:

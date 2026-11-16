@@ -191,12 +191,12 @@ const ProfitSalesOverview = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft border-0 bg-gradient-to-r from-blue-50 to-blue-100">
+          <Card className="shadow-soft border-0 bg-gradient-to-r from-verdant-100 to-verdant-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Today's Profit
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+              <TrendingUp className="h-4 w-4 text-spruce-700" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">
@@ -208,12 +208,12 @@ const ProfitSalesOverview = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-soft border-0 bg-gradient-to-r from-purple-50 to-purple-100">
+          <Card className="shadow-soft border-0 bg-gradient-to-r from-verdant-100 to-verdant-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
                 Today's Orders
               </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-purple-600" />
+              <ShoppingCart className="h-4 w-4 text-spruce-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">
@@ -275,7 +275,7 @@ const ProfitSalesOverview = () => {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Monthly Profit
               </CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+              <TrendingUp className="h-4 w-4 text-spruce-700" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">
@@ -297,7 +297,7 @@ const ProfitSalesOverview = () => {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Monthly Orders
               </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-purple-600" />
+              <ShoppingCart className="h-4 w-4 text-spruce-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">

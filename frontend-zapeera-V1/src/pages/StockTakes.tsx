@@ -85,7 +85,7 @@ interface BatchOption {
 }
 
 const varianceBadge = (variance: number | null) => {
-  if (variance === null || variance === undefined) return <span className="text-[#8c95b0]">—</span>;
+  if (variance === null || variance === undefined) return <span className="text-[#437278]">—</span>;
   if (variance === 0) return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">0</Badge>;
   if (variance < 0) return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">{variance}</Badge>;
   return <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">+{variance}</Badge>;
@@ -281,7 +281,7 @@ const StockTakes: React.FC = () => {
   };
 
   const statusBadge = (status: string) => {
-    if (status === "OPEN") return <Badge className="bg-blue-600 hover:bg-blue-600">Open</Badge>;
+    if (status === "OPEN") return <Badge className="bg-spruce-700 hover:bg-spruce-700">Open</Badge>;
     if (status === "COMPLETED") return <Badge className="bg-green-600 hover:bg-green-600">Completed</Badge>;
     return <Badge variant="outline">Cancelled</Badge>;
   };
@@ -289,12 +289,12 @@ const StockTakes: React.FC = () => {
   return (
     <div className="w-full space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12">
-          <ClipboardList className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+        <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-gradient-to-br from-[#0B363B]/14 to-[#437278]/12">
+          <ClipboardList className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold tracking-tight text-[#0a1128]">Stock Takes</h1>
-          <p className="text-sm text-[#8c95b0]">Physical counts with variance — completing a count corrects batch stock and logs the adjustment.</p>
+          <h1 className="text-xl font-bold tracking-tight text-[#032125]">Stock Takes</h1>
+          <p className="text-sm text-[#437278]">Physical counts with variance — completing a count corrects batch stock and logs the adjustment.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void loadTakes()} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -303,11 +303,11 @@ const StockTakes: React.FC = () => {
       </div>
 
       {/* Open a session */}
-      <div className="rounded-[16px] border border-[rgba(15,23,60,0.08)] bg-white p-4 shadow-[0_2px_14px_rgba(15,23,60,0.04)]">
-        <h2 className="text-sm font-bold text-[#0a1128]">Open a stock-take</h2>
+      <div className="rounded-[16px] border border-[rgba(3,33,37,0.08)] bg-white p-4 shadow-[0_2px_14px_rgba(3,33,37,0.04)]">
+        <h2 className="text-sm font-bold text-[#032125]">Open a stock-take</h2>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <div className="w-56 space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Branch</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Branch</label>
             <Select value={newBranchId} onValueChange={setNewBranchId}>
               <SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger>
               <SelectContent>
@@ -318,7 +318,7 @@ const StockTakes: React.FC = () => {
             </Select>
           </div>
           <div className="min-w-52 flex-1 space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Note (optional)</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Note (optional)</label>
             <Input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="e.g. Monthly full count" />
           </div>
           <Button onClick={handleCreate} disabled={isCreating || !newBranchId}>
@@ -326,31 +326,31 @@ const StockTakes: React.FC = () => {
             <span className="ml-1.5">Open stock-take</span>
           </Button>
         </div>
-        <p className="mt-2 text-xs text-[#8c95b0]">One open session per branch — complete or cancel the current one before starting another.</p>
+        <p className="mt-2 text-xs text-[#437278]">One open session per branch — complete or cancel the current one before starting another.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
         {/* History */}
         <div className="space-y-2">
-          <h2 className="text-sm font-bold text-[#0a1128]">Sessions</h2>
+          <h2 className="text-sm font-bold text-[#032125]">Sessions</h2>
           {takes.length === 0 && !isLoading && (
-            <p className="rounded-[12px] border border-dashed border-[rgba(15,23,60,0.15)] p-4 text-sm text-[#8c95b0]">No stock-takes yet.</p>
+            <p className="rounded-[12px] border border-dashed border-[rgba(3,33,37,0.15)] p-4 text-sm text-[#437278]">No stock-takes yet.</p>
           )}
           {takes.map((take) => (
             <button
               key={take.id}
               type="button"
               onClick={() => void loadDetail(take.id)}
-              className={`w-full rounded-[14px] border p-3 text-left transition-colors ${selected?.id === take.id ? "border-[#1a52c5]/40 bg-[#1a52c5]/[0.04]" : "border-[rgba(15,23,60,0.08)] bg-white hover:bg-[#f8f9fc]"}`}
+              className={`w-full rounded-[14px] border p-3 text-left transition-colors ${selected?.id === take.id ? "border-[#0B363B]/40 bg-[#0B363B]/[0.04]" : "border-[rgba(3,33,37,0.08)] bg-white hover:bg-[#FFFCF6]"}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-bold text-[#0a1128]">{take.branch?.name || "Branch"}</span>
+                <span className="text-sm font-bold text-[#032125]">{take.branch?.name || "Branch"}</span>
                 {statusBadge(take.status)}
               </div>
-              <p className="mt-1 text-xs text-[#8c95b0]">
+              <p className="mt-1 text-xs text-[#437278]">
                 {new Date(take.createdAt).toLocaleString()} • {take.summary.countedLines}/{take.summary.lineCount} counted
               </p>
-              <p className="mt-0.5 text-xs text-[#8c95b0]">
+              <p className="mt-0.5 text-xs text-[#437278]">
                 Variance: <span className={take.summary.totalVarianceUnits === 0 ? "" : take.summary.totalVarianceUnits < 0 ? "font-semibold text-red-600" : "font-semibold text-amber-600"}>
                   {take.summary.totalVarianceUnits > 0 ? "+" : ""}{take.summary.totalVarianceUnits} units
                 </span>
@@ -361,17 +361,17 @@ const StockTakes: React.FC = () => {
         </div>
 
         {/* Detail */}
-        <div className="rounded-[16px] border border-[rgba(15,23,60,0.08)] bg-white p-4 shadow-[0_2px_14px_rgba(15,23,60,0.04)]">
+        <div className="rounded-[16px] border border-[rgba(3,33,37,0.08)] bg-white p-4 shadow-[0_2px_14px_rgba(3,33,37,0.04)]">
           {!selected ? (
-            <p className="py-10 text-center text-sm text-[#8c95b0]">Select a session to count or review it.</p>
+            <p className="py-10 text-center text-sm text-[#437278]">Select a session to count or review it.</p>
           ) : isDetailLoading ? (
-            <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[#1a52c5]" /></div>
+            <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[#0B363B]" /></div>
           ) : (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-bold text-[#0a1128]">{selected.branch?.name || "Branch"} count</h2>
+                <h2 className="text-base font-bold text-[#032125]">{selected.branch?.name || "Branch"} count</h2>
                 {statusBadge(selected.status)}
-                <span className="text-xs text-[#8c95b0]">Opened {new Date(selected.createdAt).toLocaleString()}</span>
+                <span className="text-xs text-[#437278]">Opened {new Date(selected.createdAt).toLocaleString()}</span>
                 {selected.status === "OPEN" && (
                   <div className="ml-auto flex gap-2">
                     <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setConfirmAction("cancel")}>
@@ -393,9 +393,9 @@ const StockTakes: React.FC = () => {
               </div>
 
               {selected.status === "OPEN" && (
-                <div className="flex flex-wrap items-end gap-2 rounded-[12px] bg-[#f8f9fc] p-3">
+                <div className="flex flex-wrap items-end gap-2 rounded-[12px] bg-[#FFFCF6] p-3">
                   <div className="min-w-64 flex-1 space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Batch to count</label>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Batch to count</label>
                     <Select value={countBatchId} onValueChange={setCountBatchId}>
                       <SelectTrigger><SelectValue placeholder="Choose a batch" /></SelectTrigger>
                       <SelectContent>
@@ -408,7 +408,7 @@ const StockTakes: React.FC = () => {
                     </Select>
                   </div>
                   <div className="w-32 space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Counted qty</label>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Counted qty</label>
                     <Input type="number" min={0} value={countQty} onChange={(e) => setCountQty(e.target.value)} placeholder="0" />
                   </div>
                   <Button
@@ -424,7 +424,7 @@ const StockTakes: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[rgba(15,23,60,0.08)] text-left text-xs uppercase tracking-wide text-[#8c95b0]">
+                    <tr className="border-b border-[rgba(3,33,37,0.08)] text-left text-xs uppercase tracking-wide text-[#437278]">
                       <th className="px-2 py-2 font-semibold">Product / Batch</th>
                       <th className="px-2 py-2 font-semibold">System</th>
                       <th className="px-2 py-2 font-semibold">Counted</th>
@@ -434,17 +434,17 @@ const StockTakes: React.FC = () => {
                   </thead>
                   <tbody>
                     {(selected.lines || []).length === 0 && (
-                      <tr><td colSpan={5} className="px-2 py-6 text-center text-[#8c95b0]">No batches counted yet.</td></tr>
+                      <tr><td colSpan={5} className="px-2 py-6 text-center text-[#437278]">No batches counted yet.</td></tr>
                     )}
                     {(selected.lines || []).map((line) => {
                       const liveVariance = line.countedQty === null || line.countedQty === undefined
                         ? null
                         : line.countedQty - line.systemQty;
                       return (
-                        <tr key={line.id} className="border-b border-[rgba(15,23,60,0.05)]">
+                        <tr key={line.id} className="border-b border-[rgba(3,33,37,0.05)]">
                           <td className="px-2 py-2">
-                            <div className="font-medium text-[#0a1128]">{line.product?.name || "Product"}</div>
-                            <div className="text-xs text-[#8c95b0]">
+                            <div className="font-medium text-[#032125]">{line.product?.name || "Product"}</div>
+                            <div className="text-xs text-[#437278]">
                               {line.batch?.batchNo || line.batchId}
                               {line.batch?.variant ? ` • ${line.batch.variant.name}` : ""}
                               {line.adjustmentMovementId ? " • adjusted" : ""}

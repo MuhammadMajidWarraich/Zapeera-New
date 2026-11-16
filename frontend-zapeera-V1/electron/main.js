@@ -1193,16 +1193,16 @@ function createSplashWindow() {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   .splash {
-    background: linear-gradient(135deg, #060d1f 0%, #1a2744 100%);
+    background: linear-gradient(135deg, #00191C 0%, #0B363B 100%);
     border-radius: 16px; padding: 40px; text-align: center;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5); width: 320px;
   }
   .logo { font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 8px; }
-  .subtitle { font-size: 13px; color: #8899bb; margin-bottom: 24px; }
+  .subtitle { font-size: 13px; color: #A1C2C6; margin-bottom: 24px; }
   .spinner { margin: 0 auto 16px; width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1);
-    border-top-color: #4a90d9; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    border-top-color: #A1C2C6; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .status { font-size: 12px; color: #667799; }
+  .status { font-size: 12px; color: #A1C2C6; }
 </style>
 </head>
 <body>
@@ -1230,9 +1230,9 @@ function createWindow() {
         'Content-Security-Policy': [
           "default-src 'self'; " +
           "script-src 'self' 'unsafe-inline'; " +
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data: https:; " +
-          "font-src 'self' data: https://fonts.gstatic.com; " +
+          "font-src 'self' data:; " +
           "connect-src 'self' http://localhost:* http://127.0.0.1:* https:; " +
           "frame-ancestors 'none'; " +
           "base-uri 'self'; " +

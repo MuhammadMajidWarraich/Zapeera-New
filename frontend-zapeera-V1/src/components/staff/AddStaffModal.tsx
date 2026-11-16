@@ -203,7 +203,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                   isCompleted
                     ? 'bg-green-500 text-white'
                     : isCurrent
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-spruce-700 text-white'
                     : 'bg-gray-200 text-gray-500'
                 }`}
               >
@@ -211,7 +211,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
               </div>
               <span
                 className={`text-[10px] mt-1 ${
-                  isCurrent ? 'text-blue-600 font-medium' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  isCurrent ? 'text-spruce-700 font-medium' : isCompleted ? 'text-green-600' : 'text-gray-400'
                 }`}
               >
                 {label}
@@ -233,8 +233,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
   const renderStep1 = () => (
     <div className="space-y-4">
       <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-[#0a1128]">Search User</h3>
-        <p className="text-sm text-[#8c95b0]">Enter email or phone to check if user exists</p>
+        <h3 className="text-lg font-semibold text-[#032125]">Search User</h3>
+        <p className="text-sm text-[#437278]">Enter email or phone to check if user exists</p>
       </div>
 
       <div className="flex gap-2 mb-2">
@@ -292,13 +292,13 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       return (
         <div className="space-y-4">
           <div className="text-center mb-4">
-            <h3 className="text-lg font-semibold text-[#0a1128]">User Found</h3>
-            <p className="text-sm text-[#8c95b0]">This user already has a Tickimo account</p>
+            <h3 className="text-lg font-semibold text-[#032125]">User Found</h3>
+            <p className="text-sm text-[#437278]">This user already has a Tickimo account</p>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-verdant-100 flex items-center justify-center">
                 {existingUser.profileImage ? (
                   <img
                     src={existingUser.profileImage}
@@ -306,16 +306,16 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="text-lg font-semibold text-blue-600">
+                  <span className="text-lg font-semibold text-spruce-700">
                     {existingUser.name?.charAt(0)?.toUpperCase()}
                   </span>
                 )}
               </div>
               <div>
-                <h4 className="font-medium text-[#0a1128]">{existingUser.name}</h4>
-                <p className="text-sm text-[#8c95b0]">{existingUser.email}</p>
+                <h4 className="font-medium text-[#032125]">{existingUser.name}</h4>
+                <p className="text-sm text-[#437278]">{existingUser.email}</p>
                 {existingUser.phone && (
-                  <p className="text-sm text-[#8c95b0]">{existingUser.phone}</p>
+                  <p className="text-sm text-[#437278]">{existingUser.phone}</p>
                 )}
               </div>
             </div>
@@ -336,8 +336,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     return (
       <div className="space-y-4">
         <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-[#0a1128]">Create New User</h3>
-          <p className="text-sm text-[#8c95b0]">Fill in the details for the new account</p>
+          <h3 className="text-lg font-semibold text-[#032125]">Create New User</h3>
+          <p className="text-sm text-[#437278]">Fill in the details for the new account</p>
         </div>
 
         <div className="space-y-3">
@@ -404,8 +404,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
   const renderStep3 = () => (
     <div className="space-y-4">
       <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-[#0a1128]">Role Assignment</h3>
-        <p className="text-sm text-[#8c95b0]">Assign role and branch access</p>
+        <h3 className="text-lg font-semibold text-[#032125]">Role Assignment</h3>
+        <p className="text-sm text-[#437278]">Assign role and branch access</p>
       </div>
 
       <div className="space-y-3">
@@ -450,7 +450,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
               <SelectItem value="ACTIVE">Active</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-[#8c95b0]">Staff member is added with immediate access to the selected branch.</p>
+          <p className="text-xs text-[#437278]">Staff member is added with immediate access to the selected branch.</p>
         </div>
       </div>
 
@@ -468,8 +468,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
   const renderStep4 = () => (
     <div className="space-y-4">
       <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-[#0a1128]">Employment Details</h3>
-        <p className="text-sm text-[#8c95b0]">HR and employment information</p>
+        <h3 className="text-lg font-semibold text-[#032125]">Employment Details</h3>
+        <p className="text-sm text-[#437278]">HR and employment information</p>
       </div>
 
       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
@@ -493,15 +493,15 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
           />
         </div>
 
-        <div className="flex items-start gap-3 rounded-lg border border-[rgba(15,23,60,0.08)] bg-[#f8f9fb] p-3">
+        <div className="flex items-start gap-3 rounded-lg border border-[rgba(3,33,37,0.08)] bg-[#f8f9fb] p-3">
           <Checkbox
             id="isSalesman"
             checked={hrData.isSalesman}
             onCheckedChange={(checked) => setHrData((prev) => ({ ...prev, isSalesman: checked === true }))}
           />
           <div className="space-y-0.5">
-            <Label htmlFor="isSalesman" className="text-sm font-semibold text-[#0a1128]">Salesman</Label>
-            <p className="text-xs leading-relaxed text-[#8c95b0]">
+            <Label htmlFor="isSalesman" className="text-sm font-semibold text-[#032125]">Salesman</Label>
+            <p className="text-xs leading-relaxed text-[#437278]">
               Designate this staff member as a salesman — they appear in the POS salesman picker and in salesman performance, and their sales count toward commissions.
             </p>
           </div>
@@ -548,7 +548,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
         </div>
 
         <div className="pt-2 border-t">
-          <p className="text-xs font-medium text-[#8c95b0] uppercase tracking-wide mb-3">Optional Details</p>
+          <p className="text-xs font-medium text-[#437278] uppercase tracking-wide mb-3">Optional Details</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -622,65 +622,65 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
     return (
       <div className="space-y-4">
         <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-[#0a1128]">Review & Add</h3>
-          <p className="text-sm text-[#8c95b0]">Confirm all details before adding the staff member</p>
+          <h3 className="text-lg font-semibold text-[#032125]">Review & Add</h3>
+          <p className="text-sm text-[#437278]">Confirm all details before adding the staff member</p>
         </div>
 
         <div className="space-y-3">
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="text-xs font-medium text-[#8c95b0] uppercase tracking-wide mb-2">User</h4>
+            <h4 className="text-xs font-medium text-[#437278] uppercase tracking-wide mb-2">User</h4>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-sm font-semibold text-blue-600">
+              <div className="w-10 h-10 rounded-full bg-verdant-100 flex items-center justify-center">
+                <span className="text-sm font-semibold text-spruce-700">
                   {(user as any).name?.charAt(0)?.toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="font-medium text-[#0a1128]">{(user as any).name}</p>
-                <p className="text-sm text-[#8c95b0]">{(user as any).email}</p>
+                <p className="font-medium text-[#032125]">{(user as any).name}</p>
+                <p className="text-sm text-[#437278]">{(user as any).email}</p>
               </div>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="text-xs font-medium text-[#8c95b0] uppercase tracking-wide mb-2">Role & Branch</h4>
+            <h4 className="text-xs font-medium text-[#437278] uppercase tracking-wide mb-2">Role & Branch</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-[#8c95b0]">Role:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">{role}</span>
+                <span className="text-[#437278]">Role:</span>
+                <span className="ml-2 font-medium text-[#032125]">{role}</span>
               </div>
               <div>
-                <span className="text-[#8c95b0]">Branch:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">{branchName}</span>
+                <span className="text-[#437278]">Branch:</span>
+                <span className="ml-2 font-medium text-[#032125]">{branchName}</span>
               </div>
               <div>
-                <span className="text-[#8c95b0]">Status:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">Active</span>
+                <span className="text-[#437278]">Status:</span>
+                <span className="ml-2 font-medium text-[#032125]">Active</span>
               </div>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="text-xs font-medium text-[#8c95b0] uppercase tracking-wide mb-2">Employment</h4>
+            <h4 className="text-xs font-medium text-[#437278] uppercase tracking-wide mb-2">Employment</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-[#8c95b0]">Designation:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">{hrData.designation}</span>
+                <span className="text-[#437278]">Designation:</span>
+                <span className="ml-2 font-medium text-[#032125]">{hrData.designation}</span>
               </div>
               {hrData.department && (
                 <div>
-                  <span className="text-[#8c95b0]">Department:</span>
-                  <span className="ml-2 font-medium text-[#0a1128]">{hrData.department}</span>
+                  <span className="text-[#437278]">Department:</span>
+                  <span className="ml-2 font-medium text-[#032125]">{hrData.department}</span>
                 </div>
               )}
               <div>
-                <span className="text-[#8c95b0]">Type:</span>
-                <span className="ml-2 font-medium text-[#0a1128]">{hrData.employmentType.replace('_', ' ')}</span>
+                <span className="text-[#437278]">Type:</span>
+                <span className="ml-2 font-medium text-[#032125]">{hrData.employmentType.replace('_', ' ')}</span>
               </div>
               {hrData.salary && (
                 <div>
-                  <span className="text-[#8c95b0]">Salary:</span>
-                  <span className="ml-2 font-medium text-[#0a1128]">
+                  <span className="text-[#437278]">Salary:</span>
+                  <span className="ml-2 font-medium text-[#032125]">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PKR' }).format(
                       parseFloat(hrData.salary)
                     )}
@@ -689,8 +689,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
               )}
               {hrData.joiningDate && (
                 <div>
-                  <span className="text-[#8c95b0]">Joining:</span>
-                  <span className="ml-2 font-medium text-[#0a1128]">{hrData.joiningDate}</span>
+                  <span className="text-[#437278]">Joining:</span>
+                  <span className="ml-2 font-medium text-[#032125]">{hrData.joiningDate}</span>
                 </div>
               )}
             </div>
@@ -741,7 +741,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
       <DialogContent className="max-w-md">
         <DialogHeader className="pr-10">
           <DialogTitle className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-blue-600" />
+            <UserPlus className="w-5 h-5 text-spruce-700" />
             Add Staff Member
           </DialogTitle>
         </DialogHeader>

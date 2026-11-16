@@ -124,10 +124,10 @@ export function GlobalSearch() {
                   onClick={() => handleSelect(result)}
                   onMouseEnter={() => setSelectedIndex(i)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-                    i === selectedIndex ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                    i === selectedIndex ? 'bg-verdant-100 text-spruce-900' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <span className={`p-1.5 rounded-lg ${i === selectedIndex ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                  <span className={`p-1.5 rounded-lg ${i === selectedIndex ? 'bg-verdant-100' : 'bg-gray-100'}`}>
                     {result.type === 'business' && <Building2 className="w-4 h-4" />}
                     {result.type === 'user' && <Users className="w-4 h-4" />}
                     {result.type === 'subscription' && <CreditCard className="w-4 h-4" />}

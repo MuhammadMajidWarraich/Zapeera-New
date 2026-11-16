@@ -77,7 +77,7 @@ export function BusinessesPage() {
         <div className="flex items-center gap-3">
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search businesses..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none w-full sm:w-64" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search businesses..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500/50 focus:border-spruce-500 outline-none w-full sm:w-64" />
           </div>
         </div>
       </div>
@@ -117,10 +117,10 @@ export function BusinessesPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(biz => (
-                <tr key={biz.id} className="hover:bg-blue-50/30 transition-colors cursor-pointer" onClick={() => navigate(`/backoffice/businesses/${biz.id}`)}>
+                <tr key={biz.id} className="hover:bg-verdant-100/30 transition-colors cursor-pointer" onClick={() => navigate(`/backoffice/businesses/${biz.id}`)}>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                      <div className="w-9 h-9 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center text-white text-xs font-bold">
                         {biz.name.charAt(0)}
                       </div>
                       <div>
@@ -142,7 +142,7 @@ export function BusinessesPage() {
                   <td className="px-4 py-3.5 text-sm text-gray-400">{new Date(biz.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={e => { e.stopPropagation(); navigate(`/backoffice/businesses/${biz.id}`); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button onClick={e => { e.stopPropagation(); navigate(`/backoffice/businesses/${biz.id}`); }} className="p-1.5 text-gray-400 hover:text-spruce-700 hover:bg-verdant-100 rounded-lg transition" title="View Details"><Eye className="w-4 h-4" /></button>
                       {hasPermission('business.update') && (
                         <button onClick={e => { e.stopPropagation(); handleToggleStatus(biz.id); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Toggle Status"><ToggleLeft className="w-4 h-4" /></button>
                       )}

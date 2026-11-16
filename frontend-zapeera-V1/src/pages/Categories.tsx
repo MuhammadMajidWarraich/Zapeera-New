@@ -371,12 +371,12 @@ const Categories = () => {
   const getTypeBadgeClass = (type: string | undefined) => {
     const t = String(type || "").toUpperCase();
     if (t === "MEDICAL")
-      return "border border-[rgba(26,82,197,0.1)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]";
+      return "border border-[rgba(11,54,59,0.1)] bg-[rgba(11,54,59,0.06)] text-[#0B363B]";
     if (t === "NON_MEDICAL" || t === "FOOD")
       return "border border-green-600/12 bg-[rgba(22,163,74,0.06)] text-green-700";
     if (t === "NON_FOOD")
-      return "border border-[rgba(26,82,197,0.1)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]";
-    return "border border-[rgba(15,23,60,0.08)] bg-black/[0.03] text-[#4a5578]";
+      return "border border-[rgba(11,54,59,0.1)] bg-[rgba(11,54,59,0.06)] text-[#0B363B]";
+    return "border border-[rgba(3,33,37,0.08)] bg-black/[0.03] text-[#354D51]";
   };
 
   const formatTypeLabel = (type: string | undefined) => categoryTypeLabel(type);
@@ -385,13 +385,13 @@ const Categories = () => {
 
   if (error) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] flex min-h-[50vh] flex-col items-center justify-center px-6 py-16">
@@ -405,11 +405,11 @@ const Categories = () => {
                   <AlertCircle className="h-8 w-8 text-red-500" />
                 </div>
                 
-                <h3 className="mb-2 text-xl font-bold text-[#0a1128]">
+                <h3 className="mb-2 text-xl font-bold text-[#032125]">
                   Unable to Load Categories
                 </h3>
                 
-                <p className="mb-6 text-sm text-[#8c95b0]">
+                <p className="mb-6 text-sm text-[#437278]">
                   {error}
                 </p>
                 
@@ -433,7 +433,7 @@ const Categories = () => {
                 
                 <Button 
                   type="button" 
-                  className="w-full rounded-[10px] bg-[#1a52c5] text-white hover:bg-[#0f3a8c]"
+                  className="w-full rounded-[10px] bg-[#0B363B] text-white hover:bg-[#0f3a8c]"
                   onClick={() => void loadCategories()}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -448,35 +448,35 @@ const Categories = () => {
   }
 
   const sfInput = cn(
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-white pl-10 pr-3.5 text-sm font-medium text-[#0a1128] shadow-none transition-all",
-    "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]",
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-white pl-10 pr-3.5 text-sm font-medium text-[#032125] shadow-none transition-all",
+    "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]",
   );
   const sfSelect = cn(
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-white text-sm font-medium text-[#0a1128] shadow-none sm:min-w-[200px]",
-    "focus:ring-[4px] focus:ring-[rgba(26,82,197,0.06)] focus:ring-offset-0",
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-white text-sm font-medium text-[#032125] shadow-none sm:min-w-[200px]",
+    "focus:ring-[4px] focus:ring-[rgba(11,54,59,0.06)] focus:ring-offset-0",
   );
 
   return (
     <>
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
       <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div>
-          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Categories</h1>
-          <p className="text-sm text-[#8c95b0]">
+          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Categories</h1>
+          <p className="text-sm text-[#437278]">
             Manage product categories and organize your inventory
             {selectedBranch?.name ? (
               <>
                 {" "}
-                • <b className="font-semibold text-[#4a5578]">{selectedBranch.name}</b>
+                • <b className="font-semibold text-[#354D51]">{selectedBranch.name}</b>
               </>
             ) : null}
           </p>
@@ -485,7 +485,7 @@ const Categories = () => {
           <button
             type="button"
             onClick={() => setShowAddDialog(true)}
-            className="ml-1 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+            className="ml-1 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
           >
             <Plus className="h-[17px] w-[17px] stroke-[2.5]" strokeLinecap="round" />
             Add Category
@@ -493,11 +493,11 @@ const Categories = () => {
         </div>
       </div>
 
-      <div className="zv3-animate-fadeUp zv3-delay-1 flex flex-col gap-4 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-6 py-5 lg:flex-row lg:items-end">
+      <div className="zv3-animate-fadeUp zv3-delay-1 flex flex-col gap-4 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-6 py-5 lg:flex-row lg:items-end">
         <div className="min-w-0 flex-[3]">
-          <p className="mb-2 text-xs font-semibold text-[#8c95b0]">Search Categories</p>
+          <p className="mb-2 text-xs font-semibold text-[#437278]">Search Categories</p>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" strokeWidth={2} />
             <Input
               id="search"
               placeholder="Search by name or description..."
@@ -508,7 +508,7 @@ const Categories = () => {
           </div>
         </div>
         <div className="w-full lg:w-56">
-          <p className="mb-2 text-xs font-semibold text-[#8c95b0]">Type</p>
+          <p className="mb-2 text-xs font-semibold text-[#437278]">Type</p>
           <Select value={selectedType} onValueChange={setSelectedType}>
             <SelectTrigger className={sfSelect}>
               <SelectValue placeholder="All types" />
@@ -525,18 +525,18 @@ const Categories = () => {
 
       <div className="zv3-animate-fadeUp zv3-delay-3">
         <div className="mb-4 flex items-center gap-2.5">
-          <Grid3X3 className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-          <span className="text-[17px] font-bold text-[#0a1128]">Categories</span>
-          <span className="text-sm font-medium text-[#8c95b0]">({filteredCategories.length})</span>
+          <Grid3X3 className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+          <span className="text-[17px] font-bold text-[#032125]">Categories</span>
+          <span className="text-sm font-medium text-[#437278]">({filteredCategories.length})</span>
         </div>
 
         {filteredCategories.length === 0 ? (
-          <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-              <Tag className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+          <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+              <Tag className="h-6 w-6 text-[#437278]" strokeWidth={2} />
             </div>
-            <p className="mb-2 text-sm font-bold text-[#0a1128]">No categories found</p>
-            <p className="mx-auto mb-6 max-w-md text-sm text-[#8c95b0]">
+            <p className="mb-2 text-sm font-bold text-[#032125]">No categories found</p>
+            <p className="mx-auto mb-6 max-w-md text-sm text-[#437278]">
               {searchQuery || selectedType !== "all"
                 ? "Try adjusting your search or filter criteria."
                 : "Get started by adding your first category."}
@@ -545,7 +545,7 @@ const Categories = () => {
               <Button
                 type="button"
                 onClick={() => setShowAddDialog(true)}
-                className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Category
@@ -553,21 +553,21 @@ const Categories = () => {
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+          <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] border-collapse">
                 <thead>
-                  <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Category
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Type
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Products
                     </th>
-                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Actions
                     </th>
                   </tr>
@@ -576,21 +576,21 @@ const Categories = () => {
                   {paginatedCategories.map((category) => (
                     <tr
                       key={category.id}
-                      className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                      className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                     >
                       <td className="px-5 py-4 pl-8 align-middle">
                         <div className="flex items-center gap-3">
                           <div
                             className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-[10px] text-white"
                             style={{
-                              background: `linear-gradient(135deg, ${category.color || "#1a52c5"}, #28c2ce)`,
+                              background: `linear-gradient(135deg, ${category.color || "#0B363B"}, #437278)`,
                             }}
                           >
                             <Package className="h-[18px] w-[18px]" strokeWidth={2} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[15px] font-bold text-[#0a1128]">{category.name}</p>
-                            <p className="truncate text-sm text-[#8c95b0]">{category.description || "—"}</p>
+                            <p className="text-[15px] font-bold text-[#032125]">{category.name}</p>
+                            <p className="truncate text-sm text-[#437278]">{category.description || "—"}</p>
                           </div>
                         </div>
                       </td>
@@ -606,7 +606,7 @@ const Categories = () => {
                         </span>
                       </td>
                       <td className="px-5 py-4 align-middle">
-                        <span className="text-sm font-bold text-[#0a1128]">{category.productCount ?? 0}</span>
+                        <span className="text-sm font-bold text-[#032125]">{category.productCount ?? 0}</span>
                       </td>
                       <td className="px-5 py-4 pr-8 text-right align-middle">
                         <div className="flex items-center justify-end gap-1.5">
@@ -614,7 +614,7 @@ const Categories = () => {
                             type="button"
                             title="Edit"
                             onClick={() => openEditDialog(category)}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                           >
                             <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -623,7 +623,7 @@ const Categories = () => {
                             title="Delete category"
                             onClick={() => handleDeleteCategory(category.id)}
                             disabled={isDeleting === category.id}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {isDeleting === category.id ? (
                               <Loader2 className="h-[15px] w-[15px] animate-spin" />
@@ -640,20 +640,20 @@ const Categories = () => {
             </div>
             {/* Pagination */}
             {filteredCategories.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                 <div className="flex items-center gap-3">
-                  <div className="text-sm text-[#8c95b0]">
+                  <div className="text-sm text-[#437278]">
                     Showing {((safePage - 1) * pageSize) + 1} to {Math.min(safePage * pageSize, filteredCategories.length)} of {filteredCategories.length} categories
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#8c95b0]">Per page:</span>
+                    <span className="text-sm text-[#437278]">Per page:</span>
                     <select
                       value={pageSize}
                       onChange={(e) => {
                         setPageSize(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                      className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                     >
                       <option value={10}>10</option>
                       <option value={20}>20</option>
@@ -668,18 +668,18 @@ const Categories = () => {
                     type="button"
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={safePage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Previous
                   </button>
-                  <span className="text-sm font-semibold text-[#0a1128]">
+                  <span className="text-sm font-semibold text-[#032125]">
                     Page {safePage} of {totalPages}
                   </span>
                   <button
                     type="button"
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={safePage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Next
                   </button>
@@ -708,10 +708,10 @@ const Categories = () => {
       }}>
         <DialogContent className="max-w-md">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">
               {editingCategory ? "Edit category" : "Add new category"}
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               {editingCategory ? "Update category information." : "Create a new product category for your inventory."}
             </DialogDescription>
           </DialogHeader>

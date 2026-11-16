@@ -174,7 +174,7 @@ const NonMedicalProducts = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-4 border-spruce-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading non-medical products...</p>
         </div>
       </div>
@@ -267,10 +267,10 @@ const NonMedicalProducts = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Categories</p>
-                <p className="text-2xl font-bold text-blue-600">{categories.length}</p>
+                <p className="text-2xl font-bold text-spruce-700">{categories.length}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-verdant-100 rounded-lg flex items-center justify-center">
+                <ShoppingBag className="w-6 h-6 text-spruce-700" />
               </div>
             </div>
           </CardContent>
@@ -304,7 +304,7 @@ const NonMedicalProducts = () => {
                 <SelectContent>
                   <SelectItem
                     value="all"
-                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                   >
                     All Categories
                   </SelectItem>
@@ -312,7 +312,7 @@ const NonMedicalProducts = () => {
                     <SelectItem
                       key={category}
                       value={category}
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                      className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                     >
                       <div className="flex items-center">
                         {getCategoryIcon(category)}

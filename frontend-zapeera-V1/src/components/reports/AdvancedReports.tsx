@@ -203,11 +203,11 @@ const AdvancedReports = () => {
 
   const SummaryCard = ({ label, value, change, icon: Icon, tone = "blue" }: any) => {
     const toneClasses: Record<string, string> = {
-      blue: "bg-blue-50 text-blue-600",
+      blue: "bg-verdant-100 text-spruce-700",
       green: "bg-green-50 text-green-600",
       amber: "bg-amber-50 text-amber-600",
       red: "bg-red-50 text-red-600",
-      purple: "bg-purple-50 text-purple-600",
+      purple: "bg-verdant-100 text-spruce-500",
     };
     return (
       <Card className="border-slate-200 shadow-sm">
@@ -263,7 +263,7 @@ const AdvancedReports = () => {
                     <XAxis dataKey="hour" stroke="#94a3b8" fontSize={12} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                     <Tooltip formatter={(v: any) => formatPKR(v)} />
-                    <Bar dataKey="total" fill="#007bff" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" fill="#0B363B" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -403,7 +403,7 @@ const AdvancedReports = () => {
                     <TableRow key={i}>
                       <TableCell className="font-medium flex items-center gap-2">
                         {c.name}
-                        {c.isVIP && <Badge className="bg-purple-100 text-purple-700 text-[10px]">VIP</Badge>}
+                        {c.isVIP && <Badge className="bg-verdant-100 text-spruce-700 text-[10px]">VIP</Badge>}
                       </TableCell>
                       <TableCell className="text-slate-500">{c.phone || "—"}</TableCell>
                       <TableCell className="text-right">{formatPKR(c.totalPurchases || 0)}</TableCell>
@@ -425,7 +425,7 @@ const AdvancedReports = () => {
                     <XAxis dataKey="customerName" stroke="#94a3b8" fontSize={11} angle={-20} textAnchor="end" height={60} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                     <Tooltip formatter={(v: any) => formatPKR(v)} />
-                    <Bar dataKey="_sum.totalAmount" fill="#007bff" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="_sum.totalAmount" fill="#0B363B" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -461,7 +461,7 @@ const AdvancedReports = () => {
                   <YAxis dataKey="staffName" type="category" stroke="#94a3b8" fontSize={12} width={120} />
                   <Tooltip formatter={(v: any) => formatPKR(v)} />
                   <Legend />
-                  <Bar dataKey="_sum.totalAmount" name="Revenue" fill="#007bff" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="_sum.totalAmount" name="Revenue" fill="#0B363B" radius={[0, 4, 4, 0]} />
                   <Bar dataKey="_count.id" name="Orders" fill="#10b981" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -503,7 +503,7 @@ const AdvancedReports = () => {
                     <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                     <Tooltip formatter={(v: any) => formatPKR(v)} />
-                    <Bar dataKey="value" fill="#007bff" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="value" fill="#0B363B" radius={[4, 4, 0, 0]}>
                       {chartData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
@@ -522,7 +522,7 @@ const AdvancedReports = () => {
                   <span>{formatPKR(s.totalRevenue || 0)}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2.5 mb-4">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: "100%" }} />
+                  <div className="bg-spruce-700 h-2.5 rounded-full" style={{ width: "100%" }} />
                 </div>
                 <div className="flex justify-between text-xs text-slate-500 mb-1">
                   <span>Net Profit</span>
@@ -582,7 +582,7 @@ const AdvancedReports = () => {
                     <XAxis dataKey="status" stroke="#94a3b8" fontSize={12} />
                     <YAxis stroke="#94a3b8" fontSize={12} />
                     <Tooltip />
-                    <Bar dataKey="_count.id" name="Count" fill="#007bff" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="_count.id" name="Count" fill="#0B363B" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="_sum.totalAmount" name="Amount" fill="#10b981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -683,7 +683,7 @@ const AdvancedReports = () => {
                   <XAxis dataKey="categoryName" stroke="#94a3b8" fontSize={12} />
                   <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                   <Tooltip formatter={(v: any) => formatPKR(v)} />
-                  <Bar dataKey="_sum.totalAmount" fill="#007bff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="_sum.totalAmount" fill="#0B363B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -715,7 +715,7 @@ const AdvancedReports = () => {
                   <XAxis dataKey="branchName" stroke="#94a3b8" fontSize={12} />
                   <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                   <Tooltip formatter={(v: any) => formatPKR(v)} />
-                  <Bar dataKey="totalRevenue" fill="#007bff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="totalRevenue" fill="#0B363B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1178,7 +1178,7 @@ const AdvancedReports = () => {
                   <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
                   <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                   <Tooltip formatter={(v: any) => formatPKR(v)} />
-                  <Bar dataKey="total" name="Revenue" fill="#007bff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="total" name="Revenue" fill="#0B363B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1245,7 +1245,7 @@ const AdvancedReports = () => {
                   <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
                   <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `PKR ${v}`} />
                   <Tooltip formatter={(v: any, name: any) => [formatPKR(v), name === "averageBillValue" ? "Avg bill" : name]} />
-                  <Bar dataKey="averageBillValue" name="Avg bill" fill="#007bff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="averageBillValue" name="Avg bill" fill="#0B363B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1336,7 +1336,7 @@ const AdvancedReports = () => {
       return (
         <div className="flex items-center justify-center h-96">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#007bff] border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0B363B] border-t-transparent" />
             <p className="text-sm font-medium text-slate-600">Loading report data...</p>
           </div>
         </div>
@@ -1383,7 +1383,7 @@ const AdvancedReports = () => {
   };
 
   return (
-    <div className="font-[Montserrat] px-6 py-6 md:px-10 md:py-8">
+    <div className="font-sans px-6 py-6 md:px-10 md:py-8">
       <div className="w-full">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1421,7 +1421,7 @@ const AdvancedReports = () => {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                     isActive
-                      ? "border-[#007bff] text-[#007bff]"
+                      ? "border-[#0B363B] text-[#0B363B]"
                       : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                   }`}
                 >

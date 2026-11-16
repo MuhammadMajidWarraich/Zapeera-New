@@ -54,9 +54,9 @@ export function SettingsPage() {
         <button onClick={load} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
       </div>
 
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
-        <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-800">
+      <div className="flex items-start gap-3 bg-verdant-100 border border-verdant-100 rounded-xl p-4">
+        <Info className="w-5 h-5 text-spruce-500 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-spruce-900">
           Platform configuration is managed through server environment variables on the host (database mode, email provider,
           CORS origins, JWT secret). There is no in-app settings store, so nothing on this page is editable — the values below
           are read live from the API's health endpoint.

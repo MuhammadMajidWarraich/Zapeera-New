@@ -7,6 +7,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Outfit", "system-ui", "-apple-system", "'Segoe UI'", "Roboto", "'Noto Sans'", "sans-serif"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -26,6 +29,21 @@ module.exports = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        /* GetMeLeads.ai (gml2) brand tokens */
+        spruce: {
+          200: "#A1C2C6",
+          500: "#437278",
+          600: "#354D51",
+          700: "#0B363B",
+          900: "#032125",
+        },
+        verdant: {
+          100: "#EAFDE8",
+          300: "#ABFFAE",
+        },
+        cream: "#FFFCF6",
+        ink: "#101828",
+        abyss: "#00191C",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -3484,7 +3484,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             }
             .receipt-header {
               text-align: center;
-              border-bottom: 3px solid #2563eb;
+              border-bottom: 3px solid #0B363B;
               padding-bottom: 15px;
               margin-bottom: 20px;
             }
@@ -3492,13 +3492,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               margin: 0;
               font-size: 24px;
               font-weight: bold;
-              color: #2563eb;
+              color: #0B363B;
               margin-bottom: 5px;
             }
             .receipt-header .branch-name {
               font-size: 16px;
               font-weight: 600;
-              color: #1e40af;
+              color: #0B363B;
               margin: 5px 0;
             }
             .receipt-header .tagline {
@@ -3555,9 +3555,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               margin: 0 0 10px 0;
               font-size: 13px;
               font-weight: 600;
-              border-bottom: 2px solid #2563eb;
+              border-bottom: 2px solid #0B363B;
               padding-bottom: 5px;
-              color: #1e40af;
+              color: #0B363B;
             }
             .item {
               display: flex;
@@ -3583,7 +3583,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               color: #1f2937;
             }
             .totals {
-              border-top: 2px solid #2563eb;
+              border-top: 2px solid #0B363B;
               padding-top: 10px;
               margin-top: 15px;
             }
@@ -3596,21 +3596,21 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             .total-final {
               font-weight: bold;
               font-size: 16px;
-              border-top: 2px solid #1e40af;
+              border-top: 2px solid #0B363B;
               padding-top: 8px;
               margin-top: 8px;
-              color: #1e40af;
+              color: #0B363B;
             }
             .payment-info {
               margin-top: 15px;
               padding: 10px;
-              background: #eff6ff;
-              border: 1px solid #bfdbfe;
+              background: #EAFDE8;
+              border: 1px solid #A1C2C6;
               border-radius: 4px;
               font-size: 11px;
             }
             .payment-info strong {
-              color: #1e40af;
+              color: #0B363B;
             }
             .footer {
               text-align: center;
@@ -3910,7 +3910,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           }
           .receipt-header {
             text-align: center;
-            border-bottom: 3px solid #2563eb;
+            border-bottom: 3px solid #0B363B;
             padding-bottom: 15px;
             margin-bottom: 20px;
           }
@@ -3918,13 +3918,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             margin: 0;
             font-size: 24px;
             font-weight: bold;
-            color: #2563eb;
+            color: #0B363B;
             margin-bottom: 5px;
           }
           .receipt-header .branch-name {
             font-size: 16px;
             font-weight: 600;
-            color: #1e40af;
+            color: #0B363B;
             margin: 5px 0;
           }
           .receipt-header .tagline {
@@ -3964,7 +3964,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             margin: 0 0 8px 0;
             font-size: 13px;
             font-weight: bold;
-            color: #2563eb;
+            color: #0B363B;
           }
           .items {
             margin-bottom: 15px;
@@ -3973,8 +3973,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             margin: 0 0 12px 0;
             font-size: 14px;
             font-weight: bold;
-            color: #2563eb;
-            border-bottom: 2px solid #2563eb;
+            color: #0B363B;
+            border-bottom: 2px solid #0B363B;
             padding-bottom: 8px;
           }
           .item {
@@ -4000,13 +4000,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             text-align: right;
             font-weight: bold;
             font-size: 14px;
-            color: #2563eb;
+            color: #0B363B;
           }
           .totals {
-            border-top: 2px solid #2563eb;
+            border-top: 2px solid #0B363B;
             padding: 15px;
             margin-top: 15px;
-            background: #eff6ff;
+            background: #EAFDE8;
             border-radius: 5px;
           }
           .total-line {
@@ -4018,16 +4018,16 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           .total-final {
             font-weight: bold;
             font-size: 18px;
-            border-top: 2px solid #2563eb;
+            border-top: 2px solid #0B363B;
             padding-top: 10px;
             margin-top: 10px;
-            color: #2563eb;
+            color: #0B363B;
           }
           .payment-info {
             margin-top: 15px;
             padding: 12px;
-            background: linear-gradient(to right, #eff6ff, #dbeafe);
-            border: 1px solid #bfdbfe;
+            background: linear-gradient(to right, #EAFDE8, #EAFDE8);
+            border: 1px solid #A1C2C6;
             border-radius: 5px;
             font-size: 11px;
           }
@@ -4041,7 +4041,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           }
           .footer-brand {
             font-weight: 600;
-            color: #1e40af;
+            color: #0B363B;
             margin-bottom: 5px;
           }
           .footer-software {
@@ -4727,7 +4727,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   );
 
   return (
-    <div className={cn("flex w-full flex-col bg-[#f0f2f7]", registerLayout && "h-full")}>
+    <div className={cn("flex w-full flex-col bg-[#EAFDE8]", registerLayout && "h-full")}>
       {/* POS header — dark register bar (Muhammad's reference layout):
           branding + cashier context pill + live clock + register
           actions. Everything shown is real: the signed-in user, the
@@ -4740,7 +4740,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           brand | Branch select | Cashier | clock | actions. The Back
           button is kept unless the row cannot fit; only then it
           becomes a right-corner ×. */}
-      <div className="relative z-20 shrink-0 bg-[#0a1128] px-3 py-2.5 text-white shadow-[0_2px_12px_rgba(10,17,40,0.35)] sm:px-4 lg:px-5">
+      <div className="relative z-20 shrink-0 bg-[#032125] px-3 py-2.5 text-white shadow-[0_2px_12px_rgba(3,33,37,0.35)] sm:px-4 lg:px-5">
         {/*
           Mobile header (2026-10-26): below xl the bar is TWO rows —
           row 1 Back | brand | Branch | Cashier, row 2 the actions in a
@@ -4769,7 +4769,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <span className="hidden sm:inline">Back</span>
           </Button>
           <div className="flex min-w-0 shrink items-center gap-2">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-[#28c2ce] text-white shadow-[0_4px_14px_rgba(26,82,197,0.45)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-[#437278] text-white shadow-[0_4px_14px_rgba(11,54,59,0.45)]">
               <Zap className="h-5 w-5" strokeWidth={2.2} />
             </span>
             <div className="min-w-0">
@@ -4805,7 +4805,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 // white background (!important), so on the dark bar
                 // this reads as a deliberate white pill with dark
                 // text rather than fighting the rule.
-                className="h-10 w-[148px] shrink-0 rounded-[10px] border-transparent text-sm font-semibold text-[#0a1128] [&>svg]:text-[#4a5578]"
+                className="h-10 w-[148px] shrink-0 rounded-[10px] border-transparent text-sm font-semibold text-[#032125] [&>svg]:text-[#354D51]"
               >
                 {/* Short branch name (fix-up 2026-10-26): Radix
                     SelectValue would render the full
@@ -4816,7 +4816,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 {selectedBranch ? (
                   <span className="min-w-0 truncate">{shortBranchName(selectedBranch.name, selectedCompany?.name)}</span>
                 ) : (
-                  <span className="font-medium text-[#8c95b0]">Select branch</span>
+                  <span className="font-medium text-[#437278]">Select branch</span>
                 )}
               </SelectTrigger>
               <SelectContent>
@@ -5047,20 +5047,20 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               viewport height once the search column went content-sized
               for the flyout); md+ it is content-sized as before. */}
           <aside className="flex min-h-0 w-full flex-1 flex-col md:flex-none lg:w-[400px] xl:w-[420px]">
-            <Card className="relative flex min-h-[12rem] flex-1 flex-col overflow-hidden rounded-[20px] border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_2px_16px_rgba(15,23,60,0.04)] lg:h-full">
+            <Card className="relative flex min-h-[12rem] flex-1 flex-col overflow-hidden rounded-[20px] border border-[rgba(3,33,37,0.08)] bg-white shadow-[0_2px_16px_rgba(3,33,37,0.04)] lg:h-full">
               <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
                 {/* Rail header */}
-                <div className="flex shrink-0 items-center gap-3 border-b border-[rgba(15,23,60,0.06)] px-4 py-2 sm:px-5 md:py-3.5">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12 md:h-10 md:w-10">
-                    <ShoppingCart className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+                <div className="flex shrink-0 items-center gap-3 border-b border-[rgba(3,33,37,0.06)] px-4 py-2 sm:px-5 md:py-3.5">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-gradient-to-br from-[#0B363B]/14 to-[#437278]/12 md:h-10 md:w-10">
+                    <ShoppingCart className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[16px] font-bold leading-tight tracking-tight text-[#0a1128]">Current sale</h3>
-                    <p className="text-xs leading-tight text-[#8c95b0]">Line items for this invoice</p>
+                    <h3 className="text-[16px] font-bold leading-tight tracking-tight text-[#032125]">Current sale</h3>
+                    <p className="text-xs leading-tight text-[#437278]">Line items for this invoice</p>
                   </div>
                   {invoiceItems.length > 0 && (
                     <>
-                      <Badge className="rounded-full border-0 bg-[#1a52c5]/10 px-2.5 py-1 text-xs font-bold text-[#1a52c5] hover:bg-[#1a52c5]/14">
+                      <Badge className="rounded-full border-0 bg-[#0B363B]/10 px-2.5 py-1 text-xs font-bold text-[#0B363B] hover:bg-[#0B363B]/14">
                         {invoiceItems.length} {invoiceItems.length === 1 ? "item" : "items"}
                       </Badge>
                       <Button
@@ -5091,7 +5091,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     (sale payload, khata, loyalty lookup,
                     prescription patient); the icon focuses the name
                     field, as the old Change link did. */}
-                <div className="shrink-0 border-b border-[rgba(15,23,60,0.06)] bg-[#fbfcfe] px-4 py-2 sm:px-5">
+                <div className="shrink-0 border-b border-[rgba(3,33,37,0.06)] bg-[#FFFCF6] px-4 py-2 sm:px-5">
                   <div className="flex items-center gap-2">
                     <Input
                       id="customerName"
@@ -5100,7 +5100,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       placeholder={isPharmacyBusiness ? "Patient name" : "Customer name"}
                       value={invoiceCustomer.name}
                       onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, name: e.target.value })}
-                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#f4f6fa] px-3 text-sm font-bold text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#FFFCF6] px-3 text-sm font-bold text-[#032125] shadow-none placeholder:font-medium placeholder:text-[#437278] focus-visible:ring-0"
                     />
                     <Input
                       id="customerPhone"
@@ -5111,23 +5111,23 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       placeholder="Phone number"
                       value={invoiceCustomer.phone}
                       onChange={(e) => setInvoiceCustomer({ ...invoiceCustomer, phone: e.target.value })}
-                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#f4f6fa] px-3 font-mono text-sm font-bold tabular-nums text-[#0a1128] shadow-none placeholder:font-medium placeholder:text-[#8c95b0] focus-visible:ring-0"
+                      className="h-9 min-w-0 flex-1 rounded-[10px] border-0 bg-[#FFFCF6] px-3 font-mono text-sm font-bold tabular-nums text-[#032125] shadow-none placeholder:font-medium placeholder:text-[#437278] focus-visible:ring-0"
                     />
                     <button
                       type="button"
                       onClick={() => document.getElementById("customerName")?.focus()}
                       aria-label={isPharmacyBusiness ? "Change patient" : "Change customer"}
                       title={isPharmacyBusiness ? "Change patient" : "Change customer"}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white text-primary transition-colors hover:bg-[#f4f6fa]"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white text-primary transition-colors hover:bg-[#FFFCF6]"
                     >
                       <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
                     </button>
                   </div>
                   {selectedPrescription && (
-                    <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-[#4a5578]">
+                    <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-[#354D51]">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
                       <span>
-                        Rx attached: <span className="font-bold text-[#0a1128]">{(selectedPrescription as any).patientName || "Patient"}</span>
+                        Rx attached: <span className="font-bold text-[#032125]">{(selectedPrescription as any).patientName || "Patient"}</span>
                         {(selectedPrescription as any).doctorName ? <> (Dr. {(selectedPrescription as any).doctorName})</> : null}
                       </span>
                       <button
@@ -5153,7 +5153,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     a 600px viewport height the floor drops to 72px —
                     the items list itself scrolls, so a smaller floor
                     costs nothing but empty space. md+ unchanged. */}
-                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#f8f9fc] px-3 py-2 sm:px-4 md:min-h-[150px] [@media(max-height:600px)]:min-h-[72px]">
+                <div className="min-h-[120px] min-w-0 flex-1 basis-0 overflow-y-auto overscroll-y-contain bg-[#FFFCF6] px-3 py-2 sm:px-4 md:min-h-[150px] [@media(max-height:600px)]:min-h-[72px]">
                 {invoiceItems.length > 0 ? (
                   <div className="space-y-2">
                   {invoiceItems.map((item) => {
@@ -5183,15 +5183,15 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     return (
                       <div
                         key={item.id}
-                        className="rounded-[12px] border border-[rgba(15,23,60,0.06)] bg-white px-3 py-2 shadow-[0_1px_3px_rgba(15,23,60,0.05)]"
+                        className="rounded-[12px] border border-[rgba(3,33,37,0.06)] bg-white px-3 py-2 shadow-[0_1px_3px_rgba(3,33,37,0.05)]"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-bold leading-snug text-[#0a1128]">
+                            <p className="text-sm font-bold leading-snug text-[#032125]">
                               {item.name}
-                              {item.variantName ? <span className="text-[#1a52c5]"> — {item.variantName}</span> : null}
+                              {item.variantName ? <span className="text-[#0B363B]"> — {item.variantName}</span> : null}
                             </p>
-                            <p className="mt-0.5 truncate text-xs text-[#8c95b0]">
+                            <p className="mt-0.5 truncate text-xs text-[#437278]">
                               {item.batch ? `Batch ${item.batch}` : "—"}
                               {item.expiry ? ` • Exp ${item.expiry}` : ""}
                               {isKgLine
@@ -5201,7 +5201,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                   : ` • PKR ${item.unitPrice.toFixed(2)} each`}
                             </p>
                           </div>
-                          <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#0a1128]">
+                          <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#032125]">
                             PKR {displayPrice.toFixed(2)}
                           </p>
                         </div>
@@ -5210,7 +5210,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 w-7 rounded-[8px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                              className="h-7 w-7 rounded-[8px] border-[rgba(3,33,37,0.1)] p-0 hover:bg-[#FFFCF6]"
                               onClick={() => updateInvoiceQuantity(item.id, item.quantity - quantityStep)}
                               aria-label="Decrease quantity"
                             >
@@ -5238,7 +5238,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                 }}
-                                className="h-7 w-16 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-sm font-extrabold tabular-nums text-[#0a1128]"
+                                className="h-7 w-16 rounded-[8px] border-[rgba(3,33,37,0.1)] bg-white text-center text-sm font-extrabold tabular-nums text-[#032125]"
                               />
                             ) : (
                             // Compact rail (2026-11-13): the count is
@@ -5271,13 +5271,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                   (e.target as HTMLInputElement).blur();
                                 }
                               }}
-                              className="h-7 w-10 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-0 text-center text-sm font-extrabold tabular-nums text-[#0a1128] outline-none focus-visible:border-primary/50"
+                              className="h-7 w-10 rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white px-0 text-center text-sm font-extrabold tabular-nums text-[#032125] outline-none focus-visible:border-primary/50"
                             />
                             )}
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 w-7 rounded-[8px] border-[rgba(15,23,60,0.1)] p-0 hover:bg-[#f4f6fa]"
+                              className="h-7 w-7 rounded-[8px] border-[rgba(3,33,37,0.1)] p-0 hover:bg-[#FFFCF6]"
                               onClick={() => updateInvoiceQuantity(item.id, item.quantity + quantityStep)}
                               aria-label="Increase quantity"
                             >
@@ -5292,14 +5292,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             isKgLine ? (
                               // Loose / by-weight selling (Stage 1): a
                               // kilo line has one level only (KG).
-                              <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]">
+                              <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white px-2 text-xs font-semibold text-[#032125]">
                                 KG — PKR {item.unitPrice.toFixed(2)} / kg
                               </span>
                             ) : (
                               <select
                                 value={item.unitLevel}
                                 onChange={(e) => changeCartItemLevel(item.id, e.target.value as UnitLevel)}
-                                className="h-7 min-w-0 flex-1 rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white px-2 text-xs font-semibold text-[#0a1128]"
+                                className="h-7 min-w-0 flex-1 rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white px-2 text-xs font-semibold text-[#032125]"
                                 aria-label="Selling level"
                               >
                                 <option value="PACK">Pack ({item.unitsPerPack || item.unitFactor} {baseUnitWord}s) — PKR {levelPriceFromUnitPrice(item.batchUnitPrice ?? item.unitPrice / (item.unitFactor || 1), "PACK", { unitsPerPack: item.unitsPerPack || 1, unitsPerStrip: item.unitsPerStrip ?? null }).toFixed(2)}</option>
@@ -5311,7 +5311,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             )
                           )}
                           <div className="ml-auto flex items-center gap-1.5">
-                            <Label htmlFor={`discount-${item.id}`} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">
+                            <Label htmlFor={`discount-${item.id}`} className="text-[11px] font-semibold uppercase tracking-wide text-[#437278]">
                               Disc %
                             </Label>
                             <Input
@@ -5325,7 +5325,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 const discount = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
                                 updateItemDiscount(item.id, discount);
                               }}
-                              className="h-7 w-11 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
+                              className="h-7 w-11 rounded-[8px] border-[rgba(3,33,37,0.1)] bg-white text-center text-xs font-semibold"
                             />
                             <Button
                               variant="ghost"
@@ -5345,7 +5345,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           // grams. The derived weight + actual total
                           // are shown BEFORE the sale completes.
                           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Rs ka</Label>
+                            <Label className="text-[11px] font-semibold uppercase tracking-wide text-[#437278]">Rs ka</Label>
                             <Input
                               type="number"
                               min="0"
@@ -5353,12 +5353,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               aria-label="Amount in rupees"
                               value={weightAmountByItem[item.id] ?? ""}
                               onChange={(e) => setWeightAmountByItem(prev => ({ ...prev, [item.id]: e.target.value }))}
-                              className="h-8 w-24 rounded-[8px] border-[rgba(15,23,60,0.1)] bg-white text-center text-xs font-semibold"
+                              className="h-8 w-24 rounded-[8px] border-[rgba(3,33,37,0.1)] bg-white text-center text-xs font-semibold"
                             />
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 rounded-[8px] border-[rgba(15,23,60,0.1)] px-3 text-xs font-semibold"
+                              className="h-8 rounded-[8px] border-[rgba(3,33,37,0.1)] px-3 text-xs font-semibold"
                               onClick={() => {
                                 const amount = parseFloat(weightAmountByItem[item.id] || "");
                                 if (!Number.isFinite(amount) || amount <= 0 || item.unitPrice <= 0) return;
@@ -5375,7 +5375,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               if (!Number.isFinite(amount) || amount <= 0 || item.unitPrice <= 0) return null;
                               const grams = Math.round(amount / item.unitPrice * KG_GRAMS_PER_KG);
                               const actual = grams * item.unitPrice / KG_GRAMS_PER_KG;
-                              return <span className="text-xs font-semibold text-[#1a52c5]">≈ {formatKgFromGrams(grams)} · PKR {actual.toFixed(2)}</span>;
+                              return <span className="text-xs font-semibold text-[#0B363B]">≈ {formatKgFromGrams(grams)} · PKR {actual.toFixed(2)}</span>;
                             })()}
                           </div>
                         )}
@@ -5390,11 +5390,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </div>
                 ) : (
                   <div className="flex min-h-[8rem] flex-col items-center justify-center px-4 py-6 text-center md:min-h-[11rem] md:py-10">
-                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_4px_20px_rgba(15,23,60,0.06)]">
-                      <ShoppingCart className="h-7 w-7 text-[#1a52c5]/45" strokeWidth={1.5} />
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[0_4px_20px_rgba(3,33,37,0.06)]">
+                      <ShoppingCart className="h-7 w-7 text-[#0B363B]/45" strokeWidth={1.5} />
                     </div>
-                    <p className="text-sm font-semibold text-[#0a1128]">No items yet</p>
-                    <p className="mt-1 max-w-[240px] text-[13px] leading-relaxed text-[#8c95b0]">
+                    <p className="text-sm font-semibold text-[#032125]">No items yet</p>
+                    <p className="mt-1 max-w-[240px] text-[13px] leading-relaxed text-[#437278]">
                       <span className="hidden md:inline">Scan or search on the left and add products to build this sale.</span>
                       <span className="md:hidden">Scan or search above and add products to build this sale.</span>
                     </p>
@@ -5404,14 +5404,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                 {/* Checkout footer — always visible. (The customer
                     block moved to the top of the rail — POS redesign.) */}
-                <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] bg-white px-4 py-2.5 sm:px-5">
+                <div className="shrink-0 border-t border-[rgba(3,33,37,0.08)] bg-white px-4 py-2.5 sm:px-5">
                 {invoiceItems.length > 0 && (
                   <>
                     {/* Compact rail (2026-11-13): discount and
                         subtotal share one row now. */}
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="global-discount" className="text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                        <Label htmlFor="global-discount" className="text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                           Discount
                         </Label>
                         <Input
@@ -5422,32 +5422,32 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           placeholder="0"
                           value={discountPercentage || ''}
                           onChange={(e) => setDiscountPercentage(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                          className="h-8 w-[4.25rem] rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-center text-sm font-semibold"
+                          className="h-8 w-[4.25rem] rounded-[10px] border-[rgba(3,33,37,0.1)] bg-white text-center text-sm font-semibold"
                         />
-                        <span className="text-sm font-semibold text-[#4a5578]">%</span>
+                        <span className="text-sm font-semibold text-[#354D51]">%</span>
                       </div>
                       <div className="flex items-baseline gap-2 text-sm">
-                        <span className="text-[#8c95b0]">Subtotal</span>
-                        <span className="font-semibold tabular-nums text-[#0a1128]">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
+                        <span className="text-[#437278]">Subtotal</span>
+                        <span className="font-semibold tabular-nums text-[#032125]">PKR {invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="mt-1.5 space-y-1">
                       {discountPercentage > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#8c95b0]">Invoice discount ({discountPercentage}%)</span>
+                          <span className="text-[#437278]">Invoice discount ({discountPercentage}%)</span>
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {((invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0) * discountPercentage) / 100).toFixed(2)}</span>
                         </div>
                       )}
                       {loyaltyDiscountValue > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#8c95b0]">Loyalty discount ({loyaltyPointsToUse} pts)</span>
+                          <span className="text-[#437278]">Loyalty discount ({loyaltyPointsToUse} pts)</span>
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {loyaltyDiscountValue.toFixed(2)}</span>
                         </div>
                       )}
                       {promoEstimate > 0 && appliedCoupon && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#8c95b0]">Promotion ({appliedCoupon.code})</span>
+                          <span className="text-[#437278]">Promotion ({appliedCoupon.code})</span>
                           <span className="font-semibold tabular-nums text-emerald-600">−PKR {promoEstimate.toFixed(2)}</span>
                         </div>
                       )}
@@ -5458,7 +5458,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           same as tax/provincial lines). */}
                       {serviceChargeConfig?.enabled && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="flex items-center gap-2 text-[#8c95b0]">
+                          <span className="flex items-center gap-2 text-[#437278]">
                             {serviceChargeLabel}
                             <Switch
                               checked={serviceChargeEnabled}
@@ -5466,14 +5466,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               aria-label="Apply service charge to this sale"
                             />
                           </span>
-                          <span className="font-semibold tabular-nums text-[#0a1128]">
+                          <span className="font-semibold tabular-nums text-[#032125]">
                             {serviceChargeEnabled ? `+PKR ${serviceChargeEstimate.toFixed(2)} (est.)` : "Off for this sale"}
                           </span>
                         </div>
                       )}
-                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(15,23,60,0.1)] pt-1.5">
-                        <span className="text-sm font-bold uppercase tracking-wide text-[#0a1128]">Grand Total</span>
-                        <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#0a1128]">
+                      <div className="flex items-baseline justify-between border-t border-dashed border-[rgba(3,33,37,0.1)] pt-1.5">
+                        <span className="text-sm font-bold uppercase tracking-wide text-[#032125]">Grand Total</span>
+                        <span className="text-[22px] font-extrabold tabular-nums tracking-tight text-[#032125]">
                           PKR {mainTotalAfterLoyalty.toFixed(2)}
                         </span>
                       </div>
@@ -5494,7 +5494,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <span className="rounded-md bg-emerald-50 px-2 py-1 font-mono text-xs font-bold tracking-wide text-emerald-700">
                             {appliedCoupon.code}
                           </span>
-                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#4a5578]">{appliedCoupon.name}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-[#354D51]">{appliedCoupon.name}</span>
                           <span className="text-sm font-semibold tabular-nums text-emerald-600">−PKR {appliedCoupon.estimatedDiscount.toFixed(2)}</span>
                           <button
                             type="button"
@@ -5513,7 +5513,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             value={couponCodeInput}
                             onChange={(e) => { setCouponCodeInput(e.target.value.toUpperCase()); setCouponError(""); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyCoupon(); } }}
-                            className="h-9 flex-1 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white font-mono text-sm font-semibold uppercase"
+                            className="h-9 flex-1 rounded-[10px] border-[rgba(3,33,37,0.1)] bg-white font-mono text-sm font-semibold uppercase"
                           />
                           <Button
                             type="button"
@@ -5534,12 +5534,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         the entered phone resolved to a customer who
                         actually has points. */}
                     {posCustomer && posCustomer.loyaltyPoints > 0 && (
-                      <div className="mt-3 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-3">
+                      <div className="mt-3 rounded-[10px] border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] p-3">
                         <div className="flex items-center justify-between gap-2">
-                          <Label htmlFor="loyalty-points" className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">
+                          <Label htmlFor="loyalty-points" className="text-xs font-semibold uppercase tracking-wide text-[#437278]">
                             Use loyalty points
                           </Label>
-                          <span className="text-xs font-medium text-[#4a5578]">
+                          <span className="text-xs font-medium text-[#354D51]">
                             {posCustomer.loyaltyPoints} pts ≈ PKR {(posCustomer.loyaltyPoints * loyaltyPointValue).toFixed(2)}
                           </span>
                         </div>
@@ -5553,7 +5553,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             placeholder="0"
                             value={loyaltyPointsInput}
                             onChange={(e) => setLoyaltyPointsInput(e.target.value)}
-                            className="h-9 w-24 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white text-sm font-semibold tabular-nums"
+                            className="h-9 w-24 rounded-[10px] border-[rgba(3,33,37,0.1)] bg-white text-sm font-semibold tabular-nums"
                           />
                           <span className="text-sm font-semibold tabular-nums text-emerald-600">
                             = −PKR {loyaltyDiscountValue.toFixed(2)}
@@ -5561,7 +5561,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <button
                             type="button"
                             onClick={() => setLoyaltyPointsInput(String(loyaltyMaxPoints))}
-                            className="ml-auto text-xs font-bold text-[#1a52c5] hover:underline"
+                            className="ml-auto text-xs font-bold text-[#0B363B] hover:underline"
                           >
                             Use max ({loyaltyMaxPoints})
                           </button>
@@ -5587,8 +5587,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <div className="mt-2 rounded-[10px] bg-white border border-amber-200 p-2.5">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className="text-sm font-bold text-[#0f173c]">{selectedPrescription.patientName}</p>
-                                <p className="text-xs text-[#5b6478]">
+                                <p className="text-sm font-bold text-[#032125]">{selectedPrescription.patientName}</p>
+                                <p className="text-xs text-[#354D51]">
                                   {selectedPrescription.doctorName ? `Dr. ${selectedPrescription.doctorName}` : "No doctor recorded"}
                                   {" · "}
                                   {new Date(selectedPrescription.issuedDate).toLocaleDateString()}
@@ -5597,7 +5597,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                               <button
                                 type="button"
                                 onClick={() => setSelectedPrescription(null)}
-                                className="text-xs font-bold text-[#1a52c5] hover:underline"
+                                className="text-xs font-bold text-[#0B363B] hover:underline"
                               >
                                 Change
                               </button>
@@ -5628,8 +5628,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                     onClick={() => setSelectedPrescription(rx)}
                                     className="w-full text-left px-2.5 py-2 hover:bg-amber-50"
                                   >
-                                    <span className="block text-sm font-semibold text-[#0f173c]">{rx.patientName}</span>
-                                    <span className="block text-xs text-[#5b6478]">
+                                    <span className="block text-sm font-semibold text-[#032125]">{rx.patientName}</span>
+                                    <span className="block text-xs text-[#354D51]">
                                       {rx.patientPhone || "No phone"} · {rx.doctorName ? `Dr. ${rx.doctorName}` : "No doctor"} · {new Date(rx.issuedDate).toLocaleDateString()}
                                     </span>
                                   </button>
@@ -5643,7 +5643,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                   setRxForm({ patientName: invoiceCustomer.name || "", doctorName: "" });
                                   setShowRxCreate(true);
                                 }}
-                                className="mt-2 text-xs font-bold text-[#1a52c5] hover:underline"
+                                className="mt-2 text-xs font-bold text-[#0B363B] hover:underline"
                               >
                                 + New prescription for this patient
                               </button>
@@ -5663,7 +5663,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 />
                                 {rxCartProducts.map(p => (
                                   <div key={p.id} className="flex items-center gap-2">
-                                    <span className="flex-1 text-xs font-semibold text-[#0f173c] truncate">{p.name}</span>
+                                    <span className="flex-1 text-xs font-semibold text-[#032125] truncate">{p.name}</span>
                                     <Input
                                       value={rxDosages[p.id]?.dosage || ""}
                                       onChange={(e) => setRxDosages(prev => ({ ...prev, [p.id]: { dosage: e.target.value, durationDays: prev[p.id]?.durationDays || "" } }))}
@@ -5685,7 +5685,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                     size="sm"
                                     disabled={rxCreating}
                                     onClick={handleCreatePrescriptionInline}
-                                    className="rounded-[10px] bg-gradient-to-r from-[#173e9e] to-[#1a52c5] text-white hover:from-[#1a52c5] hover:to-[#2361dd]"
+                                    className="rounded-[10px] bg-gradient-to-r from-[#032125] to-[#0B363B] text-white hover:from-[#0B363B] hover:to-[#437278]"
                                   >
                                     {rxCreating ? "Saving…" : "Save & attach"}
                                   </Button>
@@ -5728,7 +5728,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         type="button"
                         disabled={invoiceItems.length === 0}
                         onClick={() => { setPaymentMethod(key); setIsPaymentDialogOpen(true); }}
-                        className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.12)] bg-white text-[15px] font-bold text-[#0a1128] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
+                        className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] border border-[rgba(3,33,37,0.12)] bg-white text-[15px] font-bold text-[#032125] transition-all hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
                         {label}
@@ -5785,12 +5785,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       {invoiceItems.length > 0 && (
         <div
           data-testid="sticky-payment-bar"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(15,23,60,0.08)] bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(15,23,60,0.08)] backdrop-blur md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(3,33,37,0.08)] bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(3,33,37,0.08)] backdrop-blur md:hidden"
         >
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Grand Total</p>
-              <p className="truncate text-lg font-extrabold tabular-nums leading-tight text-[#0a1128]">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#437278]">Grand Total</p>
+              <p className="truncate text-lg font-extrabold tabular-nums leading-tight text-[#032125]">
                 PKR {mainTotalAfterLoyalty.toFixed(2)}
               </p>
             </div>
@@ -5814,7 +5814,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           always used; only the surface moved. */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[560px]">
-          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+          <div className="shrink-0 bg-[#032125] px-5 py-4 text-white">
             <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
               <Wallet className="h-5 w-5 text-white/70" strokeWidth={2} />
               Process Payment
@@ -5832,7 +5832,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {!splitEnabled && (
               <>
-                <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Payment method</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#437278]">Payment method</p>
                 <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label="Payment method">
                   {PAYMENT_METHOD_OPTIONS.map(({ key, label, Icon }, index) => (
                     <button
@@ -5854,7 +5854,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 </div>
 
                 <div className="mt-4 space-y-1.5">
-                  <Label htmlFor="pos-amount-tendered" className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <Label htmlFor="pos-amount-tendered" className="text-xs font-bold uppercase tracking-wide text-[#437278]">
                     Amount tendered
                   </Label>
                   <Input
@@ -5865,7 +5865,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     placeholder="0.00"
                     value={paidAmount || ''}
                     onChange={(e) => setPaidAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="h-12 rounded-[12px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] text-lg font-bold tabular-nums focus-visible:bg-white focus-visible:ring-[#1a52c5]/12"
+                    className="h-12 rounded-[12px] border-[rgba(3,33,37,0.1)] bg-[#FFFCF6] text-lg font-bold tabular-nums focus-visible:bg-white focus-visible:ring-[#0B363B]/12"
                   />
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     {[100, 500, 1000, 5000].map((amount) => (
@@ -5873,7 +5873,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         key={amount}
                         type="button"
                         onClick={() => setPaidAmount((paidAmount || 0) + amount)}
-                        className="rounded-full bg-[#eef1f7] px-3 py-1.5 text-xs font-bold text-[#4a5578] transition-colors hover:bg-[#e2e8f4]"
+                        className="rounded-full bg-[#EAFDE8] px-3 py-1.5 text-xs font-bold text-[#354D51] transition-colors hover:bg-[#e2e8f4]"
                       >
                         + Rs {amount.toLocaleString()}
                       </button>
@@ -5918,8 +5918,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 className={cn(
                   "h-10 rounded-[10px] border text-sm font-bold transition-all",
                   paymentStatus === 'COMPLETED'
-                    ? "border-transparent bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-[0_4px_14px_rgba(5,150,105,0.28)]"
-                    : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-emerald-300/60",
+                    ? "border-transparent bg-gradient-to-br from-emerald-600 to-spruce-500 text-white shadow-[0_4px_14px_rgba(5,150,105,0.28)]"
+                    : "border-[rgba(3,33,37,0.12)] bg-white text-[#354D51] hover:border-emerald-300/60",
                 )}
               >
                 Paid
@@ -5932,7 +5932,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   "h-10 rounded-[10px] border text-sm font-bold transition-all",
                   paymentStatus === 'PENDING'
                     ? "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_4px_14px_rgba(245,158,11,0.3)]"
-                    : "border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-amber-300/70",
+                    : "border-[rgba(3,33,37,0.12)] bg-white text-[#354D51] hover:border-amber-300/70",
                 )}
               >
                 Unpaid
@@ -5943,11 +5943,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               type="button"
               onClick={toggleSplitPayment}
               aria-pressed={splitEnabled}
-              className="mt-3 flex w-full items-center justify-between gap-3 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-3 py-2 text-left transition-all hover:border-[#1a52c5]/30"
+              className="mt-3 flex w-full items-center justify-between gap-3 rounded-[10px] border border-[rgba(3,33,37,0.12)] bg-white px-3 py-2 text-left transition-all hover:border-[#0B363B]/30"
             >
               <span>
-                <span className="block text-xs font-bold text-[#0a1128]">Split payment</span>
-                <span className="block text-[11px] text-[#8c95b0]">Split this bill across two or more methods</span>
+                <span className="block text-xs font-bold text-[#032125]">Split payment</span>
+                <span className="block text-[11px] text-[#437278]">Split this bill across two or more methods</span>
               </span>
               <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", splitEnabled ? "bg-primary" : "bg-gray-300")}>
                 <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all", splitEnabled ? "left-[18px]" : "left-0.5")} />
@@ -5956,7 +5956,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     {splitEnabled && (
                       <div className="mt-3 space-y-2">
                         {splitPayments.map((row, index) => (
-                          <div key={index} className="space-y-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-[#f8f9fc] p-2">
+                          <div key={index} className="space-y-2 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-[#FFFCF6] p-2">
                             <div className="flex items-center gap-2">
                               <Select value={row.method} onValueChange={(value) => updateSplitRow(index, { method: value })}>
                                 <SelectTrigger className="h-9 w-[128px] shrink-0 bg-white text-xs font-semibold">
@@ -5981,7 +5981,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                                 type="button"
                                 onClick={() => removeSplitRow(index)}
                                 aria-label="Remove payment row"
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -5998,12 +5998,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           <button
                             type="button"
                             onClick={addSplitRow}
-                            className="flex shrink-0 items-center gap-1 rounded-[8px] border border-dashed border-[#1a52c5]/40 px-2.5 py-1.5 text-xs font-bold text-[#1a52c5] transition-colors hover:bg-[#1a52c5]/5"
+                            className="flex shrink-0 items-center gap-1 rounded-[8px] border border-dashed border-[#0B363B]/40 px-2.5 py-1.5 text-xs font-bold text-[#0B363B] transition-colors hover:bg-[#0B363B]/5"
                           >
                             <Plus className="h-3.5 w-3.5" /> Add method
                           </button>
                           <div className="text-right">
-                            <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">
+                            <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#437278]">
                               Allocated PKR {splitAllocated.toFixed(2)} of PKR {mainTotalAfterLoyalty.toFixed(2)}
                             </span>
                             <span className={cn("block text-sm font-extrabold tabular-nums", splitRemaining === 0 ? "text-green-600" : "text-red-600")}>
@@ -6022,8 +6022,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         gate. */}
                     {posCustomer && khataCredit && (
                       <div className="mt-3 space-y-1.5">
-                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Khata (Credit)</Label>
-                        <div className="rounded-[10px] bg-[#f4f6fa] px-3 py-2 text-[13px] font-medium text-[#3d4356]">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Khata (Credit)</Label>
+                        <div className="rounded-[10px] bg-[#FFFCF6] px-3 py-2 text-[13px] font-medium text-[#354D51]">
                           Balance PKR {khataCredit.balance.toFixed(2)}
                           {khataCredit.creditLimit != null ? (
                             <> • Limit PKR {khataCredit.creditLimit.toFixed(2)} • Available PKR {Math.max(0, khataCredit.availableCredit ?? 0).toFixed(2)}</>
@@ -6070,9 +6070,9 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                         salesmen are designated. */}
                     {salesStaff.length > 0 && (
                       <div className="mt-3 space-y-1.5">
-                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Salesperson</Label>
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Salesperson</Label>
                         <Select value={salespersonId || '__cashier__'} onValueChange={(v) => setSalespersonId(v === '__cashier__' ? '' : v)}>
-                          <SelectTrigger className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] font-medium focus:ring-[#1a52c5]/12">
+                          <SelectTrigger className="h-10 rounded-[10px] border-[rgba(3,33,37,0.1)] bg-[#FFFCF6] font-medium focus:ring-[#0B363B]/12">
                             <SelectValue placeholder="Me (cashier)" />
                           </SelectTrigger>
                           <SelectContent>
@@ -6095,7 +6095,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               chip is hidden below sm (rebase find): with it, the button
               content measured 315px against 286px available and the chip
               was cut to "Ctrl+E…". */}
-          <div className="flex shrink-0 flex-col gap-2 border-t border-[rgba(15,23,60,0.08)] px-5 py-4 sm:flex-row">
+          <div className="flex shrink-0 flex-col gap-2 border-t border-[rgba(3,33,37,0.08)] px-5 py-4 sm:flex-row">
             <Button
               type="button"
               variant="outline"
@@ -6128,7 +6128,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           No invented rows. */}
       <Dialog open={isTxnDialogOpen} onOpenChange={setIsTxnDialogOpen}>
         <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[640px]">
-          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+          <div className="shrink-0 bg-[#032125] px-5 py-4 text-white">
             <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
               <History className="h-5 w-5 text-white/70" strokeWidth={2} />
               {txnTab === "held" ? "Held Orders" : "Recent Transactions"}
@@ -6143,7 +6143,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onClick={() => setTxnTab("recent")}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-colors",
-                txnTab === "recent" ? "bg-[#0a1128] text-white" : "bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]"
+                txnTab === "recent" ? "bg-[#032125] text-white" : "bg-[#EAFDE8] text-[#354D51] hover:bg-[#e2e8f4]"
               )}
             >
               Recent
@@ -6153,7 +6153,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               onClick={() => { setTxnTab("held"); fetchParkedSales(); }}
               className={cn(
                 "rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-colors",
-                txnTab === "held" ? "bg-[#0a1128] text-white" : "bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]"
+                txnTab === "held" ? "bg-[#032125] text-white" : "bg-[#EAFDE8] text-[#354D51] hover:bg-[#e2e8f4]"
               )}
             >
               Held{parkedSales.length > 0 ? ` (${parkedSales.length})` : ""}
@@ -6162,25 +6162,25 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {txnTab === "held" ? (
               isLoadingParked ? (
-                <div className="flex flex-col items-center justify-center py-10 text-[#8c95b0]">
+                <div className="flex flex-col items-center justify-center py-10 text-[#437278]">
                   <Loader2 className="mb-2 h-6 w-6 animate-spin text-primary" />
                   <p className="text-sm font-medium">Loading held orders…</p>
                 </div>
               ) : parkedSales.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <PauseCircle className="mb-2 h-8 w-8 text-[#c3cbdd]" strokeWidth={1.5} />
-                  <p className="text-sm font-semibold text-[#0a1128]">No held orders</p>
-                  <p className="mt-0.5 text-[13px] text-[#8c95b0]">Park a sale with the Hold button and it will wait here.</p>
+                  <p className="text-sm font-semibold text-[#032125]">No held orders</p>
+                  <p className="mt-0.5 text-[13px] text-[#437278]">Park a sale with the Hold button and it will wait here.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {parkedSales.map((parked: any) => (
-                    <div key={parked.id} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-white px-3.5 py-2.5">
+                    <div key={parked.id} className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.08)] bg-white px-3.5 py-2.5">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-[#0a1128]">
+                        <p className="truncate text-sm font-bold text-[#032125]">
                           {parked.customerName || parked.label || "Walk-in"}
                         </p>
-                        <p className="truncate text-xs text-[#8c95b0]">
+                        <p className="truncate text-xs text-[#437278]">
                           {new Date(parked.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                           {" • "}
                           {parked.createdByName || "Cashier"}
@@ -6188,7 +6188,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                           {parked.itemCount} item{parked.itemCount === 1 ? "" : "s"}
                         </p>
                       </div>
-                      <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#0a1128]">
+                      <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#032125]">
                         PKR {Number(parked.grandTotal || 0).toFixed(2)}
                       </span>
                       <button
@@ -6213,32 +6213,32 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 </div>
               )
             ) : isLoadingTodaySales ? (
-              <div className="flex flex-col items-center justify-center py-10 text-[#8c95b0]">
+              <div className="flex flex-col items-center justify-center py-10 text-[#437278]">
                 <Loader2 className="mb-2 h-6 w-6 animate-spin text-primary" />
                 <p className="text-sm font-medium">Loading today's sales…</p>
               </div>
             ) : todaySales.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <History className="mb-2 h-8 w-8 text-[#c3cbdd]" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-[#0a1128]">No sales yet today</p>
-                <p className="mt-0.5 text-[13px] text-[#8c95b0]">Completed sales for this branch will appear here.</p>
+                <p className="text-sm font-semibold text-[#032125]">No sales yet today</p>
+                <p className="mt-0.5 text-[13px] text-[#437278]">Completed sales for this branch will appear here.</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {todaySales.map((sale: any) => (
-                  <div key={sale.id} className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-white px-3.5 py-2.5">
+                  <div key={sale.id} className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.08)] bg-white px-3.5 py-2.5">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-[#0a1128]">
+                      <p className="truncate text-sm font-bold text-[#032125]">
                         #{sale.invoiceNumber || sale.receiptNumber || String(sale.id).slice(0, 8)}
                       </p>
-                      <p className="truncate text-xs text-[#8c95b0]">
+                      <p className="truncate text-xs text-[#437278]">
                         {new Date(sale.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                         {" • "}
                         {sale.customer?.name || "Walk-in"}
                         {Array.isArray(sale.items) ? ` • ${sale.items.length} item${sale.items.length === 1 ? "" : "s"}` : ""}
                       </p>
                     </div>
-                    <span className="hidden shrink-0 rounded-full bg-[#eef1f7] px-2 py-0.5 text-[11px] font-bold text-[#4a5578] sm:inline-flex">
+                    <span className="hidden shrink-0 rounded-full bg-[#EAFDE8] px-2 py-0.5 text-[11px] font-bold text-[#354D51] sm:inline-flex">
                       {PAYMENT_METHOD_OPTIONS.find(o => o.key === String(sale.paymentMethod || "").toLowerCase())?.label || sale.paymentMethod || "—"}
                     </span>
                     <span className={cn(
@@ -6247,7 +6247,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     )}>
                       {sale.paymentStatus === "COMPLETED" ? "Paid" : "Unpaid"}
                     </span>
-                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#0a1128]">
+                    <span className="shrink-0 font-mono text-sm font-bold tabular-nums text-[#032125]">
                       PKR {Number(sale.totalAmount || 0).toFixed(2)}
                     </span>
                   </div>
@@ -6255,18 +6255,18 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               </div>
             )}
           </div>
-          <div className="flex shrink-0 items-center justify-between border-t border-[rgba(15,23,60,0.08)] px-5 py-3.5">
+          <div className="flex shrink-0 items-center justify-between border-t border-[rgba(3,33,37,0.08)] px-5 py-3.5">
             {txnTab === "held" ? (
               <>
-                <span className="text-sm font-semibold text-[#4a5578]">Held Orders: {parkedSales.length}</span>
-                <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
+                <span className="text-sm font-semibold text-[#354D51]">Held Orders: {parkedSales.length}</span>
+                <span className="text-base font-extrabold tabular-nums text-[#032125]">
                   PKR {parkedSales.reduce((sum: number, p: any) => sum + Number(p.grandTotal || 0), 0).toFixed(2)}
                 </span>
               </>
             ) : (
               <>
-                <span className="text-sm font-semibold text-[#4a5578]">Total Sales Today: {todaySales.length}</span>
-                <span className="text-base font-extrabold tabular-nums text-[#0a1128]">
+                <span className="text-sm font-semibold text-[#354D51]">Total Sales Today: {todaySales.length}</span>
+                <span className="text-base font-extrabold tabular-nums text-[#032125]">
                   PKR {todaySales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
                 </span>
               </>
@@ -6283,7 +6283,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           their own honest bucket. */}
       <Dialog open={isShiftDialogOpen} onOpenChange={setIsShiftDialogOpen}>
         <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden rounded-[20px] p-0 sm:max-w-[520px]">
-          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+          <div className="shrink-0 bg-[#032125] px-5 py-4 text-white">
             {/* DialogTitle (not a plain <p>): Radix requires a Title
                 inside DialogContent for screen-reader accessibility —
                 without it the dialog logs a console error on open. */}
@@ -6311,39 +6311,39 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Shift opened</p>
-                    <p className="mt-0.5 text-sm font-bold text-[#0a1128]">
+                  <div className="rounded-xl bg-[#FFFCF6] px-3.5 py-3 ring-1 ring-[rgba(3,33,37,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#437278]">Shift opened</p>
+                    <p className="mt-0.5 text-sm font-bold text-[#032125]">
                       {new Date(activeShift.startTime).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Opening float</p>
-                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#0a1128]">PKR {Number(activeShift.openingBalance || 0).toFixed(2)}</p>
+                  <div className="rounded-xl bg-[#FFFCF6] px-3.5 py-3 ring-1 ring-[rgba(3,33,37,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#437278]">Opening float</p>
+                    <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-[#032125]">PKR {Number(activeShift.openingBalance || 0).toFixed(2)}</p>
                   </div>
-                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Cash in</p>
+                  <div className="rounded-xl bg-[#FFFCF6] px-3.5 py-3 ring-1 ring-[rgba(3,33,37,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#437278]">Cash in</p>
                     <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-emerald-700">PKR {Number(activeShift.cashIn || 0).toFixed(2)}</p>
                   </div>
-                  <div className="rounded-xl bg-[#f4f6fa] px-3.5 py-3 ring-1 ring-[rgba(15,23,60,0.05)]">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#8c95b0]">Cash out</p>
+                  <div className="rounded-xl bg-[#FFFCF6] px-3.5 py-3 ring-1 ring-[rgba(3,33,37,0.05)]">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[#437278]">Cash out</p>
                     <p className="mt-0.5 font-mono text-sm font-bold tabular-nums text-rose-600">PKR {Number(activeShift.cashOut || 0).toFixed(2)}</p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center justify-between rounded-xl bg-[#0a1128] px-4 py-3 text-white">
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-[#032125] px-4 py-3 text-white">
                   <span className="text-xs font-bold uppercase tracking-wide text-white/60">Expected drawer cash</span>
                   <span className="font-mono text-lg font-extrabold tabular-nums">
                     PKR {(Number(activeShift.openingBalance || 0) + Number(activeShift.cashIn || 0) - Number(activeShift.cashOut || 0)).toFixed(2)}
                   </span>
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-[#8c95b0]">
+                <p className="mt-2 text-xs leading-relaxed text-[#437278]">
                   Sales made during this shift are tied to it — the Collected section below shows this shift's sales only.
                 </p>
                 {/* Shift gaps fix (2026-10-27, B1): close MY shift here
                     with the counted drawer balance. Managers close any
                     shift from Shift Management. */}
-                <div className="mt-3 rounded-xl border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3.5 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Close this shift</p>
+                <div className="mt-3 rounded-xl border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] px-3.5 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#437278]">Close this shift</p>
                   <div className="mt-2 flex gap-2">
                     <Input
                       value={closingBalanceInput}
@@ -6356,7 +6356,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       type="button"
                       disabled={shiftActionBusy}
                       onClick={handleEndShift}
-                      className="h-10 shrink-0 rounded-[10px] bg-[#0a1128] px-4 text-sm font-bold text-white hover:bg-[#1a2340]"
+                      className="h-10 shrink-0 rounded-[10px] bg-[#032125] px-4 text-sm font-bold text-white hover:bg-[#1a2340]"
                     >
                       {shiftActionBusy ? "Closing…" : "End shift"}
                     </Button>
@@ -6367,12 +6367,12 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-[rgba(15,23,60,0.15)] bg-[#f8f9fc] px-4 py-5 text-center">
+              <div className="rounded-xl border border-dashed border-[rgba(3,33,37,0.15)] bg-[#FFFCF6] px-4 py-5 text-center">
                 <ClipboardList className="mx-auto mb-2 h-7 w-7 text-[#c3cbdd]" strokeWidth={1.5} />
-                <p className="text-sm font-semibold text-[#0a1128]">No active register shift</p>
+                <p className="text-sm font-semibold text-[#032125]">No active register shift</p>
                 {myStaffProfileId ? (
                   <>
-                    <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
+                    <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#437278]">
                       Open your shift for this register — the opening float is the cash counted into the drawer.
                     </p>
                     <div className="mx-auto mt-3 flex max-w-[340px] gap-2">
@@ -6397,7 +6397,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     )}
                   </>
                 ) : (
-                  <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#8c95b0]">
+                  <p className="mx-auto mt-0.5 max-w-[340px] text-[13px] leading-relaxed text-[#437278]">
                     You don't have an open shift right now. Shifts (with opening float and drawer counts) are opened and closed in Shift Management.
                   </p>
                 )}
@@ -6413,13 +6413,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               </div>
             )}
 
-            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#8c95b0]">{activeShift ? "Collected this shift by tender" : "Collected today by tender"}</p>
+            <p className="mt-5 text-xs font-bold uppercase tracking-wide text-[#437278]">{activeShift ? "Collected this shift by tender" : "Collected today by tender"}</p>
             {isLoadingCollectedSales ? (
-              <p className="mt-2 flex items-center gap-2 text-sm text-[#8c95b0]">
+              <p className="mt-2 flex items-center gap-2 text-sm text-[#437278]">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading…
               </p>
             ) : collectedSales.length === 0 ? (
-              <p className="mt-2 text-sm text-[#8c95b0]">{activeShift ? "No sales recorded on this shift yet." : "No sales recorded today yet."}</p>
+              <p className="mt-2 text-sm text-[#437278]">{activeShift ? "No sales recorded on this shift yet." : "No sales recorded today yet."}</p>
             ) : (
               <div className="mt-2 space-y-1.5">
                 {(() => {
@@ -6432,25 +6432,25 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     byMethod.set(key, entry);
                   });
                   return [...byMethod.entries()].map(([method, entry]) => (
-                    <div key={method} className="flex items-center justify-between rounded-lg bg-[#f8f9fc] px-3 py-2 text-sm">
-                      <span className="font-semibold text-[#4a5578]">
+                    <div key={method} className="flex items-center justify-between rounded-lg bg-[#FFFCF6] px-3 py-2 text-sm">
+                      <span className="font-semibold text-[#354D51]">
                         {PAYMENT_METHOD_OPTIONS.find(o => o.key === method.toLowerCase())?.label || (method === "MIXED" ? "Mixed / Split" : method)}
-                        <span className="ml-1.5 text-xs font-medium text-[#8c95b0]">× {entry.count}</span>
+                        <span className="ml-1.5 text-xs font-medium text-[#437278]">× {entry.count}</span>
                       </span>
-                      <span className="font-mono font-bold tabular-nums text-[#0a1128]">PKR {entry.total.toFixed(2)}</span>
+                      <span className="font-mono font-bold tabular-nums text-[#032125]">PKR {entry.total.toFixed(2)}</span>
                     </div>
                   ));
                 })()}
-                <div className="flex items-center justify-between border-t border-dashed border-[rgba(15,23,60,0.12)] px-3 pt-2 text-sm">
-                  <span className="font-bold text-[#0a1128]">Total collected</span>
-                  <span className="font-mono font-extrabold tabular-nums text-[#0a1128]">
+                <div className="flex items-center justify-between border-t border-dashed border-[rgba(3,33,37,0.12)] px-3 pt-2 text-sm">
+                  <span className="font-bold text-[#032125]">Total collected</span>
+                  <span className="font-mono font-extrabold tabular-nums text-[#032125]">
                     PKR {collectedSales.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0).toFixed(2)}
                   </span>
                 </div>
               </div>
             )}
           </div>
-          <div className="shrink-0 border-t border-[rgba(15,23,60,0.08)] px-5 py-3.5">
+          <div className="shrink-0 border-t border-[rgba(3,33,37,0.08)] px-5 py-3.5">
             <Button
               type="button"
               variant="outline"
@@ -6477,7 +6477,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <p className="text-sm text-[#3d4356]">{rxBlock?.message}</p>
+            <p className="text-sm text-[#354D51]">{rxBlock?.message}</p>
             {rxBlock && rxBlock.products.length > 0 && (
               <div className="rounded-[10px] bg-amber-50 border border-amber-200 p-3">
                 <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">Prescription-only items</p>
@@ -6486,7 +6486,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                 </ul>
               </div>
             )}
-            <p className="text-sm text-[#5b6478]">
+            <p className="text-sm text-[#354D51]">
               Attach a prescription in the <strong>Prescription</strong> section of the checkout panel — search the register by patient or phone, or record a new one — then create the invoice again.
             </p>
             <div className="flex justify-end gap-2">
@@ -6500,7 +6500,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               </Button>
               <Button
                 type="button"
-                className="rounded-[10px] bg-gradient-to-r from-[#173e9e] to-[#1a52c5] text-white hover:from-[#1a52c5] hover:to-[#2361dd]"
+                className="rounded-[10px] bg-gradient-to-r from-[#032125] to-[#0B363B] text-white hover:from-[#0B363B] hover:to-[#437278]"
                 onClick={() => {
                   setRxBlock(null);
                   document.getElementById("pos-prescription-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -6518,7 +6518,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           {/* Dark header — POS redesign: thermal receipt preview. The
               share actions are the same handlers the receipt always
               had (print / download / SMS / WhatsApp / email). */}
-          <div className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+          <div className="shrink-0 bg-[#032125] px-5 py-4 text-white">
             <div className="flex flex-wrap items-center gap-2">
               <p className="flex items-center gap-2 text-base font-extrabold tracking-tight">
                 <Receipt className="h-5 w-5 text-white/70" strokeWidth={2} />
@@ -6611,13 +6611,13 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           </div>
 
           {currentReceipt && (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef1f7] px-4 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#EAFDE8] px-4 py-5">
               {/* The thermal slip: narrow, centered, monospace — the
                   same real data the wide receipt card showed (business,
                   cashier, customer, Rx, items, discounts, tax classes,
                   FBR). Tendered/change are NOT printed here because the
                   sale record does not store them on the receipt. */}
-              <div className="mx-auto w-full max-w-[360px] bg-white px-5 py-5 font-mono text-[12px] leading-relaxed text-neutral-700 shadow-[0_2px_14px_rgba(15,23,60,0.10)]">
+              <div className="mx-auto w-full max-w-[360px] bg-white px-5 py-5 font-mono text-[12px] leading-relaxed text-neutral-700 shadow-[0_2px_14px_rgba(3,33,37,0.10)]">
                 <div className="text-center">
                   <p className="text-[15px] font-bold uppercase tracking-wide text-neutral-900">
                     {selectedCompany?.name || selectedBranch?.name || 'Tickimo'}
@@ -6758,7 +6758,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             </div>
           )}
 
-          <div className="flex shrink-0 gap-2 border-t border-[rgba(15,23,60,0.08)] bg-white px-5 py-4">
+          <div className="flex shrink-0 gap-2 border-t border-[rgba(3,33,37,0.08)] bg-white px-5 py-4">
             <Button
               type="button"
               variant="outline"
@@ -7281,7 +7281,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'CASH' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('CASH')}
-                            className={modalPaymentMethod === 'CASH' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'CASH' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             Cash
                           </Button>
@@ -7290,7 +7290,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'CARD' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('CARD')}
-                            className={modalPaymentMethod === 'CARD' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'CARD' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             Card
                           </Button>
@@ -7299,7 +7299,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'MOBILE' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('MOBILE')}
-                            className={modalPaymentMethod === 'MOBILE' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'MOBILE' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             Mobile
                           </Button>
@@ -7308,7 +7308,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'BANK_TRANSFER' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('BANK_TRANSFER')}
-                            className={modalPaymentMethod === 'BANK_TRANSFER' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'BANK_TRANSFER' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             Bank
                           </Button>
@@ -7317,7 +7317,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'JAZZCASH' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('JAZZCASH')}
-                            className={modalPaymentMethod === 'JAZZCASH' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'JAZZCASH' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             JazzCash
                           </Button>
@@ -7326,7 +7326,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                             variant={modalPaymentMethod === 'EASYPAISA' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setModalPaymentMethod('EASYPAISA')}
-                            className={modalPaymentMethod === 'EASYPAISA' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
+                            className={modalPaymentMethod === 'EASYPAISA' ? 'bg-spruce-700 hover:bg-spruce-900 text-white' : ''}
                           >
                             Easypaisa
                           </Button>
@@ -7363,7 +7363,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     <Button
                       onClick={createModalInvoice}
                       disabled={isLoading || modalInvoiceItems.length === 0}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      className="flex-1 bg-spruce-700 hover:bg-spruce-900 text-white"
                     >
                       {isLoading ? (
                         "Creating..."

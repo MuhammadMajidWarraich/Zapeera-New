@@ -67,7 +67,7 @@ export function SearchableSelect({
                     onValueChange?.(currentValue === value ? "" : currentValue)
                     setOpen(false)
                   }}
-                  className="!hover:bg-blue-100 !hover:text-blue-900 data-[selected=true]:!bg-blue-200 data-[selected=true]:!text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  className="!hover:bg-verdant-100 !hover:text-spruce-900 data-[selected=true]:!bg-spruce-200 data-[selected=true]:!text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                 >
                   <Check
                     className={cn(

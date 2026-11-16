@@ -509,7 +509,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               onClick={() => handleCompanySwitch(company.id)}
               className="cursor-pointer"
             >
-              <Building className="w-4 h-4 mr-2 text-blue-600" />
+              <Building className="w-4 h-4 mr-2 text-spruce-700" />
               <span className="truncate">{company.name}</span>
             </DropdownMenuItem>
           ))}
@@ -527,7 +527,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               onClick={() => handleCompanySwitch(company.id)}
               className="cursor-pointer"
             >
-              <Building className="w-4 h-4 mr-2 text-blue-600" />
+              <Building className="w-4 h-4 mr-2 text-spruce-700" />
               <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                 <span className="truncate">{company.name}</span>
                 {company.memberRole && (
@@ -548,7 +548,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             onClick={() => handleCompanySwitch(company.id)}
             className="cursor-pointer"
           >
-            <Building className="w-4 h-4 mr-2 text-blue-600" />
+            <Building className="w-4 h-4 mr-2 text-spruce-700" />
             <span className="truncate">{company.name}</span>
           </DropdownMenuItem>
         ))}
@@ -561,7 +561,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <SidebarProvider>
       <SidebarContext.Provider value={{ isCollapsed, setIsCollapsed, mobileOpen, setMobileOpen }}>
-        <div className="safe-bars flex h-screen w-full overflow-hidden bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+        <div className="safe-bars flex h-screen w-full overflow-hidden bg-[#EAFDE8] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <RoleBasedSidebar />
 
           {/* Mobile drawer backdrop */}
@@ -585,7 +585,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] sm:h-10 sm:w-10 lg:hidden"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#354D51] sm:h-10 sm:w-10 lg:hidden"
                   aria-label="Open menu"
                 >
                   <Menu className="h-5 w-5" />
@@ -605,18 +605,18 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <SyncStatusBadge />
                 {operatorCtx.isDesktop && (
                   <div className="hidden items-center gap-1.5 md:flex" title={operatorCtx.isBoundOperator ? 'Working as this operator (PIN verified)' : 'Working as the account user'}>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-xs font-medium text-[#4a5578]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2.5 py-1 text-xs font-medium text-[#354D51]">
                       <UserRound className="h-3.5 w-3.5" />
                       <span className="max-w-[140px] truncate">{operatorCtx.effectiveName}</span>
                       {operatorCtx.effectiveRole && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#1a52c5]">{operatorCtx.effectiveRole}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#0B363B]">{operatorCtx.effectiveRole}</span>
                       )}
                     </span>
                     {operatorCtx.pinEnabled && (
                       <button
                         type="button"
                         onClick={() => operatorCtx.lock()}
-                        className="inline-flex items-center gap-1 rounded-[10px] border border-black/[0.06] bg-white px-2.5 py-1.5 text-xs font-medium text-[#4a5578] hover:bg-black/[0.02]"
+                        className="inline-flex items-center gap-1 rounded-[10px] border border-black/[0.06] bg-white px-2.5 py-1.5 text-xs font-medium text-[#354D51] hover:bg-black/[0.02]"
                       >
                         <LockIcon className="h-3.5 w-3.5" />
                         Switch staff / Lock
@@ -637,7 +637,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
                 {membershipRole && (
                   <div className="hidden flex-col items-end sm:flex">
-                    <span className="rounded-full bg-[#1a52c5]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1a52c5]">
+                    <span className="rounded-full bg-[#0B363B]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#0B363B]">
                       {membershipRole}
                     </span>
                   </div>
@@ -648,7 +648,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring md:h-[38px] md:w-[38px]"
+                      className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-bold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)] outline-none ring-offset-2 transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring md:h-[38px] md:w-[38px]"
                     >
                       {user?.profileImage ? (
                         <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
@@ -663,7 +663,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                         <p className="text-sm font-medium leading-none">{user?.name || 'User'}</p>
                         <p className="text-xs leading-none text-muted-foreground">{user?.email || 'No email'}</p>
                         {membershipRole && (
-                          <div className="mt-1.5 inline-flex w-fit items-center rounded-full bg-[#1a52c5]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1a52c5]">
+                          <div className="mt-1.5 inline-flex w-fit items-center rounded-full bg-[#0B363B]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#0B363B]">
                             {membershipRole}
                           </div>
                         )}
@@ -707,21 +707,21 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               </div>
             )}
 
-            <main className="relative flex-1 overflow-y-auto bg-[#f0f2f7]">
+            <main className="relative flex-1 overflow-y-auto bg-[#EAFDE8]">
               {/* Loading Animation - Starts from branch selector and flows down */}
               {isLoading && (
                 <div className="absolute inset-0 z-50 pointer-events-none">
                   {/* Animated loading bar that flows from top to bottom */}
                   <div 
-                    className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-80"
+                    className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-spruce-500 to-transparent opacity-80"
                     style={{
                       animation: 'loadingFlow 0.8s ease-in-out',
-                      boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)'
+                      boxShadow: '0 0 10px rgba(67, 114, 120, 0.5)'
                     }}
                   />
                   {/* Subtle left-right shimmer effect */}
                   <div 
-                    className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-r from-transparent via-blue-50/30 to-transparent opacity-50"
+                    className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-r from-transparent via-verdant-100/30 to-transparent opacity-50"
                     style={{
                       animation: 'shimmer 1.2s ease-in-out infinite',
                       transform: 'translateX(-100%)'

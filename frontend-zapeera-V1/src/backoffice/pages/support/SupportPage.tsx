@@ -6,7 +6,7 @@ import { backofficeApi } from '../../services/api';
 import type { SupportTicket } from '../../types';
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-blue-100 text-blue-700',
+  OPEN: 'bg-verdant-100 text-spruce-900',
   IN_PROGRESS: 'bg-amber-100 text-amber-700',
   RESOLVED: 'bg-emerald-100 text-emerald-700',
   CLOSED: 'bg-gray-100 text-gray-500',
@@ -32,7 +32,7 @@ export function SupportPage() {
 
   const today = new Date().toDateString();
   const stats = [
-    { label: 'Open Tickets', value: tickets.filter(t => t.status === 'OPEN').length, icon: HeadphonesIcon, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Open Tickets', value: tickets.filter(t => t.status === 'OPEN').length, icon: HeadphonesIcon, color: 'bg-verdant-100 text-spruce-700' },
     { label: 'In Progress', value: tickets.filter(t => t.status === 'IN_PROGRESS').length, icon: Clock, color: 'bg-amber-50 text-amber-600' },
     { label: 'Resolved Today', value: tickets.filter(t => t.status === 'RESOLVED' && new Date(t.updatedAt).toDateString() === today).length, icon: CheckCircle, color: 'bg-emerald-50 text-emerald-600' },
     { label: 'Urgent', value: tickets.filter(t => t.priority === 'URGENT' && t.status !== 'RESOLVED' && t.status !== 'CLOSED').length, icon: AlertTriangle, color: 'bg-red-50 text-red-600' },
@@ -64,7 +64,7 @@ export function SupportPage() {
         {quickActions.map(action => (
           <button key={action.path} onClick={() => navigate(action.path)} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow text-left">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 rounded-xl"><action.icon className="w-6 h-6 text-blue-600" /></div>
+              <div className="p-3 bg-verdant-100 rounded-xl"><action.icon className="w-6 h-6 text-spruce-700" /></div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900">{action.label}</h3>
                 <p className="text-sm text-gray-500">{action.description}</p>
@@ -78,7 +78,7 @@ export function SupportPage() {
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">Recent Tickets</h3>
-          <button onClick={() => navigate('/backoffice/support/tickets')} className="text-sm font-medium text-blue-600 hover:underline">View all</button>
+          <button onClick={() => navigate('/backoffice/support/tickets')} className="text-sm font-medium text-spruce-700 hover:underline">View all</button>
         </div>
         {loading ? (
           <div className="p-10 text-center text-sm text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-300" /> Loading…</div>

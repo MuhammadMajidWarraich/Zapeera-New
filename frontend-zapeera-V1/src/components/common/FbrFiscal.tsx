@@ -48,7 +48,7 @@ export function FbrQrImage({ value, size = 96 }: { value: string | null | undefi
 
 const CHIP_STYLES: Record<string, { label: string; className: string }> = {
   SENT: { label: 'Fiscal: Sent', className: 'bg-green-100 text-green-700 border-green-200' },
-  TEST: { label: 'Fiscal: Test', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  TEST: { label: 'Fiscal: Test', className: 'bg-verdant-100 text-spruce-900 border-spruce-200' },
   PENDING: { label: 'Fiscal: Pending', className: 'bg-amber-100 text-amber-700 border-amber-200' },
   SENDING: { label: 'Fiscal: Sending', className: 'bg-amber-100 text-amber-700 border-amber-200' },
   FAILED: { label: 'Fiscal: Failed', className: 'bg-red-100 text-red-700 border-red-200' },

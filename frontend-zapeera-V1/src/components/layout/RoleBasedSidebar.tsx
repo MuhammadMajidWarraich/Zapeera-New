@@ -9,7 +9,7 @@
  */
 import React, { useMemo, useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ChevronDown, Zap, Lock, Circle, Settings, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Lock, Circle, Settings, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBranding } from '@/contexts/BrandingContext';
@@ -73,7 +73,7 @@ function ActiveIndicator({ active }: { active: boolean }) {
   if (!active) return null;
   return (
     <span
-      className="pointer-events-none absolute left-0 top-1/2 h-[22px] w-[3px] -translate-y-1/2 rounded-r bg-gradient-to-b from-[#1a52c5] to-[#28c2ce] shadow-[0_0_12px_rgba(40,194,206,0.5)]"
+      className="pointer-events-none absolute left-0 top-1/2 h-[22px] w-[3px] -translate-y-1/2 rounded-r bg-gradient-to-b from-[#0B363B] to-[#437278] shadow-[0_0_12px_rgba(67,114,120,0.5)]"
       aria-hidden
     />
   );
@@ -146,7 +146,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
           className={cn(
             'relative mb-0.5 flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
             isActive
-              ? 'bg-gradient-to-br from-[#1a52c5]/20 to-[#28c2ce]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+              ? 'bg-gradient-to-br from-[#0B363B]/20 to-[#437278]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
               : 'text-white/85 hover:bg-white/[0.04] hover:text-white',
             isLocked && 'opacity-60 cursor-not-allowed hover:bg-transparent',
             isCollapsed && 'justify-center px-2',
@@ -169,7 +169,7 @@ const GroupItem: React.FC<{ group: ModuleGroup; slug: string; isCollapsed: boole
     const btnClass = cn(
       'relative mb-0.5 flex w-full items-center justify-between rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-200',
       isChildActive
-        ? 'bg-gradient-to-br from-[#1a52c5]/20 to-[#28c2ce]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+        ? 'bg-gradient-to-br from-[#0B363B]/20 to-[#437278]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
         : 'text-white/85 hover:bg-white/[0.04] hover:text-white',
       isLocked && 'opacity-60 cursor-not-allowed hover:bg-transparent',
     );
@@ -615,7 +615,7 @@ export const RoleBasedSidebar: React.FC = () => {
     return (
       <div
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f] transition-transform duration-300',
+          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#00191C] transition-transform duration-300',
           effectiveCollapsed ? 'w-[72px]' : 'w-[272px]',
           // Mobile/tablet (<lg): off-canvas drawer, toggled from MainLayout.
           mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full',
@@ -637,15 +637,15 @@ export const RoleBasedSidebar: React.FC = () => {
   return (
     <div
       className={cn(
-        'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#060d1f] transition-all duration-300',
-        "after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:content-[''] after:bg-gradient-to-b after:from-[#1a52c5] after:via-[#28c2ce]/40 after:to-transparent after:opacity-[0.35]",
+        'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden bg-[#00191C] transition-all duration-300',
+        "after:pointer-events-none after:absolute after:right-0 after:top-0 after:h-full after:w-px after:content-[''] after:bg-gradient-to-b after:from-[#0B363B] after:via-[#437278]/40 after:to-transparent after:opacity-[0.35]",
         effectiveCollapsed ? 'w-[72px]' : 'w-[272px]',
         // Mobile/tablet (<lg): off-canvas drawer, toggled from MainLayout.
         mobileOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full',
       )}
     >
       <div
-        className="pointer-events-none absolute -bottom-[100px] -left-[60px] h-[260px] w-[260px] rounded-full bg-[radial-gradient(circle,rgba(26,82,197,0.12)_0%,transparent_70%)] blur-[40px]"
+        className="pointer-events-none absolute -bottom-[100px] -left-[60px] h-[260px] w-[260px] rounded-full bg-[radial-gradient(circle,rgba(11,54,59,0.12)_0%,transparent_70%)] blur-[40px]"
         aria-hidden
       />
 
@@ -662,7 +662,7 @@ export const RoleBasedSidebar: React.FC = () => {
               {branding.logoUrl ? (
                 <img src={branding.logoUrl} alt={branding.productName} className="h-[42px] w-[42px] shrink-0 rounded-[13px] bg-white object-contain" />
               ) : (
-                <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#1a52c5' }}>
+                <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#0B363B' }}>
                   <span className="text-lg font-extrabold">{branding.productName.charAt(0)}</span>
                 </div>
               )}
@@ -674,13 +674,13 @@ export const RoleBasedSidebar: React.FC = () => {
             </>
           ) : (
             <>
-              <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
-                <Zap className="h-[22px] w-[22px] fill-white text-white" />
+              <div className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#0B363B] to-[#437278] shadow-[0_0_24px_rgba(11,54,59,0.4)]">
+                <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" aria-hidden><g fill="#ABFFAE"><rect x="3" y="16" width="4" height="5" rx="1" /><rect x="8.5" y="12.5" width="4" height="8.5" rx="1" /><rect x="14" y="8" width="4" height="13" rx="1" /><rect x="11.5" y="4.5" width="9" height="3.5" rx="1" /></g></svg>
               </div>
               {!effectiveCollapsed && (
                 <span className="truncate text-[22px] font-extrabold tracking-tight text-white">
-                  Zap
-                  <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
+                  Tick
+                  <span className="bg-gradient-to-br from-[#ABFFAE] to-[#A1C2C6] bg-clip-text text-transparent">imo</span>
                 </span>
               )}
             </>
@@ -723,7 +723,7 @@ export const RoleBasedSidebar: React.FC = () => {
             background: rgba(255, 255, 255, 0.4);
           }
           nav::-webkit-scrollbar-thumb:active {
-            background: linear-gradient(to bottom, #1a52c5, #28c2ce);
+            background: linear-gradient(to bottom, #0B363B, #437278);
           }
         `}</style>
         <SidebarSection label="Main" groups={mainGroups} slug={businessSlug} effectiveCollapsed={effectiveCollapsed} isModuleLocked={isModuleLocked} isSubModuleLocked={isSubModuleLocked} />
@@ -738,7 +738,7 @@ export const RoleBasedSidebar: React.FC = () => {
             className={cn(
               'relative flex items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
               isSettingsActive
-                ? 'bg-gradient-to-br from-[#1a52c5]/20 to-[#28c2ce]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+                ? 'bg-gradient-to-br from-[#0B363B]/20 to-[#437278]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
                 : 'text-white/50 hover:bg-white/[0.04] hover:text-white/85',
               effectiveCollapsed && 'justify-center px-2',
             )}

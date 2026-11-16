@@ -48,7 +48,7 @@ import { toast } from "@/hooks/use-toast";
 
 const STATUS_STYLES: Record<string, string> = {
   AVAILABLE: "bg-green-100 text-green-800",
-  OCCUPIED: "bg-blue-100 text-blue-800",
+  OCCUPIED: "bg-verdant-100 text-spruce-900",
   DIRTY: "bg-amber-100 text-amber-800",
   MAINTENANCE: "bg-red-100 text-red-800",
 };

@@ -27,7 +27,7 @@ const syncLabel: Record<string, string> = {
 
 const syncColor: Record<string, string> = {
   idle: 'text-muted-foreground',
-  syncing: 'text-blue-500',
+  syncing: 'text-spruce-500',
   synced: 'text-green-500',
   pending: 'text-amber-500',
   offline: 'text-muted-foreground',

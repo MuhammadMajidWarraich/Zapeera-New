@@ -12,7 +12,7 @@ import { BackofficeCommission, BackofficeCommissionStats, Business } from '../..
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
-  APPROVED: 'bg-blue-50 text-blue-700 border-blue-200',
+  APPROVED: 'bg-verdant-100 text-spruce-900 border-spruce-200',
   PAID: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   CANCELLED: 'bg-red-50 text-red-700 border-red-200',
 };
@@ -95,7 +95,7 @@ export function CommissionsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Records', value: String(stats.totalCommissions), icon: Award, color: 'bg-gray-50 text-gray-600' },
-            { label: 'Total Amount', value: formatRs(stats.totalAmount), icon: DollarSign, color: 'bg-blue-50 text-blue-600' },
+            { label: 'Total Amount', value: formatRs(stats.totalAmount), icon: DollarSign, color: 'bg-verdant-100 text-spruce-700' },
             { label: 'Paid Out', value: formatRs(stats.totalPaidAmount), icon: CheckCircle, color: 'bg-emerald-50 text-emerald-600' },
             { label: 'Pending Approval', value: String(stats.pendingCommissions), icon: Clock, color: 'bg-amber-50 text-amber-600' },
           ].map((k) => (

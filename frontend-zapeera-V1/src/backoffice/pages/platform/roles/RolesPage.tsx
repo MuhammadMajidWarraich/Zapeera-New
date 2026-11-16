@@ -5,8 +5,8 @@ import { RoleModulePermission, Module } from '../../../types';
 import { ModuleCheckboxGroup, HierarchyModule } from '../../../components/ModuleCheckboxGroup';
 
 const ROLE_META: Record<string, { color: string; desc: string }> = {
-  OWNER: { color: 'from-purple-500 to-purple-600', desc: 'Full business access — created the business' },
-  MANAGER: { color: 'from-blue-500 to-blue-600', desc: 'Branch-scoped management' },
+  OWNER: { color: 'from-spruce-500 to-spruce-700', desc: 'Full business access — created the business' },
+  MANAGER: { color: 'from-spruce-500 to-spruce-500', desc: 'Branch-scoped management' },
   CASHIER: { color: 'from-emerald-500 to-emerald-600', desc: 'POS and sales only' },
 };
 

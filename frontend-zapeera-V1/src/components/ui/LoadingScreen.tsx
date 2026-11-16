@@ -15,7 +15,7 @@ export function LoadingScreen({ message = 'Loading...', subMessage }: LoadingScr
   return (
     <div className="flex h-screen w-full items-center justify-center bg-white">
       <div className="text-center">
-        <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-4" />
+        <Loader2 className="h-10 w-10 animate-spin text-spruce-700 mx-auto mb-4" />
         <h2 className="text-lg font-medium text-gray-900">{message}</h2>
         {subMessage && (
           <p className="text-sm text-gray-500 mt-2">{subMessage}</p>
@@ -32,7 +32,7 @@ export function LoadingScreen({ message = 'Loading...', subMessage }: LoadingScr
 export function InlineLoading({ message = 'Loading...' }: { message?: string }) {
   return (
     <div className="flex items-center justify-center p-4">
-      <Loader2 className="h-5 w-5 animate-spin text-blue-600 mr-2" />
+      <Loader2 className="h-5 w-5 animate-spin text-spruce-700 mr-2" />
       <span className="text-sm text-gray-600">{message}</span>
     </div>
   );

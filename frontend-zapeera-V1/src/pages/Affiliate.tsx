@@ -39,14 +39,14 @@ const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString
 const statusBadge = (status: string) => {
   const tone: Record<string, string> = {
     PENDING: "bg-amber-100 text-amber-800",
-    APPROVED: "bg-blue-100 text-blue-800",
+    APPROVED: "bg-verdant-100 text-spruce-900",
     ACTIVE: "bg-emerald-100 text-emerald-800",
     PAID: "bg-emerald-100 text-emerald-800",
     VOID: "bg-rose-100 text-rose-800",
     REQUESTED: "bg-amber-100 text-amber-800",
     REJECTED: "bg-rose-100 text-rose-800",
     SUSPENDED: "bg-rose-100 text-rose-800",
-    TRIAL: "bg-sky-100 text-sky-800",
+    TRIAL: "bg-verdant-100 text-spruce-900",
   };
   return <Badge className={tone[status] || "bg-gray-100 text-gray-800"} variant="secondary">{status}</Badge>;
 };
@@ -179,8 +179,8 @@ const Affiliate: React.FC = () => {
                 <p className="text-sm font-semibold text-gray-900">{data?.config?.defaultRate ?? 20}% commission</p>
                 <p className="text-xs text-gray-500">On every subscription payment by a referred business.</p>
               </div>
-              <div className="rounded-xl bg-sky-50 p-4">
-                <Link2 className="mb-2 h-5 w-5 text-sky-600" />
+              <div className="rounded-xl bg-verdant-100 p-4">
+                <Link2 className="mb-2 h-5 w-5 text-spruce-500" />
                 <p className="text-sm font-semibold text-gray-900">Your own link</p>
                 <p className="text-xs text-gray-500">Share it — signups through it are credited to you automatically.</p>
               </div>

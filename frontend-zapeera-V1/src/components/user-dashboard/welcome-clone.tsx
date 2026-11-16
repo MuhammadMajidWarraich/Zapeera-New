@@ -106,11 +106,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const CARD =
-  "rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_1px_3px_rgba(16,24,40,0.05)]";
+  "rounded-2xl border border-[rgba(3,33,37,0.08)] bg-white shadow-[0_1px_3px_rgba(16,24,40,0.05)]";
 const BLUE_BTN =
-  "bg-[#2563eb] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:bg-[#1d4ed8]";
+  "bg-[#0B363B] text-white shadow-[0_4px_14px_rgba(11,54,59,0.3)] transition-all hover:-translate-y-px hover:bg-[#0B363B]";
 const GRADIENT_BTN =
-  "bg-gradient-to-r from-[#2563eb] to-[#7c3aed] text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:opacity-95";
+  "bg-gradient-to-r from-[#0B363B] to-[#437278] text-white shadow-[0_4px_14px_rgba(11,54,59,0.3)] transition-all hover:-translate-y-px hover:opacity-95";
 
 type CompanyLike = {
   id: string;
@@ -273,7 +273,7 @@ export function CloneStatCards({
     return { owned, joined, branches, active, inactive, roleCounts };
   }, [companies, user, entitlements]);
 
-  const roleDot: Record<string, string> = { Owner: "#7c3aed", Manager: "#ea580c", Cashier: "#2563eb" };
+  const roleDot: Record<string, string> = { Owner: "#437278", Manager: "#ea580c", Cashier: "#0B363B" };
   const roleParts = [...stats.roleCounts.entries()];
 
   const security = useMemo(() => {
@@ -294,7 +294,7 @@ export function CloneStatCards({
     {
       key: "businesses",
       icon: Store,
-      tint: "bg-[#e8effd] text-[#2563eb]",
+      tint: "bg-[#EAFDE8] text-[#0B363B]",
       label: "Total Businesses",
       value: String(companies.length),
       sub: entLoading ? (
@@ -315,7 +315,7 @@ export function CloneStatCards({
     {
       key: "roles",
       icon: UserPlus,
-      tint: "bg-[#f0eafd] text-[#7c3aed]",
+      tint: "bg-[#EAFDE8] text-[#437278]",
       label: "My Role Summary",
       value: `${companies.length} Role${companies.length === 1 ? "" : "s"}`,
       sub:
@@ -337,7 +337,7 @@ export function CloneStatCards({
     {
       key: "branches",
       icon: TrendingUp,
-      tint: "bg-[#f0eafd] text-[#7c3aed]",
+      tint: "bg-[#EAFDE8] text-[#437278]",
       label: "Total Branches",
       value: String(stats.branches),
       sub: "Across all businesses",
@@ -378,10 +378,10 @@ export function CloneStatCards({
               <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-[10px]", c.tint)}>
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="min-w-0 text-[12.5px] font-semibold leading-tight text-[#4a5578]">{c.label}</span>
+              <span className="min-w-0 text-[12.5px] font-semibold leading-tight text-[#354D51]">{c.label}</span>
             </span>
-            <span className="mt-3.5 block text-[26px] font-extrabold leading-none tracking-tight text-[#0a1128]">{c.value}</span>
-            <span className="mt-1.5 block text-xs leading-snug text-[#8c95b0]">{c.sub}</span>
+            <span className="mt-3.5 block text-[26px] font-extrabold leading-none tracking-tight text-[#032125]">{c.value}</span>
+            <span className="mt-1.5 block text-xs leading-snug text-[#437278]">{c.sub}</span>
           </button>
         );
       })}
@@ -397,19 +397,19 @@ type StatusFilter = "all" | "active" | "trial" | "expired" | "pending" | "inacti
 
 function typeVisual(type?: string | null): { icon: React.ElementType; tile: string } {
   const t = String(type || "").toUpperCase();
-  if (t.includes("PHARMACY")) return { icon: Cross, tile: "bg-[#e8effd] text-[#2563eb]" };
+  if (t.includes("PHARMACY")) return { icon: Cross, tile: "bg-[#EAFDE8] text-[#0B363B]" };
   if (t.includes("CLINIC")) return { icon: Stethoscope, tile: "bg-[#fdeeda] text-[#ea580c]" };
-  if (t.includes("HOTEL")) return { icon: BedDouble, tile: "bg-[#f0eafd] text-[#7c3aed]" };
+  if (t.includes("HOTEL")) return { icon: BedDouble, tile: "bg-[#EAFDE8] text-[#437278]" };
   if (t.includes("STORE") || t.includes("RETAIL")) return { icon: Store, tile: "bg-[#e5f6ec] text-[#16a34a]" };
-  return { icon: Building2, tile: "bg-[#e8effd] text-[#2563eb]" };
+  return { icon: Building2, tile: "bg-[#EAFDE8] text-[#0B363B]" };
 }
 
 function rolePillClass(role: string): string {
   const r = role.toUpperCase();
-  if (r === "OWNER") return "bg-[#f0eafd] text-[#7c3aed]";
+  if (r === "OWNER") return "bg-[#EAFDE8] text-[#437278]";
   if (r === "MANAGER") return "bg-[#fdeeda] text-[#ea580c]";
-  if (r === "CASHIER") return "bg-[#e8effd] text-[#2563eb]";
-  return "bg-[#eef1f7] text-[#4a5578]";
+  if (r === "CASHIER") return "bg-[#EAFDE8] text-[#0B363B]";
+  return "bg-[#EAFDE8] text-[#354D51]";
 }
 
 function expiryParts(status: string, ent: Entitlement): { label: string; date: string | null; danger?: boolean } {
@@ -490,8 +490,8 @@ export function CloneBusinessSection({
     <section aria-label="My Businesses" className="mt-8">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[19px] font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
-          <p className="mt-0.5 text-[13px] text-[#8c95b0]">Access and manage all the businesses you own or are a member of.</p>
+          <h2 className="text-[19px] font-extrabold tracking-tight text-[#032125]">My Businesses</h2>
+          <p className="mt-0.5 text-[13px] text-[#437278]">Access and manage all the businesses you own or are a member of.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Join / Create — moved here from the top of the page
@@ -500,9 +500,9 @@ export function CloneBusinessSection({
           <button
             type="button"
             onClick={onJoin}
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.12)] bg-white px-4 text-[13.5px] font-semibold text-[#0a1128] transition-all hover:-translate-y-px hover:border-[#2563eb]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.12)] bg-white px-4 text-[13.5px] font-semibold text-[#032125] transition-all hover:-translate-y-px hover:border-[#0B363B]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.06)]"
           >
-            <UserPlus className="h-4 w-4 text-[#2563eb]" />
+            <UserPlus className="h-4 w-4 text-[#0B363B]" />
             Join a Business
           </button>
           <button
@@ -520,7 +520,7 @@ export function CloneBusinessSection({
             id="welcome-status-filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value as StatusFilter)}
-            className="h-10 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-3 text-[13px] font-semibold text-[#0a1128] outline-none focus:border-[#2563eb]/50"
+            className="h-10 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white px-3 text-[13px] font-semibold text-[#032125] outline-none focus:border-[#0B363B]/50"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -534,10 +534,10 @@ export function CloneBusinessSection({
 
       {visible.length === 0 ? (
         <div className={cn(CARD, "p-10 text-center")}>
-          <p className="text-sm font-semibold text-[#0a1128]">
+          <p className="text-sm font-semibold text-[#032125]">
             No businesses match this filter.
           </p>
-          <p className="mt-1 text-[13px] text-[#8c95b0]">Try a different status, or create a new business.</p>
+          <p className="mt-1 text-[13px] text-[#437278]">Try a different status, or create a new business.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -584,22 +584,22 @@ export function CloneBusinessSection({
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            className="grid h-8 w-8 place-items-center rounded-lg text-[#8c95b0] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-[#437278] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
                             aria-label={`Actions for ${b.name}`}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[210px] rounded-xl border border-[rgba(15,23,60,0.06)] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)]">
-                          <DropdownMenuItem onClick={() => openWorkspace(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-semibold text-[#2563eb]">
+                        <DropdownMenuContent align="end" className="w-[210px] rounded-xl border border-[rgba(3,33,37,0.06)] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.1)]">
+                          <DropdownMenuItem onClick={() => openWorkspace(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-semibold text-[#0B363B]">
                             Open Workspace
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openSubscription(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]">
+                          <DropdownMenuItem onClick={() => openSubscription(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#354D51]">
                             <CreditCard className="h-4 w-4 opacity-60" />
                             Manage Subscription
                           </DropdownMenuItem>
                           {runtime.isDesktop && (
-                            <DropdownMenuItem onClick={() => handleSyncNow(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#4a5578]">
+                            <DropdownMenuItem onClick={() => handleSyncNow(b)} className="cursor-pointer gap-2.5 rounded-lg py-2 text-sm font-medium text-[#354D51]">
                               <RefreshCw className="h-4 w-4 opacity-60" />
                               Sync Now
                             </DropdownMenuItem>
@@ -609,7 +609,7 @@ export function CloneBusinessSection({
                     </span>
                   </div>
 
-                  <p title={b.name} className="mt-3 line-clamp-2 text-[16px] font-bold leading-snug tracking-tight text-[#0a1128]">
+                  <p title={b.name} className="mt-3 line-clamp-2 text-[16px] font-bold leading-snug tracking-tight text-[#032125]">
                     {b.name}
                   </p>
                   <p className="mt-1.5">
@@ -618,35 +618,35 @@ export function CloneBusinessSection({
                     </span>
                   </p>
 
-                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-[rgba(15,23,60,0.06)] pt-3">
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-[rgba(3,33,37,0.06)] pt-3">
                     <div className="min-w-0">
-                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#8c95b0]">
-                        <Crown className="h-3 w-3 text-[#7c3aed]" />
+                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#437278]">
+                        <Crown className="h-3 w-3 text-[#437278]" />
                         Plan
                       </p>
-                      <p className="mt-0.5 truncate text-[13.5px] font-bold text-[#0a1128]">
+                      <p className="mt-0.5 truncate text-[13.5px] font-bold text-[#032125]">
                         {entPending ? "Checking…" : ent.plan?.name || "—"}
                       </p>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium text-[#8c95b0]">{exp.label}</p>
-                      <p className={cn("mt-0.5 truncate text-[13.5px] font-bold", exp.danger ? "text-red-600" : "text-[#0a1128]")}>
+                      <p className="text-[11px] font-medium text-[#437278]">{exp.label}</p>
+                      <p className={cn("mt-0.5 truncate text-[13.5px] font-bold", exp.danger ? "text-red-600" : "text-[#032125]")}>
                         {entPending ? "Checking…" : exp.date || style.label}
                       </p>
                     </div>
                     <div className="min-w-0">
-                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#8c95b0]">
+                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#437278]">
                         <Layers className="h-3 w-3" />
                         Branches
                       </p>
-                      <p className="mt-0.5 text-[13.5px] font-bold text-[#0a1128]">{branches}</p>
+                      <p className="mt-0.5 text-[13.5px] font-bold text-[#032125]">{branches}</p>
                     </div>
                     <div className="min-w-0">
-                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#8c95b0]">
+                      <p className="flex items-center gap-1 text-[11px] font-medium text-[#437278]">
                         <Building2 className="h-3 w-3" />
                         Type
                       </p>
-                      <p className="mt-0.5 truncate text-[13.5px] font-bold text-[#0a1128]">{typeLabel}</p>
+                      <p className="mt-0.5 truncate text-[13.5px] font-bold text-[#032125]">{typeLabel}</p>
                     </div>
                   </div>
                 </div>
@@ -665,7 +665,7 @@ export function CloneBusinessSection({
                     <button
                       type="button"
                       onClick={() => navigate("/zapeera/my-businesses")}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd]"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-[#0B363B] transition-colors hover:bg-[#EAFDE8]"
                     >
                       View Details
                       <ArrowRight className="h-4 w-4" />
@@ -721,8 +721,8 @@ function BandShell({
     <section aria-label="Sync and connectivity" className={cn(CARD, "mt-6 px-5 py-5 sm:px-6")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h3 className="text-[16px] font-extrabold tracking-tight text-[#0a1128]">Sync &amp; Connectivity</h3>
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4a5578]">
+          <h3 className="text-[16px] font-extrabold tracking-tight text-[#032125]">Sync &amp; Connectivity</h3>
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#354D51]">
             <span className={cn("h-2 w-2 rounded-full", statusDot)} />
             {statusText}
           </span>
@@ -753,9 +753,9 @@ function BandItem({
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[11.5px] font-medium text-[#8c95b0]">{label}</span>
-        <span className="block truncate text-[14px] font-bold leading-snug text-[#0a1128]">{value}</span>
-        {sub && <span className="block truncate text-[11px] text-[#8c95b0]">{sub}</span>}
+        <span className="block truncate text-[11.5px] font-medium text-[#437278]">{label}</span>
+        <span className="block truncate text-[14px] font-bold leading-snug text-[#032125]">{value}</span>
+        {sub && <span className="block truncate text-[11px] text-[#437278]">{sub}</span>}
       </span>
     </div>
   );
@@ -809,20 +809,20 @@ function CloneSyncBandDesktop() {
             type="button"
             onClick={handleSync}
             disabled={syncing || status.inProgress}
-            className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#2563eb]/40 bg-white px-4 text-[13px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#0B363B]/40 bg-white px-4 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#EAFDE8] disabled:opacity-50"
           >
             <RefreshCw className={cn("h-4 w-4", (syncing || status.inProgress) && "animate-spin")} />
             {syncing || status.inProgress ? "Syncing…" : "Sync Now"}
           </button>
           {appVersion && (
-            <span className="rounded-md bg-[#f0f2f7] px-2 py-0.5 text-[11px] font-semibold text-[#4a5578]">Version {appVersion}</span>
+            <span className="rounded-md bg-[#EAFDE8] px-2 py-0.5 text-[11px] font-semibold text-[#354D51]">Version {appVersion}</span>
           )}
         </div>
       }
     >
       <BandItem
         icon={Cloud}
-        tile="bg-[#e8effd] text-[#2563eb]"
+        tile="bg-[#EAFDE8] text-[#0B363B]"
         label="Cloud Status"
         value={online ? "Connected" : "Offline"}
       />
@@ -834,7 +834,7 @@ function CloneSyncBandDesktop() {
         value={String(status.pendingChanges)}
         sub={status.failedChanges > 0 ? `${status.failedChanges} failed` : status.pendingChanges > 0 ? "Ready to sync" : "All changes synced"}
       />
-      <BandItem icon={Clock} tile="bg-[#e8effd] text-[#2563eb]" label="Sync State" value={syncStateLabel} />
+      <BandItem icon={Clock} tile="bg-[#EAFDE8] text-[#0B363B]" label="Sync State" value={syncStateLabel} />
       <BandItem
         icon={Monitor}
         tile="bg-[#e5f6ec] text-[#16a34a]"
@@ -857,7 +857,7 @@ function CloneSyncBandWeb({ navigate }: { navigate: ReturnType<typeof useNavigat
         <button
           type="button"
           onClick={() => navigate("/downloads")}
-          className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#2563eb]/40 bg-white px-4 text-[13px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd]"
+          className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#0B363B]/40 bg-white px-4 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#EAFDE8]"
         >
           <Download className="h-4 w-4" />
           Get the Desktop App
@@ -866,13 +866,13 @@ function CloneSyncBandWeb({ navigate }: { navigate: ReturnType<typeof useNavigat
     >
       <BandItem
         icon={Cloud}
-        tile="bg-[#e8effd] text-[#2563eb]"
+        tile="bg-[#EAFDE8] text-[#0B363B]"
         label="Cloud Status"
         value={profileLoading ? "Checking…" : connected ? "Connected" : "Unreachable"}
       />
-      <BandItem icon={Database} tile="bg-[#f0eafd] text-[#7c3aed]" label="Your Data" value="Live on cloud" />
+      <BandItem icon={Database} tile="bg-[#EAFDE8] text-[#437278]" label="Your Data" value="Live on cloud" />
       <BandItem icon={HardDrive} tile="bg-[#fdeeda] text-[#ea580c]" label="Local Copy" value="None" />
-      <BandItem icon={RefreshCw} tile="bg-[#e8effd] text-[#2563eb]" label="Sync" value="Not needed" />
+      <BandItem icon={RefreshCw} tile="bg-[#EAFDE8] text-[#0B363B]" label="Sync" value="Not needed" />
       <BandItem icon={Monitor} tile="bg-[#e5f6ec] text-[#16a34a]" label="This Device" value="Web browser" />
     </BandShell>
   );
@@ -899,7 +899,7 @@ function ClonePanel({
   return (
     <section className={cn(CARD, "flex flex-col p-5")}>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight text-[#0a1128]">
+        <h3 className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight text-[#032125]">
           {title}
           {badge ? (
             <span className="grid min-w-[18px] place-items-center rounded-full bg-red-500 px-1 py-px text-[10px] font-bold text-white">
@@ -908,12 +908,12 @@ function ClonePanel({
           ) : null}
         </h3>
         {actionLabel && onAction && (
-          <button type="button" onClick={onAction} className="shrink-0 text-[12.5px] font-semibold text-[#2563eb] hover:underline">
+          <button type="button" onClick={onAction} className="shrink-0 text-[12.5px] font-semibold text-[#0B363B] hover:underline">
             {actionLabel}
           </button>
         )}
       </div>
-      {subtitle && <p className="mb-3 text-[12.5px] text-[#8c95b0]">{subtitle}</p>}
+      {subtitle && <p className="mb-3 text-[12.5px] text-[#437278]">{subtitle}</p>}
       <div className="flex-1">{children}</div>
     </section>
   );
@@ -1029,22 +1029,22 @@ export function CloneInvitationsPanel() {
       {loading ? (
         <div className="space-y-2">
           {[1, 2].map((i) => (
-            <div key={i} className="h-[92px] animate-pulse rounded-xl border border-[rgba(15,23,60,0.06)] bg-[#f7f9fc]" />
+            <div key={i} className="h-[92px] animate-pulse rounded-xl border border-[rgba(3,33,37,0.06)] bg-[#f7f9fc]" />
           ))}
         </div>
       ) : invitations.length > 0 ? (
-        <div className="divide-y divide-[rgba(15,23,60,0.06)]">
+        <div className="divide-y divide-[rgba(3,33,37,0.06)]">
           {invitations.map((inv) => {
             const busy = actingToken === inv.token;
             return (
               <div key={inv.invitationId || inv.token} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e8effd] text-[14px] font-bold text-[#2563eb]">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#EAFDE8] text-[14px] font-bold text-[#0B363B]">
                     {inv.businessName?.charAt(0).toUpperCase() || "B"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-bold text-[#0a1128]">{inv.businessName}</p>
-                    <p className="mt-0.5 truncate text-xs text-[#8c95b0]">{invitationExpiryLabel(inv.expiresAt)}</p>
+                    <p className="truncate text-[13.5px] font-bold text-[#032125]">{inv.businessName}</p>
+                    <p className="mt-0.5 truncate text-xs text-[#437278]">{invitationExpiryLabel(inv.expiresAt)}</p>
                   </div>
                   {inv.roleName && (
                     <span className="shrink-0 rounded-full bg-[#e5f6ec] px-2.5 py-1 text-[11px] font-semibold text-[#16a34a]">
@@ -1057,7 +1057,7 @@ export function CloneInvitationsPanel() {
                     type="button"
                     disabled={busy}
                     onClick={() => handleDecline(inv)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.12)] bg-white px-4 py-2 text-xs font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7] disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(3,33,37,0.12)] bg-white px-4 py-2 text-xs font-semibold text-[#354D51] transition-colors hover:bg-[#EAFDE8] disabled:opacity-50"
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     Decline
@@ -1066,7 +1066,7 @@ export function CloneInvitationsPanel() {
                     type="button"
                     disabled={busy}
                     onClick={() => handleAccept(inv)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(29,78,216,0.3)] transition-opacity hover:opacity-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#0B363B] px-4 py-2 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(11,54,59,0.3)] transition-opacity hover:opacity-95 disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {busy ? "Working…" : "Accept"}
@@ -1077,20 +1077,20 @@ export function CloneInvitationsPanel() {
           })}
         </div>
       ) : fetchFailed && pendingFromMemberships.length > 0 ? (
-        <div className="divide-y divide-[rgba(15,23,60,0.06)]">
+        <div className="divide-y divide-[rgba(3,33,37,0.06)]">
           {pendingFromMemberships.map((m: any) => (
             <div key={m.businessId} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e8effd] text-[14px] font-bold text-[#2563eb]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#EAFDE8] text-[14px] font-bold text-[#0B363B]">
                 {(m.businessName || "B").charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13.5px] font-bold text-[#0a1128]">{m.businessName || m.businessId}</p>
-                <p className="truncate text-xs text-[#8c95b0]">Invited as {m.roleName || m.role || "Member"}</p>
+                <p className="truncate text-[13.5px] font-bold text-[#032125]">{m.businessName || m.businessId}</p>
+                <p className="truncate text-xs text-[#437278]">Invited as {m.roleName || m.role || "Member"}</p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate("/zapeera/invitations")}
-                className="shrink-0 rounded-lg bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(29,78,216,0.3)] hover:opacity-95"
+                className="shrink-0 rounded-lg bg-[#0B363B] px-4 py-2 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(11,54,59,0.3)] hover:opacity-95"
               >
                 Review
               </button>
@@ -1098,7 +1098,7 @@ export function CloneInvitationsPanel() {
           ))}
         </div>
       ) : (
-        <p className="text-[13px] text-[#8c95b0]">You have no pending invitations.</p>
+        <p className="text-[13px] text-[#437278]">You have no pending invitations.</p>
       )}
     </ClonePanel>
   );
@@ -1126,12 +1126,12 @@ export function CloneActivityPanel({ onOpen }: { onOpen: (slug: string | null | 
       list.push({
         id: "desktop",
         icon: Monitor,
-        tint: "bg-[#f0eafd] text-[#7c3aed]",
+        tint: "bg-[#EAFDE8] text-[#437278]",
         title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`,
         time: "Now",
       });
     }
-    list.push({ id: "login", icon: LogIn, tint: "bg-[#e8effd] text-[#2563eb]", title: "New login from your account", time: "Today" });
+    list.push({ id: "login", icon: LogIn, tint: "bg-[#EAFDE8] text-[#0B363B]", title: "New login from your account", time: "Today" });
     list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#e5f6ec] text-[#16a34a]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
@@ -1140,26 +1140,26 @@ export function CloneActivityPanel({ onOpen }: { onOpen: (slug: string | null | 
     <ClonePanel title="Recent Account Activity" actionLabel="View All" onAction={() => navigate("/zapeera/notifications")}>
       {recent.length > 0 && (
         <div className="mb-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Recently accessed</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Recently accessed</p>
           <div className="space-y-1">
             {recent.map((b) => (
               <button
                 key={b.id}
                 type="button"
                 onClick={() => onOpen(b.slug, b.id)}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[#f0f2f7]"
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[#EAFDE8]"
               >
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#e8effd] text-[#2563eb]">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EAFDE8] text-[#0B363B]">
                   <Building2 className="h-3.5 w-3.5" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0a1128]">{b.name}</span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#032125]">{b.name}</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[#437278]" />
               </button>
             ))}
           </div>
         </div>
       )}
-      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Account activity</p>
+      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Account activity</p>
       <ul className="space-y-3.5">
         {events.map((it) => {
           const Icon = it.icon;
@@ -1169,8 +1169,8 @@ export function CloneActivityPanel({ onOpen }: { onOpen: (slug: string | null | 
                 <Icon className="h-4 w-4" strokeWidth={2.2} />
               </span>
               <div className="min-w-0">
-                <p className="text-[13.5px] font-semibold leading-snug text-[#0a1128]">{it.title}</p>
-                <p className="mt-0.5 text-xs text-[#8c95b0]">{it.time}</p>
+                <p className="text-[13.5px] font-semibold leading-snug text-[#032125]">{it.title}</p>
+                <p className="mt-0.5 text-xs text-[#437278]">{it.time}</p>
               </div>
             </li>
           );
@@ -1208,12 +1208,12 @@ export function CloneQuickActions() {
               key={a.label}
               type="button"
               onClick={() => navigate(a.to)}
-              className="flex w-full items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.07)] px-3 py-2.5 text-left transition-colors hover:border-[#2563eb]/25 hover:bg-[#f7faff]"
+              className="flex w-full items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.07)] px-3 py-2.5 text-left transition-colors hover:border-[#0B363B]/25 hover:bg-[#EAFDE8]"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e8effd] text-[#2563eb]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#EAFDE8] text-[#0B363B]">
                 <Icon className="h-4 w-4" />
               </span>
-              <span className="flex-1 text-[13.5px] font-semibold text-[#0a1128]">{a.label}</span>
+              <span className="flex-1 text-[13.5px] font-semibold text-[#032125]">{a.label}</span>
             </button>
           );
         })}
@@ -1267,12 +1267,12 @@ function CloneStoragePanel() {
     return (
       <ClonePanel title="This Device">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8effd] text-[#2563eb]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#EAFDE8] text-[#0B363B]">
             <Monitor className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-[#0a1128]">Desktop app{appVersion ? ` · v${appVersion}` : ""}</p>
-            <p className="mt-0.5 text-[13px] text-[#4a5578]">
+            <p className="text-sm font-bold text-[#032125]">Desktop app{appVersion ? ` · v${appVersion}` : ""}</p>
+            <p className="mt-0.5 text-[13px] text-[#354D51]">
               {offlineReady > 0
                 ? `${offlineReady} business${offlineReady > 1 ? "es" : ""} ready to work offline.`
                 : "Storage details are not available on this device."}
@@ -1305,7 +1305,7 @@ function CloneStoragePanel() {
               cy="42"
               r={R}
               fill="none"
-              stroke="#2563eb"
+              stroke="#0B363B"
               strokeWidth="10"
               strokeLinecap="round"
               strokeDasharray={`${(pct / 100) * CIRC} ${CIRC}`}
@@ -1314,41 +1314,41 @@ function CloneStoragePanel() {
           </svg>
           <div className="absolute inset-0 grid place-items-center text-center">
             <div>
-              <p className="text-[15px] font-extrabold leading-none text-[#0a1128]">{pct}%</p>
-              <p className="mt-0.5 text-[9.5px] font-semibold text-[#8c95b0]">Used</p>
+              <p className="text-[15px] font-extrabold leading-none text-[#032125]">{pct}%</p>
+              <p className="mt-0.5 text-[9.5px] font-semibold text-[#437278]">Used</p>
             </div>
           </div>
         </div>
         <ul className="min-w-0 flex-1 space-y-1.5 text-[12.5px]">
           <li className="flex items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#2563eb]" />
-            <span className="text-[#4a5578]">Used</span>
-            <span className="ml-auto font-bold text-[#0a1128]">{usedLabel}</span>
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#0B363B]" />
+            <span className="text-[#354D51]">Used</span>
+            <span className="ml-auto font-bold text-[#032125]">{usedLabel}</span>
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#c7d6f8]" />
-            <span className="text-[#4a5578]">Available</span>
-            <span className="ml-auto font-bold text-[#0a1128]">{freeLabel}</span>
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#A1C2C6]" />
+            <span className="text-[#354D51]">Available</span>
+            <span className="ml-auto font-bold text-[#032125]">{freeLabel}</span>
           </li>
           <li className="flex items-center gap-2">
             <span className="h-2 w-2 shrink-0 rounded-full bg-[#c3cadb]" />
-            <span className="text-[#4a5578]">Total</span>
-            <span className="ml-auto font-bold text-[#0a1128]">{totalLabel}</span>
+            <span className="text-[#354D51]">Total</span>
+            <span className="ml-auto font-bold text-[#032125]">{totalLabel}</span>
           </li>
         </ul>
       </div>
-      <div className="mt-4 border-t border-[rgba(15,23,60,0.06)] pt-3">
+      <div className="mt-4 border-t border-[rgba(3,33,37,0.06)] pt-3">
         <p className="flex items-center gap-1.5 text-[13px] font-bold text-[#16a34a]">
           Local Storage • Secure
           <CheckCircle2 className="h-4 w-4" />
         </p>
-        <p className="mt-1 text-[12.5px] leading-snug text-[#8c95b0]">
+        <p className="mt-1 text-[12.5px] leading-snug text-[#437278]">
           Your business data is safely stored on this device and synced securely.
         </p>
         <button
           type="button"
           onClick={() => navigate("/settings")}
-          className="mt-3 w-full rounded-[10px] bg-[#f0f2f7] px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] transition-colors hover:bg-[#e4eaf5]"
+          className="mt-3 w-full rounded-[10px] bg-[#EAFDE8] px-4 py-2.5 text-[13px] font-semibold text-[#032125] transition-colors hover:bg-[#e4eaf5]"
         >
           Manage Storage
         </button>
@@ -1365,12 +1365,12 @@ function CloneDownloadPanel() {
   return (
     <ClonePanel title="Download Desktop App">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-white shadow-[0_6px_18px_rgba(37,99,235,0.3)]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_6px_18px_rgba(11,54,59,0.3)]">
           <Monitor className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="whitespace-nowrap text-[13px] font-extrabold tracking-tight text-[#0a1128]">Tickimo for Windows</p>
-          <p className="mt-0.5 text-[12px] leading-snug text-[#4a5578]">
+          <p className="whitespace-nowrap text-[13px] font-extrabold tracking-tight text-[#032125]">Tickimo for Windows</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-[#354D51]">
             {versionLabel} · Work offline at the counter, syncs automatically.
           </p>
         </div>
@@ -1387,7 +1387,7 @@ function CloneDownloadPanel() {
       <button
         type="button"
         onClick={() => navigate("/downloads")}
-        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-[10px] px-4 py-2 text-[13px] font-semibold text-[#2563eb] transition-colors hover:bg-[#e8effd]"
+        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-[10px] px-4 py-2 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#EAFDE8]"
       >
         More download options
         <ArrowRight className="h-3.5 w-3.5" />
@@ -1404,21 +1404,21 @@ function CloneDownloadPanel() {
 export function CloneControlBanner() {
   const navigate = useNavigate();
   return (
-    <section className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white px-5 py-4 shadow-[0_1px_3px_rgba(16,24,40,0.05)] sm:px-6">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#2563eb] text-white shadow-[0_4px_14px_rgba(37,99,235,0.35)]">
+    <section className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-[rgba(3,33,37,0.08)] bg-white px-5 py-4 shadow-[0_1px_3px_rgba(16,24,40,0.05)] sm:px-6">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#0B363B] text-white shadow-[0_4px_14px_rgba(11,54,59,0.35)]">
         <LayoutGrid className="h-5 w-5" />
       </span>
       <div className="min-w-[210px] flex-1">
-        <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Stay in Control</p>
-        <p className="mt-0.5 text-[13px] text-[#4a5578]">
+        <p className="text-[15px] font-extrabold tracking-tight text-[#032125]">Stay in Control</p>
+        <p className="mt-0.5 text-[13px] text-[#354D51]">
           Manage your businesses, track performance, and grow with powerful tools built for you.
         </p>
       </div>
       <div className="hidden items-center gap-2 md:flex" aria-hidden>
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e8effd] text-[#2563eb]">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#EAFDE8] text-[#0B363B]">
           <BarChart3 className="h-5 w-5" />
         </span>
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f0eafd] text-[#7c3aed]">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#EAFDE8] text-[#437278]">
           <TrendingUp className="h-5 w-5" />
         </span>
         <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e5f6ec] text-[#16a34a]">

@@ -122,7 +122,7 @@ export function VoiceAiSection() {
                   step={1000}
                   value={quotas[plan.id] ?? ''}
                   onChange={(e) => setQuotas((prev) => ({ ...prev, [plan.id]: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-500"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-spruce-500"
                 />
                 <p className="text-xs text-gray-400 mt-1.5">
                   ≈ {fmt(Math.floor((Number(quotas[plan.id]) || 0) / TOKENS_PER_COMMAND))} AI commands / month
@@ -140,7 +140,7 @@ export function VoiceAiSection() {
                 step={1000}
                 value={dailyCap}
                 onChange={(e) => setDailyCap(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 outline-none focus:border-spruce-500"
               />
               <p className="text-xs text-gray-400 mt-1.5">
                 Protects the shared free-tier pool from a single heavy day.
@@ -151,7 +151,7 @@ export function VoiceAiSection() {
           <button
             onClick={save}
             disabled={saving}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {saving ? 'Saving…' : 'Save quotas'}
           </button>
@@ -199,7 +199,7 @@ export function VoiceAiSection() {
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
                             <div
-                              className={`h-full rounded-full ${b.percentUsed >= 100 ? 'bg-red-500' : b.percentUsed >= 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                              className={`h-full rounded-full ${b.percentUsed >= 100 ? 'bg-red-500' : b.percentUsed >= 80 ? 'bg-amber-500' : 'bg-spruce-500'}`}
                               style={{ width: `${Math.min(100, b.percentUsed)}%` }}
                             />
                           </div>

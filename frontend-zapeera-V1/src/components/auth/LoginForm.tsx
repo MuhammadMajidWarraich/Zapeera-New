@@ -398,12 +398,12 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-spruce-700 to-slate-900 flex relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-spruce-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-spruce-500/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-spruce-700/10 rounded-full blur-3xl" />
       </div>
 
       {/* Left Side - Sign In (White Background with modern styling) */}
@@ -420,14 +420,14 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
 
           {challengeToken ? (
           <div className="space-y-5">
-            <div className="p-5 bg-blue-50 border-2 border-blue-200 rounded-xl">
+            <div className="p-5 bg-verdant-100 border-2 border-spruce-200 rounded-xl">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 bg-verdant-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-spruce-700" />
                 </div>
                 <div>
-                  <p className="text-sm text-blue-900 font-semibold">Two-factor verification</p>
-                  <p className="text-sm text-blue-800 mt-1 leading-relaxed">
+                  <p className="text-sm text-spruce-900 font-semibold">Two-factor verification</p>
+                  <p className="text-sm text-spruce-900 mt-1 leading-relaxed">
                     {useRecoveryCode
                       ? "Enter one of the recovery codes you saved when you turned on two-factor authentication. Each code works once."
                       : "Enter the 6-digit code from your authenticator app. The code changes every 30 seconds."}
@@ -451,7 +451,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                     maxLength={6}
                     value={twoFactorCode}
                     onChange={(e) => { setTwoFactorCode(e.target.value.replace(/[^0-9]/g, "")); if (twoFactorError) setTwoFactorError(""); }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-2xl tracking-[0.5em] font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-2xl tracking-[0.5em] font-semibold focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50"
                     placeholder="------"
                   />
                 </div>
@@ -467,7 +467,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                     autoFocus
                     value={recoveryCode}
                     onChange={(e) => { setRecoveryCode(e.target.value); if (twoFactorError) setTwoFactorError(""); }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-lg tracking-[0.2em] font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-lg tracking-[0.2em] font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50"
                     placeholder="XXXX-XXXX"
                   />
                 </div>
@@ -483,7 +483,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               <button
                 type="submit"
                 disabled={verifying2fa}
-                className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full bg-gradient-to-r from-spruce-700 to-spruce-500 text-white py-3 rounded-xl font-semibold hover:from-spruce-900 hover:to-spruce-500 transition-all duration-300 shadow-lg shadow-spruce-500/30 hover:shadow-xl hover:shadow-spruce-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {verifying2fa ? (
                   <span className="flex items-center justify-center space-x-2">
@@ -500,7 +500,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               <button
                 type="button"
                 onClick={() => { setUseRecoveryCode(!useRecoveryCode); setTwoFactorError(""); }}
-                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="font-semibold text-spruce-700 hover:text-spruce-900 transition-colors"
               >
                 {useRecoveryCode ? "Use authenticator code instead" : "Use a recovery code instead"}
               </button>
@@ -524,14 +524,14 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <User className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                  <User className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                 </div>
                 <input
                   id="login-username"
                   type="text"
                   value={formData.username}
                   onChange={(e) => handleInputChange("username", e.target.value)}
-                  className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                  className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                     fieldErrors.username 
                       ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20' 
                       : 'border-gray-200 focus:bg-white'
@@ -555,7 +555,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                  <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                 </div>
                 <input
                   id="login-password"
@@ -563,7 +563,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                   value={formData.password}
                   onChange={(e) => handleInputChange("password", e.target.value)}
                   autoComplete="current-password"
-                  className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                  className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                     fieldErrors.password 
                       ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20' 
                       : 'border-gray-200 focus:bg-white'
@@ -614,7 +614,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                       type="button"
                       onClick={handleResendVerification}
                       disabled={resendLoading}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
+                      className="px-4 py-2 bg-spruce-700 hover:bg-spruce-900 disabled:bg-spruce-500 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
                     >
                       {resendLoading ? 'Sending...' : 'Resend'}
                     </button>
@@ -644,7 +644,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="text-sm font-semibold text-spruce-700 hover:text-spruce-900 transition-colors"
               >
                 Forgot password?
               </button>
@@ -654,7 +654,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform hover:-translate-y-0.5 disabled:hover:translate-y-0"
+              className="w-full bg-gradient-to-r from-spruce-700 to-spruce-500 text-white py-3 rounded-xl font-semibold hover:from-spruce-900 hover:to-spruce-500 transition-all duration-300 shadow-lg shadow-spruce-500/30 hover:shadow-xl hover:shadow-spruce-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform hover:-translate-y-0.5 disabled:hover:translate-y-0"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
@@ -674,7 +674,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
               <button
                 type="button"
                 onClick={onNavigateToSignup}
-                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="font-semibold text-spruce-700 hover:text-spruce-900 transition-colors"
               >
                 {signupLabel || 'Sign up'}
               </button>
@@ -693,7 +693,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
       </div>
 
       {/* Right Side - Welcome (Enhanced Blue Background matching signin button) */}
-      <div className="hidden lg:flex lg:w-2/5 relative items-center justify-center p-8 bg-gradient-to-br from-blue-600 via-cyan-500 to-blue-700 overflow-hidden">
+      <div className="hidden lg:flex lg:w-2/5 relative items-center justify-center p-8 bg-gradient-to-br from-spruce-700 via-spruce-500 to-spruce-700 overflow-hidden">
         <div className="relative z-10 text-center w-full max-w-md">
           {/* Logo */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl mb-4 shadow-2xl">
@@ -784,8 +784,8 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
             </button>
 
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <Mail className="w-8 h-8 text-blue-600" />
+              <div className="w-16 h-16 bg-gradient-to-br from-verdant-100 to-verdant-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Mail className="w-8 h-8 text-spruce-700" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900">
                 {forgotPasswordSubmitted ? 'Request Submitted' : 'Forgot Password?'}
@@ -803,7 +803,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                     type="text"
                     value={forgotPasswordEmail}
                     onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50"
+                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50"
                     placeholder="Enter your email or username"
                   />
                 </div>
@@ -815,7 +815,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                 <button
                   onClick={handleForgotPasswordSubmit}
                   disabled={forgotPasswordLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3.5 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-spruce-700 to-spruce-500 text-white py-3.5 rounded-xl font-semibold hover:from-spruce-900 hover:to-spruce-500 transition-all duration-300 shadow-lg shadow-spruce-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {forgotPasswordLoading ? (
                     <div className="flex items-center justify-center space-x-2">
@@ -840,11 +840,11 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                     </div>
                   </div>
                 </div>
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-6">
-                  <p className="text-blue-800 text-sm font-semibold text-center mb-2">
+                <div className="bg-verdant-100 border-2 border-spruce-200 rounded-xl p-4 mb-6">
+                  <p className="text-spruce-900 text-sm font-semibold text-center mb-2">
                     Next Steps:
                   </p>
-                  <ul className="text-blue-700 text-sm space-y-2">
+                  <ul className="text-spruce-900 text-sm space-y-2">
                     <li className="flex items-start">
                       <span className="mr-2">1.</span>
                       <span>Check your email inbox (and spam folder)</span>
@@ -858,7 +858,7 @@ const LoginForm = ({ onLogin, onNavigateToSignup, signupLabel, loginHandler, log
                       <span>Create your new password</span>
                     </li>
                   </ul>
-                  <p className="text-blue-600 text-xs text-center mt-3 font-medium">
+                  <p className="text-spruce-700 text-xs text-center mt-3 font-medium">
                     The reset link will expire in 1 hour
                   </p>
                 </div>

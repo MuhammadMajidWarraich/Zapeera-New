@@ -40,15 +40,15 @@ const TYPE_ICONS: Record<string, { icon: React.ElementType; tint: string }> = {
   sale_created: { icon: ShoppingCart, tint: "bg-green-500/12 text-green-600" },
   inventory: { icon: Package, tint: "bg-amber-500/12 text-amber-600" },
   inventory_low: { icon: Package, tint: "bg-amber-500/12 text-amber-600" },
-  subscription: { icon: CreditCard, tint: "bg-violet-500/12 text-violet-600" },
-  subscription_expiry: { icon: CreditCard, tint: "bg-violet-500/12 text-violet-600" },
-  invitation: { icon: UserPlus, tint: "bg-blue-500/12 text-blue-600" },
-  invitation_received: { icon: UserPlus, tint: "bg-blue-500/12 text-blue-600" },
-  staff: { icon: Users, tint: "bg-teal-500/12 text-teal-600" },
-  staff_added: { icon: Users, tint: "bg-teal-500/12 text-teal-600" },
+  subscription: { icon: CreditCard, tint: "bg-spruce-500/12 text-spruce-500" },
+  subscription_expiry: { icon: CreditCard, tint: "bg-spruce-500/12 text-spruce-500" },
+  invitation: { icon: UserPlus, tint: "bg-spruce-500/12 text-spruce-700" },
+  invitation_received: { icon: UserPlus, tint: "bg-spruce-500/12 text-spruce-700" },
+  staff: { icon: Users, tint: "bg-spruce-500/12 text-spruce-500" },
+  staff_added: { icon: Users, tint: "bg-spruce-500/12 text-spruce-500" },
   billing: { icon: CreditCard, tint: "bg-pink-500/12 text-pink-600" },
   payment_approved: { icon: CreditCard, tint: "bg-green-500/12 text-green-600" },
-  system: { icon: Megaphone, tint: "bg-gradient-to-br from-[#1a52c5]/15 to-[#28c2ce]/15 text-[#1a52c5]" },
+  system: { icon: Megaphone, tint: "bg-gradient-to-br from-[#0B363B]/15 to-[#437278]/15 text-[#0B363B]" },
 };
 
 function getIconForType(type: string) {
@@ -141,12 +141,12 @@ const NotificationsListPage = () => {
     <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#0B363B]/10 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-3 py-1 text-xs font-semibold text-[#0B363B]">
             <BellRing className="h-3.5 w-3.5" />
             Notifications
           </div>
-          <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Notifications</h1>
-          <p className="mt-1 text-sm text-[#8c95b0]">
+          <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Notifications</h1>
+          <p className="mt-1 text-sm text-[#437278]">
             {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}` : "You're all caught up"}
           </p>
         </div>
@@ -155,7 +155,7 @@ const NotificationsListPage = () => {
             variant="outline"
             size="sm"
             onClick={() => navigate("/zapeera/notification-settings")}
-            className="h-9 gap-1.5 rounded-[10px] border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578]"
+            className="h-9 gap-1.5 rounded-[10px] border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51]"
           >
             <Settings className="h-3.5 w-3.5" />
             Settings
@@ -165,7 +165,7 @@ const NotificationsListPage = () => {
               variant="outline"
               size="sm"
               onClick={handleMarkAllRead}
-              className="h-9 gap-1.5 rounded-[10px] border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578]"
+              className="h-9 gap-1.5 rounded-[10px] border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51]"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               Mark all read
@@ -184,8 +184,8 @@ const NotificationsListPage = () => {
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors",
               filter === f
-                ? "bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_2px_8px_rgba(26,82,197,0.25)]"
-                : "bg-white text-[#4a5578] border border-[rgba(15,23,60,0.06)] hover:bg-[#f0f2f7]"
+                ? "bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_2px_8px_rgba(11,54,59,0.25)]"
+                : "bg-white text-[#354D51] border border-[rgba(3,33,37,0.06)] hover:bg-[#EAFDE8]"
             )}
           >
             <Filter className="h-3 w-3" />
@@ -198,18 +198,18 @@ const NotificationsListPage = () => {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#f0f2f7]" />
+            <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#EAFDE8]" />
           ))}
         </div>
       ) : notifications.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[rgba(15,23,60,0.12)] bg-white/60 p-12 text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+        <div className="rounded-2xl border border-dashed border-[rgba(3,33,37,0.12)] bg-white/60 p-12 text-center">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
             <Inbox className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-bold text-[#0a1128]">
+          <h3 className="text-lg font-bold text-[#032125]">
             {filter === "unread" ? "No unread notifications" : "No notifications yet"}
           </h3>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-[#8c95b0]">
+          <p className="mx-auto mt-1 max-w-sm text-sm text-[#437278]">
             {filter === "unread"
               ? "All caught up! Check back later for new notifications."
               : "When something happens, we'll let you know here."}
@@ -224,22 +224,22 @@ const NotificationsListPage = () => {
                 key={n.id}
                 className={cn(
                   "group flex items-start gap-4 rounded-2xl border bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all",
-                  n.read ? "border-[rgba(15,23,60,0.04)]" : "border-[rgba(15,23,60,0.08)] border-l-[3px] border-l-[#1a52c5]"
+                  n.read ? "border-[rgba(3,33,37,0.04)]" : "border-[rgba(3,33,37,0.08)] border-l-[3px] border-l-[#0B363B]"
                 )}
               >
                 <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", tint)}>
                   <Icon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={cn("text-[15px] font-bold", n.read ? "text-[#4a5578]" : "text-[#0a1128]")}>{n.title}</p>
-                  <p className="mt-0.5 text-[13px] leading-relaxed text-[#4a5578]">{n.body}</p>
+                  <p className={cn("text-[15px] font-bold", n.read ? "text-[#354D51]" : "text-[#032125]")}>{n.title}</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-[#354D51]">{n.body}</p>
                   <div className="mt-2 flex items-center gap-3">
-                    <span className="text-xs font-medium text-[#8c95b0]">{timeAgo(n.createdAt)}</span>
+                    <span className="text-xs font-medium text-[#437278]">{timeAgo(n.createdAt)}</span>
                     {n.actionUrl && (
                       <button
                         type="button"
                         onClick={() => navigate(n.actionUrl!)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#1a52c5] hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B363B] hover:underline"
                       >
                         View <ChevronRight className="h-3 w-3" />
                       </button>
@@ -252,7 +252,7 @@ const NotificationsListPage = () => {
                       type="button"
                       onClick={() => handleMarkRead(n.id)}
                       title="Mark as read"
-                      className="grid h-7 w-7 place-items-center rounded-lg text-[#8c95b0] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                      className="grid h-7 w-7 place-items-center rounded-lg text-[#437278] hover:bg-[#EAFDE8] hover:text-[#032125]"
                     >
                       <CheckCheck className="h-3.5 w-3.5" />
                     </button>
@@ -261,7 +261,7 @@ const NotificationsListPage = () => {
                     type="button"
                     onClick={() => handleDelete(n.id)}
                     title="Delete"
-                    className="grid h-7 w-7 place-items-center rounded-lg text-[#8c95b0] hover:bg-red-50 hover:text-red-500"
+                    className="grid h-7 w-7 place-items-center rounded-lg text-[#437278] hover:bg-red-50 hover:text-red-500"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -282,7 +282,7 @@ const NotificationsListPage = () => {
               >
                 Previous
               </Button>
-              <span className="text-sm font-semibold text-[#4a5578]">
+              <span className="text-sm font-semibold text-[#354D51]">
                 Page {page} of {totalPages}
               </span>
               <Button

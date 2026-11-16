@@ -163,7 +163,7 @@ export function StaffPinManager({ open, onClose }: { open: boolean; onClose: () 
         </div>
 
         {editing && (
-          <div className="mt-5 rounded-xl bg-[#f0f2f7] p-4">
+          <div className="mt-5 rounded-xl bg-[#EAFDE8] p-4">
             <p className="text-sm font-medium">
               {editing.hasPin ? 'Reset PIN for' : 'Set PIN for'} {editing.name || 'staff member'}
             </p>

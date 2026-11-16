@@ -103,32 +103,32 @@ const InvitationsPage = () => {
   return (
     <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-7">
-        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#0B363B]/10 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-3 py-1 text-xs font-semibold text-[#0B363B]">
           <UserPlus className="h-3.5 w-3.5" />
           Invitations
         </div>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Pending Invitations</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">Businesses that invited you to join. Accept to start working with them.</p>
+        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Pending Invitations</h1>
+        <p className="mt-1 text-sm text-[#437278]">Businesses that invited you to join. Accept to start working with them.</p>
       </div>
 
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white" />
           ))}
         </div>
       ) : invitations.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[rgba(15,23,60,0.12)] bg-white/60 p-12 text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+        <div className="rounded-2xl border border-dashed border-[rgba(3,33,37,0.12)] bg-white/60 p-12 text-center">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
             <Mail className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-bold text-[#0a1128]">No pending invitations</h3>
-          <p className="mx-auto mt-1 max-w-md text-sm text-[#8c95b0]">
+          <h3 className="text-lg font-bold text-[#032125]">No pending invitations</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-[#437278]">
             When a business invites you to join, it will appear here. You can also browse your businesses below.
           </p>
           <Button
             onClick={() => navigate("/zapeera/my-businesses")}
-            className="mt-5 h-11 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)]"
+            className="mt-5 h-11 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)]"
           >
             My Businesses
           </Button>
@@ -140,23 +140,23 @@ const InvitationsPage = () => {
             return (
               <div
                 key={inv.invitationId}
-                className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]"
+                className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]"
               >
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-white">
                     <Building2 className="h-6 w-6" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-[16px] font-bold tracking-tight text-[#0a1128]">{inv.businessName || "Business"}</h3>
+                      <h3 className="text-[16px] font-bold tracking-tight text-[#032125]">{inv.businessName || "Business"}</h3>
                       {inv.roleName && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#1a52c5]/10 bg-[#1a52c5]/[0.06] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#1a52c5]">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#0B363B]/10 bg-[#0B363B]/[0.06] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#0B363B]">
                           <ShieldCheck className="h-3 w-3" />
                           {inv.roleName}
                         </span>
                       )}
                     </div>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8c95b0]">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#437278]">
                       <span className="inline-flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" />
                         Expires {formatExpiry(inv.expiresAt)}
@@ -168,7 +168,7 @@ const InvitationsPage = () => {
                       variant="outline"
                       disabled={busy}
                       onClick={() => handleDecline(inv)}
-                      className="h-10 rounded-[10px] border-[rgba(15,23,60,0.1)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                      className="h-10 rounded-[10px] border-[rgba(3,33,37,0.1)] font-semibold text-[#354D51] hover:bg-[#EAFDE8] hover:text-[#032125]"
                     >
                       <X className="mr-1.5 h-4 w-4" />
                       Decline
@@ -176,7 +176,7 @@ const InvitationsPage = () => {
                     <Button
                       disabled={busy}
                       onClick={() => handleAccept(inv)}
-                      className="h-10 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-5 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                      className="h-10 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-5 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                     >
                       <Check className="mr-1.5 h-4 w-4" strokeWidth={2.5} />
                       {busy ? "Working…" : "Accept"}
@@ -192,7 +192,7 @@ const InvitationsPage = () => {
       <button
         type="button"
         onClick={() => navigate("/zapeera/my-businesses")}
-        className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-[#1a52c5] transition-colors hover:text-[#28c2ce]"
+        className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-[#0B363B] transition-colors hover:text-[#437278]"
       >
         View My Businesses <ChevronRight className="h-4 w-4" />
       </button>

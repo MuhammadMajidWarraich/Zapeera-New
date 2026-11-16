@@ -5,14 +5,14 @@ import { backofficeApi } from '../../services/api';
 import type { SupportTicket } from '../../types';
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-blue-100 text-blue-700',
+  OPEN: 'bg-verdant-100 text-spruce-900',
   IN_PROGRESS: 'bg-amber-100 text-amber-700',
   RESOLVED: 'bg-emerald-100 text-emerald-700',
   CLOSED: 'bg-gray-100 text-gray-500',
 };
 const PRIORITY_COLORS: Record<string, string> = {
   LOW: 'bg-gray-100 text-gray-600',
-  MEDIUM: 'bg-blue-100 text-blue-600',
+  MEDIUM: 'bg-verdant-100 text-spruce-700',
   HIGH: 'bg-amber-100 text-amber-600',
   URGENT: 'bg-red-100 text-red-600',
 };
@@ -134,7 +134,7 @@ export function SupportTicketsPage() {
               <div
                 key={message.id}
                 className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  message.authorType === 'ADMIN' ? 'ml-auto bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
+                  message.authorType === 'ADMIN' ? 'ml-auto bg-spruce-700 text-white' : 'bg-gray-100 text-gray-800'
                 }`}
               >
                 <p className={`mb-1 text-[11px] font-semibold ${message.authorType === 'ADMIN' ? 'text-white/70' : 'text-gray-500'}`}>
@@ -154,12 +154,12 @@ export function SupportTicketsPage() {
               onChange={e => setReply(e.target.value)}
               placeholder="Write a reply to the customer…"
               rows={3}
-              className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50"
             />
             <button
               onClick={handleReply}
               disabled={replying || !reply.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-lg text-sm font-medium hover:bg-spruce-900 disabled:opacity-60"
             >
               {replying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Reply
             </button>
@@ -176,7 +176,7 @@ export function SupportTicketsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-none sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-blue-500/50" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-spruce-500/50" />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
           <option value="all">All Status</option>

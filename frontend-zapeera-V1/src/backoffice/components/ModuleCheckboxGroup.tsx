@@ -79,7 +79,7 @@ export function ModuleCheckboxGroup({
           <button
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs font-medium disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-spruce-700 text-white rounded-lg hover:bg-spruce-900 transition text-xs font-medium disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             Save Changes
@@ -114,7 +114,7 @@ export function ModuleCheckboxGroup({
                     className="sr-only"
                   />
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                    isEnabled ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'
+                    isEnabled ? 'bg-spruce-700 border-spruce-700' : 'border-gray-300 bg-white'
                   }`}>
                     {isEnabled && <Check className="w-3 h-3 text-white" />}
                   </div>
@@ -144,7 +144,7 @@ export function ModuleCheckboxGroup({
                   <div className="flex items-center gap-2 pb-1.5 mb-1.5 border-b border-gray-100">
                     <button
                       onClick={() => onToggleAllSubModules(parent.module, true)}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-xs text-spruce-700 hover:text-spruce-900 font-medium"
                     >
                       Enable All
                     </button>
@@ -166,7 +166,7 @@ export function ModuleCheckboxGroup({
                         key={sub.key}
                         className={`flex items-center gap-2.5 px-2 py-1.5 rounded-md cursor-pointer transition ${
                           subEnabled
-                            ? 'bg-blue-50/50 hover:bg-blue-50'
+                            ? 'bg-verdant-100/50 hover:bg-verdant-100'
                             : 'bg-gray-50/50 hover:bg-gray-50'
                         }`}
                       >
@@ -178,7 +178,7 @@ export function ModuleCheckboxGroup({
                             className="sr-only"
                           />
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition ${
-                            subEnabled ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'
+                            subEnabled ? 'bg-spruce-700 border-spruce-700' : 'border-gray-300 bg-white'
                           }`}>
                             {subEnabled && <Check className="w-2.5 h-2.5 text-white" />}
                           </div>

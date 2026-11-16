@@ -63,13 +63,13 @@ export function DesktopStatusPanel() {
 
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground flex items-center gap-2">
-            <RefreshCw className={cn('h-3.5 w-3.5', status.syncState === 'syncing' && 'animate-spin text-blue-500')} />
+            <RefreshCw className={cn('h-3.5 w-3.5', status.syncState === 'syncing' && 'animate-spin text-spruce-500')} />
             Sync
           </span>
           <span className={cn(
             'font-medium',
             status.syncState === 'synced' && 'text-green-600',
-            status.syncState === 'syncing' && 'text-blue-500',
+            status.syncState === 'syncing' && 'text-spruce-500',
             status.syncState === 'pending' && 'text-amber-500',
             status.syncState === 'setup-pending' && 'text-amber-500',
             status.syncState === 'failed' && 'text-red-500',

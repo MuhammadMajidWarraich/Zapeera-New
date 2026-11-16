@@ -126,9 +126,9 @@ function getStatusBadge(status: string) {
     case 'HALF_DAY':
       return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-300">Half Day</Badge>;
     case 'LEAVE':
-      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300">Leave</Badge>;
+      return <Badge className="bg-verdant-100 text-spruce-900 hover:bg-spruce-200 border-spruce-200">Leave</Badge>;
     case 'scheduled':
-      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-300">Scheduled</Badge>;
+      return <Badge className="bg-verdant-100 text-spruce-900 hover:bg-spruce-200 border-spruce-200">Scheduled</Badge>;
     case 'active':
       return <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-300">Active</Badge>;
     default:

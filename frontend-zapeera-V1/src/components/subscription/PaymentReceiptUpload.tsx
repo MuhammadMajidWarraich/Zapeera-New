@@ -371,9 +371,9 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
       )}
 
       {/* Upload form */}
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+      <div className="rounded-2xl border border-verdant-100 bg-gradient-to-br from-verdant-100 to-verdant-100 p-6">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-spruce-700 flex items-center justify-center shrink-0">
             <Upload className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -384,14 +384,14 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
 
         {/* Payable summary (only when plan/amount come from parent) */}
         {(planPreselected || amountPreselected) && (
-          <div className="mb-5 rounded-xl border border-blue-200 bg-white/70 p-4 flex items-center justify-between">
+          <div className="mb-5 rounded-xl border border-spruce-200 bg-white/70 p-4 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-500">Payable for</p>
               <p className="text-sm font-semibold text-gray-900">{effectivePlanName || 'Selected Plan'}</p>
             </div>
             <div className="text-right">
               <p className="text-xs uppercase tracking-wide text-gray-500">Amount</p>
-              <p className="text-lg font-bold text-blue-700">PKR {effectivePlanPrice.toLocaleString()}</p>
+              <p className="text-lg font-bold text-spruce-900">PKR {effectivePlanPrice.toLocaleString()}</p>
             </div>
           </div>
         )}
@@ -405,7 +405,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                 value={selectedPlanId}
                 onChange={e => onPlanChange(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-spruce-500"
               >
                 <option value="">Select plan…</option>
                 {plans.map(p => (
@@ -425,8 +425,8 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                   onClick={() => setMethod(val)}
                   className={`py-2.5 text-sm font-medium rounded-xl border transition ${
                     method === val
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                      ? 'bg-spruce-700 text-white border-spruce-700'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-spruce-200'
                   }`}
                 >
                   {label}
@@ -437,9 +437,9 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
 
           {/* Account details – shown after method is selected */}
           {accountInfo && (
-            <div className="rounded-xl border border-blue-200 bg-white p-4">
+            <div className="rounded-xl border border-spruce-200 bg-white p-4">
               <div className="flex items-center gap-2 mb-3">
-                <accountInfo.icon className="w-4 h-4 text-blue-600" />
+                <accountInfo.icon className="w-4 h-4 text-spruce-700" />
                 <p className="text-sm font-semibold text-gray-900">Send payment to</p>
               </div>
               <p className="text-xs text-gray-500 mb-3">
@@ -450,7 +450,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                   <span className="text-gray-500">Account Title</span>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900">{accountInfo.title}</span>
-                    <button type="button" onClick={() => copyToClipboard(accountInfo.title, 'Title')} className="text-blue-600 hover:text-blue-800" title="Copy">
+                    <button type="button" onClick={() => copyToClipboard(accountInfo.title, 'Title')} className="text-spruce-700 hover:text-spruce-900" title="Copy">
                       <Copy className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -459,7 +459,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                   <span className="text-gray-500">{method === 'BANK_TRANSFER' ? 'IBAN / Account #' : 'Number'}</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-semibold text-gray-900">{accountInfo.number}</span>
-                    <button type="button" onClick={() => copyToClipboard(accountInfo.number, 'Account')} className="text-blue-600 hover:text-blue-800" title="Copy">
+                    <button type="button" onClick={() => copyToClipboard(accountInfo.number, 'Account')} className="text-spruce-700 hover:text-spruce-900" title="Copy">
                       <Copy className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -481,7 +481,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                 onChange={e => setAmount(e.target.value)}
                 placeholder={selectedPlan ? `Plan price: PKR ${selectedPlan.price.toLocaleString()}` : 'e.g. 5000'}
                 required min={1}
-                className={`w-full px-4 py-2.5 border rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-blue-400 ${
+                className={`w-full px-4 py-2.5 border rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-spruce-500 ${
                   amountMismatch ? 'border-red-400 bg-red-50' : 'border-gray-200'
                 }`}
               />
@@ -503,7 +503,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                 onChange={e => setReferenceNote(e.target.value)}
                 placeholder="e.g. TXN123456789, cheque #0042…"
                 required
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-spruce-500"
               />
             </div>
           )}
@@ -514,7 +514,7 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
               <label className="block text-sm font-semibold text-gray-900 mb-2">Receipt screenshot <span className="text-red-500">*</span></label>
               {preview ? (
                 <div className="relative inline-block">
-                  <img src={preview} alt="receipt preview" className="max-h-48 rounded-xl border-2 border-blue-300 object-contain shadow-lg" />
+                  <img src={preview} alt="receipt preview" className="max-h-48 rounded-xl border-2 border-spruce-200 object-contain shadow-lg" />
                   <button
                     type="button" onClick={clearFile}
                     className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-md"
@@ -523,9 +523,9 @@ const PaymentReceiptUpload = forwardRef<PaymentReceiptUploadRef, Props>(({ busin
                   </button>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-blue-400 bg-blue-50 rounded-xl p-8 cursor-pointer hover:bg-blue-100 hover:border-blue-500 transition shadow-md">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    <ImageIcon className="w-6 h-6 text-blue-600" />
+                <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-spruce-500 bg-verdant-100 rounded-xl p-8 cursor-pointer hover:bg-verdant-100 hover:border-spruce-500 transition shadow-md">
+                  <div className="w-12 h-12 rounded-full bg-verdant-100 flex items-center justify-center">
+                    <ImageIcon className="w-6 h-6 text-spruce-700" />
                   </div>
                   <div className="text-center">
                     <span className="block text-sm font-semibold text-gray-900">Click to upload receipt</span>

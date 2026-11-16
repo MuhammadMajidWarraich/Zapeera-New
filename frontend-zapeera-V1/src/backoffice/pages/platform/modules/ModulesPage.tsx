@@ -34,8 +34,8 @@ export function ModulesPage() {
         {modules.map(mod => (
           <div key={mod.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-indigo-50 rounded-lg"><Puzzle className="w-5 h-5 text-indigo-600" /></div>
-              {mod.isCore && <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-100 text-purple-700 rounded-full">Core</span>}
+              <div className="p-2 bg-verdant-100 rounded-lg"><Puzzle className="w-5 h-5 text-spruce-700" /></div>
+              {mod.isCore && <span className="px-2 py-0.5 text-[10px] font-medium bg-verdant-100 text-spruce-700 rounded-full">Core</span>}
             </div>
             <h3 className="font-semibold text-gray-900 mb-1">{mod.name}</h3>
             <p className="text-xs text-gray-400 mb-2">Key: {mod.key}</p>

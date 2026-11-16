@@ -35,11 +35,11 @@ const KIND_ICON: Record<BackofficeNotificationKind, typeof Receipt> = {
 const KIND_ICON_CLASSES: Record<BackofficeNotificationKind, string> = {
   payment_proof: 'bg-amber-50 text-amber-600',
   affiliate_payout: 'bg-emerald-50 text-emerald-600',
-  affiliate_application: 'bg-violet-50 text-violet-600',
-  new_business: 'bg-blue-50 text-blue-600',
+  affiliate_application: 'bg-verdant-100 text-spruce-500',
+  new_business: 'bg-verdant-100 text-spruce-700',
   trial_expiring: 'bg-orange-50 text-orange-600',
   support_ticket: 'bg-rose-50 text-rose-600',
-  partner_application: 'bg-cyan-50 text-cyan-600',
+  partner_application: 'bg-verdant-100 text-spruce-500',
 };
 
 function lastSeenKey(adminId: string) {
@@ -171,7 +171,7 @@ export function NotificationsBell() {
             <button
               onClick={markAllSeen}
               disabled={unseenCount === 0}
-              className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-300 disabled:cursor-not-allowed transition"
+              className="flex items-center gap-1.5 text-xs font-medium text-spruce-700 hover:text-spruce-900 disabled:text-gray-300 disabled:cursor-not-allowed transition"
             >
               <CheckCheck className="w-4 h-4" />
               Mark all as seen
@@ -198,7 +198,7 @@ export function NotificationsBell() {
                 <p className="text-sm text-gray-500 mb-3">{error}</p>
                 <button
                   onClick={load}
-                  className="text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 rounded-lg px-3 py-1.5 transition"
+                  className="text-xs font-medium text-spruce-700 hover:text-spruce-900 border border-spruce-200 hover:border-spruce-200 rounded-lg px-3 py-1.5 transition"
                 >
                   Retry
                 </button>
@@ -222,7 +222,7 @@ export function NotificationsBell() {
                     <li key={item.id}>
                       <button
                         onClick={() => handleItemClick(item)}
-                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition ${isUnseen ? 'bg-blue-50/50' : ''}`}
+                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition ${isUnseen ? 'bg-verdant-100/50' : ''}`}
                       >
                         <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${KIND_ICON_CLASSES[item.kind]}`}>
                           <Icon className="w-[18px] h-[18px]" />
@@ -230,7 +230,7 @@ export function NotificationsBell() {
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-900 truncate">{item.title}</span>
-                            {isUnseen && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0" />}
+                            {isUnseen && <span className="w-1.5 h-1.5 bg-spruce-500 rounded-full flex-shrink-0" />}
                           </span>
                           <span className="block text-xs text-gray-500 truncate mt-0.5">{item.detail}</span>
                           <span className="block text-[11px] text-gray-400 mt-0.5">

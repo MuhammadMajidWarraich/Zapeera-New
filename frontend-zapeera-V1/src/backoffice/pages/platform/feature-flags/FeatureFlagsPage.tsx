@@ -84,7 +84,7 @@ export function FeatureFlagsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={load} disabled={loading} className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
-          <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"><Plus className="w-4 h-4" /> New Flag</button>
+          <button onClick={() => setShowCreate(true)} className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium"><Plus className="w-4 h-4" /> New Flag</button>
         </div>
       </div>
 
@@ -133,11 +133,11 @@ export function FeatureFlagsPage() {
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4"><h2 className="text-lg font-bold">New Feature Flag</h2><button onClick={() => setShowCreate(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button></div>
             <div className="space-y-4">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Key</label><input value={form.key} onChange={e => setForm(p => ({ ...p, key: e.target.value }))} placeholder="e.g. new_checkout" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Name</label><input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. New Checkout Flow" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Description</label><textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Key</label><input value={form.key} onChange={e => setForm(p => ({ ...p, key: e.target.value }))} placeholder="e.g. new_checkout" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Name</label><input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. New Checkout Flow" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Description</label><textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" /></div>
               <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={form.enabled} onChange={e => setForm(p => ({ ...p, enabled: e.target.checked }))} className="rounded" /> Enabled immediately</label>
-              <button onClick={handleCreate} disabled={creating} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50"><Save className="w-4 h-4" /> {creating ? 'Creating…' : 'Create Flag'}</button>
+              <button onClick={handleCreate} disabled={creating} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium disabled:opacity-50"><Save className="w-4 h-4" /> {creating ? 'Creating…' : 'Create Flag'}</button>
             </div>
           </div>
         </div>

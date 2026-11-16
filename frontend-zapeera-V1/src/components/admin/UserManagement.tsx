@@ -1352,18 +1352,18 @@ const UserManagement = () => {
     if (role === "MANAGER") {
       return cn(
         base,
-        "border border-[#1a52c5]/12 bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)] text-[#1a52c5]",
+        "border border-[#0B363B]/12 bg-gradient-to-br from-[rgba(11,54,59,0.08)] to-[rgba(67,114,120,0.06)] text-[#0B363B]",
       );
     }
     if (role === "OWNER") {
       return cn(
         base,
-        "border border-[#1a52c5]/12 bg-[#1a52c5]/10 text-[#1a52c5]",
+        "border border-[#0B363B]/12 bg-[#0B363B]/10 text-[#0B363B]",
       );
     }
     return cn(
       base,
-      "border border-[rgba(15,23,60,0.08)] bg-black/[0.03] text-[#4a5578]",
+      "border border-[rgba(3,33,37,0.08)] bg-black/[0.03] text-[#354D51]",
     );
   };
 
@@ -1789,21 +1789,21 @@ const UserManagement = () => {
   return (
     <div className="relative min-h-full">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">
               Staff Management
             </h1>
-            <p className="text-sm text-[#8c95b0]">Manage branch staff and their permissions</p>
+            <p className="text-sm text-[#437278]">Manage branch staff and their permissions</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -1811,7 +1811,7 @@ const UserManagement = () => {
             type="button"
             disabled={isAddStaffDisabled}
             onClick={() => setShowAddStaff(true)}
-            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
           >
             <UserPlus className="h-[18px] w-[18px] stroke-[2]" strokeLinecap="round" />
             Add New Staff
@@ -1819,7 +1819,7 @@ const UserManagement = () => {
           <button
             type="button"
             onClick={() => setShowPinManager(true)}
-            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-white px-5 py-3 text-sm font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7]"
+            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.08)] bg-white px-5 py-3 text-sm font-semibold text-[#032125] transition-colors hover:bg-[#EAFDE8]"
           >
             Staff PINs
           </button>
@@ -1835,14 +1835,14 @@ const UserManagement = () => {
               </DialogHeader>
               {existingUserMatch && (
                 <div className="grid gap-4 py-2">
-                  <div className="rounded-lg border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2 text-sm">
-                    <p className="text-[#8c95b0]">User</p>
-                    <p className="font-semibold text-[#0a1128]">{existingUserMatch.name}</p>
-                    <p className="text-xs text-[#4a5578]">{existingUserMatch.email}</p>
+                  <div className="rounded-lg border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] px-3 py-2 text-sm">
+                    <p className="text-[#437278]">User</p>
+                    <p className="font-semibold text-[#032125]">{existingUserMatch.name}</p>
+                    <p className="text-xs text-[#354D51]">{existingUserMatch.email}</p>
                   </div>
                   <div className="grid grid-cols-1 items-start gap-1.5 sm:grid-cols-4 sm:items-center sm:gap-2">
                     <Label className="text-left text-sm sm:text-right">Business</Label>
-                    <div className="sm:col-span-3 rounded-md border border-[rgba(15,23,60,0.08)] bg-muted/40 px-3 py-2 text-sm font-medium">
+                    <div className="sm:col-span-3 rounded-md border border-[rgba(3,33,37,0.08)] bg-muted/40 px-3 py-2 text-sm font-medium">
                       {companies.find((c) => c.id === selectedCompanyId)?.name || "Current business"}
                     </div>
                   </div>
@@ -1896,11 +1896,11 @@ const UserManagement = () => {
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsGiveAccessDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]">
+                <Button variant="outline" onClick={() => setIsGiveAccessDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]">
                   Cancel
                 </Button>
                 <Button
-                  className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                  className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                   onClick={() => void handleGiveAccessSubmit()}
                   disabled={isLoading || !giveAccessBranchId || !existingUserMatch}
                 >
@@ -1933,15 +1933,15 @@ const UserManagement = () => {
               });
               setIsCreateDialogOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-[22px] py-3 text-sm font-semibold text-[#4a5578] shadow-sm transition-all hover:border-black/10 hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+            className="inline-flex items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.06)] bg-white px-[22px] py-3 text-sm font-semibold text-[#354D51] shadow-sm transition-all hover:border-black/10 hover:text-[#032125] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
           >
             <UserPlus className="h-[18px] w-[18px] stroke-[2]" strokeLinecap="round" />
             Quick Create Cashier
           </button>
         </div>
       </div>
-      <div className="zv3-animate-fadeUp rounded-xl border border-[rgba(15,23,60,0.06)] bg-white/80 px-4 py-2 text-sm text-[#4a5578]">
-        Staff seats used: <span className="font-semibold text-[#0a1128]">{staffUsageSummary}</span>
+      <div className="zv3-animate-fadeUp rounded-xl border border-[rgba(3,33,37,0.06)] bg-white/80 px-4 py-2 text-sm text-[#354D51]">
+        Staff seats used: <span className="font-semibold text-[#032125]">{staffUsageSummary}</span>
         {businessPlanName ? ` on ${businessPlanName}` : ''}
         {isStaffLimitReached ? '. Staff limit reached. Upgrade your plan to add more team members.' : ''}
       </div>
@@ -1971,17 +1971,17 @@ const UserManagement = () => {
         </div>
       )}
 
-      <div className="zv3-animate-fadeUp zv3-delay-1 flex flex-col flex-wrap items-stretch gap-4 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-5 sm:flex-row sm:items-end sm:px-7 xl:flex-nowrap">
+      <div className="zv3-animate-fadeUp zv3-delay-1 flex flex-col flex-wrap items-stretch gap-4 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-5 py-5 sm:flex-row sm:items-end sm:px-7 xl:flex-nowrap">
         <div className="min-w-0 flex-[2.5]">
           <Label
             htmlFor="search"
-            className="mb-2 block text-xs font-semibold tracking-wide text-[#8c95b0]"
+            className="mb-2 block text-xs font-semibold tracking-wide text-[#437278]"
           >
             Search Users
           </Label>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]"
               strokeWidth={2}
             />
             <Input
@@ -1989,21 +1989,21 @@ const UserManagement = () => {
               placeholder="Search by name, email, or username..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3.5 text-sm text-[#0a1128] transition-all placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.06)]"
+              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3.5 text-sm text-[#032125] transition-all placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.06)]"
             />
           </div>
         </div>
         <div className="min-w-[160px] flex-1">
           <Label
             htmlFor="role-filter"
-            className="mb-2 block text-xs font-semibold tracking-wide text-[#8c95b0]"
+            className="mb-2 block text-xs font-semibold tracking-wide text-[#437278]"
           >
             Filter by Role
           </Label>
           <Select value={selectedRole} onValueChange={setSelectedRole}>
             <SelectTrigger
               id="role-filter"
-              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] text-sm font-normal text-[#0a1128] focus:ring-4 focus:ring-[rgba(26,82,197,0.06)]"
+              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] text-sm font-normal text-[#032125] focus:ring-4 focus:ring-[rgba(11,54,59,0.06)]"
             >
               <SelectValue placeholder="All roles" />
             </SelectTrigger>
@@ -2021,14 +2021,14 @@ const UserManagement = () => {
         <div className="min-w-[160px] flex-1">
           <Label
             htmlFor="status-filter"
-            className="mb-2 block text-xs font-semibold tracking-wide text-[#8c95b0]"
+            className="mb-2 block text-xs font-semibold tracking-wide text-[#437278]"
           >
             Filter by Access
           </Label>
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
             <SelectTrigger
               id="status-filter"
-              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] text-sm font-normal text-[#0a1128] focus:ring-4 focus:ring-[rgba(26,82,197,0.06)]"
+              className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] text-sm font-normal text-[#032125] focus:ring-4 focus:ring-[rgba(11,54,59,0.06)]"
             >
               <SelectValue placeholder="All access levels" />
             </SelectTrigger>
@@ -2041,36 +2041,36 @@ const UserManagement = () => {
         </div>
       </div>
 
-      <div className="zv3-animate-fadeUp zv3-delay-2 overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2.5 border-b border-[rgba(15,23,60,0.06)] px-8 py-[22px]">
-          <Users className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-          <span className="text-[17px] font-bold text-[#0a1128]">Staff</span>
-          <span className="text-sm font-medium text-[#8c95b0]">({filteredUsers.length})</span>
+      <div className="zv3-animate-fadeUp zv3-delay-2 overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2.5 border-b border-[rgba(3,33,37,0.06)] px-8 py-[22px]">
+          <Users className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+          <span className="text-[17px] font-bold text-[#032125]">Staff</span>
+          <span className="text-sm font-medium text-[#437278]">({filteredUsers.length})</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+              <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Staff
                 </th>
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Username
                 </th>
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Role
                 </th>
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Branch
                 </th>
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Access
                 </th>
-                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Created
                 </th>
-                <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                   Actions
                 </th>
               </tr>
@@ -2078,7 +2078,7 @@ const UserManagement = () => {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr key="empty-state">
-                  <td colSpan={7} className="px-8 py-14 text-center text-sm text-[#8c95b0]">
+                  <td colSpan={7} className="px-8 py-14 text-center text-sm text-[#437278]">
                     {users.length === 0
                       ? 'No staff found in this branch'
                       : 'No staff match your search criteria'}
@@ -2096,21 +2096,21 @@ const UserManagement = () => {
                   return (
                     <tr
                       key={user.id}
-                      className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                      className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                     >
                       <td className="px-5 py-[18px] pl-8 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-[15px] font-bold text-white">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-[15px] font-bold text-white">
                             {initial}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#0a1128]">{user.name}</p>
-                            <p className="mt-0.5 text-xs text-[#8c95b0]">{user.email}</p>
+                            <p className="text-sm font-bold text-[#032125]">{user.name}</p>
+                            <p className="mt-0.5 text-xs text-[#437278]">{user.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-5 py-[18px] align-middle">
-                        <span className="text-sm font-medium text-[#4a5578]">{user.username}</span>
+                        <span className="text-sm font-medium text-[#354D51]">{user.username}</span>
                       </td>
                       <td className="px-5 py-[18px] align-middle">
                         <span className={staffRoleBadgeClass(staffDisplayRole(user))}>
@@ -2119,8 +2119,8 @@ const UserManagement = () => {
                         </span>
                       </td>
                       <td className="px-5 py-[18px] align-middle">
-                        <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                          <Building2 className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                        <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                           <span>{branches.find(b => b.id === user.branchId)?.name || user.branch?.name || 'Unknown Branch'}</span>
                         </div>
                       </td>
@@ -2130,13 +2130,13 @@ const UserManagement = () => {
                             'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide',
                             user.businessAccessGranted !== false
                               ? 'border border-green-600/12 bg-[rgba(22,163,74,0.08)] text-green-600'
-                              : 'border border-[rgba(15,23,60,0.06)] bg-black/[0.03] text-[#8c95b0]',
+                              : 'border border-[rgba(3,33,37,0.06)] bg-black/[0.03] text-[#437278]',
                           )}
                         >
                           {user.businessAccessGranted !== false ? 'Access Granted' : 'Access Removed'}
                         </span>
                       </td>
-                      <td className="px-5 py-[18px] align-middle text-[13px] text-[#4a5578]">
+                      <td className="px-5 py-[18px] align-middle text-[13px] text-[#354D51]">
                         {user.createdAt && !isNaN(new Date(user.createdAt).getTime())
                           ? new Date(user.createdAt).toLocaleDateString()
                           : 'N/A'}
@@ -2147,7 +2147,7 @@ const UserManagement = () => {
                             type="button"
                             onClick={() => handleViewUser(user)}
                             title="View Staff Details"
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                           >
                             <Eye className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -2156,7 +2156,7 @@ const UserManagement = () => {
                             onClick={() => handleEditUser(user)}
                             title="Edit Staff"
                             disabled={isOwnerRow}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                           >
                             <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -2173,7 +2173,7 @@ const UserManagement = () => {
                               onClick={() => handleToggleBusinessAccess(user)}
                               title={user.businessAccessGranted !== false ? 'Remove Business Access' : 'Allow Business Access'}
                               className={cn(
-                                'grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent transition-colors hover:border-black/10 hover:bg-[#f0f2f7]',
+                                'grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent transition-colors hover:border-black/10 hover:bg-[#EAFDE8]',
                                 user.businessAccessGranted !== false
                                   ? 'text-amber-600 hover:text-amber-700'
                                   : 'text-green-600 hover:text-green-700',
@@ -2195,7 +2195,7 @@ const UserManagement = () => {
                                 : "Delete platform account (Super Admin only)"
                             }
                             disabled={isOwnerRow}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                           >
                             <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -2209,20 +2209,20 @@ const UserManagement = () => {
           </table>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
           <div className="flex items-center gap-3">
-            <div className="text-sm text-[#8c95b0]">
+            <div className="text-sm text-[#437278]">
               Showing {((safePage - 1) * pageSize) + 1} to {Math.min(safePage * pageSize, filteredUsers.length)} of {filteredUsers.length} staff
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm text-[#8c95b0]">Per page:</span>
+              <span className="text-sm text-[#437278]">Per page:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -2237,18 +2237,18 @@ const UserManagement = () => {
                 type="button"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={safePage === 1}
-                className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
               >
                 Previous
               </button>
-              <span className="text-sm font-semibold text-[#0a1128]">
+              <span className="text-sm font-semibold text-[#032125]">
                 Page {safePage} of {totalPages}
               </span>
               <button
                 type="button"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={safePage === totalPages}
-                className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
               >
                 Next
               </button>
@@ -2258,7 +2258,7 @@ const UserManagement = () => {
       </div>
 
       <div className="zv3-animate-fadeUp zv3-delay-3 mt-6">
-        <h2 className="mb-4 text-lg font-bold tracking-tight text-[#0a1128]">Role Permissions</h2>
+        <h2 className="mb-4 text-lg font-bold tracking-tight text-[#032125]">Role Permissions</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {roles.map((role) => {
             const IconComponent = role.icon;
@@ -2266,7 +2266,7 @@ const UserManagement = () => {
             return (
               <div
                 key={role.id}
-                className="rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
+                className="rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
               >
                 <div className="mb-3.5 flex items-center gap-3.5">
                   <div
@@ -2274,23 +2274,23 @@ const UserManagement = () => {
                       'grid h-11 w-11 shrink-0 place-items-center rounded-xl',
                       isCashier
                         ? 'bg-amber-500/[0.08]'
-                        : 'bg-gradient-to-br from-[rgba(26,82,197,0.1)] to-[rgba(40,194,206,0.06)]',
+                        : 'bg-gradient-to-br from-[rgba(11,54,59,0.1)] to-[rgba(67,114,120,0.06)]',
                     )}
                   >
                     <IconComponent
                       className={cn(
                         'h-5 w-5',
-                        isCashier ? 'text-[#b45309]' : 'text-[#1a52c5]',
+                        isCashier ? 'text-[#b45309]' : 'text-[#0B363B]',
                       )}
                       strokeWidth={2}
                     />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-[#0a1128]">{role.label}</h3>
-                    <p className="mt-0.5 text-[13px] text-[#8c95b0]">{role.description}</p>
+                    <h3 className="text-base font-bold text-[#032125]">{role.label}</h3>
+                    <p className="mt-0.5 text-[13px] text-[#437278]">{role.description}</p>
                   </div>
                 </div>
-                <p className="text-[13px] leading-relaxed text-[#4a5578]">
+                <p className="text-[13px] leading-relaxed text-[#354D51]">
                   {role.id === 'OWNER' && 'Full business access, can allow or remove staff access'}
                   {role.id === 'OWNER' && 'Company-wide administration, branches, and staff management'}
                   {role.id === 'MANAGER' &&
@@ -2496,11 +2496,11 @@ const UserManagement = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]">
               Cancel
             </Button>
             <Button
-              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               onClick={handleUpdateUser}
               disabled={isLoading}
             >
@@ -2541,7 +2541,7 @@ const UserManagement = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]">
               Cancel
             </Button>
             <Button

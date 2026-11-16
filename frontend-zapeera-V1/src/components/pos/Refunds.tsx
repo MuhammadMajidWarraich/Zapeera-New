@@ -504,31 +504,31 @@ const Refunds = () => {
   };
 
   const rfSearchInput =
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3 text-sm text-[#0a1128] placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]";
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3 text-sm text-[#032125] placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]";
 
   // Don't show loading screen - show content immediately
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Refunds & returns</h1>
-            <p className="text-sm text-[#8c95b0]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Refunds & returns</h1>
+            <p className="text-sm text-[#437278]">
               Refunded sales and inventory returns
               {selectedBranch?.name ? (
                 <>
                   {" "}
-                  • <b className="font-semibold text-[#4a5578]">{selectedBranch.name}</b>
+                  • <b className="font-semibold text-[#354D51]">{selectedBranch.name}</b>
                 </>
               ) : null}
             </p>
@@ -552,14 +552,14 @@ const Refunds = () => {
               setStartDate("");
               setEndDate("");
             }}
-            className="zv3-animate-fadeUp zv3-delay-1 flex-1 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white shadow-none h-full"
+            className="zv3-animate-fadeUp zv3-delay-1 flex-1 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white shadow-none h-full"
           />
 
-          <div className="zv3-animate-fadeUp zv3-delay-2 flex w-full flex-col gap-3 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-5 lg:max-w-md h-full">
-            <p className="text-xs font-semibold text-[#8c95b0]">Search</p>
+          <div className="zv3-animate-fadeUp zv3-delay-2 flex w-full flex-col gap-3 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-5 py-5 lg:max-w-md h-full">
+            <p className="text-xs font-semibold text-[#437278]">Search</p>
             <div className="flex items-center gap-3">
               <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" strokeWidth={2} />
                 <Input
                   placeholder="Receipt, invoice, customer, or reason…"
                   value={searchQuery}
@@ -567,7 +567,7 @@ const Refunds = () => {
                   className={rfSearchInput}
                 />
               </div>
-              <div className="flex shrink-0 items-center gap-2 text-sm text-[#8c95b0]">
+              <div className="flex shrink-0 items-center gap-2 text-sm text-[#437278]">
                 <Filter className="h-4 w-4" strokeWidth={2} />
               </div>
             </div>
@@ -576,30 +576,30 @@ const Refunds = () => {
 
         <div className="zv3-animate-fadeUp zv3-delay-3">
           <div className="mb-4 flex items-center gap-2.5">
-            <RotateCcw className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-            <span className="text-[17px] font-bold text-[#0a1128]">Refunded invoices</span>
-            <span className="text-sm font-medium text-[#8c95b0]">({filteredRefunds.length})</span>
+            <RotateCcw className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+            <span className="text-[17px] font-bold text-[#032125]">Refunded invoices</span>
+            <span className="text-sm font-medium text-[#437278]">({filteredRefunds.length})</span>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+          <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
             {paginatedRefunds.length === 0 ? (
               <div className="px-8 py-16 text-center">
-                <div className="mx-auto mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-                  <RotateCcw className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+                <div className="mx-auto mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+                  <RotateCcw className="h-6 w-6 text-[#437278]" strokeWidth={2} />
                 </div>
-                <p className="text-sm font-bold text-[#0a1128]">No refunds found</p>
-                <p className="mt-1 text-sm text-[#8c95b0]">Try another date range or search.</p>
+                <p className="text-sm font-bold text-[#032125]">No refunds found</p>
+                <p className="mt-1 text-sm text-[#437278]">Try another date range or search.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
+                    <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
                       {["Receipt #", "Invoice", "Date", "Customer", "Refunded by", "Items", "Amount", "Reason", "Actions"].map((h) => (
                         <th
                           key={h}
                           className={cn(
-                            "px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]",
+                            "px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]",
                             h === "Actions" && "pr-6 text-right",
                           )}
                         >
@@ -612,20 +612,20 @@ const Refunds = () => {
                     {paginatedRefunds.map((refund) => (
                       <tr
                         key={refund.id}
-                        className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                       >
-                        <td className="px-4 py-3.5 pl-6 align-middle font-semibold text-[#0a1128]">{refund.receiptNumber}</td>
-                        <td className="px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{refund.originalInvoiceNumber}</td>
-                        <td className="whitespace-nowrap px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{formatDate(refund.refundedAt)}</td>
-                        <td className="max-w-[140px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">
+                        <td className="px-4 py-3.5 pl-6 align-middle font-semibold text-[#032125]">{refund.receiptNumber}</td>
+                        <td className="px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{refund.originalInvoiceNumber}</td>
+                        <td className="whitespace-nowrap px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{formatDate(refund.refundedAt)}</td>
+                        <td className="max-w-[140px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]">
                           {refund.customer?.name || "Walk-in Customer"}
                         </td>
-                        <td className="max-w-[120px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{refund.refundedBy}</td>
-                        <td className="px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{refund.items.length} item(s)</td>
+                        <td className="max-w-[120px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{refund.refundedBy}</td>
+                        <td className="px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{refund.items.length} item(s)</td>
                         <td className="px-4 py-3.5 align-middle text-[13px] font-bold text-red-600">
                           -PKR {isNaN(refund.refundAmount) ? "0.00" : refund.refundAmount.toFixed(2)}
                         </td>
-                        <td className="max-w-[200px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]" title={refund.refundReason}>
+                        <td className="max-w-[200px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]" title={refund.refundReason}>
                           {refund.refundReason}
                         </td>
                         <td className="px-4 py-3.5 pr-6 text-right align-middle">
@@ -634,7 +634,7 @@ const Refunds = () => {
                               type="button"
                               title="View"
                               onClick={() => viewRefund(refund)}
-                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Eye className="h-3.5 w-3.5" strokeWidth={2} />
                             </button>
@@ -642,7 +642,7 @@ const Refunds = () => {
                               type="button"
                               title="Print"
                               onClick={() => printRefund(refund)}
-                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Printer className="h-3.5 w-3.5" strokeWidth={2} />
                             </button>
@@ -650,7 +650,7 @@ const Refunds = () => {
                               type="button"
                               title="Download"
                               onClick={() => downloadRefund(refund)}
-                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Download className="h-3.5 w-3.5" strokeWidth={2} />
                             </button>
@@ -664,17 +664,17 @@ const Refunds = () => {
             )}
 
             {paginatedRefunds.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                 <div className="flex items-center gap-3">
-                  <div className="text-sm text-[#8c95b0]">
+                  <div className="text-sm text-[#437278]">
                     Showing {Math.min((currentPage - 1) * pageSize + 1, filteredRefunds.length)} to {Math.min(currentPage * pageSize, filteredRefunds.length)} of {filteredRefunds.length} refunds
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#8c95b0]">Per page:</span>
+                    <span className="text-sm text-[#437278]">Per page:</span>
                     <select
                       value={pageSize}
                       onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                      className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                      className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                     >
                       <option value="10">10</option>
                       <option value="25">25</option>
@@ -687,16 +687,16 @@ const Refunds = () => {
                     type="button"
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Previous
                   </button>
-                  <span className="text-sm font-semibold text-[#0a1128]">Page {currentPage} of {totalPages}</span>
+                  <span className="text-sm font-semibold text-[#032125]">Page {currentPage} of {totalPages}</span>
                   <button
                     type="button"
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Next
                   </button>
@@ -710,20 +710,20 @@ const Refunds = () => {
         <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#0a1128] sm:flex-row sm:items-center sm:justify-between">
+              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#032125] sm:flex-row sm:items-center sm:justify-between">
                 <span>Refund {selectedRefund?.receiptNumber}</span>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(15,23,60,0.06)]" onClick={() => selectedRefund && printRefund(selectedRefund)}>
+                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(3,33,37,0.06)]" onClick={() => selectedRefund && printRefund(selectedRefund)}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(15,23,60,0.06)]" onClick={() => selectedRefund && downloadRefund(selectedRefund)}>
+                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(3,33,37,0.06)]" onClick={() => selectedRefund && downloadRefund(selectedRefund)}>
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
                 </div>
               </DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 Items returned to stock and payment reversal summary.
               </DialogDescription>
             </DialogHeader>
@@ -824,11 +824,11 @@ const Refunds = () => {
         >
           <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex items-center gap-2 text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+              <DialogTitle className="flex items-center gap-2 text-[22px] font-extrabold tracking-tight text-[#032125]">
                 <AlertCircle className="h-6 w-6 text-red-600" />
                 Create/process new refund
               </DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 Search for an invoice and process a full refund with stock return.
               </DialogDescription>
             </DialogHeader>
@@ -836,18 +836,18 @@ const Refunds = () => {
             <div className="space-y-6">
               {/* Invoice Lookup */}
               <div className="space-y-3">
-                <h3 className="text-[15px] font-bold text-[#0a1128]">Invoice Lookup</h3>
+                <h3 className="text-[15px] font-bold text-[#032125]">Invoice Lookup</h3>
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder="Enter invoice number"
                     value={receiptNumber}
                     onChange={(e) => setReceiptNumber(e.target.value)}
-                    className="h-11 flex-1 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] text-sm text-[#0a1128] placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.06)]"
+                    className="h-11 flex-1 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] text-sm text-[#032125] placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.06)]"
                   />
                   <Button
                     onClick={handleLookupInvoice}
                     disabled={isSearchingReceipt}
-                    className="h-11 rounded-[10px] bg-[#1a52c5] px-4 text-sm font-semibold text-white shadow-none hover:bg-[#1440a0]"
+                    className="h-11 rounded-[10px] bg-[#0B363B] px-4 text-sm font-semibold text-white shadow-none hover:bg-[#1440a0]"
                   >
                     {isSearchingReceipt ? "Loading…" : "Show Invoice"}
                   </Button>
@@ -857,59 +857,59 @@ const Refunds = () => {
               {/* Found Invoice */}
               {foundInvoice && (
                 <div className="space-y-3">
-                  <h3 className="text-[15px] font-bold text-[#0a1128]">Found Invoice</h3>
-                  <Card className="rounded-[16px] border border-[rgba(15,23,60,0.06)] bg-[#f8f9fb]">
+                  <h3 className="text-[15px] font-bold text-[#032125]">Found Invoice</h3>
+                  <Card className="rounded-[16px] border border-[rgba(3,33,37,0.06)] bg-[#f8f9fb]">
                     <CardContent className="space-y-4 p-5">
                       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                         <div>
-                          <p className="text-sm font-semibold text-[#0a1128]">
+                          <p className="text-sm font-semibold text-[#032125]">
                             Receipt: {foundInvoice.receipts?.[0]?.receiptNumber || foundInvoice.invoiceNumber || foundInvoice.id}
                           </p>
-                          <p className="text-[13px] text-[#8c95b0]">
+                          <p className="text-[13px] text-[#437278]">
                             Date: {new Date(foundInvoice.createdAt).toLocaleDateString()} {new Date(foundInvoice.createdAt).toLocaleTimeString()}
                           </p>
-                          <p className="text-[13px] text-[#8c95b0]">
+                          <p className="text-[13px] text-[#437278]">
                             Cashier: {foundInvoice.user?.name || "N/A"}
                           </p>
                         </div>
                         <div className="text-left sm:text-right">
-                          <p className="text-lg font-extrabold text-[#1a52c5]">
+                          <p className="text-lg font-extrabold text-[#0B363B]">
                             PKR {foundInvoice.totalAmount?.toFixed?.(2) || "0.00"}
                           </p>
-                          <p className="text-xs text-[#8c95b0]">
+                          <p className="text-xs text-[#437278]">
                             {foundInvoice.paymentMethod} • {foundInvoice.paymentStatus}
                           </p>
                         </div>
                       </div>
 
                       {foundInvoice.customer && (
-                        <div className="border-t border-[rgba(15,23,60,0.06)] pt-3">
-                          <p className="mb-1 text-xs font-semibold text-[#8c95b0]">Customer</p>
-                          <p className="text-sm text-[#0a1128]">{foundInvoice.customer.name} — {foundInvoice.customer.phone}</p>
+                        <div className="border-t border-[rgba(3,33,37,0.06)] pt-3">
+                          <p className="mb-1 text-xs font-semibold text-[#437278]">Customer</p>
+                          <p className="text-sm text-[#032125]">{foundInvoice.customer.name} — {foundInvoice.customer.phone}</p>
                         </div>
                       )}
 
-                      <div className="border-t border-[rgba(15,23,60,0.06)] pt-3">
-                        <p className="mb-2 text-xs font-semibold text-[#8c95b0]">Items</p>
+                      <div className="border-t border-[rgba(3,33,37,0.06)] pt-3">
+                        <p className="mb-2 text-xs font-semibold text-[#437278]">Items</p>
                         <div className="space-y-2">
                           {foundInvoice.items?.map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-3 py-2">
+                            <div key={idx} className="flex items-center justify-between rounded-[10px] border border-[rgba(3,33,37,0.06)] bg-white px-3 py-2">
                               <div>
-                                <p className="text-sm font-medium text-[#0a1128]">{item.product?.name || "Product"}</p>
-                                <p className="text-xs text-[#8c95b0]">
+                                <p className="text-sm font-medium text-[#032125]">{item.product?.name || "Product"}</p>
+                                <p className="text-xs text-[#437278]">
                                   {describeStoredLine({ ...item, unitType: item.product?.unitType }, baseUnitWord) ?? `${item.quantity} ${item.product?.unitType || "units"}`} × PKR {item.unitPrice?.toFixed?.(2) || "0.00"}
                                 </p>
                               </div>
-                              <p className="text-sm font-semibold text-[#0a1128]">PKR {item.totalPrice?.toFixed?.(2) || "0.00"}</p>
+                              <p className="text-sm font-semibold text-[#032125]">PKR {item.totalPrice?.toFixed?.(2) || "0.00"}</p>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      <div className="border-t border-[rgba(15,23,60,0.06)] pt-3">
+                      <div className="border-t border-[rgba(3,33,37,0.06)] pt-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#8c95b0]">Subtotal:</span>
-                          <span className="font-medium text-[#0a1128]">PKR {foundInvoice.subtotal?.toFixed?.(2) || "0.00"}</span>
+                          <span className="text-[#437278]">Subtotal:</span>
+                          <span className="font-medium text-[#032125]">PKR {foundInvoice.subtotal?.toFixed?.(2) || "0.00"}</span>
                         </div>
                         {foundInvoice.discountAmount > 0 && (
                           <div className="flex justify-between text-sm text-green-600">
@@ -917,7 +917,7 @@ const Refunds = () => {
                             <span>-PKR {foundInvoice.discountAmount?.toFixed?.(2) || "0.00"}</span>
                           </div>
                         )}
-                        <div className="flex justify-between border-t border-[rgba(15,23,60,0.06)] pt-2 text-base font-bold text-[#0a1128]">
+                        <div className="flex justify-between border-t border-[rgba(3,33,37,0.06)] pt-2 text-base font-bold text-[#032125]">
                           <span>Total:</span>
                           <span>PKR {foundInvoice.totalAmount?.toFixed?.(2) || "0.00"}</span>
                         </div>
@@ -930,7 +930,7 @@ const Refunds = () => {
               {/* Refund Reason */}
               {foundInvoice && (
                 <div className="space-y-2">
-                  <Label htmlFor="refundReason" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="refundReason" className="text-sm font-semibold text-[#032125]">
                     Refund Reason <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -938,13 +938,13 @@ const Refunds = () => {
                     placeholder="Enter reason for refund"
                     value={createRefundReason}
                     onChange={(e) => setCreateRefundReason(e.target.value)}
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] text-sm text-[#0a1128] placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] text-sm text-[#032125] placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.06)]"
                   />
                 </div>
               )}
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 border-t border-[rgba(15,23,60,0.06)] pt-4">
+              <div className="flex justify-end gap-3 border-t border-[rgba(3,33,37,0.06)] pt-4">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -953,7 +953,7 @@ const Refunds = () => {
                     setCreateRefundReason("");
                     setFoundInvoice(null);
                   }}
-                  className="h-10 rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                  className="h-10 rounded-[10px] border border-[rgba(3,33,37,0.08)] px-4 text-sm font-semibold text-[#354D51] hover:bg-[#EAFDE8] hover:text-[#032125]"
                 >
                   Cancel
                 </Button>

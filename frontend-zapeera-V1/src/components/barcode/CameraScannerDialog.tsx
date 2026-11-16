@@ -292,7 +292,7 @@ export function CameraScannerDialog({ open, onOpenChange, onScan }: CameraScanne
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="relative overflow-hidden rounded-2xl bg-[#0a1128]">
+          <div className="relative overflow-hidden rounded-2xl bg-[#032125]">
             <video
               ref={videoRef}
               autoPlay

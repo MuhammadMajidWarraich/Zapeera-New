@@ -1105,24 +1105,24 @@ const Reports = () => {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <Building2 className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">All Branches Overview</h3>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
-              <span className="text-xs font-semibold text-blue-700">{allBranches.length} Branches</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-verdant-100 rounded-lg">
+              <span className="text-xs font-semibold text-spruce-900">{allBranches.length} Branches</span>
             </div>
           </div>
           
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-50/30 rounded-2xl border border-blue-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-blue-100/30 transition-all">
+            <div className="bg-gradient-to-br from-verdant-100 to-verdant-100/30 rounded-2xl border border-verdant-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-verdant-100/30 transition-all">
               <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg shadow-lg shadow-blue-500/25">
+                <div className="p-2 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg shadow-lg shadow-spruce-500/25">
                   <DollarSign className="w-4 h-4 text-white" />
                 </div>
-                <p className="text-xs font-semibold text-blue-700">Total Revenue</p>
+                <p className="text-xs font-semibold text-spruce-900">Total Revenue</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">
                 {formatCurrency(
@@ -1141,12 +1141,12 @@ const Reports = () => {
               <p className="text-2xl font-bold text-gray-900">{filteredSalesData.filter((sale: any) => sale.status !== 'REFUNDED').length}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-50/30 rounded-2xl border border-purple-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-purple-100/30 transition-all">
+            <div className="bg-gradient-to-br from-verdant-100 to-verdant-100/30 rounded-2xl border border-verdant-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-verdant-100/30 transition-all">
               <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow-lg shadow-purple-500/25">
+                <div className="p-2 bg-gradient-to-br from-spruce-500 to-pink-600 rounded-lg shadow-lg shadow-spruce-500/25">
                   <Package className="w-4 h-4 text-white" />
                 </div>
-                <p className="text-xs font-semibold text-purple-700">Total Products</p>
+                <p className="text-xs font-semibold text-spruce-700">Total Products</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">{realProductsData.length}</p>
             </div>
@@ -1172,13 +1172,13 @@ const Reports = () => {
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-teal-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <Building2 className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">My Branch Overview</h3>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
-              <span className="text-xs font-semibold text-teal-700">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-verdant-100 rounded-lg">
+              <span className="text-xs font-semibold text-spruce-700">
                 {(() => {
                   // Calculate the number of branches the manager has access to
                   const allowedBranchIds = Array.isArray(user?.membership?.branchIds)
@@ -1198,12 +1198,12 @@ const Reports = () => {
           
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-50/30 rounded-2xl border border-blue-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-blue-100/30 transition-all">
+            <div className="bg-gradient-to-br from-verdant-100 to-verdant-100/30 rounded-2xl border border-verdant-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-verdant-100/30 transition-all">
               <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg shadow-lg shadow-blue-500/25">
+                <div className="p-2 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg shadow-lg shadow-spruce-500/25">
                   <DollarSign className="w-4 h-4 text-white" />
               </div>
-              <p className="text-xs font-semibold text-blue-700">Total Revenue</p>
+              <p className="text-xs font-semibold text-spruce-900">Total Revenue</p>
             </div>
             <p className="text-2xl font-bold text-gray-900">
               {formatCurrency(
@@ -1222,12 +1222,12 @@ const Reports = () => {
             <p className="text-2xl font-bold text-gray-900">{filteredSalesData.filter((sale: any) => sale.status !== 'REFUNDED').length}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-purple-50/30 rounded-2xl border border-purple-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-purple-100/30 transition-all">
+          <div className="bg-gradient-to-br from-verdant-100 to-verdant-100/30 rounded-2xl border border-verdant-100/50 p-5 shadow-sm hover:shadow-lg hover:shadow-verdant-100/30 transition-all">
             <div className="flex items-center gap-2 mb-2">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow-lg shadow-purple-500/25">
+              <div className="p-2 bg-gradient-to-br from-spruce-500 to-pink-600 rounded-lg shadow-lg shadow-spruce-500/25">
                 <Package className="w-4 h-4 text-white" />
               </div>
-              <p className="text-xs font-semibold text-purple-700">Total Products</p>
+              <p className="text-xs font-semibold text-spruce-700">Total Products</p>
             </div>
             <p className="text-2xl font-bold text-gray-900">{realProductsData.length}</p>
           </div>
@@ -1248,7 +1248,7 @@ const Reports = () => {
       {/* Period Selection */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
             <Calendar className="w-4 h-4 text-white" />
           </div>
           <h3 className="font-semibold text-gray-900 text-sm">Select Time Period</h3>
@@ -1260,7 +1260,7 @@ const Reports = () => {
               onClick={() => setSelectedPeriod(period.id)}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition ${
                 selectedPeriod === period.id
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25'
+                  ? 'bg-gradient-to-r from-spruce-500 to-spruce-500 text-white shadow-lg shadow-spruce-500/25'
                   : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
               }`}
             >
@@ -1277,7 +1277,7 @@ const Reports = () => {
           {/* Sales Trend (Area Chart) */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <LineChartIcon className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">Sales Trend - {periods.find(p => p.id === selectedPeriod)?.label}</h3>
@@ -1288,11 +1288,11 @@ const Reports = () => {
                   config={{
                     sales: {
                       label: "Sales Count",
-                      color: "#0c2c8a",
+                      color: "#032125",
                     },
                     revenue: {
                       label: "Revenue (PKR)",
-                      color: "#153186",
+                      color: "#0B363B",
                     },
                   }}
                   className="h-[300px]"
@@ -1308,8 +1308,8 @@ const Reports = () => {
                     type="monotone"
                     dataKey="sales"
                     stackId="1"
-                    stroke="#0c2c8a"
-                    fill="#0c2c8a"
+                    stroke="#032125"
+                    fill="#032125"
                     fillOpacity={0.6}
                     name="Sales Count"
                   />
@@ -1317,8 +1317,8 @@ const Reports = () => {
                     type="monotone"
                     dataKey="revenue"
                     stackId="2"
-                    stroke="#153186"
-                    fill="#153186"
+                    stroke="#0B363B"
+                    fill="#0B363B"
                     fillOpacity={0.6}
                     name="Revenue (PKR)"
                   />
@@ -1346,7 +1346,7 @@ const Reports = () => {
                 config={{
                   profit: {
                     label: "Profit (PKR)",
-                    color: "#0c2c8a",
+                    color: "#032125",
                   },
                   expenses: {
                     label: "Expenses (PKR)",
@@ -1360,7 +1360,7 @@ const Reports = () => {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="profit" fill="#0c2c8a" name="Profit (PKR)" />
+                  <Bar dataKey="profit" fill="#032125" name="Profit (PKR)" />
                   <Bar dataKey="expenses" fill="#EF4444" name="Expenses (PKR)" />
                 </BarChart>
               </ChartContainer>
@@ -1389,7 +1389,7 @@ const Reports = () => {
                 config={{
                   sales: {
                     label: "Quantity Sold",
-                    color: "#0c2c8a",
+                    color: "#032125",
                   },
                 }}
                 className="h-[300px]"
@@ -1399,7 +1399,7 @@ const Reports = () => {
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" width={120} />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="sales" fill="#0c2c8a" name="Quantity Sold" />
+                  <Bar dataKey="sales" fill="#032125" name="Quantity Sold" />
                 </BarChart>
               </ChartContainer>
             ) : (
@@ -1413,7 +1413,7 @@ const Reports = () => {
           {/* Customer Growth (Line Chart) */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <Users className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">Customer Growth Trend</h3>
@@ -1424,7 +1424,7 @@ const Reports = () => {
                 config={{
                   customers: {
                     label: "Customers",
-                    color: "#0c2c8a",
+                    color: "#032125",
                   },
                 }}
                 className="h-[300px]"
@@ -1437,9 +1437,9 @@ const Reports = () => {
                   <Line
                     type="monotone"
                     dataKey="customers"
-                    stroke="#0c2c8a"
+                    stroke="#032125"
                     strokeWidth={3}
-                    dot={{ fill: "#0c2c8a", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#032125", strokeWidth: 2, r: 4 }}
                     name="Customers"
                   />
                 </LineChart>
@@ -1458,7 +1458,7 @@ const Reports = () => {
           {/* Sales by Category (Donut Chart) */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <PieChartIcon className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">Sales Distribution by Category</h3>
@@ -1502,7 +1502,7 @@ const Reports = () => {
           {/* Profit Margin (Gauge Chart) */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/25">
+              <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
                 <Gauge className="w-4 h-4 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900 text-sm">Overall Profit Margin</h3>
@@ -1526,7 +1526,7 @@ const Reports = () => {
                     cx="50"
                     cy="50"
                     r="40"
-                    stroke="#0c2c8a"
+                    stroke="#032125"
                     strokeWidth="8"
                     fill="none"
                     strokeDasharray={`${2 * Math.PI * 40}`}
@@ -1596,7 +1596,7 @@ const Reports = () => {
       {selectedBranchId && allBranches.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all">
           <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-teal-500/25">
+            <div className="w-8 h-8 bg-gradient-to-br from-spruce-500 to-spruce-500 rounded-lg flex items-center justify-center shadow-lg shadow-spruce-500/25">
               <Building2 className="w-4 h-4 text-white" />
             </div>
             <h3 className="font-semibold text-gray-900 text-sm">

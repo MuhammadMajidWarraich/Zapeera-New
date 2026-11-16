@@ -100,7 +100,7 @@ import { useAccountStatus } from "@/lib/account-status";
 import { DESKTOP_DOWNLOAD_URL } from "@/lib/support-links";
 
 const CARD =
-  "rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]";
+  "rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]";
 
 /** Same time-of-day rule as ZapeeraLayout's greeting (local time). */
 export function getTimeGreeting(): string {
@@ -233,7 +233,7 @@ export function WelcomeStatCards() {
 
   const security = useMemo(() => {
     if (accountLoading || !accountStatus) {
-      return { value: "Checking…", sub: "Verifying account security", tone: "text-[#8c95b0]", strong: false };
+      return { value: "Checking…", sub: "Verifying account security", tone: "text-[#437278]", strong: false };
     }
     if (accountStatus.twoFactorOn) {
       return { value: "Strong", sub: "Two-factor authentication on", tone: "text-green-600", strong: true };
@@ -245,7 +245,7 @@ export function WelcomeStatCards() {
     {
       key: "businesses",
       icon: Building2,
-      tint: "bg-[#1a52c5]/10 text-[#1a52c5]",
+      tint: "bg-[#0B363B]/10 text-[#0B363B]",
       value: String(companies.length),
       label: "Total Businesses",
       sub: `${owned} owned · ${joined} joined`,
@@ -254,7 +254,7 @@ export function WelcomeStatCards() {
     {
       key: "roles",
       icon: Users,
-      tint: "bg-teal-500/10 text-teal-600",
+      tint: "bg-spruce-500/10 text-spruce-500",
       value: roleSummary,
       label: "My Role Summary",
       sub: "Across all businesses",
@@ -263,7 +263,7 @@ export function WelcomeStatCards() {
     {
       key: "branches",
       icon: Layers,
-      tint: "bg-violet-500/10 text-violet-600",
+      tint: "bg-spruce-500/10 text-spruce-500",
       value: String(totalBranches),
       label: "Total Branches",
       sub: "Across all businesses",
@@ -306,9 +306,9 @@ export function WelcomeStatCards() {
             <span className={cn("grid h-11 w-11 place-items-center rounded-xl", c.tint)}>
               <Icon className="h-5 w-5" />
             </span>
-            <span className="mt-3 block text-xl font-extrabold leading-tight tracking-tight text-[#0a1128]">{c.value}</span>
-            <span className="mt-0.5 block text-[13px] font-semibold text-[#4a5578]">{c.label}</span>
-            <span className="mt-0.5 block text-xs leading-snug text-[#8c95b0]">{c.sub}</span>
+            <span className="mt-3 block text-xl font-extrabold leading-tight tracking-tight text-[#032125]">{c.value}</span>
+            <span className="mt-0.5 block text-[13px] font-semibold text-[#354D51]">{c.label}</span>
+            <span className="mt-0.5 block text-xs leading-snug text-[#437278]">{c.sub}</span>
           </button>
         );
       })}
@@ -397,8 +397,8 @@ export function WelcomeBusinessSection({
     <section aria-label="My Businesses" className="mt-10">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight text-[#0a1128]">My Businesses</h2>
-          <p className="text-[13px] text-[#8c95b0]">Access and manage all the businesses you own or are a member of.</p>
+          <h2 className="text-xl font-extrabold tracking-tight text-[#032125]">My Businesses</h2>
+          <p className="text-[13px] text-[#437278]">Access and manage all the businesses you own or are a member of.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <label className="sr-only" htmlFor="welcome-status-filter">
@@ -408,7 +408,7 @@ export function WelcomeBusinessSection({
             id="welcome-status-filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value as StatusFilter)}
-            className="h-11 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-3 text-sm font-semibold text-[#0a1128] outline-none focus:border-[#1a52c5]/40"
+            className="h-11 rounded-xl border border-[rgba(3,33,37,0.1)] bg-white px-3 text-sm font-semibold text-[#032125] outline-none focus:border-[#0B363B]/40"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -417,7 +417,7 @@ export function WelcomeBusinessSection({
             <option value="expired">Expired</option>
             <option value="inactive">Inactive</option>
           </select>
-          <div className="flex overflow-hidden rounded-xl border border-[rgba(15,23,60,0.1)] bg-white" role="group" aria-label="View mode">
+          <div className="flex overflow-hidden rounded-xl border border-[rgba(3,33,37,0.1)] bg-white" role="group" aria-label="View mode">
             <button
               type="button"
               onClick={() => setView("grid")}
@@ -425,7 +425,7 @@ export function WelcomeBusinessSection({
               aria-label="Grid view"
               className={cn(
                 "grid h-11 w-11 place-items-center transition-colors",
-                view === "grid" ? "bg-[#1a52c5] text-white" : "text-[#4a5578] hover:bg-[#f0f2f7]"
+                view === "grid" ? "bg-[#0B363B] text-white" : "text-[#354D51] hover:bg-[#EAFDE8]"
               )}
             >
               <LayoutGrid className="h-[18px] w-[18px]" />
@@ -437,7 +437,7 @@ export function WelcomeBusinessSection({
               aria-label="List view"
               className={cn(
                 "grid h-11 w-11 place-items-center transition-colors",
-                view === "list" ? "bg-[#1a52c5] text-white" : "text-[#4a5578] hover:bg-[#f0f2f7]"
+                view === "list" ? "bg-[#0B363B] text-white" : "text-[#354D51] hover:bg-[#EAFDE8]"
               )}
             >
               <List className="h-[18px] w-[18px]" />
@@ -446,9 +446,9 @@ export function WelcomeBusinessSection({
           <button
             type="button"
             onClick={onJoin}
-            className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-5 py-3 text-sm font-semibold text-[#0a1128] shadow-sm transition-all hover:-translate-y-px hover:border-[#1a52c5]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+            className="inline-flex items-center gap-2 rounded-xl border border-[rgba(3,33,37,0.1)] bg-white px-5 py-3 text-sm font-semibold text-[#032125] shadow-sm transition-all hover:-translate-y-px hover:border-[#0B363B]/25 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
           >
-            <UserPlus className="h-[16px] w-[16px] text-[#1a52c5]" />
+            <UserPlus className="h-[16px] w-[16px] text-[#0B363B]" />
             Join a Business
           </button>
           <button
@@ -464,8 +464,8 @@ export function WelcomeBusinessSection({
 
       {visible.length === 0 ? (
         <div className={cn(CARD, "p-10 text-center")}>
-          <p className="text-sm font-semibold text-[#0a1128]">No businesses match this filter.</p>
-          <p className="mt-1 text-[13px] text-[#8c95b0]">Try a different status, or create a new business.</p>
+          <p className="text-sm font-semibold text-[#032125]">No businesses match this filter.</p>
+          <p className="mt-1 text-[13px] text-[#437278]">Try a different status, or create a new business.</p>
         </div>
       ) : (
         <div className={cn(view === "grid" ? "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-4")}>
@@ -492,14 +492,14 @@ export function WelcomeBusinessSection({
                 <div className={cn("min-w-0", view === "list" && "md:flex-1")}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-base font-bold text-white shadow-[0_6px_18px_rgba(26,82,197,0.25)]">
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#0B363B] to-[#437278] text-base font-bold text-white shadow-[0_6px_18px_rgba(11,54,59,0.25)]">
                         {b.name?.charAt(0).toUpperCase() || "B"}
                       </div>
                       <div className="min-w-0">
-                        <p title={b.name} className="line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-[#0a1128]">
+                        <p title={b.name} className="line-clamp-2 text-[15px] font-bold leading-snug tracking-tight text-[#032125]">
                           {b.name}
                         </p>
-                        <p className="truncate text-xs text-[#8c95b0]">{typeLabel}</p>
+                        <p className="truncate text-xs text-[#437278]">{typeLabel}</p>
                       </div>
                     </div>
                     {entLoading ? (
@@ -515,22 +515,22 @@ export function WelcomeBusinessSection({
                     )}
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f7] px-2.5 py-1 text-[11px] font-semibold text-[#4a5578]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EAFDE8] px-2.5 py-1 text-[11px] font-semibold text-[#354D51]">
                       <User className="h-3 w-3 opacity-60" /> {role}
                     </span>
                     {!entLoading && ent.plan?.name && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1a52c5]/[0.07] px-2.5 py-1 text-[11px] font-semibold text-[#1a52c5]">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0B363B]/[0.07] px-2.5 py-1 text-[11px] font-semibold text-[#0B363B]">
                         <CreditCard className="h-3 w-3 opacity-70" /> {ent.plan.name}
                       </span>
                     )}
                   </div>
-                  <div className="mt-3 space-y-1.5 text-[13px] text-[#4a5578]">
+                  <div className="mt-3 space-y-1.5 text-[13px] text-[#354D51]">
                     <p className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+                      <Layers className="h-4 w-4 shrink-0 text-[#437278]" />
                       {branches} {branches === 1 ? "Branch" : "Branches"}
                     </p>
                     <p className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+                      <CalendarDays className="h-4 w-4 shrink-0 text-[#437278]" />
                       <span className="truncate">{entLoading ? "Checking plan…" : expiryLabel(status, ent)}</span>
                     </p>
                   </div>
@@ -540,7 +540,7 @@ export function WelcomeBusinessSection({
                     <button
                       type="button"
                       onClick={() => openSubscription(b)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#1a52c5]/25 bg-[#1a52c5]/[0.06] px-4 py-3 text-sm font-semibold text-[#1a52c5] transition-colors hover:bg-[#1a52c5]/10"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#0B363B]/25 bg-[#0B363B]/[0.06] px-4 py-3 text-sm font-semibold text-[#0B363B] transition-colors hover:bg-[#0B363B]/10"
                     >
                       Renew Plan
                     </button>
@@ -583,14 +583,14 @@ function WelcomePanel({
     <section className={cn(CARD, "p-5 sm:p-6")}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-extrabold tracking-tight text-[#0a1128]">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-[13px] text-[#8c95b0]">{subtitle}</p>}
+          <h3 className="text-base font-extrabold tracking-tight text-[#032125]">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-[13px] text-[#437278]">{subtitle}</p>}
         </div>
         {actionLabel && onAction && (
           <button
             type="button"
             onClick={onAction}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#f0f2f7] px-3 py-1.5 text-[13px] font-semibold text-[#1a52c5] transition-colors hover:bg-[#e4eaf5]"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#EAFDE8] px-3 py-1.5 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#e4eaf5]"
           >
             {actionLabel}
             <ArrowRight className="h-3.5 w-3.5" />
@@ -651,25 +651,25 @@ export function WelcomeSyncPanel() {
     {
       icon: online ? Wifi : WifiOff,
       label: "Cloud Status",
-      value: <b className={online ? "text-green-600" : "text-[#8c95b0]"}>{online ? "Connected" : "Offline"}</b>,
+      value: <b className={online ? "text-green-600" : "text-[#437278]"}>{online ? "Connected" : "Offline"}</b>,
     },
-    { icon: Clock, label: "Last Sync", value: <b className="text-[#0a1128]">{formatDateTime(lastSync)}</b> },
+    { icon: Clock, label: "Last Sync", value: <b className="text-[#032125]">{formatDateTime(lastSync)}</b> },
     {
       icon: RefreshCw,
       label: "Pending Changes",
       value: (
-        <b className="text-[#0a1128]">
+        <b className="text-[#032125]">
           {status.pendingChanges}
           {status.failedChanges > 0 ? ` · ${status.failedChanges} failed` : ""} ready to sync
         </b>
       ),
     },
-    { icon: Laptop, label: "Sync State", value: <b className="text-[#0a1128]">{syncStateLabel}</b> },
+    { icon: Laptop, label: "Sync State", value: <b className="text-[#032125]">{syncStateLabel}</b> },
   ];
   if (appVersion) {
-    rows.push({ icon: HardDrive, label: "This Device", value: <b className="text-[#0a1128]">Desktop app · v{appVersion}</b> });
+    rows.push({ icon: HardDrive, label: "This Device", value: <b className="text-[#032125]">Desktop app · v{appVersion}</b> });
   } else {
-    rows.push({ icon: HardDrive, label: "This Device", value: <b className="text-[#0a1128]">Desktop app</b> });
+    rows.push({ icon: HardDrive, label: "This Device", value: <b className="text-[#032125]">Desktop app</b> });
   }
 
   return (
@@ -679,10 +679,10 @@ export function WelcomeSyncPanel() {
           const Icon = r.icon;
           return (
             <li key={r.label} className="flex items-center gap-3 text-[13px]">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1a52c5]/10 text-[#1a52c5]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#0B363B]/10 text-[#0B363B]">
                 <Icon className="h-4 w-4" />
               </span>
-              <span className="text-[#4a5578]">{r.label}</span>
+              <span className="text-[#354D51]">{r.label}</span>
               <span className="ml-auto text-right">{r.value}</span>
             </li>
           );
@@ -692,9 +692,9 @@ export function WelcomeSyncPanel() {
         type="button"
         onClick={handleSync}
         disabled={syncing || status.inProgress}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-4 py-3 text-sm font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7] disabled:opacity-50"
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(3,33,37,0.1)] bg-white px-4 py-3 text-sm font-semibold text-[#032125] transition-colors hover:bg-[#EAFDE8] disabled:opacity-50"
       >
-        <RefreshCw className={cn("h-4 w-4 text-[#1a52c5]", syncing && "animate-spin")} />
+        <RefreshCw className={cn("h-4 w-4 text-[#0B363B]", syncing && "animate-spin")} />
         {syncing ? "Syncing…" : "Sync Now"}
       </button>
     </WelcomePanel>
@@ -724,14 +724,14 @@ export function WelcomeCloudPanel() {
   return (
     <WelcomePanel title="Cloud Status" subtitle="Your workspace connection">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#1a52c5]/10 text-[#1a52c5]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0B363B]/10 text-[#0B363B]">
           <Cloud className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-bold text-[#0a1128]">
+          <p className="text-sm font-bold text-[#032125]">
             {profileLoading ? "Checking…" : connected ? "Connected" : "Connection issue"}
           </p>
-          <p className="mt-0.5 text-[13px] leading-snug text-[#4a5578]">
+          <p className="mt-0.5 text-[13px] leading-snug text-[#354D51]">
             {profileLoading
               ? "Verifying the cloud connection…"
               : connected
@@ -743,9 +743,9 @@ export function WelcomeCloudPanel() {
       <button
         type="button"
         onClick={() => navigate("/downloads")}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(15,23,60,0.1)] bg-white px-4 py-3 text-sm font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7]"
+        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(3,33,37,0.1)] bg-white px-4 py-3 text-sm font-semibold text-[#032125] transition-colors hover:bg-[#EAFDE8]"
       >
-        <Download className="h-4 w-4 text-[#1a52c5]" />
+        <Download className="h-4 w-4 text-[#0B363B]" />
         Get the Desktop App for Offline Work
       </button>
     </WelcomePanel>
@@ -861,7 +861,7 @@ export function WelcomeInvitationsPanel() {
       {loading ? (
         <div className="space-y-2">
           {[1, 2].map((i) => (
-            <div key={i} className="h-[68px] animate-pulse rounded-xl border border-[rgba(15,23,60,0.06)] bg-[#f7f9fc]" />
+            <div key={i} className="h-[68px] animate-pulse rounded-xl border border-[rgba(3,33,37,0.06)] bg-[#f7f9fc]" />
           ))}
         </div>
       ) : invitations.length > 0 ? (
@@ -871,15 +871,15 @@ export function WelcomeInvitationsPanel() {
             return (
               <div
                 key={inv.invitationId || inv.token}
-                className="flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3 py-3"
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3 py-3"
               >
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
                   <UserPlus className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold text-[#0a1128]">{inv.businessName}</p>
-                  <p className="truncate text-xs text-[#8c95b0]">
-                    Invited as <b className="text-[#4a5578]">{inv.roleName || "Member"}</b>
+                  <p className="truncate text-[13px] font-semibold text-[#032125]">{inv.businessName}</p>
+                  <p className="truncate text-xs text-[#437278]">
+                    Invited as <b className="text-[#354D51]">{inv.roleName || "Member"}</b>
                     {" · "}Expires {invitationExpiryLabel(inv.expiresAt)}
                   </p>
                 </div>
@@ -888,7 +888,7 @@ export function WelcomeInvitationsPanel() {
                     type="button"
                     disabled={busy}
                     onClick={() => handleDecline(inv)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[rgba(15,23,60,0.1)] bg-white px-3 py-1.5 text-xs font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7] disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[rgba(3,33,37,0.1)] bg-white px-3 py-1.5 text-xs font-semibold text-[#354D51] transition-colors hover:bg-[#EAFDE8] disabled:opacity-50"
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     Decline
@@ -897,7 +897,7 @@ export function WelcomeInvitationsPanel() {
                     type="button"
                     disabled={busy}
                     onClick={() => handleAccept(inv)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] hover:opacity-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#0B363B] to-[#437278] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)] hover:opacity-95 disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {busy ? "Working…" : "Accept"}
@@ -912,21 +912,21 @@ export function WelcomeInvitationsPanel() {
           {pendingFromMemberships.map((m: any) => (
             <div
               key={m.businessId}
-              className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3 py-3"
+              className="flex items-center gap-3 rounded-xl border border-[rgba(3,33,37,0.06)] bg-white px-3 py-3"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-600">
                 <UserPlus className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-[#0a1128]">{m.businessName || m.businessId}</p>
-                <p className="truncate text-xs text-[#8c95b0]">
-                  Invited as <b className="text-[#4a5578]">{m.roleName || m.role || "Member"}</b>
+                <p className="truncate text-[13px] font-semibold text-[#032125]">{m.businessName || m.businessId}</p>
+                <p className="truncate text-xs text-[#437278]">
+                  Invited as <b className="text-[#354D51]">{m.roleName || m.role || "Member"}</b>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate("/zapeera/invitations")}
-                className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-[#0B363B] to-[#437278] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)] hover:opacity-95"
               >
                 Review
               </button>
@@ -934,7 +934,7 @@ export function WelcomeInvitationsPanel() {
           ))}
         </div>
       ) : (
-        <p className="text-[13px] text-[#8c95b0]">You have no pending invitations.</p>
+        <p className="text-[13px] text-[#437278]">You have no pending invitations.</p>
       )}
     </WelcomePanel>
   );
@@ -962,13 +962,13 @@ export function WelcomeActivityPanel({ onOpen }: { onOpen: (slug: string | null 
       list.push({
         id: "desktop",
         icon: Laptop,
-        tint: "bg-violet-500/10 text-violet-600",
+        tint: "bg-spruce-500/10 text-spruce-500",
         title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`,
         time: "Now",
       });
     }
-    list.push({ id: "login", icon: LogIn, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Tickimo", time: "Sign up" });
+    list.push({ id: "login", icon: LogIn, tint: "bg-[#0B363B]/10 text-[#0B363B]", title: "New login from your account", time: "Today" });
+    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#437278]/10 text-[#437278]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
 
@@ -976,26 +976,26 @@ export function WelcomeActivityPanel({ onOpen }: { onOpen: (slug: string | null 
     <WelcomePanel title="Recent Account Activity" actionLabel="View All" onAction={() => navigate("/zapeera/notifications")}>
       {recent.length > 0 && (
         <div className="mb-4">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Recently accessed</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Recently accessed</p>
           <div className="grid gap-1 sm:grid-cols-2">
             {recent.map((b) => (
               <button
                 key={b.id}
                 type="button"
                 onClick={() => onOpen(b.slug, b.id)}
-                className="flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#f0f2f7]"
+                className="flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#EAFDE8]"
               >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
                   <Building2 className="h-4 w-4" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0a1128]">{b.name}</span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#032125]">{b.name}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-[#437278]" />
               </button>
             ))}
           </div>
         </div>
       )}
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Account activity</p>
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Account activity</p>
       <ul className="space-y-3.5">
         {events.map((it) => {
           const Icon = it.icon;
@@ -1005,8 +1005,8 @@ export function WelcomeActivityPanel({ onOpen }: { onOpen: (slug: string | null 
                 <Icon className="h-4 w-4" strokeWidth={2.2} />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold leading-snug text-[#0a1128]">{it.title}</p>
-                <p className="mt-0.5 text-xs text-[#8c95b0]">{it.time}</p>
+                <p className="text-sm font-semibold leading-snug text-[#032125]">{it.title}</p>
+                <p className="mt-0.5 text-xs text-[#437278]">{it.time}</p>
               </div>
             </li>
           );
@@ -1040,13 +1040,13 @@ export function WelcomeQuickActions({ onCreate }: { onCreate: () => void }) {
               key={a.label}
               type="button"
               onClick={() => (a.action ? a.action() : navigate(a.to!))}
-              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[#f0f2f7]"
+              className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-[#EAFDE8]"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1a52c5]/10 text-[#1a52c5]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#0B363B]/10 text-[#0B363B]">
                 <Icon className="h-4 w-4" />
               </span>
-              <span className="flex-1 text-[13px] font-semibold text-[#0a1128]">{a.label}</span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+              <span className="flex-1 text-[13px] font-semibold text-[#032125]">{a.label}</span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-[#437278]" />
             </button>
           );
         })}
@@ -1094,21 +1094,21 @@ export function WelcomeStoragePanel() {
   return (
     <WelcomePanel title="Storage & Data" subtitle="This device">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#1a52c5]/10 text-[#1a52c5]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0B363B]/10 text-[#0B363B]">
           <HardDrive className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-[#0a1128]">{pct}% used</p>
-          <p className="mt-0.5 truncate text-[13px] text-[#4a5578]">
+          <p className="text-sm font-bold text-[#032125]">{pct}% used</p>
+          <p className="mt-0.5 truncate text-[13px] text-[#354D51]">
             {usedLabel} used · {freeLabel} available · {totalLabel} total
           </p>
         </div>
       </div>
       <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#e8edf6]">
-        <div className="h-full rounded-full bg-gradient-to-r from-[#1a52c5] to-[#28c2ce]" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-gradient-to-r from-[#0B363B] to-[#437278]" style={{ width: `${pct}%` }} />
       </div>
-      <div className="mt-4 flex items-center gap-2 border-t border-[rgba(15,23,60,0.05)] pt-3 text-[13px] text-[#4a5578]">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-[#1a52c5]" />
+      <div className="mt-4 flex items-center gap-2 border-t border-[rgba(3,33,37,0.05)] pt-3 text-[13px] text-[#354D51]">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[#0B363B]" />
         <span>
           Local Tickimo database{dbLabel ? `: ${dbLabel}` : ""}
         </span>
@@ -1138,12 +1138,12 @@ export function WelcomeDownloadWidget() {
   return (
     <section className={cn(CARD, "p-5 sm:p-6")}>
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_6px_18px_rgba(26,82,197,0.3)]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_6px_18px_rgba(11,54,59,0.3)]">
           <Laptop className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Download Tickimo for Windows</p>
-          <p className="mt-0.5 text-[13px] text-[#4a5578]">
+          <p className="text-[15px] font-extrabold tracking-tight text-[#032125]">Download Tickimo for Windows</p>
+          <p className="mt-0.5 text-[13px] text-[#354D51]">
             {versionLabel} · Work offline at the counter, syncs automatically.
           </p>
         </div>
@@ -1160,7 +1160,7 @@ export function WelcomeDownloadWidget() {
       <button
         type="button"
         onClick={() => navigate("/downloads")}
-        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-xl px-4 py-2 text-[13px] font-semibold text-[#1a52c5] transition-colors hover:bg-[#f0f2f7]"
+        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-xl px-4 py-2 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#EAFDE8]"
       >
         More download options
         <ArrowRight className="h-3.5 w-3.5" />
@@ -1176,13 +1176,13 @@ export function WelcomeDownloadWidget() {
 export function WelcomeControlBanner() {
   const navigate = useNavigate();
   return (
-    <section className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white px-5 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] sm:px-6">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#1a52c5]/10 text-[#1a52c5]">
+    <section className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white px-5 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] sm:px-6">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0B363B]/10 text-[#0B363B]">
         <ShieldCheck className="h-5 w-5" />
       </span>
       <div className="min-w-[210px] flex-1">
-        <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Stay in Control</p>
-        <p className="mt-0.5 text-[13px] text-[#4a5578]">
+        <p className="text-[15px] font-extrabold tracking-tight text-[#032125]">Stay in Control</p>
+        <p className="mt-0.5 text-[13px] text-[#354D51]">
           Manage your businesses, track performance, and grow with powerful tools built for you.
         </p>
       </div>

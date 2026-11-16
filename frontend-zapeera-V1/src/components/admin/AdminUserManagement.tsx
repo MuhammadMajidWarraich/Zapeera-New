@@ -199,8 +199,8 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
       case 'ADMIN':
       case 'OWNER':
         return 'bg-orange-100 text-orange-800';
-      case 'MANAGER': return 'bg-blue-100 text-blue-800';
-      case 'CASHIER': return 'bg-purple-100 text-purple-800';
+      case 'MANAGER': return 'bg-verdant-100 text-spruce-900';
+      case 'CASHIER': return 'bg-verdant-100 text-spruce-900';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -226,7 +226,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
         </div>
         <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200">
+            <Button className="bg-spruce-700 hover:bg-spruce-900 text-white shadow-md hover:shadow-lg transition-all duration-200">
               <Plus className="w-4 h-4 mr-2" />
               Add Staff
             </Button>
@@ -291,13 +291,13 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                   <SelectContent>
                     <SelectItem
                       value="MANAGER"
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                      className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                     >
                       Manager
                     </SelectItem>
                     <SelectItem
                       value="CASHIER"
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                      className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                     >
                       Cashier
                     </SelectItem>
@@ -324,7 +324,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                       <SelectItem
                         key={company.id}
                         value={company.id}
-                        className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                        className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                       >
                         {company.name}
                       </SelectItem>
@@ -350,7 +350,7 @@ const AdminUserManagement = ({ adminId, adminName, branchId }: AdminUserManageme
                         <SelectItem
                           key={branch.id}
                           value={branch.id}
-                          className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                          className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                         >
                           {branch.name}
                         </SelectItem>

@@ -41,44 +41,44 @@ const PharmacyExtras = () => {
   const go = (path: string) => navigate(withBusinessSlug(businessSlug, path));
 
   return (
-    <div className="relative bg-[#f0f2f7]">
+    <div className="relative bg-[#EAFDE8]">
       <div className="relative z-[1] space-y-6 px-6 pb-14 md:px-11">
         <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-3">
-          <div className="border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
-            <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Prescriptions Today</p>
-            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+          <div className="border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+            <p className="mb-2 text-[13px] font-medium text-[#437278]">Prescriptions Today</p>
+            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">
               {stats.prescriptionsToday ?? 0}
             </p>
-            <p className="text-[13px] font-semibold text-[#0a1128]">
+            <p className="text-[13px] font-semibold text-[#032125]">
               {stats.prescriptionsAwaiting ?? 0} awaiting dispensing
             </p>
           </div>
-          <div className="border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
-            <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Batches Expiring Soon (30 days)</p>
-            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+          <div className="border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+            <p className="mb-2 text-[13px] font-medium text-[#437278]">Batches Expiring Soon (30 days)</p>
+            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">
               {stats.expiringSoonCount ?? 0}
             </p>
-            <p className="text-[13px] font-semibold text-[#0a1128]">
+            <p className="text-[13px] font-semibold text-[#032125]">
               {stats.expiredCount ?? 0} already expired
             </p>
           </div>
-          <div className="border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
-            <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Reorder Suggestions</p>
-            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+          <div className="border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+            <p className="mb-2 text-[13px] font-medium text-[#437278]">Reorder Suggestions</p>
+            <p className="mb-2 text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">
               {stats.reorderCount ?? 0}
             </p>
-            <p className="text-[13px] font-semibold text-[#0a1128]">Products at or below their reorder level</p>
+            <p className="text-[13px] font-semibold text-[#032125]">Products at or below their reorder level</p>
           </div>
         </div>
 
         <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-2">
           <Panel
-            icon={<FileText className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+            icon={<FileText className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
             title="Recent Prescriptions"
             actionLabel="Prescriptions"
             onAction={() => go("/prescriptions")}
             isEmpty={prescriptions.length === 0}
-            emptyIcon={<Pill className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+            emptyIcon={<Pill className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
             emptyTitle="No prescriptions registered yet"
             emptyText="Prescriptions recorded at the counter will appear here."
           >
@@ -125,7 +125,7 @@ const PharmacyExtras = () => {
         </div>
 
         <Panel
-          icon={<ClipboardList className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+          icon={<ClipboardList className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
           title="Reorder Suggestions"
           actionLabel="Reorder Suggestions"
           onAction={() => go("/reorder-suggestions")}
@@ -142,7 +142,7 @@ const PharmacyExtras = () => {
                 meta={`In stock ${r.currentStock} · reorder level ${r.reorderLevel}`}
                 tone="neutral"
                 badge={
-                  <Badge variant="outline" className="shrink-0 border-[rgba(15,23,60,0.08)] text-xs font-semibold">
+                  <Badge variant="outline" className="shrink-0 border-[rgba(3,33,37,0.08)] text-xs font-semibold">
                     Suggest {r.suggestedQty}
                   </Badge>
                 }

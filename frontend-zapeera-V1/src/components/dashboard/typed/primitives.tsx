@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Shared primitives for the type-specific workspace dashboards ────
 // Visual language copied 1:1 from BusinessDashboard (the zv3 stat cards
-// and icon-headed panels on the #f0f2f7 shell) so every business type's
+// and icon-headed panels on the #EAFDE8 shell) so every business type's
 // dashboard looks like the same product — only the CONTENT differs.
 
 export const formatCurrency = (amount: number) =>
@@ -31,14 +31,14 @@ export const formatTimeShort = (value: string | Date | null | undefined) => {
 
 /** Page shell: same backdrop + paddings as BusinessDashboard. */
 export const DashboardShell = ({ children }: { children: ReactNode }) => (
-  <div className="relative min-h-full bg-[#f0f2f7]">
+  <div className="relative min-h-full bg-[#EAFDE8]">
     <div
       className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full blur-[100px]"
-      style={{ background: "rgba(40,194,206,0.06)" }}
+      style={{ background: "rgba(67,114,120,0.06)" }}
     />
     <div
       className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full blur-[100px]"
-      style={{ background: "rgba(26,82,197,0.04)" }}
+      style={{ background: "rgba(11,54,59,0.04)" }}
     />
     <div className="relative z-[1] space-y-6 px-6 pb-14 pt-9 md:px-11">{children}</div>
   </div>
@@ -60,11 +60,11 @@ export const DashboardHeader = ({
   return (
     <div className="zv3-animate-fadeUp flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#0a1128]">{title}</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">{subtitle}</p>
+        <h1 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#032125]">{title}</h1>
+        <p className="mt-1 text-sm text-[#437278]">{subtitle}</p>
       </div>
       <div className="text-left sm:text-right">
-        <p className="text-[13px] font-medium text-[#8c95b0]">
+        <p className="text-[13px] font-medium text-[#437278]">
           {now.toLocaleDateString("en-PK", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
         <p className="mt-0.5 text-[20px] font-extrabold tracking-tight text-primary">
@@ -87,13 +87,13 @@ export const StatCard = ({
   sub?: ReactNode;
   hint?: string;
 }) => (
-  <div className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
-    <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">{title}</p>
-    <p className="mb-2 break-words text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+  <div className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+    <p className="mb-2 text-[13px] font-medium text-[#437278]">{title}</p>
+    <p className="mb-2 break-words text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">
       {value}
     </p>
-    {sub ? <p className="text-[13px] font-semibold text-[#0a1128]">{sub}</p> : null}
-    {hint ? <p className="mt-1 text-xs text-[#8c95b0]">{hint}</p> : null}
+    {sub ? <p className="text-[13px] font-semibold text-[#032125]">{sub}</p> : null}
+    {hint ? <p className="mt-1 text-xs text-[#437278]">{hint}</p> : null}
   </div>
 );
 
@@ -132,9 +132,9 @@ export const Panel = ({
   emptyText?: string;
   children?: ReactNode;
 }) => (
-  <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+  <div className="overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
     <div className="flex items-center justify-between px-7 pt-4 pb-0">
-      <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
+      <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#032125]">
         {icon}
         {title}
       </div>
@@ -155,8 +155,8 @@ export const Panel = ({
           <div className="mb-3.5 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-primary/10">
             {emptyIcon}
           </div>
-          <h4 className="mb-1 text-sm font-bold text-[#0a1128]">{emptyTitle}</h4>
-          {emptyText ? <p className="max-w-[300px] text-[13px] text-[#8c95b0]">{emptyText}</p> : null}
+          <h4 className="mb-1 text-sm font-bold text-[#032125]">{emptyTitle}</h4>
+          {emptyText ? <p className="max-w-[300px] text-[13px] text-[#437278]">{emptyText}</p> : null}
         </div>
       ) : (
         children
@@ -182,14 +182,14 @@ export const ListRow = ({
       "rounded-[8px] border p-2.5 transition-colors",
       tone === "green" && "border-green-600/15 bg-green-600/[0.06] hover:bg-green-600/[0.08]",
       tone === "amber" && "border-amber-500/20 bg-amber-500/[0.06] hover:bg-amber-500/[0.08]",
-      tone === "neutral" && "border-[rgba(15,23,60,0.08)] bg-black/[0.02] hover:bg-black/[0.04]"
+      tone === "neutral" && "border-[rgba(3,33,37,0.08)] bg-black/[0.02] hover:bg-black/[0.04]"
     )}
   >
     <div className="flex items-center justify-between gap-2">
-      <p className="min-w-0 truncate text-sm font-semibold text-[#0a1128]">{title}</p>
+      <p className="min-w-0 truncate text-sm font-semibold text-[#032125]">{title}</p>
       {badge}
     </div>
-    {meta ? <div className="mt-1 text-xs text-[#8c95b0]">{meta}</div> : null}
+    {meta ? <div className="mt-1 text-xs text-[#437278]">{meta}</div> : null}
   </div>
 );
 
@@ -214,7 +214,7 @@ export const DashboardError = ({ message, onRetry }: { message: string; onRetry:
   <DashboardShell>
     <div className="flex flex-col items-center px-5 py-16 text-center">
       <h4 className="mb-1 text-base font-bold text-red-600">{message}</h4>
-      <p className="mb-4 text-[13px] text-[#8c95b0]">The dashboard data could not be loaded.</p>
+      <p className="mb-4 text-[13px] text-[#437278]">The dashboard data could not be loaded.</p>
       <Button
         onClick={onRetry}
         className="rounded-[10px]"

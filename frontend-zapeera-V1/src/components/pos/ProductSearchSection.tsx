@@ -97,7 +97,7 @@ interface ProductSearchSectionProps {
 }
 
 const zapeeraCard =
-  'relative overflow-hidden rounded-[20px] border border-[rgba(15,23,60,0.08)] bg-white shadow-[0_2px_16px_rgba(15,23,60,0.04)]';
+  'relative overflow-hidden rounded-[20px] border border-[rgba(3,33,37,0.08)] bg-white shadow-[0_2px_16px_rgba(3,33,37,0.04)]';
 
 function ListPlaceholder({
   icon: Icon,
@@ -111,13 +111,13 @@ function ListPlaceholder({
   return (
     <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
       <div
-        className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1a52c5]/12 to-[#28c2ce]/10"
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0B363B]/12 to-[#437278]/10"
         aria-hidden
       >
-        <Icon className="h-6 w-6 text-[#1a52c5]/75" strokeWidth={1.75} />
+        <Icon className="h-6 w-6 text-[#0B363B]/75" strokeWidth={1.75} />
       </div>
-      <p className="text-sm font-semibold tracking-tight text-[#0a1128]">{title}</p>
-      <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-[#8c95b0]">{subtitle}</p>
+      <p className="text-sm font-semibold tracking-tight text-[#032125]">{title}</p>
+      <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-[#437278]">{subtitle}</p>
     </div>
   );
 }
@@ -167,7 +167,7 @@ function CategoryPills({
           'snap-start whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
           !activeCategoryId
             ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
+            : 'bg-[#EAFDE8] text-[#354D51] hover:bg-[#e2e8f4]',
         )}
       >
         All Products
@@ -184,7 +184,7 @@ function CategoryPills({
               'snap-start whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold transition-all',
               isActive
                 ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-[#eef1f7] text-[#4a5578] hover:bg-[#e2e8f4]',
+                : 'bg-[#EAFDE8] text-[#354D51] hover:bg-[#e2e8f4]',
             )}
           >
             {category.name}
@@ -347,12 +347,12 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
   const resultsContent = (
     <>
           {isLoading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-[#8c95b0]">
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-[#437278]">
               <div
-                className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-[rgba(26,82,197,0.15)] border-t-[#1a52c5]"
+                className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-[rgba(11,54,59,0.15)] border-t-[#0B363B]"
                 aria-hidden
               />
-              <p className="text-sm font-medium text-[#4a5578]">Loading products…</p>
+              <p className="text-sm font-medium text-[#354D51]">Loading products…</p>
             </div>
           ) : requiresBranchSelection ? (
             <div className="col-span-full">
@@ -410,7 +410,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                   key={product.id}
                   className={
                     highlighted
-                      ? 'rounded-2xl ring-2 ring-[#1a52c5] ring-offset-1'
+                      ? 'rounded-2xl ring-2 ring-[#0B363B] ring-offset-1'
                       : undefined
                   }
                 >
@@ -468,7 +468,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
         className="pointer-events-none absolute inset-0 rounded-[20px] opacity-[0.65]"
         style={{
           background:
-            'radial-gradient(circle at 92% 8%, rgba(26,82,197,0.06) 0%, transparent 42%), radial-gradient(circle at 8% 88%, rgba(40,194,206,0.05) 0%, transparent 45%)',
+            'radial-gradient(circle at 92% 8%, rgba(11,54,59,0.06) 0%, transparent 42%), radial-gradient(circle at 8% 88%, rgba(67,114,120,0.05) 0%, transparent 45%)',
         }}
         aria-hidden
       />
@@ -484,14 +484,14 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
       >
         {!isSplit && (
           <div className="mb-4 flex shrink-0 items-start gap-3 sm:items-center">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#1a52c5]/14 to-[#28c2ce]/12">
-              <ScanBarcode className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-gradient-to-br from-[#0B363B]/14 to-[#437278]/12">
+              <ScanBarcode className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-[17px] font-bold tracking-tight text-[#0a1128]">
+              <h3 className="text-[17px] font-bold tracking-tight text-[#032125]">
                 Scan or Search
               </h3>
-              <p className="mt-0.5 text-sm text-[#8c95b0]">
+              <p className="mt-0.5 text-sm text-[#437278]">
                 Scan barcode or type to search by name, barcode, or SKU
               </p>
             </div>
@@ -507,7 +507,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
                     ? 'Scan with the camera — a USB/Bluetooth scanner works anytime without this window'
                     : 'Barcode scanning is turned off for this business (Settings → POS)'
                 }
-                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[#1a52c5] px-3.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(26,82,197,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#1746b0]"
+                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[#0B363B] px-3.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(11,54,59,0.22)] transition-all hover:-translate-y-0.5 hover:bg-[#1746b0]"
               >
                 <ScanBarcode className="h-4 w-4 shrink-0" strokeWidth={2.2} />
                 Scan Barcode
@@ -521,7 +521,7 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
           className={cn('relative shrink-0', isSplit ? 'mb-2 md:mb-4' : 'mb-4')}
         >
           <ScanBarcode
-            className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#437278]"
             strokeWidth={2}
           />
           <Input
@@ -534,8 +534,8 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
             disabled={requiresBranchSelection}
             autoFocus
             className={cn(
-              'border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] pl-11 text-[#0a1128] placeholder:text-[#8c95b0]/80 font-mono',
-              'transition-[border-color,box-shadow] focus-visible:border-[#1a52c5]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#1a52c5]/15',
+              'border-[rgba(3,33,37,0.1)] bg-[#FFFCF6] pl-11 text-[#032125] placeholder:text-[#437278]/80 font-mono',
+              'transition-[border-color,box-shadow] focus-visible:border-[#0B363B]/35 focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[#0B363B]/15',
               // Mobile flyout (2026-10-27): the search input is 40px
               // below md (56px at md+ — desktop unchanged).
               isSplit ? 'h-10 rounded-2xl pr-14 text-[15px] md:h-14' : 'h-[52px] rounded-[12px] pr-11 text-[15px]',
@@ -550,12 +550,12 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               type="button"
               onClick={() => onSearchChange('')}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#8c95b0] transition-colors hover:bg-[#eef1f7] hover:text-[#0a1128]"
+              className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#437278] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
             >
               <X className="h-4 w-4" />
             </button>
           ) : (
-            <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 text-xs text-[#8c95b0] sm:flex">
+            <div className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 text-xs text-[#437278] sm:flex">
               <Kbd>F2</Kbd>
               Enter ↵
             </div>
@@ -576,9 +576,9 @@ const ProductSearchSection: React.FC<ProductSearchSectionProps> = ({
               aria-label="Search results"
               className="absolute inset-x-0 top-[calc(100%+8px)] z-50 md:hidden"
             >
-              <div className="overflow-hidden rounded-[16px] border border-[rgba(15,23,60,0.1)] bg-white shadow-[0_16px_40px_rgba(15,23,60,0.22)]">
+              <div className="overflow-hidden rounded-[16px] border border-[rgba(3,33,37,0.1)] bg-white shadow-[0_16px_40px_rgba(3,33,37,0.22)]">
                 {categories && categories.length > 0 && (
-                  <div className="border-b border-[rgba(15,23,60,0.06)] px-3 pb-1 pt-3">
+                  <div className="border-b border-[rgba(3,33,37,0.06)] px-3 pb-1 pt-3">
                     <CategoryPills
                       categories={categories}
                       activeCategoryId={activeCategoryId}

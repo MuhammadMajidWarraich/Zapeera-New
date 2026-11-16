@@ -105,12 +105,12 @@ const ClinicDashboard = () => {
       </StatGrid>
 
       <Panel
-        icon={<ClipboardList className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+        icon={<ClipboardList className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
         title="Up Next — OPD Queue & Appointments"
         actionLabel="Appointments"
         onAction={() => go("/appointments")}
         isEmpty={next.length === 0}
-        emptyIcon={<CalendarDays className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+        emptyIcon={<CalendarDays className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
         emptyTitle="No upcoming appointments"
         emptyText="Booked appointments and the live token queue will appear here."
       >
@@ -122,7 +122,7 @@ const ClinicDashboard = () => {
               meta={`${a.doctor?.name || "Doctor"}${a.doctor?.specialization ? ` (${a.doctor.specialization})` : ""} · ${formatDateShort(a.appointmentDate)}${a.reason ? ` · ${a.reason}` : ""}`}
               tone={a.status === "IN_VISIT" ? "amber" : "neutral"}
               badge={
-                <Badge variant="outline" className="shrink-0 border-[rgba(15,23,60,0.08)] text-xs font-semibold">
+                <Badge variant="outline" className="shrink-0 border-[rgba(3,33,37,0.08)] text-xs font-semibold">
                   {a.status === "IN_VISIT" ? (
                     <Stethoscope className="mr-1 inline h-3 w-3" />
                   ) : a.status === "CHECKED_IN" ? (

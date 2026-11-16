@@ -49,9 +49,9 @@ import { toast } from "@/hooks/use-toast";
 // engine, and the fee/share split is snapshotted on the appointment.
 
 const STATUS_STYLES: Record<string, string> = {
-  BOOKED: "bg-blue-100 text-blue-800",
+  BOOKED: "bg-verdant-100 text-spruce-900",
   CHECKED_IN: "bg-amber-100 text-amber-800",
-  IN_VISIT: "bg-purple-100 text-purple-800",
+  IN_VISIT: "bg-verdant-100 text-spruce-900",
   COMPLETED: "bg-green-100 text-green-800",
   CANCELLED: "bg-gray-200 text-gray-700",
   NO_SHOW: "bg-red-100 text-red-800",
@@ -119,12 +119,12 @@ const ProductSearchSelect: React.FC<{
   if (value.productId) {
     return (
       <div className="flex h-9 items-center gap-2 rounded-md border bg-white px-2.5">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#0a1128]">{value.productName}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#032125]">{value.productName}</span>
         <button
           type="button"
           disabled={disabled}
           onClick={() => { onChange({ productId: "", productName: "" }); setQuery(""); setOpen(true); }}
-          className="text-xs font-bold text-[#1a52c5] hover:underline"
+          className="text-xs font-bold text-[#0B363B] hover:underline"
         >
           Change
         </button>
@@ -514,14 +514,14 @@ const AppointmentsPage: React.FC = () => {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {queue.map((appt) => (
             <div key={appt.id} className="flex gap-4 rounded-lg border bg-white p-4">
-              <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg bg-[#0a1128] text-white">
+              <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg bg-[#032125] text-white">
                 <span className="text-[10px] uppercase tracking-wide opacity-70">Token</span>
                 <span className="text-2xl font-bold leading-none">{appt.tokenNumber}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-[#0a1128]">{appt.patient?.name || "Patient"}</p>
+                    <p className="truncate font-semibold text-[#032125]">{appt.patient?.name || "Patient"}</p>
                     <p className="truncate text-sm text-gray-500">
                       Dr {appt.doctor?.name || "—"}
                       {appt.patient?.phone ? ` · ${appt.patient.phone}` : ""}
@@ -596,7 +596,7 @@ const AppointmentsPage: React.FC = () => {
                     {selectedPatient.name}
                     {selectedPatient.phone ? <span className="text-gray-400"> · {selectedPatient.phone}</span> : null}
                   </span>
-                  <button type="button" className="text-xs font-bold text-[#1a52c5] hover:underline" onClick={() => setSelectedPatient(null)}>
+                  <button type="button" className="text-xs font-bold text-[#0B363B] hover:underline" onClick={() => setSelectedPatient(null)}>
                     Change
                   </button>
                 </div>
@@ -860,7 +860,7 @@ const AppointmentsPage: React.FC = () => {
               </div>
               <div className="pb-1 text-right">
                 <span className="text-sm text-gray-500">Bill total: </span>
-                <span className="text-lg font-bold text-[#0a1128]">{money(billTotal)}</span>
+                <span className="text-lg font-bold text-[#032125]">{money(billTotal)}</span>
               </div>
             </div>
           </div>

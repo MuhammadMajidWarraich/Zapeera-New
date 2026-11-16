@@ -191,23 +191,23 @@ const ProductVariantsManager: React.FC<ProductVariantsManagerProps> = ({
         </DialogHeader>
 
         {/* Matrix generator */}
-        <div className="rounded-xl border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] p-4 space-y-3">
+        <div className="rounded-xl border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[#1a52c5]" />
-            <h4 className="text-sm font-bold text-[#0a1128]">Generate size × colour matrix</h4>
+            <Sparkles className="h-4 w-4 text-[#0B363B]" />
+            <h4 className="text-sm font-bold text-[#032125]">Generate size × colour matrix</h4>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Sizes (comma separated)</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Sizes (comma separated)</label>
               <Input value={sizesText} onChange={(e) => setSizesText(e.target.value)} placeholder="Small, Medium, Large" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Colours (comma separated)</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Colours (comma separated)</label>
               <Input value={colorsText} onChange={(e) => setColorsText(e.target.value)} placeholder="Red, Blue, Black" />
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <p className="text-xs text-[#8c95b0]">
+            <p className="text-xs text-[#437278]">
               {previewCount > 0 ? `${previewCount} combination${previewCount === 1 ? "" : "s"} will be created (existing ones are skipped)` : "Add sizes and/or colours to preview the matrix"}
             </p>
             <Button size="sm" onClick={handleGenerate} disabled={isGenerating || previewCount === 0}>
@@ -220,11 +220,11 @@ const ProductVariantsManager: React.FC<ProductVariantsManagerProps> = ({
         {/* Variant list */}
         <div className="space-y-2">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-[#8c95b0]">
+            <div className="flex items-center justify-center py-8 text-[#437278]">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : variants.length === 0 ? (
-            <p className="py-4 text-center text-sm text-[#8c95b0]">
+            <p className="py-4 text-center text-sm text-[#437278]">
               No variants yet. Generate a matrix above or add a custom variant below —
               the product sells as a single item until it has variants.
             </p>
@@ -238,12 +238,12 @@ const ProductVariantsManager: React.FC<ProductVariantsManagerProps> = ({
               return (
                 <div
                   key={variant.id}
-                  className={`rounded-xl border p-3 ${variant.isActive ? "border-[rgba(15,23,60,0.08)] bg-white" : "border-[rgba(15,23,60,0.06)] bg-[#f4f6fa] opacity-70"}`}
+                  className={`rounded-xl border p-3 ${variant.isActive ? "border-[rgba(3,33,37,0.08)] bg-white" : "border-[rgba(3,33,37,0.06)] bg-[#FFFCF6] opacity-70"}`}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-bold text-[#0a1128]">{variant.name}</span>
+                    <span className="text-sm font-bold text-[#032125]">{variant.name}</span>
                     {!variant.isActive && <Badge variant="outline" className="text-[10px]">Inactive</Badge>}
-                    <span className="text-xs text-[#8c95b0]">Stock: {variant.stock ?? 0}</span>
+                    <span className="text-xs text-[#437278]">Stock: {variant.stock ?? 0}</span>
                     <div className="ml-auto flex items-center gap-1.5">
                       <Button
                         size="sm"
@@ -297,7 +297,7 @@ const ProductVariantsManager: React.FC<ProductVariantsManagerProps> = ({
         {/* Custom variant */}
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Custom variant name</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-[#437278]">Custom variant name</label>
             <Input
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}

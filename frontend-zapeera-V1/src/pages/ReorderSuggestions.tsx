@@ -207,7 +207,7 @@ const ReorderSuggestions: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-spruce-700" />
         <span className="ml-2 text-gray-600">Loading reorder suggestions...</span>
       </div>
     );
@@ -218,7 +218,7 @@ const ReorderSuggestions: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <RefreshCw className="w-8 h-8 mr-3 text-blue-600" />
+            <RefreshCw className="w-8 h-8 mr-3 text-spruce-700" />
             Reorder Suggestions
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -232,7 +232,7 @@ const ReorderSuggestions: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800 mb-6">
+      <div className="flex items-start gap-2 rounded-md bg-verdant-100 border border-spruce-200 px-3 py-2 text-sm text-spruce-900 mb-6">
         <Info className="w-4 h-4 mt-0.5 shrink-0" />
         <span>
           Creating an order posts a real purchase: the stock is received
@@ -305,7 +305,7 @@ const ReorderSuggestions: React.FC = () => {
                 <CardHeader>
                   <CardTitle className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <span className="flex items-center">
-                      <ShoppingCart className="w-5 h-5 mr-2 text-blue-600" />
+                      <ShoppingCart className="w-5 h-5 mr-2 text-spruce-700" />
                       {group.supplier ? (
                         <>
                           {group.supplier.name}
@@ -350,7 +350,7 @@ const ReorderSuggestions: React.FC = () => {
                       <Button
                         onClick={() => handleCreateOrder(group)}
                         disabled={creatingKey === key}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-spruce-700 hover:bg-spruce-900 text-white"
                       >
                         {creatingKey === key ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />

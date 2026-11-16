@@ -118,7 +118,7 @@ ${userInfo?.name || 'User'}`;
               <Button
                 onClick={handlePhoneContact}
                 variant="outline"
-                className="w-full justify-start gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                className="w-full justify-start gap-2 text-spruce-700 border-spruce-200 hover:bg-verdant-100"
               >
                 <Phone className="h-4 w-4" />
                 Call +92 310 7100663
@@ -127,7 +127,7 @@ ${userInfo?.name || 'User'}`;
               <Button
                 onClick={handleEmailContact}
                 variant="outline"
-                className="w-full justify-start gap-2 text-purple-600 border-purple-200 hover:bg-purple-50"
+                className="w-full justify-start gap-2 text-spruce-500 border-spruce-200 hover:bg-verdant-100"
               >
                 <Mail className="h-4 w-4" />
                 Email Support

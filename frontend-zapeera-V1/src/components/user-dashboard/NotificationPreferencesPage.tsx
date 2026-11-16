@@ -91,19 +91,19 @@ const NotificationPreferencesPage = () => {
   return (
     <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-7">
-        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#0B363B]/10 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-3 py-1 text-xs font-semibold text-[#0B363B]">
           <Settings className="h-3.5 w-3.5" />
           Preferences
         </div>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Notification Settings</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">Choose which notifications you want to receive across the platform.</p>
+        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Notification Settings</h1>
+        <p className="mt-1 text-sm text-[#437278]">Choose which notifications you want to receive across the platform.</p>
       </div>
 
       {/* Master controls */}
-      <section className="mb-6 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-4">
-          <div className="flex items-center gap-2.5 text-[15px] font-bold text-[#0a1128]">
-            <BellRing className="h-4 w-4 text-[#1a52c5]" />
+      <section className="mb-6 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-4">
+          <div className="flex items-center gap-2.5 text-[15px] font-bold text-[#032125]">
+            <BellRing className="h-4 w-4 text-[#0B363B]" />
             All Notifications
           </div>
           <div className="flex gap-2">
@@ -133,7 +133,7 @@ const NotificationPreferencesPage = () => {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#f0f2f7]" />
+            <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#EAFDE8]" />
           ))}
         </div>
       ) : (
@@ -145,18 +145,18 @@ const NotificationPreferencesPage = () => {
                 key={cat.key}
                 className={cn(
                   "flex items-center gap-5 rounded-2xl border bg-white px-6 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all",
-                  enabled ? "border-[rgba(15,23,60,0.06)]" : "border-[rgba(15,23,60,0.04)] opacity-60"
+                  enabled ? "border-[rgba(3,33,37,0.06)]" : "border-[rgba(3,33,37,0.04)] opacity-60"
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-bold text-[#0a1128]">{cat.label}</p>
-                  <p className="mt-0.5 text-[13px] text-[#8c95b0]">{cat.desc}</p>
+                  <p className="text-[15px] font-bold text-[#032125]">{cat.label}</p>
+                  <p className="mt-0.5 text-[13px] text-[#437278]">{cat.desc}</p>
                 </div>
                 <Switch
                   id={`pref-${cat.key}`}
                   checked={enabled}
                   onCheckedChange={(checked) => handleToggle(cat.key, checked)}
-                  className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]"
+                  className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#0B363B] data-[state=checked]:to-[#437278] data-[state=checked]:shadow-[0_2px_8px_rgba(11,54,59,0.25)]"
                 />
               </div>
             );
@@ -170,7 +170,7 @@ const NotificationPreferencesPage = () => {
           variant="outline"
           onClick={handleResetDefaults}
           disabled={loading || allOn}
-          className="h-10 gap-2 rounded-[10px] border-[rgba(15,23,60,0.1)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+          className="h-10 gap-2 rounded-[10px] border-[rgba(3,33,37,0.1)] font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
         >
           <RotateCcw className="h-4 w-4" />
           Reset to Defaults
@@ -178,7 +178,7 @@ const NotificationPreferencesPage = () => {
         <Button
           onClick={handleSave}
           disabled={!hasChanges || saving}
-          className="h-10 gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95 disabled:opacity-50"
+          className="h-10 gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95 disabled:opacity-50"
         >
           <Save className="h-4 w-4" />
           {saving ? "Saving…" : "Save Changes"}

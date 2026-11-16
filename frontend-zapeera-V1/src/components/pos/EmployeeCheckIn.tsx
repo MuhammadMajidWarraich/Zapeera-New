@@ -293,7 +293,7 @@ const StaffCheckIn = () => {
       case "LATE":
         return "bg-yellow-100 text-yellow-800";
       case "HALF_DAY":
-        return "bg-blue-100 text-blue-800";
+        return "bg-verdant-100 text-spruce-900";
       case "ABSENT":
         return "bg-red-100 text-red-800";
       default:
@@ -574,7 +574,7 @@ const StaffCheckIn = () => {
                   {currentAttendance?.totalHours ? `${currentAttendance.totalHours}h` : 'N/A'}
                 </p>
               </div>
-              <Timer className="w-8 h-8 text-blue-600" />
+              <Timer className="w-8 h-8 text-spruce-700" />
             </div>
           </CardContent>
         </Card>
@@ -727,21 +727,21 @@ const StaffCheckIn = () => {
                         Rs. {currentShiftSales.totalSales.toLocaleString()}
                       </p>
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="bg-verdant-100 p-4 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <ShoppingCart className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">Transactions</span>
+                        <ShoppingCart className="w-5 h-5 text-spruce-700" />
+                        <span className="text-sm font-medium text-spruce-900">Transactions</span>
                       </div>
-                      <p className="text-2xl font-bold text-blue-900">
+                      <p className="text-2xl font-bold text-spruce-900">
                         {currentShiftSales.totalTransactions}
                       </p>
                     </div>
-                    <div className="bg-purple-50 p-4 rounded-lg">
+                    <div className="bg-verdant-100 p-4 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-5 h-5 text-purple-600" />
-                        <span className="text-sm font-medium text-purple-800">Average Sale</span>
+                        <TrendingUp className="w-5 h-5 text-spruce-500" />
+                        <span className="text-sm font-medium text-spruce-900">Average Sale</span>
                       </div>
-                      <p className="text-2xl font-bold text-purple-900">
+                      <p className="text-2xl font-bold text-spruce-900">
                         Rs. {currentShiftSales.averageSale.toLocaleString()}
                       </p>
                     </div>
@@ -772,14 +772,14 @@ const StaffCheckIn = () => {
               {/* Previous Shift Sales */}
               {previousShiftSales && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-blue-600">Previous Shift Sales</h3>
+                  <h3 className="text-lg font-semibold text-spruce-700">Previous Shift Sales</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="bg-verdant-100 p-4 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <DollarSign className="w-5 h-5 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">Total Sales</span>
+                        <DollarSign className="w-5 h-5 text-spruce-700" />
+                        <span className="text-sm font-medium text-spruce-900">Total Sales</span>
                       </div>
-                      <p className="text-2xl font-bold text-blue-900">
+                      <p className="text-2xl font-bold text-spruce-900">
                         Rs. {previousShiftSales.totalSales.toLocaleString()}
                       </p>
                     </div>

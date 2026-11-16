@@ -39,8 +39,8 @@ import { ReservationDocumentsViewer } from "@/components/hotel/ReservationDocume
 const PAYMENT_METHODS = ["CASH", "CARD", "JAZZCASH", "EASYPAISA", "BANK_TRANSFER", "MOBILE"];
 
 const KIND_STYLES: Record<string, string> = {
-  ROOM_NIGHT: "bg-indigo-100 text-indigo-800",
-  SERVICE: "bg-sky-100 text-sky-800",
+  ROOM_NIGHT: "bg-verdant-100 text-spruce-900",
+  SERVICE: "bg-verdant-100 text-spruce-900",
   MANUAL: "bg-amber-100 text-amber-800",
 };
 

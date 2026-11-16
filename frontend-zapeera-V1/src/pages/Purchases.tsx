@@ -527,7 +527,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
         label: "Cancelled",
       },
       PARTIAL: {
-        className: "border-[rgba(26,82,197,0.2)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]",
+        className: "border-[rgba(11,54,59,0.2)] bg-[rgba(11,54,59,0.06)] text-[#0B363B]",
         label: "Partial",
       },
     };
@@ -556,33 +556,33 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
   }, [purchases]);
 
   const sfInput = cn(
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3.5 text-sm text-[#0a1128] shadow-none transition-all",
-    "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]",
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3.5 text-sm text-[#032125] shadow-none transition-all",
+    "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]",
   );
 
   const filterSelect = cn(
-    "h-11 rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[14px] text-[#0a1128] shadow-none",
-    "focus:ring-4 focus:ring-[rgba(26,82,197,0.08)] focus:ring-offset-0",
+    "h-11 rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[14px] text-[#032125] shadow-none",
+    "focus:ring-4 focus:ring-[rgba(11,54,59,0.08)] focus:ring-offset-0",
   );
 
   if (!selectedBranchId) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] px-6 pb-14 pt-9 sm:px-11">
-          <div className="mx-auto max-w-lg rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-16 text-center shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-              <Receipt className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+          <div className="mx-auto max-w-lg rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-16 text-center shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+              <Receipt className="h-6 w-6 text-[#437278]" strokeWidth={2} />
             </div>
-            <p className="mb-2 text-sm font-bold text-[#0a1128]">Select a branch</p>
-            <p className="text-sm text-[#8c95b0]">Choose a branch in the header to load purchase orders.</p>
+            <p className="mb-2 text-sm font-bold text-[#032125]">Select a branch</p>
+            <p className="text-sm text-[#437278]">Choose a branch in the header to load purchase orders.</p>
           </div>
         </div>
       </div>
@@ -591,47 +591,47 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
 
   if (loading && purchases.length === 0) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] flex min-h-[50vh] flex-col items-center justify-center px-6 py-16">
-          <Loader2 className="h-10 w-10 animate-spin text-[#1a52c5]" strokeWidth={2} />
-          <p className="mt-4 text-sm font-medium text-[#8c95b0]">Loading purchases…</p>
+          <Loader2 className="h-10 w-10 animate-spin text-[#0B363B]" strokeWidth={2} />
+          <p className="mt-4 text-sm font-medium text-[#437278]">Loading purchases…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Purchase orders</h1>
-            <p className="text-sm text-[#8c95b0]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Purchase orders</h1>
+            <p className="text-sm text-[#437278]">
               Manage supplier purchases and stock intake •{" "}
-              <b className="font-semibold text-[#4a5578]">{filteredPurchases.length} on this page</b>
+              <b className="font-semibold text-[#354D51]">{filteredPurchases.length} on this page</b>
             </p>
           </div>
           <button
             type="button"
             onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
           >
             <Plus className="h-[17px] w-[17px] stroke-[2.5]" strokeLinecap="round" />
             New purchase
@@ -643,21 +643,21 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
         ) : null}
 
         <div className="zv3-animate-fadeUp zv3-delay-1 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <div className="rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Orders (page)</p>
-                <p className="text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">{purchaseStats.count}</p>
+                <p className="mb-2 text-[13px] font-medium text-[#437278]">Orders (page)</p>
+                <p className="text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">{purchaseStats.count}</p>
               </div>
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)] text-[#1a52c5]">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(11,54,59,0.08)] to-[rgba(67,114,120,0.06)] text-[#0B363B]">
                 <Receipt className="h-[22px] w-[22px]" strokeWidth={2} />
               </div>
             </div>
           </div>
-          <div className="rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <div className="rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Pending</p>
+                <p className="mb-2 text-[13px] font-medium text-[#437278]">Pending</p>
                 <p className="text-[28px] font-extrabold leading-none tracking-tight text-amber-600">{purchaseStats.pending}</p>
               </div>
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-500/[0.08] text-amber-600">
@@ -665,10 +665,10 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
               </div>
             </div>
           </div>
-          <div className="rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
+          <div className="rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white p-6 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">Completed</p>
+                <p className="mb-2 text-[13px] font-medium text-[#437278]">Completed</p>
                 <p className="text-[28px] font-extrabold leading-none tracking-tight text-green-600">{purchaseStats.completed}</p>
               </div>
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-green-600/[0.08] text-green-600">
@@ -678,15 +678,15 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
           </div>
         </div>
 
-        <div className="zv3-animate-fadeUp zv3-delay-2 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-6 py-5">
-          <p className="mb-3 text-xs font-semibold text-[#8c95b0]">Filters</p>
+        <div className="zv3-animate-fadeUp zv3-delay-2 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-6 py-5">
+          <p className="mb-3 text-xs font-semibold text-[#437278]">Filters</p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-end">
             <div className="md:col-span-4">
-              <Label htmlFor="search" className="mb-2 block text-xs font-semibold text-[#8c95b0]">
+              <Label htmlFor="search" className="mb-2 block text-xs font-semibold text-[#437278]">
                 Search
               </Label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" strokeWidth={2} />
                 <Input
                   id="search"
                   placeholder="Supplier, invoice, or ID…"
@@ -697,7 +697,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
               </div>
             </div>
             <div className="md:col-span-3">
-              <Label htmlFor="status" className="mb-2 block text-xs font-semibold text-[#8c95b0]">
+              <Label htmlFor="status" className="mb-2 block text-xs font-semibold text-[#437278]">
                 Status
               </Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -714,7 +714,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
               </Select>
             </div>
             <div className="md:col-span-3">
-              <Label htmlFor="supplier" className="mb-2 block text-xs font-semibold text-[#8c95b0]">
+              <Label htmlFor="supplier" className="mb-2 block text-xs font-semibold text-[#437278]">
                 Supplier
               </Label>
               <Select value={supplierFilter} onValueChange={setSupplierFilter}>
@@ -736,7 +736,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                 type="button"
                 onClick={() => void loadPurchases()}
                 variant="outline"
-                className="h-11 w-full rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                className="h-11 w-full rounded-[10px] border border-[rgba(3,33,37,0.06)] font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
               >
                 Refresh
               </Button>
@@ -746,31 +746,31 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
 
         <div className="zv3-animate-fadeUp zv3-delay-3">
           <div className="mb-4 flex items-center gap-2.5">
-            <Package className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-            <span className="text-[17px] font-bold text-[#0a1128]">Purchases</span>
-            <span className="text-sm font-medium text-[#8c95b0]">({filteredPurchases.length})</span>
+            <Package className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+            <span className="text-[17px] font-bold text-[#032125]">Purchases</span>
+            <span className="text-sm font-medium text-[#437278]">({filteredPurchases.length})</span>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+          <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Purchase #</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Supplier</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Invoice</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Date</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Total</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Paid</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Outstanding</th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Status</th>
-                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Actions</th>
+                  <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Purchase #</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Supplier</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Invoice</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Date</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Total</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Paid</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Outstanding</th>
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Status</th>
+                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPurchases.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-8 py-16 text-center text-sm text-[#8c95b0]">
+                      <td colSpan={9} className="px-8 py-16 text-center text-sm text-[#437278]">
                         No purchases match your filters.
                       </td>
                     </tr>
@@ -778,19 +778,19 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                     filteredPurchases.map((purchase) => (
                       <tr
                         key={purchase.id}
-                        className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                       >
-                        <td className="px-5 py-4 pl-8 align-middle font-mono text-[13px] font-semibold text-[#0a1128]">
+                        <td className="px-5 py-4 pl-8 align-middle font-mono text-[13px] font-semibold text-[#032125]">
                           {purchase.id.slice(-8)}
                         </td>
-                        <td className="px-5 py-4 align-middle text-[13px] font-medium text-[#0a1128]">{purchase.supplier.name}</td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">{purchase.invoiceNo || "—"}</td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                        <td className="px-5 py-4 align-middle text-[13px] font-medium text-[#032125]">{purchase.supplier.name}</td>
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">{purchase.invoiceNo || "—"}</td>
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                           {format(new Date(purchase.purchaseDate), "MMM dd, yyyy")}
                         </td>
-                        <td className="px-5 py-4 align-middle text-[13px] font-semibold text-[#0a1128]">Rs. {purchase.totalAmount.toFixed(2)}</td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">Rs. {purchase.paidAmount.toFixed(2)}</td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">Rs. {purchase.outstanding.toFixed(2)}</td>
+                        <td className="px-5 py-4 align-middle text-[13px] font-semibold text-[#032125]">Rs. {purchase.totalAmount.toFixed(2)}</td>
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">Rs. {purchase.paidAmount.toFixed(2)}</td>
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">Rs. {purchase.outstanding.toFixed(2)}</td>
                         <td className="px-5 py-4 align-middle">{getStatusBadge(purchase.status)}</td>
                         <td className="px-5 py-4 pr-8 text-right align-middle">
                           <div className="flex items-center justify-end gap-1.5">
@@ -798,7 +798,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                               type="button"
                               title="View"
                               onClick={() => handleViewPurchase(purchase)}
-                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Eye className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -806,7 +806,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                               type="button"
                               title="Edit"
                               onClick={() => handleOpenModal(purchase)}
-                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -814,7 +814,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                               type="button"
                               title="Delete"
                               onClick={() => openDeletePurchase(purchase)}
-                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                             >
                               <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -834,10 +834,10 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">
               {editingPurchase ? "Edit purchase" : "New purchase"}
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               {editingPurchase ? "Update supplier, lines, and payment." : "Record stock received from a supplier."}
             </DialogDescription>
           </DialogHeader>
@@ -937,7 +937,7 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
                         <SelectItem
                           key={product.id}
                           value={product.id}
-                          className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                          className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                         >
                           {product.name} ({product.sku})
                         </SelectItem>
@@ -1063,30 +1063,30 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
           </div>
 
           {/* Totals */}
-          <div className="mt-6 rounded-[14px] border border-[rgba(15,23,60,0.06)] bg-[#f8f9fc] p-4">
+          <div className="mt-6 rounded-[14px] border border-[rgba(3,33,37,0.06)] bg-[#FFFCF6] p-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-[#4a5578]">Total amount</span>
-              <span className="text-lg font-bold text-[#0a1128]">Rs. {totalAmount.toFixed(2)}</span>
+              <span className="text-sm font-semibold text-[#354D51]">Total amount</span>
+              <span className="text-lg font-bold text-[#032125]">Rs. {totalAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-[#4a5578]">Paid amount</span>
-              <span className="text-lg font-bold text-[#0a1128]">Rs. {formData.paidAmount.toFixed(2)}</span>
+              <span className="text-sm font-semibold text-[#354D51]">Paid amount</span>
+              <span className="text-lg font-bold text-[#032125]">Rs. {formData.paidAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center border-t border-[rgba(15,23,60,0.06)] pt-2">
-              <span className="text-sm font-semibold text-[#4a5578]">Outstanding</span>
-              <span className="text-lg font-bold text-[#1a52c5]">Rs. {outstandingAmount.toFixed(2)}</span>
+            <div className="flex justify-between items-center border-t border-[rgba(3,33,37,0.06)] pt-2">
+              <span className="text-sm font-semibold text-[#354D51]">Outstanding</span>
+              <span className="text-lg font-bold text-[#0B363B]">Rs. {outstandingAmount.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 mt-6">
-            <Button variant="outline" className="rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7]" onClick={handleCloseModal}>
+            <Button variant="outline" className="rounded-[10px] border border-[rgba(3,33,37,0.06)] font-semibold text-[#354D51] hover:bg-[#EAFDE8]" onClick={handleCloseModal}>
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={formData.items.length === 0}
-              className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
             >
               {editingPurchase ? "Update purchase" : "Create purchase"}
             </Button>
@@ -1098,8 +1098,8 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
       <Dialog open={!!viewingPurchase} onOpenChange={() => setViewingPurchase(null)}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Purchase details</DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Purchase details</DialogTitle>
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               Line items and payment summary for this order.
             </DialogDescription>
           </DialogHeader>
@@ -1206,17 +1206,17 @@ ${purchase.notes ? `<p><strong>Notes:</strong> ${escapeHtml(purchase.notes)}</p>
       <Dialog open={!!purchaseToDelete} onOpenChange={(open) => !open && setPurchaseToDelete(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#0a1128]">
+            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#032125]">
               <AlertTriangle className="h-5 w-5 text-red-600" />
               Delete purchase
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               This cannot be undone. Remove this purchase record from the branch?
             </DialogDescription>
           </DialogHeader>
           {purchaseToDelete && (
-            <p className="py-4 text-sm text-[#4a5578]">
-              Supplier <span className="font-semibold text-[#0a1128]">{purchaseToDelete.supplier.name}</span>
+            <p className="py-4 text-sm text-[#354D51]">
+              Supplier <span className="font-semibold text-[#032125]">{purchaseToDelete.supplier.name}</span>
               {" · "}
               <span className="font-mono text-xs">{purchaseToDelete.id.slice(-8)}</span>
             </p>

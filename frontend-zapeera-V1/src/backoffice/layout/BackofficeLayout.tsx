@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
-  Zap,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -51,19 +50,19 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
         onClick={() => setMobileOpen(false)}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
           isActive
-            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 shadow-sm'
+            ? 'bg-gradient-to-r from-verdant-100 to-verdant-100 text-spruce-900 border border-spruce-200 shadow-sm'
             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
         }`}
         title={!labelsVisible ? item.label : ''}
       >
         <Icon className={`w-5 h-5 flex-shrink-0 transition-colors ${
-          isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+          isActive ? 'text-spruce-700' : 'text-gray-400 group-hover:text-gray-600'
         }`} />
         {labelsVisible && (
           <span className="font-medium text-sm truncate">{item.label}</span>
         )}
         {labelsVisible && isActive && (
-          <ChevronRight className="w-4 h-4 text-blue-600 ml-auto flex-shrink-0" />
+          <ChevronRight className="w-4 h-4 text-spruce-700 ml-auto flex-shrink-0" />
         )}
         {labelsVisible && item.badge && (
           <span className="ml-auto px-2 py-0.5 text-xs font-medium bg-red-100 text-red-600 rounded-full">{item.badge}</span>
@@ -76,7 +75,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-spruce-700 mx-auto mb-4" />
           <p className="text-gray-500 text-sm">Loading admin portal...</p>
         </div>
       </div>
@@ -84,7 +83,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 flex pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-verdant-100/30 flex pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Mobile drawer backdrop (below lg only) */}
       {mobileOpen && (
         <div
@@ -99,8 +98,8 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
       } lg:translate-x-0 ${sidebarOpen ? 'lg:w-64' : 'lg:w-20'}`}>
         <div className="h-16 flex items-center px-4 border-b border-gray-100">
           <Link to="/backoffice/dashboard" className={`flex items-center gap-3 ${!labelsVisible && 'justify-center w-full'}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25 flex-shrink-0">
-              <Zap className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-spruce-700 to-spruce-500 rounded-xl flex items-center justify-center shadow-lg shadow-spruce-500/25 flex-shrink-0">
+              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden><g fill="#ABFFAE"><rect x="3" y="16" width="4" height="5" rx="1" /><rect x="8.5" y="12.5" width="4" height="8.5" rx="1" /><rect x="14" y="8" width="4" height="13" rx="1" /><rect x="11.5" y="4.5" width="9" height="3.5" rx="1" /></g></svg>
             </div>
             {labelsVisible && (
               <div>

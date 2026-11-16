@@ -48,7 +48,7 @@ const reasonBadge = (reason: string) => {
     DAMAGED: "border-red-200 bg-red-50 text-red-700",
     EXPIRED: "border-amber-200 bg-amber-50 text-amber-700",
     SPOILAGE: "border-orange-200 bg-orange-50 text-orange-700",
-    THEFT: "border-purple-200 bg-purple-50 text-purple-700",
+    THEFT: "border-spruce-200 bg-verdant-100 text-spruce-700",
     OTHER: "border-slate-200 bg-slate-50 text-slate-700",
   };
   return <Badge variant="outline" className={styles[reason] || styles.OTHER}>{reason}</Badge>;

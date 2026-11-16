@@ -587,28 +587,28 @@ const ProfileSecurityPage = () => {
   return (
     <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-7">
-        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+        <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#0B363B]/10 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-3 py-1 text-xs font-semibold text-[#0B363B]">
           <ShieldCheck className="h-3.5 w-3.5" />
           Account
         </div>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Profile & Security</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">Manage your personal information and account security.</p>
+        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Profile & Security</h1>
+        <p className="mt-1 text-sm text-[#437278]">Manage your personal information and account security.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* Profile */}
-          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
-              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                <User className="h-5 w-5 text-[#1a52c5]" />
+          <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-5">
+              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#032125]">
+                <User className="h-5 w-5 text-[#0B363B]" />
                 Personal Information
               </div>
             </div>
             <div className="p-6">
               <div className="mb-6 flex items-center gap-4">
                 <div className="relative">
-                  <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-[18px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-2xl font-extrabold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)]">
+                  <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-2xl font-extrabold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)]">
                     {profileImage || user?.profileImage ? (
                       <img src={(profileImage || user?.profileImage) as string} alt="" className="h-full w-full object-cover" />
                     ) : (
@@ -620,115 +620,115 @@ const ProfileSecurityPage = () => {
                     onClick={handleChangeProfilePicture}
                     disabled={uploadingPhoto}
                     title="Change profile photo"
-                    className="absolute -bottom-0.5 -right-0.5 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-md transition-opacity hover:opacity-90"
+                    className="absolute -bottom-0.5 -right-0.5 grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-md transition-opacity hover:opacity-90"
                   >
                     <Camera className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold text-[#0a1128]">{profile.name || user?.name || "User"}</p>
-                  <p className="truncate text-[13px] text-[#8c95b0]">@{profile.username || (user as any)?.username || "user"}</p>
+                  <p className="truncate text-lg font-bold text-[#032125]">{profile.name || user?.name || "User"}</p>
+                  <p className="truncate text-[13px] text-[#437278]">@{profile.username || (user as any)?.username || "user"}</p>
                 </div>
               </div>
 
               {profileLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-12 animate-pulse rounded-[10px] bg-[#f0f2f7]" />
+                    <div key={i} className="h-12 animate-pulse rounded-[10px] bg-[#EAFDE8]" />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="pp-name" className="text-sm font-semibold text-[#0a1128]">Full Name</Label>
+                    <Label htmlFor="pp-name" className="text-sm font-semibold text-[#032125]">Full Name</Label>
                     <Input
                       id="pp-name"
                       value={profile.name}
                       onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pp-email" className="text-sm font-semibold text-[#0a1128]">Email</Label>
+                    <Label htmlFor="pp-email" className="text-sm font-semibold text-[#032125]">Email</Label>
                     <Input
                       id="pp-email"
                       type="email"
                       value={profile.email}
                       disabled
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7]/50 text-[15px] text-[#8c95b0]"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8]/50 text-[15px] text-[#437278]"
                     />
-                    <p className="text-xs text-[#8c95b0]">Email cannot be changed here. Contact support for help.</p>
+                    <p className="text-xs text-[#437278]">Email cannot be changed here. Contact support for help.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pp-username" className="text-sm font-semibold text-[#0a1128]">Username</Label>
+                    <Label htmlFor="pp-username" className="text-sm font-semibold text-[#032125]">Username</Label>
                     <Input
                       id="pp-username"
                       value={profile.username}
                       disabled
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7]/50 text-[15px] text-[#8c95b0]"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8]/50 text-[15px] text-[#437278]"
                     />
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="pp-phone" className="text-sm font-semibold text-[#0a1128]">Phone</Label>
+                      <Label htmlFor="pp-phone" className="text-sm font-semibold text-[#032125]">Phone</Label>
                       <Input
                         id="pp-phone"
                         type="tel"
                         value={profile.phone}
                         onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
                         placeholder="+92 300 1234567"
-                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pp-dob" className="text-sm font-semibold text-[#0a1128]">Date of Birth</Label>
+                      <Label htmlFor="pp-dob" className="text-sm font-semibold text-[#032125]">Date of Birth</Label>
                       <Input
                         id="pp-dob"
                         type="date"
                         value={profile.dateOfBirth}
                         onChange={(e) => setProfile((p) => ({ ...p, dateOfBirth: e.target.value }))}
-                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pp-city" className="text-sm font-semibold text-[#0a1128]">City</Label>
+                      <Label htmlFor="pp-city" className="text-sm font-semibold text-[#032125]">City</Label>
                       <Input
                         id="pp-city"
                         value={profile.city}
                         onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))}
                         placeholder="e.g. Lahore"
-                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pp-country" className="text-sm font-semibold text-[#0a1128]">Country</Label>
+                      <Label htmlFor="pp-country" className="text-sm font-semibold text-[#032125]">Country</Label>
                       <Input
                         id="pp-country"
                         value={profile.country}
                         onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
                         placeholder="e.g. Pakistan"
-                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="pp-address" className="text-sm font-semibold text-[#0a1128]">Address</Label>
+                      <Label htmlFor="pp-address" className="text-sm font-semibold text-[#032125]">Address</Label>
                       <Input
                         id="pp-address"
                         value={profile.address}
                         onChange={(e) => setProfile((p) => ({ ...p, address: e.target.value }))}
                         placeholder="Street, area"
-                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="pp-bio" className="text-sm font-semibold text-[#0a1128]">About</Label>
+                      <Label htmlFor="pp-bio" className="text-sm font-semibold text-[#032125]">About</Label>
                       <Textarea
                         id="pp-bio"
                         value={profile.bio}
                         onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
                         placeholder="Tell us a little about yourself"
                         rows={3}
-                        className="min-h-[84px] rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                        className="min-h-[84px] rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                       />
                     </div>
                   </div>
@@ -737,7 +737,7 @@ const ProfileSecurityPage = () => {
                     disabled={savingProfile}
                     data-shortcut-save
                     title="Save (Ctrl+S)"
-                    className="h-11 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                    className="h-11 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                   >
                     <Save className="mr-2 h-4 w-4" />
                     {savingProfile ? "Saving…" : "Save Changes"}
@@ -748,55 +748,55 @@ const ProfileSecurityPage = () => {
           </section>
 
           {/* Password */}
-          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
-              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                <Lock className="h-5 w-5 text-[#1a52c5]" />
+          <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-5">
+              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#032125]">
+                <Lock className="h-5 w-5 text-[#0B363B]" />
                 Change Password
               </div>
             </div>
             <div className="space-y-4 p-6">
               <div className="space-y-2">
-                <Label htmlFor="pp-current" className="text-sm font-semibold text-[#0a1128]">Current Password</Label>
+                <Label htmlFor="pp-current" className="text-sm font-semibold text-[#032125]">Current Password</Label>
                 <Input
                   id="pp-current"
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
-                  className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                  className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                 />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="pp-new" className="text-sm font-semibold text-[#0a1128]">New Password</Label>
+                  <Label htmlFor="pp-new" className="text-sm font-semibold text-[#032125]">New Password</Label>
                   <Input
                     id="pp-new"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pp-confirm" className="text-sm font-semibold text-[#0a1128]">Confirm New Password</Label>
+                  <Label htmlFor="pp-confirm" className="text-sm font-semibold text-[#032125]">Confirm New Password</Label>
                   <Input
                     id="pp-confirm"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password"
-                    className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                    className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                   />
                 </div>
               </div>
               <Button
                 onClick={handleChangePassword}
                 disabled={changingPassword}
-                className="h-11 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+                className="h-11 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white font-semibold text-[#032125] hover:bg-[#EAFDE8]"
               >
-                <Lock className="mr-2 h-4 w-4 text-[#1a52c5]" />
+                <Lock className="mr-2 h-4 w-4 text-[#0B363B]" />
                 {changingPassword ? "Updating…" : "Update Password"}
               </Button>
             </div>
@@ -804,22 +804,22 @@ const ProfileSecurityPage = () => {
 
           {/* v1.0.19: My Staff PIN (desktop till sign-in) */}
           {myPinState !== 'no-profile' && (
-            <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
-                <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                  <Lock className="h-5 w-5 text-[#1a52c5]" />
+            <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-5">
+                <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#032125]">
+                  <Lock className="h-5 w-5 text-[#0B363B]" />
                   My Staff PIN
                 </div>
-                <span className="text-xs font-medium text-[#8c95b0]">{myPinState === 'set' ? 'PIN is set' : 'No PIN set yet'}</span>
+                <span className="text-xs font-medium text-[#437278]">{myPinState === 'set' ? 'PIN is set' : 'No PIN set yet'}</span>
               </div>
               <div className="space-y-4 p-6">
-                <p className="text-sm text-[#4a5578]">
+                <p className="text-sm text-[#354D51]">
                   Your PIN signs you in at the shop computer (desktop app) — it does not replace your
                   account password. Changes are saved online and reach the computer on its next sync.
                 </p>
                 {myPinState === 'set' && (
                   <div className="space-y-2">
-                    <Label htmlFor="pp-curpin" className="text-sm font-semibold text-[#0a1128]">Current PIN</Label>
+                    <Label htmlFor="pp-curpin" className="text-sm font-semibold text-[#032125]">Current PIN</Label>
                     <Input
                       id="pp-curpin"
                       type="password"
@@ -828,13 +828,13 @@ const ProfileSecurityPage = () => {
                       value={currentPin}
                       onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                       placeholder="Current 4–6 digit PIN"
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="pp-newpin" className="text-sm font-semibold text-[#0a1128]">New PIN</Label>
+                    <Label htmlFor="pp-newpin" className="text-sm font-semibold text-[#032125]">New PIN</Label>
                     <Input
                       id="pp-newpin"
                       type="password"
@@ -843,11 +843,11 @@ const ProfileSecurityPage = () => {
                       value={newPin}
                       onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                       placeholder="4–6 digits"
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pp-confpin" className="text-sm font-semibold text-[#0a1128]">Confirm New PIN</Label>
+                    <Label htmlFor="pp-confpin" className="text-sm font-semibold text-[#032125]">Confirm New PIN</Label>
                     <Input
                       id="pp-confpin"
                       type="password"
@@ -856,16 +856,16 @@ const ProfileSecurityPage = () => {
                       value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
                       placeholder="Repeat new PIN"
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                 </div>
                 <Button
                   onClick={handleChangeMyPin}
                   disabled={changingPin}
-                  className="h-11 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+                  className="h-11 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white font-semibold text-[#032125] hover:bg-[#EAFDE8]"
                 >
-                  <Lock className="mr-2 h-4 w-4 text-[#1a52c5]" />
+                  <Lock className="mr-2 h-4 w-4 text-[#0B363B]" />
                   {changingPin ? "Updating…" : myPinState === 'set' ? "Change PIN" : "Set PIN"}
                 </Button>
               </div>
@@ -875,14 +875,14 @@ const ProfileSecurityPage = () => {
 
         <div className="space-y-6">
           {/* Security Status */}
-          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
-              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                <ShieldAlert className="h-5 w-5 text-[#1a52c5]" />
+          <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-5">
+              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#032125]">
+                <ShieldAlert className="h-5 w-5 text-[#0B363B]" />
                 Security Status
               </div>
             </div>
-            <div className="divide-y divide-[rgba(15,23,60,0.06)]">
+            <div className="divide-y divide-[rgba(3,33,37,0.06)]">
               {[
                 { label: "Secure login", ok: accountStatus.secureLogin, desc: accountStatus.secureLogin ? "Password-protected account" : "No password set on this account" },
                 { label: "Email verified", ok: accountStatus.emailVerified, desc: accountStatus.emailVerified ? "Your email is on file" : "Not verified yet — check your inbox" },
@@ -897,8 +897,8 @@ const ProfileSecurityPage = () => {
                     <XCircle className="h-5 w-5 shrink-0 text-amber-500" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className={cn("text-sm font-semibold", it.ok ? "text-[#0a1128]" : "text-[#4a5578]")}>{it.label}</p>
-                    <p className="text-xs text-[#8c95b0]">{it.desc}</p>
+                    <p className={cn("text-sm font-semibold", it.ok ? "text-[#032125]" : "text-[#354D51]")}>{it.label}</p>
+                    <p className="text-xs text-[#437278]">{it.desc}</p>
                   </div>
                 </div>
               ))}
@@ -906,10 +906,10 @@ const ProfileSecurityPage = () => {
           </section>
 
           {/* Two-factor authentication */}
-          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-6 py-5">
-              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#0a1128]">
-                <ShieldCheck className="h-5 w-5 text-[#1a52c5]" />
+          <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-6 py-5">
+              <div className="flex items-center gap-2.5 text-[16px] font-bold text-[#032125]">
+                <ShieldCheck className="h-5 w-5 text-[#0B363B]" />
                 Two-Factor Authentication
               </div>
               <Switch
@@ -917,7 +917,7 @@ const ProfileSecurityPage = () => {
                 checked={twoFactorOn}
                 disabled={twoFactorBusy || setupStep === "codes"}
                 onCheckedChange={handleToggle2FA}
-                className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]"
+                className="h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#0B363B] data-[state=checked]:to-[#437278] data-[state=checked]:shadow-[0_2px_8px_rgba(11,54,59,0.25)]"
               />
             </div>
             <div className="space-y-4 p-6">
@@ -932,7 +932,7 @@ const ProfileSecurityPage = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {issuedRecoveryCodes.map((code) => (
-                      <div key={code} className="rounded-[10px] bg-[#f0f2f7] px-3 py-2.5 text-center font-mono text-[15px] font-semibold tracking-wider text-[#0a1128]">
+                      <div key={code} className="rounded-[10px] bg-[#EAFDE8] px-3 py-2.5 text-center font-mono text-[15px] font-semibold tracking-wider text-[#032125]">
                         {code}
                       </div>
                     ))}
@@ -945,41 +945,41 @@ const ProfileSecurityPage = () => {
                       <Download className="mr-2 h-4 w-4" /> Download
                     </Button>
                   </div>
-                  <label className="flex cursor-pointer items-start gap-2.5 text-sm text-[#4a5578]">
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm text-[#354D51]">
                     <input
                       type="checkbox"
                       checked={savedCodesAck}
                       onChange={(e) => setSavedCodesAck(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-black/20 accent-[#1a52c5]"
+                      className="mt-0.5 h-4 w-4 rounded border-black/20 accent-[#0B363B]"
                     />
                     I have saved these codes somewhere safe.
                   </label>
                   <Button
                     onClick={finishCodesStep}
                     disabled={!savedCodesAck}
-                    className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95"
+                    className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95"
                   >
                     Done
                   </Button>
                 </div>
               ) : setupStep === "password" ? (
                 <div className="space-y-4">
-                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                  <p className="text-[13px] leading-relaxed text-[#437278]">
                     First, confirm it is really you. Enter your account password to start setup.
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="pp-2fa-password" className="text-sm font-semibold text-[#0a1128]">Account password</Label>
+                    <Label htmlFor="pp-2fa-password" className="text-sm font-semibold text-[#032125]">Account password</Label>
                     <Input
                       id="pp-2fa-password"
                       type="password"
                       value={setupPassword}
                       onChange={(e) => setSetupPassword(e.target.value)}
                       placeholder="Enter your password"
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-[15px] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={submitSetupPassword} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                    <Button onClick={submitSetupPassword} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95">
                       {twoFactorBusy ? "Checking\u2026" : "Continue"}
                     </Button>
                     <Button variant="outline" onClick={resetSetupWizard} disabled={twoFactorBusy} className="h-11 rounded-[10px] font-semibold">
@@ -991,7 +991,7 @@ const ProfileSecurityPage = () => {
                 <div className="space-y-4">
                   {setupSecret ? (
                     <>
-                      <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                      <p className="text-[13px] leading-relaxed text-[#437278]">
                         Scan this QR code with your authenticator app (Google Authenticator, Authy,
                         Microsoft Authenticator, or your password manager), then enter the 6-digit code
                         it shows to finish.
@@ -1001,19 +1001,19 @@ const ProfileSecurityPage = () => {
                           <img src={qrDataUrl} alt="Two-factor setup QR code" className="h-52 w-52 rounded-[10px] border border-black/10" />
                         </div>
                       ) : null}
-                      <div className="rounded-[10px] bg-[#f0f2f7] p-3 text-center">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#8c95b0]">Or enter this key manually</p>
-                        <p className="mt-1 break-all font-mono text-sm font-semibold tracking-wider text-[#0a1128]">{setupSecret}</p>
+                      <div className="rounded-[10px] bg-[#EAFDE8] p-3 text-center">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#437278]">Or enter this key manually</p>
+                        <p className="mt-1 break-all font-mono text-sm font-semibold tracking-wider text-[#032125]">{setupSecret}</p>
                       </div>
                     </>
                   ) : (
-                    <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                    <p className="text-[13px] leading-relaxed text-[#437278]">
                       Setup was started earlier. Enter the current 6-digit code from the authenticator
                       entry you added then \u2014 or start over if you no longer have it.
                     </p>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="pp-2fa-code" className="text-sm font-semibold text-[#0a1128]">Authenticator code</Label>
+                    <Label htmlFor="pp-2fa-code" className="text-sm font-semibold text-[#032125]">Authenticator code</Label>
                     <Input
                       id="pp-2fa-code"
                       inputMode="numeric"
@@ -1022,11 +1022,11 @@ const ProfileSecurityPage = () => {
                       value={setupCode}
                       onChange={(e) => setSetupCode(e.target.value.replace(/[^0-9]/g, ""))}
                       placeholder="------"
-                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-center text-xl font-semibold tracking-[0.4em] focus:border-[#1a52c5] focus:ring-[#1a52c5]/10"
+                      className="h-12 rounded-[10px] border-[1.5px] border-black/10 text-center text-xl font-semibold tracking-[0.4em] focus:border-[#0B363B] focus:ring-[#0B363B]/10"
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={submitEnable2fa} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                    <Button onClick={submitEnable2fa} disabled={twoFactorBusy} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95">
                       {twoFactorBusy ? "Verifying\u2026" : "Enable 2FA"}
                     </Button>
                     <Button variant="outline" onClick={resetSetupWizard} disabled={twoFactorBusy} className="h-11 rounded-[10px] font-semibold">
@@ -1034,20 +1034,20 @@ const ProfileSecurityPage = () => {
                     </Button>
                   </div>
                   {!setupSecret && (
-                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#1a52c5] hover:underline">
+                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#0B363B] hover:underline">
                       Start over with a new code instead
                     </button>
                   )}
                 </div>
               ) : twoFactorOn ? (
                 <div className="space-y-4">
-                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                  <p className="text-[13px] leading-relaxed text-[#437278]">
                     Two-factor authentication is enabled. Signing in now requires your password plus a
                     code from your authenticator app (or a recovery code).
                   </p>
                   {showRegen ? (
-                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#f8f9fc] p-4">
-                      <p className="text-[13px] text-[#4a5578]">
+                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#FFFCF6] p-4">
+                      <p className="text-[13px] text-[#354D51]">
                         Issuing new recovery codes invalidates all previous ones. Enter a current
                         authenticator code to continue.
                       </p>
@@ -1061,7 +1061,7 @@ const ProfileSecurityPage = () => {
                         className="h-11 rounded-[10px] bg-white text-center text-lg font-semibold tracking-[0.3em]"
                       />
                       <div className="flex gap-2">
-                        <Button onClick={submitRegenCodes} disabled={twoFactorBusy} className="h-10 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                        <Button onClick={submitRegenCodes} disabled={twoFactorBusy} className="h-10 flex-1 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95">
                           Issue new codes
                         </Button>
                         <Button variant="outline" onClick={() => { setShowRegen(false); setRegenCode(""); }} disabled={twoFactorBusy} className="h-10 rounded-[10px] font-semibold">
@@ -1101,10 +1101,10 @@ const ProfileSecurityPage = () => {
                   ) : (
                     <div className="flex flex-col gap-2">
                       <Button variant="outline" onClick={() => setShowRegen(true)} className="h-10 w-full rounded-[10px] font-semibold">
-                        <KeyRound className="mr-2 h-4 w-4 text-[#1a52c5]" />
+                        <KeyRound className="mr-2 h-4 w-4 text-[#0B363B]" />
                         Regenerate recovery codes
                       </Button>
-                      <p className="text-xs leading-relaxed text-[#8c95b0]">
+                      <p className="text-xs leading-relaxed text-[#437278]">
                         To turn 2FA off, use the switch above \u2014 you will be asked for a code first.
                       </p>
                     </div>
@@ -1121,8 +1121,8 @@ const ProfileSecurityPage = () => {
                     </p>
                   </div>
                   {showDisable ? (
-                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#f8f9fc] p-4">
-                      <p className="text-[13px] text-[#4a5578]">
+                    <div className="space-y-3 rounded-[10px] border border-black/[0.06] bg-[#FFFCF6] p-4">
+                      <p className="text-[13px] text-[#354D51]">
                         Confirm your account password to clear this unfinished state.
                       </p>
                       <Input
@@ -1143,7 +1143,7 @@ const ProfileSecurityPage = () => {
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <Button onClick={() => setSetupStep("password")} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                      <Button onClick={() => setSetupStep("password")} className="h-11 flex-1 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95">
                         Finish setup
                       </Button>
                       <Button variant="outline" onClick={() => setShowDisable(true)} className="h-11 rounded-[10px] font-semibold">
@@ -1163,15 +1163,15 @@ const ProfileSecurityPage = () => {
                       </p>
                     </div>
                   )}
-                  <p className="text-[13px] leading-relaxed text-[#8c95b0]">
+                  <p className="text-[13px] leading-relaxed text-[#437278]">
                     Add an extra layer of security: after your password, signing in will also ask for a
                     one-time code from an authenticator app on your phone.
                   </p>
-                  <Button onClick={() => setSetupStep(twoFactorPending ? "confirm" : "password")} className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white hover:opacity-95">
+                  <Button onClick={() => setSetupStep(twoFactorPending ? "confirm" : "password")} className="h-11 w-full rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white hover:opacity-95">
                     {twoFactorPending ? "Enter a code to finish setup" : "Set up two-factor authentication"}
                   </Button>
                   {twoFactorPending && (
-                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#1a52c5] hover:underline">
+                    <button type="button" onClick={() => setSetupStep("password")} className="text-sm font-semibold text-[#0B363B] hover:underline">
                       Start over with a new key
                     </button>
                   )}
@@ -1180,15 +1180,15 @@ const ProfileSecurityPage = () => {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#1a52c5]/[0.04] to-[#28c2ce]/[0.04] p-6">
-            <h3 className="text-[15px] font-bold text-[#0a1128]">Need to change your email?</h3>
-            <p className="mt-1 text-[13px] text-[#8c95b0]">Contact support and our team will help you update your account email.</p>
+          <section className="rounded-2xl border border-[rgba(3,33,37,0.06)] bg-gradient-to-br from-[#0B363B]/[0.04] to-[#437278]/[0.04] p-6">
+            <h3 className="text-[15px] font-bold text-[#032125]">Need to change your email?</h3>
+            <p className="mt-1 text-[13px] text-[#437278]">Contact support and our team will help you update your account email.</p>
             <Button
               variant="outline"
               onClick={() => (window.location.href = "mailto:support@tickimo.com?subject=Change%20account%20email")}
-              className="mt-4 h-10 w-full rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
+              className="mt-4 h-10 w-full rounded-[10px] border-[rgba(3,33,37,0.1)] bg-white font-semibold text-[#032125] hover:bg-[#EAFDE8]"
             >
-              <Mail className="mr-2 h-4 w-4 text-[#1a52c5]" />
+              <Mail className="mr-2 h-4 w-4 text-[#0B363B]" />
               Contact Support
             </Button>
           </section>

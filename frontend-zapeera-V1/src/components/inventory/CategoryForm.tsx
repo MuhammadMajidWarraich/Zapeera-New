@@ -171,7 +171,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                 <SelectItem
                   key={option.value}
                   value={option.value}
-                  className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                  className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                 >
                   {option.label}
                 </SelectItem>
@@ -211,7 +211,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-spruce-700 hover:bg-spruce-900"
         >
           {isSubmitting ? 'Saving...' : submitButtonText}
         </Button>

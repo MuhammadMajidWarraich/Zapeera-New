@@ -17,7 +17,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             "group-[.toaster]:data-[type=success]:bg-green-600 group-[.toaster]:data-[type=success]:text-white group-[.toaster]:data-[type=success]:border-green-700 " +
             "group-[.toaster]:data-[type=error]:bg-red-600 group-[.toaster]:data-[type=error]:text-white group-[.toaster]:data-[type=error]:border-red-700 " +
             "group-[.toaster]:data-[type=warning]:bg-yellow-500 group-[.toaster]:data-[type=warning]:text-white group-[.toaster]:data-[type=warning]:border-yellow-700 " +
-            "group-[.toaster]:data-[type=info]:bg-blue-600 group-[.toaster]:data-[type=info]:text-white group-[.toaster]:data-[type=info]:border-blue-700",
+            "group-[.toaster]:data-[type=info]:bg-spruce-700 group-[.toaster]:data-[type=info]:text-white group-[.toaster]:data-[type=info]:border-spruce-900",
           title:
             "group-[.toast]:text-foreground group-data-[type=success]:text-white group-data-[type=error]:text-white group-data-[type=warning]:text-white group-data-[type=info]:text-white",
           description:

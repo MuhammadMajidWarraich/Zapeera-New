@@ -93,9 +93,9 @@ const ResetPassword = () => {
 
   if (verifying) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#032125] to-[#0B363B] flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-spruce-700 mx-auto mb-4"></div>
           <p className="text-gray-700">Verifying reset token...</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ const ResetPassword = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#032125] to-[#0B363B] flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Successful!</h2>
@@ -113,7 +113,7 @@ const ResetPassword = () => {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            className="w-full bg-spruce-700 text-white py-3 rounded-lg font-semibold hover:bg-spruce-900 transition"
           >
             Go to Login
           </button>
@@ -124,14 +124,14 @@ const ResetPassword = () => {
 
   if (!tokenValid) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#032125] to-[#0B363B] flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Reset Link</h2>
           <p className="text-gray-600 mb-6">{error || 'This reset link is invalid or has expired.'}</p>
           <button
             onClick={() => navigate('/login')}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            className="w-full bg-spruce-700 text-white py-3 rounded-lg font-semibold hover:bg-spruce-900 transition"
           >
             Back to Login
           </button>
@@ -141,7 +141,7 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0c2c8a] to-[#153186] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#032125] to-[#0B363B] flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
         {userInfo && (
@@ -170,7 +170,7 @@ const ResetPassword = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-spruce-500 focus:border-transparent"
                 placeholder="Enter new password"
                 required
                 minLength={6}
@@ -198,7 +198,7 @@ const ResetPassword = () => {
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-spruce-500 focus:border-transparent"
                 placeholder="Confirm new password"
                 required
                 minLength={6}
@@ -217,7 +217,7 @@ const ResetPassword = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-spruce-700 text-white py-3 rounded-lg font-semibold hover:bg-spruce-900 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Resetting Password...' : 'Reset Password'}
           </button>

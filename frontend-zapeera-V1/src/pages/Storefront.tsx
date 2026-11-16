@@ -226,29 +226,29 @@ const Storefront = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6fa]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a52c5]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#FFFCF6]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0B363B]" />
       </div>
     );
   }
 
   if (notFound || !info) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f4f6fa] px-4 text-center">
-        <Store className="h-10 w-10 text-[#8c95b0]" />
-        <h1 className="text-xl font-bold text-[#0a1128]">Store not found</h1>
-        <p className="max-w-md text-sm text-[#5b6b8c]">This store link is not valid, or the pharmacy has not enabled its online store yet.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#FFFCF6] px-4 text-center">
+        <Store className="h-10 w-10 text-[#437278]" />
+        <h1 className="text-xl font-bold text-[#032125]">Store not found</h1>
+        <p className="max-w-md text-sm text-[#354D51]">This store link is not valid, or the pharmacy has not enabled its online store yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa] pb-16">
+    <div className="min-h-screen bg-[#FFFCF6] pb-16">
       <header className="border-b bg-white px-4 py-5">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#0a1128]">{info.business.name}</h1>
-            <p className="text-sm text-[#5b6b8c]">
+            <h1 className="text-2xl font-bold text-[#032125]">{info.business.name}</h1>
+            <p className="text-sm text-[#354D51]">
               {info.branch.name}
               {info.branch.address ? ` · ${info.branch.address}` : ""}
               {info.branch.phone ? ` · ${info.branch.phone}` : ""}
@@ -263,7 +263,7 @@ const Storefront = () => {
       <main className="mx-auto max-w-5xl space-y-8 px-4 pt-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" />
             <Input
               placeholder="Search products, brands, formulas…"
               value={search}
@@ -271,14 +271,14 @@ const Storefront = () => {
               className="h-11 rounded-[10px] bg-white pl-9"
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#0a1128]">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#032125]">
             <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} />
             In stock only
           </label>
         </div>
 
         {visibleProducts.length === 0 ? (
-          <p className="rounded-[10px] border bg-white px-4 py-8 text-center text-sm text-[#5b6b8c]">
+          <p className="rounded-[10px] border bg-white px-4 py-8 text-center text-sm text-[#354D51]">
             No products found{search ? ` for “${search}”` : ""}.
           </p>
         ) : (
@@ -289,16 +289,16 @@ const Storefront = () => {
                 <div key={p.id} className="rounded-[10px] border bg-white p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="truncate text-sm font-bold text-[#0a1128]">{p.name}</h3>
-                      {p.formula ? <p className="truncate text-xs text-[#8c95b0]">{p.formula}</p> : null}
-                      {p.category ? <p className="text-xs text-[#5b6b8c]">{p.category.name}</p> : null}
+                      <h3 className="truncate text-sm font-bold text-[#032125]">{p.name}</h3>
+                      {p.formula ? <p className="truncate text-xs text-[#437278]">{p.formula}</p> : null}
+                      {p.category ? <p className="text-xs text-[#354D51]">{p.category.name}</p> : null}
                     </div>
                     {p.requiresPrescription ? <Badge variant="outline">Rx</Badge> : null}
                   </div>
                   <div className="mt-3 flex items-end justify-between">
                     <div>
-                      <p className="text-base font-bold text-[#0a1128]">{pkr(p.price)}</p>
-                      <p className="text-xs text-[#5b6b8c]">{p.inStock ? `${p.stock} in stock` : "Out of stock"}</p>
+                      <p className="text-base font-bold text-[#032125]">{pkr(p.price)}</p>
+                      <p className="text-xs text-[#354D51]">{p.inStock ? `${p.stock} in stock` : "Out of stock"}</p>
                     </div>
                     {!p.inStock ? (
                       <Button disabled size="sm" variant="outline">Out of stock</Button>
@@ -319,7 +319,7 @@ const Storefront = () => {
         )}
 
         <section className="rounded-[10px] border bg-white p-4">
-          <h2 className="flex items-center gap-2 text-base font-bold text-[#0a1128]">
+          <h2 className="flex items-center gap-2 text-base font-bold text-[#032125]">
             <ShoppingCart className="h-5 w-5" /> Your order
           </h2>
           {order ? (
@@ -332,12 +332,12 @@ const Storefront = () => {
               <Button variant="outline" size="sm" className="mt-3 bg-white" onClick={() => setOrder(null)}>Place another order</Button>
             </div>
           ) : cartLines.length === 0 ? (
-            <p className="mt-2 text-sm text-[#5b6b8c]">Your cart is empty. Add products above to order.</p>
+            <p className="mt-2 text-sm text-[#354D51]">Your cart is empty. Add products above to order.</p>
           ) : (
             <div className="mt-3 space-y-3">
               {cartLines.map(({ product, qty }) => (
                 <div key={product.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 flex-1 truncate text-[#0a1128]">
+                  <span className="min-w-0 flex-1 truncate text-[#032125]">
                     {product.name} {product.requiresPrescription ? <Badge variant="outline" className="ml-1">Rx</Badge> : null}
                   </span>
                   <span className="flex items-center gap-2">
@@ -349,7 +349,7 @@ const Storefront = () => {
                   </span>
                 </div>
               ))}
-              <p className="border-t pt-2 text-right text-base font-bold text-[#0a1128]">Total {pkr(cartTotal)}</p>
+              <p className="border-t pt-2 text-right text-base font-bold text-[#032125]">Total {pkr(cartTotal)}</p>
               {cartHasRx ? (
                 <p className="rounded-[10px] bg-[#fff7e0] px-3 py-2 text-xs text-[#7a5b00]">
                   {info.prescriptionUploadEnabled
@@ -374,10 +374,10 @@ const Storefront = () => {
         {info.prescriptionUploadEnabled ? (
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-[10px] border bg-white p-4">
-            <h2 className="flex items-center gap-2 text-base font-bold text-[#0a1128]">
+            <h2 className="flex items-center gap-2 text-base font-bold text-[#032125]">
               <FileUp className="h-5 w-5" /> Upload a prescription
             </h2>
-            <p className="mt-1 text-xs text-[#5b6b8c]">A pharmacist reviews your prescription before the medicines can be dispensed. You get an id to check out with once it is approved.</p>
+            <p className="mt-1 text-xs text-[#354D51]">A pharmacist reviews your prescription before the medicines can be dispensed. You get an id to check out with once it is approved.</p>
             <div className="mt-3 space-y-3">
               <div><Label>Your name *</Label><Input value={upName} onChange={(e) => setUpName(e.target.value)} placeholder="Patient name" className="mt-1" /></div>
               <div className="grid grid-cols-2 gap-3">
@@ -393,7 +393,7 @@ const Storefront = () => {
                 {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Upload for review
               </Button>
               {uploadedId ? (
-                <p className="rounded-[10px] bg-[#e8f0fe] px-3 py-2 text-xs text-[#1a52c5]">
+                <p className="rounded-[10px] bg-[#EAFDE8] px-3 py-2 text-xs text-[#0B363B]">
                   Uploaded. Your prescription id is <span className="font-mono font-bold">{uploadedId}</span> — save it for the status check and checkout.
                 </p>
               ) : null}
@@ -401,7 +401,7 @@ const Storefront = () => {
           </div>
 
           <div className="rounded-[10px] border bg-white p-4">
-            <h2 className="flex items-center gap-2 text-base font-bold text-[#0a1128]">
+            <h2 className="flex items-center gap-2 text-base font-bold text-[#032125]">
               <Clock className="h-5 w-5" /> Check prescription status
             </h2>
             <div className="mt-3 space-y-3">
@@ -412,7 +412,7 @@ const Storefront = () => {
               </Button>
               {statusResult ? (
                 <div className="rounded-[10px] border px-3 py-2 text-sm">
-                  <p className="flex items-center gap-2 font-bold text-[#0a1128]">
+                  <p className="flex items-center gap-2 font-bold text-[#032125]">
                     {statusResult.reviewStatus === "REVIEWED" ? <CheckCircle2 className="h-4 w-4 text-[#1b7a2e]" /> : null}
                     {statusResult.reviewStatus === "PENDING" ? <Clock className="h-4 w-4 text-[#7a5b00]" /> : null}
                     {statusResult.reviewStatus === "REJECTED" ? <XCircle className="h-4 w-4 text-[#b3261e]" /> : null}
@@ -420,7 +420,7 @@ const Storefront = () => {
                     {statusResult.reviewStatus === "PENDING" ? "Under review — please check back" : null}
                     {statusResult.reviewStatus === "REJECTED" ? "Not approved by the pharmacist" : null}
                   </p>
-                  {statusResult.reviewNote ? <p className="mt-1 text-xs text-[#5b6b8c]">Pharmacist note: {statusResult.reviewNote}</p> : null}
+                  {statusResult.reviewNote ? <p className="mt-1 text-xs text-[#354D51]">Pharmacist note: {statusResult.reviewNote}</p> : null}
                   {statusResult.reviewStatus === "REVIEWED" ? (
                     <Button
                       size="sm"
@@ -441,7 +441,7 @@ const Storefront = () => {
         ) : (
         <section className="grid grid-cols-1 gap-4">
           <div className="rounded-[10px] border bg-white p-4">
-            <p className="text-sm text-[#5b6b8c]">Prescription upload is not enabled for this store yet — please contact the pharmacy for prescription medicines.</p>
+            <p className="text-sm text-[#354D51]">Prescription upload is not enabled for this store yet — please contact the pharmacy for prescription medicines.</p>
           </div>
         </section>
         )}

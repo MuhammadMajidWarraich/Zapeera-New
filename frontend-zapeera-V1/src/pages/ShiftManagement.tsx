@@ -77,7 +77,7 @@ const today = formatDateInput(new Date());
 const statusClass = (status: string) => {
   const normalized = status.toLowerCase();
   if (normalized === "active") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (normalized === "completed") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (normalized === "completed") return "border-spruce-200 bg-verdant-100 text-spruce-900";
   if (normalized === "cancelled") return "border-red-200 bg-red-50 text-red-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
 };
@@ -397,7 +397,7 @@ const ShiftManagement = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <Clock className="h-6 w-6 text-[#1a52c5]" />
+            <Clock className="h-6 w-6 text-[#0B363B]" />
             <h1 className="text-2xl font-bold tracking-tight text-slate-950">Shift Management</h1>
           </div>
           <p className="max-w-3xl text-sm text-slate-600">
@@ -431,7 +431,7 @@ const ShiftManagement = () => {
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Plus className="h-5 w-5 text-[#1a52c5]" />
+              <Plus className="h-5 w-5 text-[#0B363B]" />
               Add Shift
             </CardTitle>
           </CardHeader>
@@ -496,7 +496,7 @@ const ShiftManagement = () => {
 
         <div className="space-y-6">
           <Card className="border-0 shadow-sm" id="assign-shift">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CheckSquare className="h-5 w-5 text-[#1a52c5]" />Assign Shift to Staff</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CheckSquare className="h-5 w-5 text-[#0B363B]" />Assign Shift to Staff</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={handleAssignStaff} className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -519,7 +519,7 @@ const ShiftManagement = () => {
           </Card>
 
           <Card className="border-0 shadow-sm">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ArrowLeftRight className="h-5 w-5 text-[#1a52c5]" />Swap Shifts</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><ArrowLeftRight className="h-5 w-5 text-[#0B363B]" />Swap Shifts</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={handleSwapShifts} className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -561,7 +561,7 @@ const ShiftManagement = () => {
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Clock className="h-5 w-5 text-[#1a52c5]" />
+              <Clock className="h-5 w-5 text-[#0B363B]" />
               Today's Active Shifts
             </CardTitle>
             <Button variant="outline" onClick={loadShiftData} disabled={isLoading}>
@@ -629,7 +629,7 @@ const ShiftManagement = () => {
       <Card className="border-0 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <CalendarDays className="h-5 w-5 text-[#1a52c5]" />
+            <CalendarDays className="h-5 w-5 text-[#0B363B]" />
             Scheduled Shifts
           </CardTitle>
         </CardHeader>

@@ -105,7 +105,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
   // Default styles for modern POS dashboard
   const defaultStyles: Partial<Styles> = {
     options: {
-      primaryColor: '#0C2C8A', // POS blue color
+      primaryColor: '#032125', // POS blue color
       width: 400,
       zIndex: 10000,
     },
@@ -136,7 +136,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
       marginTop: '16px',
     },
     buttonNext: {
-      backgroundColor: '#0C2C8A',
+      backgroundColor: '#032125',
       borderRadius: '8px',
       color: 'white',
       fontSize: '14px',

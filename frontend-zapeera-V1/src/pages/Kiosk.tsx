@@ -125,16 +125,16 @@ const Kiosk = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6fa]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1a52c5]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#FFFCF6]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0B363B]" />
       </div>
     );
   }
 
   if (notFound || !info) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#f4f6fa] px-4 text-center">
-        <MonitorSmartphone className="h-10 w-10 text-[#8c95b0]" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#FFFCF6] px-4 text-center">
+        <MonitorSmartphone className="h-10 w-10 text-[#437278]" />
         <h1 className="text-xl font-extrabold">Kiosk not found</h1>
         <p className="text-sm text-muted-foreground">This ordering screen does not exist or is switched off. Please ask a staff member.</p>
       </div>
@@ -143,8 +143,8 @@ const Kiosk = () => {
 
   if (notEnabled) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#f4f6fa] px-4 text-center">
-        <MonitorSmartphone className="h-10 w-10 text-[#8c95b0]" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#FFFCF6] px-4 text-center">
+        <MonitorSmartphone className="h-10 w-10 text-[#437278]" />
         <h1 className="text-xl font-extrabold">Self-ordering is not switched on here yet</h1>
         <p className="text-sm text-muted-foreground">Please order at the counter — a staff member will help you.</p>
       </div>
@@ -153,7 +153,7 @@ const Kiosk = () => {
 
   if (order) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f4f6fa] px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#FFFCF6] px-4 text-center">
         <CheckCircle2 className="h-14 w-14 text-emerald-600" />
         <h1 className="text-2xl font-extrabold">Order placed!</h1>
         <p className="text-base">
@@ -177,8 +177,8 @@ const Kiosk = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fa]">
-      <header className="sticky top-0 z-10 border-b bg-[#0a1128] px-4 py-4 text-white">
+    <div className="min-h-screen bg-[#FFFCF6]">
+      <header className="sticky top-0 z-10 border-b bg-[#032125] px-4 py-4 text-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-lg font-extrabold tracking-tight">
@@ -197,7 +197,7 @@ const Kiosk = () => {
 
       <main className="mx-auto max-w-5xl px-4 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8c95b0]" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#437278]" />
           <Input
             placeholder="Search products…"
             value={search}

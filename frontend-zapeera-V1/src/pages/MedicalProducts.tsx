@@ -163,7 +163,7 @@ const MedicalProducts = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-4 border-spruce-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading medical products...</p>
         </div>
       </div>
@@ -188,7 +188,7 @@ const MedicalProducts = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <Pill className="w-8 h-8 mr-3 text-blue-600" />
+            <Pill className="w-8 h-8 mr-3 text-spruce-700" />
             Medical Products
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -199,7 +199,7 @@ const MedicalProducts = () => {
         <div className="flex items-center space-x-3">
           <Button
             onClick={() => setShowAddDialog(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-spruce-700 hover:bg-spruce-900 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Medical Product
@@ -216,8 +216,8 @@ const MedicalProducts = () => {
                 <p className="text-sm font-medium text-gray-600">Total Products</p>
                 <p className="text-2xl font-bold text-gray-900">{products.length}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-verdant-100 rounded-lg flex items-center justify-center">
+                <Package className="w-6 h-6 text-spruce-700" />
               </div>
             </div>
           </CardContent>
@@ -293,7 +293,7 @@ const MedicalProducts = () => {
                 <SelectContent>
                   <SelectItem
                     value="all"
-                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                   >
                     All Categories
                   </SelectItem>
@@ -301,7 +301,7 @@ const MedicalProducts = () => {
                     <SelectItem
                       key={category}
                       value={category}
-                      className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                      className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                     >
                       {category}
                     </SelectItem>

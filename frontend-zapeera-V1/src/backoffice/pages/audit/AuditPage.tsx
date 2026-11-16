@@ -50,10 +50,10 @@ export function AuditPage() {
       <div><h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1><p className="text-sm text-gray-500 mt-1">Track all administrative actions on the platform</p></div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        <button onClick={() => setActiveTab('actions')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'actions' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        <button onClick={() => setActiveTab('actions')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'actions' ? 'bg-white text-spruce-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
           <Activity className="w-4 h-4" /> System Logs
         </button>
-        <button onClick={() => setActiveTab('logins')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'logins' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+        <button onClick={() => setActiveTab('logins')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'logins' ? 'bg-white text-spruce-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
           <Shield className="w-4 h-4" /> Auth Logs
         </button>
       </div>
@@ -63,7 +63,7 @@ export function AuditPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1 max-w-none sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search logs..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-blue-500/50" />
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search logs..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-spruce-500/50" />
             </div>
             <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
               <option value="all">All Actions</option>
@@ -90,7 +90,7 @@ export function AuditPage() {
                   {filteredLogs.slice(0, 50).map(log => (
                     <tr key={log.id} className="hover:bg-gray-50/50">
                       <td className="px-4 py-3 text-sm"><div className="flex items-center gap-2"><div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold text-gray-500">{(log.admin?.email || '?').charAt(0).toUpperCase()}</div><span className="text-gray-700">{log.admin?.email || 'Unknown'}</span></div></td>
-                      <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">{log.action}</span></td>
+                      <td className="px-4 py-3"><span className="px-2 py-0.5 text-xs font-medium bg-verdant-100 text-spruce-900 rounded">{log.action}</span></td>
                       <td className="px-4 py-3 text-sm text-gray-600">{log.entityType}</td>
                       <td className="px-4 py-3 text-sm text-gray-400 font-mono text-xs max-w-[120px] truncate" title={log.entityId || undefined}>{log.entityId || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>

@@ -143,8 +143,8 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
   return (
     <div
       className={cn(
-        'group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.12)] bg-white p-3.5 shadow-[0_1px_4px_rgba(15,23,60,0.05)] transition-all',
-        !addDisabled && 'cursor-pointer hover:border-primary/40 hover:shadow-[0_6px_20px_rgba(15,23,60,0.09)]',
+        'group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.12)] bg-white p-3.5 shadow-[0_1px_4px_rgba(3,33,37,0.05)] transition-all',
+        !addDisabled && 'cursor-pointer hover:border-primary/40 hover:shadow-[0_6px_20px_rgba(3,33,37,0.09)]',
       )}
       onClick={handleQuickAdd}
       role="button"
@@ -157,26 +157,26 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
             {stockBadge.label}
           </span>
           {product.requiresPrescription && (
-            <Badge variant="outline" className="rounded-full border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-800">
+            <Badge variant="outline" className="rounded-full border-spruce-200 bg-verdant-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-spruce-900">
               Rx Required
             </Badge>
           )}
         </div>
-        <span className="shrink-0 font-mono text-[11px] font-semibold text-[#8c95b0]">
+        <span className="shrink-0 font-mono text-[11px] font-semibold text-[#437278]">
           Stock: {isWeight ? formatKgFromGrams(stockOnHand) : stockOnHand}
         </span>
       </div>
 
       {/* Name / formula / form chip */}
-      <h4 className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-[#0a1128] group-hover:text-primary">
+      <h4 className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-[#032125] group-hover:text-primary">
         {product.name}
         {selectedVariant ? <span className="text-primary"> — {selectedVariant.name}</span> : null}
       </h4>
       {product.formula ? (
-        <p className="mt-0.5 line-clamp-1 text-xs italic text-[#8c95b0]">{product.formula}</p>
+        <p className="mt-0.5 line-clamp-1 text-xs italic text-[#437278]">{product.formula}</p>
       ) : null}
       <div className="mt-1.5 flex flex-wrap gap-1.5">
-        <span className="inline-flex items-center rounded-md bg-[#f4f6fa] px-2 py-0.5 text-[11px] font-medium text-[#4a5578]">
+        <span className="inline-flex items-center rounded-md bg-[#FFFCF6] px-2 py-0.5 text-[11px] font-medium text-[#354D51]">
           {/* Unit-label fix (2026-10-26): the chip text comes from
               cardUnitChip — real pack copy ("Box of N") or a real
               unit ('kg'), never the old invented 'tablets'. The
@@ -191,14 +191,14 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                 ? 'bg-red-500/10 text-red-600'
                 : selectedBatch.expiryStatus === 'WARNING'
                   ? 'bg-amber-500/10 text-amber-600'
-                  : 'bg-[#f4f6fa] text-[#4a5578]',
+                  : 'bg-[#FFFCF6] text-[#354D51]',
             )}
           >
             Exp {new Date(selectedBatch.expireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
           </span>
         )}
         {isStructured(structure) && stockOnHand > 0 ? (
-          <span className="inline-flex items-center rounded-md bg-[#f4f6fa] px-2 py-0.5 text-[11px] font-medium text-[#4a5578]">
+          <span className="inline-flex items-center rounded-md bg-[#FFFCF6] px-2 py-0.5 text-[11px] font-medium text-[#354D51]">
             {/* Loose remainder reads "units", not "tablets": the card
                 cannot know the base unit (see cardUnitChip). */}
             {breakdownStock(stockOnHand, structure, 'unit').text}
@@ -207,28 +207,28 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
       </div>
 
       {/* Price + add */}
-      <div className="mt-3 flex items-end justify-between gap-2 border-t border-[rgba(15,23,60,0.06)] pt-2.5">
+      <div className="mt-3 flex items-end justify-between gap-2 border-t border-[rgba(3,33,37,0.06)] pt-2.5">
         <div className="min-w-0">
           {selectedBatch ? (
             <>
-              <p className="font-mono text-[15px] font-bold leading-tight tabular-nums text-[#0a1128]">
+              <p className="font-mono text-[15px] font-bold leading-tight tabular-nums text-[#032125]">
                 PKR {isWeight ? (displayUnitPrice * KG_GRAMS_PER_KG).toFixed(2) : displayUnitPrice.toFixed(2)}
               </p>
-              <p className="truncate text-[11px] leading-tight text-[#8c95b0]">
+              <p className="truncate text-[11px] leading-tight text-[#437278]">
                 {isWeight
                   ? `PKR ${(displayUnitPrice * KG_GRAMS_PER_KG).toFixed(2)} / kg`
                   : <>per unit{unitsPerBox > 1 ? ` • PKR ${(displayUnitPrice * unitsPerBox).toFixed(2)} / box` : ''}{unitsPerStrip ? ` • PKR ${levelPriceFromUnitPrice(displayUnitPrice, 'STRIP', structure).toFixed(2)} / strip` : ''}</>}
               </p>
             </>
           ) : (
-            <p className="text-xs font-medium text-[#8c95b0]">{isLoadingBatch ? 'Loading batches…' : 'No batch available'}</p>
+            <p className="text-xs font-medium text-[#437278]">{isLoadingBatch ? 'Loading batches…' : 'No batch available'}</p>
           )}
         </div>
         <span
           className={cn(
             'grid h-9 w-9 shrink-0 place-items-center rounded-full transition-all',
             addDisabled
-              ? 'bg-[#eef1f7] text-[#b8c5e0]'
+              ? 'bg-[#EAFDE8] text-[#A1C2C6]'
               : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground',
           )}
           aria-hidden
@@ -249,11 +249,11 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
       </button>
 
       {expanded && (
-        <div className="mt-2 min-w-0 space-y-3 border-t border-dashed border-[rgba(15,23,60,0.1)] pt-3" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2 min-w-0 space-y-3 border-t border-dashed border-[rgba(3,33,37,0.1)] pt-3" onClick={(e) => e.stopPropagation()}>
           {/* Variants */}
           {(variants || []).length > 0 && onSelectVariant && (
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Choose variant">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Variant</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#437278]">Variant</span>
               {(variants || []).map((variant) => {
                 const isChosen = selectedVariant?.id === variant.id;
                 return (
@@ -266,7 +266,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                       'rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all',
                       isChosen
                         ? 'border-transparent bg-primary text-primary-foreground'
-                        : 'border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-primary/30',
+                        : 'border-[rgba(3,33,37,0.12)] bg-white text-[#354D51] hover:border-primary/30',
                     )}
                   >
                     {variant.name}
@@ -287,7 +287,7 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                     'rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all',
                     !selectedVariant
                       ? 'border-transparent bg-primary text-primary-foreground'
-                      : 'border-[rgba(15,23,60,0.12)] bg-white text-[#4a5578] hover:border-primary/30',
+                      : 'border-[rgba(3,33,37,0.12)] bg-white text-[#354D51] hover:border-primary/30',
                   )}
                 >
                   Standard
@@ -299,12 +299,12 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
           {/* Batches (FEFO list — the selected batch defaults to the
               nearest expiry with stock, as before) */}
           {isLoadingBatch ? (
-            <p className="flex items-center gap-2 text-xs font-medium text-[#4a5578]">
+            <p className="flex items-center gap-2 text-xs font-medium text-[#354D51]">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Loading batches…
             </p>
           ) : validBatches.length > 0 ? (
             <div className="space-y-1" role="group" aria-label="Select batch">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8c95b0]">Batch (FEFO first)</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#437278]">Batch (FEFO first)</p>
               {validBatches.map((batch) => {
                 const isSelected = selectedBatch?.id === batch.id;
                 return (
@@ -317,48 +317,48 @@ const PosProductCard: React.FC<PosProductCardProps> = ({
                       'flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors',
                       isSelected
                         ? 'border-primary/40 bg-primary/10'
-                        : 'border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] hover:border-primary/25',
+                        : 'border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] hover:border-primary/25',
                     )}
                   >
-                    <span className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-full border', isSelected ? 'border-transparent bg-primary text-primary-foreground' : 'border-[rgba(15,23,60,0.25)] text-transparent')}>
+                    <span className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-full border', isSelected ? 'border-transparent bg-primary text-primary-foreground' : 'border-[rgba(3,33,37,0.25)] text-transparent')}>
                       <Check className="h-3 w-3" />
                     </span>
-                    <span className="min-w-0 truncate font-bold text-[#0a1128]">{batch.batchNo}</span>
-                    <span className="shrink-0 tabular-nums text-[#4a5578]">Qty {isWeight ? formatKgFromGrams(batch.quantity) : batch.quantity}</span>
-                    <span className="ml-auto shrink-0 tabular-nums text-[#4a5578]">
+                    <span className="min-w-0 truncate font-bold text-[#032125]">{batch.batchNo}</span>
+                    <span className="shrink-0 tabular-nums text-[#354D51]">Qty {isWeight ? formatKgFromGrams(batch.quantity) : batch.quantity}</span>
+                    <span className="ml-auto shrink-0 tabular-nums text-[#354D51]">
                       {batch.expireDate ? new Date(batch.expireDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}
                     </span>
-                    <span className="shrink-0 font-bold tabular-nums text-[#0a1128]">PKR {isWeight ? (batch.sellingPrice * KG_GRAMS_PER_KG).toFixed(2) : batch.sellingPrice.toFixed(2)}{isWeight ? ' / kg' : ''}</span>
+                    <span className="shrink-0 font-bold tabular-nums text-[#032125]">PKR {isWeight ? (batch.sellingPrice * KG_GRAMS_PER_KG).toFixed(2) : batch.sellingPrice.toFixed(2)}{isWeight ? ' / kg' : ''}</span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-[rgba(15,23,60,0.12)] bg-[#f8f9fc] px-3 py-2 text-center text-xs font-medium text-[#8c95b0]">
+            <p className="rounded-lg border border-dashed border-[rgba(3,33,37,0.12)] bg-[#FFFCF6] px-3 py-2 text-center text-xs font-medium text-[#437278]">
               {requiresBranchSelection ? 'Select a branch first to load batches.' : 'No batches available for this product.'}
             </p>
           )}
 
           {/* Level + quantity + add */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-[#f4f6fa] p-1" role="group" aria-label="Sell by unit, strip or box">
+            <div className="inline-flex rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-[#FFFCF6] p-1" role="group" aria-label="Sell by unit, strip or box">
               {isWeight ? (
                 // Loose / by-weight selling (Stage 1): a kilo product
                 // has one level only (KG).
-                <button type="button" onClick={() => setSelectedUnitType('kg')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'kg' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
+                <button type="button" onClick={() => setSelectedUnitType('kg')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'kg' ? 'bg-primary text-primary-foreground shadow' : 'text-[#354D51] hover:bg-white')}>
                   KG
                 </button>
               ) : (
                 <>
-              <button type="button" onClick={() => setSelectedUnitType('unit')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'unit' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
+              <button type="button" onClick={() => setSelectedUnitType('unit')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'unit' ? 'bg-primary text-primary-foreground shadow' : 'text-[#354D51] hover:bg-white')}>
                 Unit
               </button>
               {unitsPerStrip && showStripOption ? (
-                <button type="button" onClick={() => setSelectedUnitType('strip')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'strip' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
+                <button type="button" onClick={() => setSelectedUnitType('strip')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'strip' ? 'bg-primary text-primary-foreground shadow' : 'text-[#354D51] hover:bg-white')}>
                   Strip
                 </button>
               ) : null}
-              <button type="button" onClick={() => setSelectedUnitType('box')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'box' ? 'bg-primary text-primary-foreground shadow' : 'text-[#4a5578] hover:bg-white')}>
+              <button type="button" onClick={() => setSelectedUnitType('box')} className={cn('h-7 rounded-[7px] px-2.5 text-[11px] font-semibold transition-all', selectedUnitType === 'box' ? 'bg-primary text-primary-foreground shadow' : 'text-[#354D51] hover:bg-white')}>
                 Box
               </button>
                 </>

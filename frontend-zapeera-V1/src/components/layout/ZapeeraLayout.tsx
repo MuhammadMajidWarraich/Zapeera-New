@@ -7,7 +7,6 @@ import {
   User,
   ArrowLeft,
   ChevronDown,
-  Zap,
   UserPlus,
   CreditCard,
   Bell,
@@ -221,7 +220,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
       list.push({
         id: "sync",
         icon: RefreshCw,
-        iconClass: "bg-sky-500/15 text-sky-600",
+        iconClass: "bg-spruce-500/15 text-spruce-500",
         title: `${syncedBusinesses} business${syncedBusinesses > 1 ? "es" : ""} available offline`,
         body: runtime.lastSyncAt ? `Last sync: ${new Date(runtime.lastSyncAt).toLocaleTimeString()}` : "Data is ready for offline use.",
         action: () => go("/zapeera"),
@@ -231,7 +230,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
     list.push({
       id: "welcome",
       icon: Sparkles,
-      iconClass: "bg-gradient-to-br from-[#1a52c5]/15 to-[#28c2ce]/15 text-[#1a52c5]",
+      iconClass: "bg-gradient-to-br from-[#0B363B]/15 to-[#437278]/15 text-[#0B363B]",
       title: `Welcome to ${branding.productName}, ${user?.name?.split(" ")[0] || ""}`,
       body: "Everything in your account is in one place.",
     });
@@ -243,7 +242,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
     cn(
       "relative mb-0.5 flex w-full items-center gap-3 rounded-[10px] px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-200",
       active
-        ? "bg-gradient-to-r from-[#1a52c5] to-[#1e7fd6] font-semibold text-white shadow-[0_6px_20px_rgba(26,82,197,0.45)]"
+        ? "bg-gradient-to-r from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_6px_20px_rgba(11,54,59,0.45)]"
         : "text-white/80 hover:bg-white/[0.04] hover:text-white"
     );
 
@@ -265,7 +264,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.9} />
         <span className="flex-1">{item.label}</span>
         {item.badge ? (
-          <span className="grid min-w-[18px] place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="grid min-w-[18px] place-items-center rounded-full bg-gradient-to-br from-[#0B363B] to-[#437278] px-1.5 py-0.5 text-[10px] font-bold text-white">
             {item.badge}
           </span>
         ) : null}
@@ -274,14 +273,14 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
   };
 
   const sidebar = (
-    <aside className="fixed left-0 top-0 z-[100] flex h-screen w-[272px] flex-col overflow-hidden bg-[#060d1f] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <aside className="fixed left-0 top-0 z-[100] flex h-screen w-[272px] flex-col overflow-hidden bg-[#00191C] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <div
         className="pointer-events-none absolute bottom-[-100px] left-[-60px] h-[260px] w-[260px] rounded-full blur-[40px]"
-        style={{ background: "radial-gradient(circle, rgba(26,82,197,0.12) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, rgba(11,54,59,0.12) 0%, transparent 70%)" }}
       />
       <div
         className="pointer-events-none absolute right-0 top-0 z-[1] h-full w-px opacity-35"
-        style={{ background: "linear-gradient(180deg, #1a52c5 0%, #28c2ce 40%, transparent 80%)" }}
+        style={{ background: "linear-gradient(180deg, #0B363B 0%, #437278 40%, transparent 80%)" }}
       />
 
       {/* Brand */}
@@ -292,7 +291,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               {branding.logoUrl ? (
                 <img src={branding.logoUrl} alt={branding.productName} className="h-[40px] w-[40px] shrink-0 rounded-[13px] bg-white object-contain" />
               ) : (
-                <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#1a52c5' }}>
+                <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] text-white shadow" style={{ background: branding.primaryColor || '#0B363B' }}>
                   <span className="text-base font-extrabold">{branding.productName.charAt(0)}</span>
                 </div>
               )}
@@ -302,12 +301,12 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
             </>
           ) : (
             <>
-              <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_0_24px_rgba(26,82,197,0.4)]">
-                <Zap className="h-[21px] w-[21px] fill-white text-white" aria-hidden />
+              <div className="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-gradient-to-br from-[#0B363B] to-[#437278] shadow-[0_0_24px_rgba(11,54,59,0.4)]">
+                <svg viewBox="0 0 24 24" className="h-[21px] w-[21px]" aria-hidden><g fill="#ABFFAE"><rect x="3" y="16" width="4" height="5" rx="1" /><rect x="8.5" y="12.5" width="4" height="8.5" rx="1" /><rect x="14" y="8" width="4" height="13" rx="1" /><rect x="11.5" y="4.5" width="9" height="3.5" rx="1" /></g></svg>
               </div>
               <span className="truncate text-[21px] font-extrabold tracking-tight text-white">
-                Zap
-                <span className="bg-gradient-to-br from-[#7eb3ff] to-[#28c2ce] bg-clip-text text-transparent">eera</span>
+                Tick
+                <span className="bg-gradient-to-br from-[#ABFFAE] to-[#A1C2C6] bg-clip-text text-transparent">imo</span>
               </span>
             </>
           )}
@@ -357,11 +356,11 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
 
   return (
     <div
-      className="zv3-app safe-bars flex min-h-screen bg-[#f0f2f7] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-['Outfit',system-ui,sans-serif] text-[#0a1128] antialiased"
-      style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
+      className="zv3-app safe-bars flex min-h-screen bg-[#EAFDE8] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-sans text-[#032125] antialiased"
+      style={{ fontFamily: "'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif" }}
     >
-      <div className="pointer-events-none fixed z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]" style={{ top: -100, right: -100 }} />
-      <div className="pointer-events-none fixed z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]" style={{ bottom: 100, left: 350 }} />
+      <div className="pointer-events-none fixed z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]" style={{ top: -100, right: -100 }} />
+      <div className="pointer-events-none fixed z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]" style={{ bottom: 100, left: 350 }} />
 
       {/* Desktop sidebar */}
       <div className="hidden lg:block">{sidebar}</div>
@@ -379,23 +378,23 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] lg:hidden"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#354D51] lg:hidden"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
             </button>
             <div className="hidden min-w-0 sm:block">
-              <p className="truncate text-sm font-semibold text-[#0a1128]">
+              <p className="truncate text-sm font-semibold text-[#032125]">
                 {greeting}, <span className="font-extrabold">{user?.name?.split(" ")[0] || "there"}</span> <span aria-hidden>👋</span>
               </p>
-              <p className="truncate text-xs text-[#8c95b0]">Your central hub for businesses, teams, and account settings.</p>
+              <p className="truncate text-xs text-[#437278]">Your central hub for businesses, teams, and account settings.</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Global search */}
             <div ref={searchRef} className="relative hidden md:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" />
               <input
                 id="global-search-input"
                 type="search"
@@ -407,29 +406,29 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 onFocus={() => setSearchOpen(true)}
                 placeholder={isDashboardRoute ? "Search anything..." : "Search businesses, invitations, support…"}
                 aria-label="Search"
-                className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#fbfcfe] pl-9 pr-9 text-[13px] text-[#0a1128] outline-none transition-all focus:w-80 focus:border-[#1a52c5]/40 focus:ring-2 focus:ring-[#1a52c5]/10 lg:w-[330px]"
+                className="h-10 w-56 rounded-xl border border-black/[0.06] bg-[#FFFCF6] pl-9 pr-9 text-[13px] text-[#032125] outline-none transition-all focus:w-80 focus:border-[#0B363B]/40 focus:ring-2 focus:ring-[#0B363B]/10 lg:w-[330px]"
               />
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
                 <Kbd>/</Kbd>
               </span>
               {searchOpen && searchQuery.trim() && (
-                <div className="absolute right-0 top-11 z-[120] w-[340px] overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.08)] bg-white p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
+                <div className="absolute right-0 top-11 z-[120] w-[340px] overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.08)] bg-white p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
                   {searchResults.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-sm text-[#8c95b0]">No results for “{searchQuery}”</p>
+                    <p className="px-3 py-4 text-center text-sm text-[#437278]">No results for “{searchQuery}”</p>
                   ) : (
                     searchResults.map((r, i) => (
                       <button
                         key={i}
                         type="button"
                         onClick={r.action}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f0f2f7]"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#EAFDE8]"
                       >
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
                           {r.type === "Business" ? <Home className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-[#0a1128]">{r.title}</span>
-                          <span className="block truncate text-xs text-[#8c95b0]">{r.subtitle}</span>
+                          <span className="block truncate text-sm font-semibold text-[#032125]">{r.title}</span>
+                          <span className="block truncate text-xs text-[#437278]">{r.subtitle}</span>
                         </span>
                       </button>
                     ))
@@ -444,8 +443,8 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                 role="status"
                 aria-label={online ? "Online" : "Offline"}
                 className={cn(
-                  "hidden h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold text-[#0a1128] md:inline-flex",
-                  online ? "bg-[#e5f6ec]" : "bg-[#f0f2f7]"
+                  "hidden h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-[13px] font-semibold text-[#032125] md:inline-flex",
+                  online ? "bg-[#e5f6ec]" : "bg-[#EAFDE8]"
                 )}
               >
                 <span className={cn("h-2 w-2 rounded-full", online ? "bg-green-500" : "bg-gray-400")} />
@@ -459,7 +458,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               onClick={() => openShortcutsHelp()}
               title="Keyboard shortcuts (?)"
               aria-label="Keyboard shortcuts"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#354D51] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
             >
               <Keyboard className="h-5 w-5" />
             </button>
@@ -469,7 +468,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="relative grid h-10 w-10 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#4a5578] transition-colors hover:border-black/10"
+                  className="relative grid h-10 w-10 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#354D51] transition-colors hover:border-black/10"
                   aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
                 >
                   <BellRing className="h-[18px] w-[18px]" />
@@ -480,10 +479,10 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                   )}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[340px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
+              <DropdownMenuContent align="end" className="w-[340px] rounded-2xl border border-[rgba(3,33,37,0.06)] p-2 shadow-[0_16px_48px_rgba(0,0,0,0.12)]">
                 <div className="flex items-center justify-between px-3 py-2">
-                  <p className="text-sm font-bold text-[#0a1128]">Notifications</p>
-                  <button type="button" onClick={() => go("/zapeera/notifications")} className="text-xs font-semibold text-[#1a52c5] hover:underline">
+                  <p className="text-sm font-bold text-[#032125]">Notifications</p>
+                  <button type="button" onClick={() => go("/zapeera/notifications")} className="text-xs font-semibold text-[#0B363B] hover:underline">
                     View All
                   </button>
                 </div>
@@ -495,14 +494,14 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                         key={n.id}
                         type="button"
                         onClick={() => n.action?.()}
-                        className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f0f2f7]"
+                        className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#EAFDE8]"
                       >
                         <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", n.iconClass)}>
                           <Icon className="h-[18px] w-[18px]" />
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-[13px] font-semibold text-[#0a1128]">{n.title}</span>
-                          <span className="block text-xs text-[#8c95b0]">{n.body}</span>
+                          <span className="block text-[13px] font-semibold text-[#032125]">{n.title}</span>
+                          <span className="block text-xs text-[#437278]">{n.body}</span>
                         </span>
                       </button>
                     );
@@ -516,7 +515,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-10 min-w-10 items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] pl-3.5 pr-2 text-[15px] font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)] transition-transform hover:scale-105"
+                  className="flex h-10 min-w-10 items-center gap-1.5 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] pl-3.5 pr-2 text-[15px] font-bold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)] transition-transform hover:scale-105"
                   aria-label="Account menu"
                 >
                   {user?.profileImage ? (
@@ -527,9 +526,9 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                   <ChevronDown className="h-3.5 w-3.5 opacity-80" strokeWidth={2.5} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[260px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.1)]">
+              <DropdownMenuContent align="end" className="w-[260px] rounded-2xl border border-[rgba(3,33,37,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.1)]">
                 <div className="flex items-center gap-3 px-2.5 py-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-[15px] font-bold text-white shadow-[0_2px_10px_rgba(26,82,197,0.25)]">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-[15px] font-bold text-white shadow-[0_2px_10px_rgba(11,54,59,0.25)]">
                     {user?.profileImage ? (
                       <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
                     ) : (
@@ -537,20 +536,20 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold tracking-tight text-[#0a1128]">{user?.name || "User"}</p>
-                    <p className="truncate text-xs text-[#8c95b0]">{user?.email || ""}</p>
+                    <p className="truncate text-sm font-bold tracking-tight text-[#032125]">{user?.name || "User"}</p>
+                    <p className="truncate text-xs text-[#437278]">{user?.email || ""}</p>
                   </div>
                 </div>
                 <DropdownMenuSeparator className="mx-2.5" />
-                <DropdownMenuItem onClick={() => go("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+                <DropdownMenuItem onClick={() => go("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#354D51]">
                   <User className="h-[18px] w-[18px] opacity-60" />
                   Edit Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go("/zapeera")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+                <DropdownMenuItem onClick={() => go("/zapeera")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#354D51]">
                   <ArrowLeft className="h-[18px] w-[18px] opacity-60" />
                   Back to Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openExternal(whatsappUrl("Hello! I need support with Tickimo."))} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+                <DropdownMenuItem onClick={() => openExternal(whatsappUrl("Hello! I need support with Tickimo."))} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#354D51]">
                   <MessageCircle className="h-[18px] w-[18px] opacity-60" />
                   WhatsApp Support
                 </DropdownMenuItem>

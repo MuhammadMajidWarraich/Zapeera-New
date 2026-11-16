@@ -61,7 +61,7 @@ const VerifyEmail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-spruce-700 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-6">
           <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Tickimo" className="w-10 h-10 object-contain" />
@@ -69,7 +69,7 @@ const VerifyEmail = () => {
 
         {status === "loading" && (
           <>
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <Loader2 className="w-12 h-12 text-spruce-700 animate-spin mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Verifying your email</h2>
             <p className="text-gray-600">{message}</p>
           </>
@@ -82,7 +82,7 @@ const VerifyEmail = () => {
             <p className="text-gray-600 mb-6">{message}</p>
             <button
               onClick={() => navigate("/login")}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg shadow-blue-500/30"
+              className="w-full bg-gradient-to-r from-spruce-700 to-spruce-500 text-white py-3 rounded-xl font-semibold hover:from-spruce-900 hover:to-spruce-500 transition-all shadow-lg shadow-spruce-500/30"
             >
               Go to Login
             </button>
@@ -110,7 +110,7 @@ const VerifyEmail = () => {
               )}
               <button
                 onClick={() => navigate("/login")}
-                className="w-full text-blue-600 font-semibold hover:text-blue-700 transition-colors py-2"
+                className="w-full text-spruce-700 font-semibold hover:text-spruce-900 transition-colors py-2"
               >
                 Back to Login
               </button>

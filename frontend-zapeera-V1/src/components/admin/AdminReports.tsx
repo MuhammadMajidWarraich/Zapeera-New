@@ -264,7 +264,7 @@ const AdminReports = () => {
                       Discounts given {formatRs(summary?.totalDiscount || 0)}
                     </p>
                   </div>
-                  <ShoppingCart className="w-8 h-8 text-blue-600" />
+                  <ShoppingCart className="w-8 h-8 text-spruce-700" />
                 </div>
               </CardContent>
             </Card>
@@ -281,7 +281,7 @@ const AdminReports = () => {
                       Revenue ÷ transactions for the period
                     </p>
                   </div>
-                  <Receipt className="w-8 h-8 text-purple-600" />
+                  <Receipt className="w-8 h-8 text-spruce-500" />
                 </div>
               </CardContent>
             </Card>
@@ -340,8 +340,8 @@ const AdminReports = () => {
                       <Area
                         type="monotone"
                         dataKey="sales"
-                        stroke="#2563eb"
-                        fill="#2563eb"
+                        stroke="#0B363B"
+                        fill="#0B363B"
                         fillOpacity={0.1}
                         name="sales"
                       />

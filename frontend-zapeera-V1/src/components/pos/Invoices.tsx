@@ -625,7 +625,7 @@ const Invoices = () => {
       <span
         className={cn(
           "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-          styles[status] || "border-[rgba(15,23,60,0.12)] bg-[#f8f9fc] text-[#4a5578]",
+          styles[status] || "border-[rgba(3,33,37,0.12)] bg-[#FFFCF6] text-[#354D51]",
         )}
       >
         {label}
@@ -1191,28 +1191,28 @@ const Invoices = () => {
     }
   };
 
-  const invFilterSelect = "h-11 min-w-[140px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[13px] text-[#0a1128] shadow-none focus:ring-4 focus:ring-[rgba(26,82,197,0.08)] md:w-[168px]";
-  const invDateInput = "h-11 w-[150px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-[#f0f2f7] text-sm text-[#0a1128] focus-visible:border-[#1a52c5] focus-visible:bg-white";
-  const invSearchInput = "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3 text-sm text-[#0a1128] placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]";
+  const invFilterSelect = "h-11 min-w-[140px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[13px] text-[#032125] shadow-none focus:ring-4 focus:ring-[rgba(11,54,59,0.08)] md:w-[168px]";
+  const invDateInput = "h-11 w-[150px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-[#EAFDE8] text-sm text-[#032125] focus-visible:border-[#0B363B] focus-visible:bg-white";
+  const invSearchInput = "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3 text-sm text-[#032125] placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]";
 
   // Don't show loading screen - show content immediately
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Invoices</h1>
-            <p className="text-sm text-[#8c95b0]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Invoices</h1>
+            <p className="text-sm text-[#437278]">
               Sales and receipts for your branch
             </p>
           </div>
@@ -1220,18 +1220,18 @@ const Invoices = () => {
             type="button"
             onClick={() => void loadInvoices(true)}
             variant="outline"
-            className="rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-white"
+            className="rounded-[10px] border border-[rgba(3,33,37,0.06)] font-semibold text-[#354D51] hover:bg-white"
           >
             <RefreshCw className="mr-2 h-4 w-4" strokeWidth={2} />
             Refresh
           </Button>
         </div>
 
-        <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-5 py-5">
-          <p className="mb-3 text-xs font-semibold text-[#8c95b0]">Filters</p>
+        <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-5 py-5">
+          <p className="mb-3 text-xs font-semibold text-[#437278]">Filters</p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+              <Calendar className="h-4 w-4 shrink-0 text-[#437278]" strokeWidth={2} />
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={invDateInput} />
             </div>
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={invDateInput} />
@@ -1244,13 +1244,13 @@ const Invoices = () => {
                   setStartDate("");
                   setEndDate("");
                 }}
-                className="h-9 w-9 shrink-0 rounded-[10px] p-0 text-[#8c95b0] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                className="h-9 w-9 shrink-0 rounded-[10px] p-0 text-[#437278] hover:bg-[#EAFDE8] hover:text-[#032125]"
               >
                 <X className="h-4 w-4" />
               </Button>
             )}
             <div className="relative min-w-[200px] flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" strokeWidth={2} />
               <Input
                 placeholder="Invoice #, customer, phone, receipt…"
                 value={searchQuery}
@@ -1288,7 +1288,7 @@ const Invoices = () => {
               type="button"
               onClick={() => void loadInvoices(true)}
               variant="outline"
-              className="h-9 shrink-0 whitespace-nowrap rounded-[10px] border border-[rgba(15,23,60,0.06)] font-semibold text-[#4a5578] hover:bg-white"
+              className="h-9 shrink-0 whitespace-nowrap rounded-[10px] border border-[rgba(3,33,37,0.06)] font-semibold text-[#354D51] hover:bg-white"
             >
               <Filter className="mr-2 h-4 w-4" strokeWidth={2} />
               Filter
@@ -1307,14 +1307,14 @@ const Invoices = () => {
           ].map((m) => (
             <div
               key={m.label}
-              className="rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white p-4 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_28px_rgba(0,0,0,0.05)]"
+              className="rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white p-4 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_8px_28px_rgba(0,0,0,0.05)]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#8c95b0]">{m.label}</p>
-                  <p className="text-base font-extrabold leading-tight tracking-tight text-[#0a1128]">{m.value}</p>
+                  <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#437278]">{m.label}</p>
+                  <p className="text-base font-extrabold leading-tight tracking-tight text-[#032125]">{m.value}</p>
                 </div>
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)] text-[#1a52c5]">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(11,54,59,0.08)] to-[rgba(67,114,120,0.06)] text-[#0B363B]">
                   <m.icon className="h-[18px] w-[18px]" strokeWidth={2} />
                 </div>
               </div>
@@ -1325,12 +1325,12 @@ const Invoices = () => {
         <div className="zv3-animate-fadeUp zv3-delay-3">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
-              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-              <span className="text-[17px] font-bold text-[#0a1128]">Invoice list</span>
-              <span className="text-sm font-medium text-[#8c95b0]">({filteredInvoices.length})</span>
+              <Receipt className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+              <span className="text-[17px] font-bold text-[#032125]">Invoice list</span>
+              <span className="text-sm font-medium text-[#437278]">({filteredInvoices.length})</span>
             </div>
             {filteredInvoices.length > 0 && (
-              <p className="text-sm text-[#8c95b0]">
+              <p className="text-sm text-[#437278]">
                 Total revenue{" "}
                 <span className="font-bold text-green-600">PKR {totalRevenue.toFixed(2)}</span>
                 {invoicesTruncationNote && (
@@ -1340,25 +1340,25 @@ const Invoices = () => {
             )}
           </div>
 
-          <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+          <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
             {paginatedInvoices.length === 0 ? (
               <div className="px-8 py-16 text-center">
-                <div className="mx-auto mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-                  <Receipt className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+                <div className="mx-auto mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+                  <Receipt className="h-6 w-6 text-[#437278]" strokeWidth={2} />
                 </div>
-                <p className="text-sm font-bold text-[#0a1128]">No invoices found</p>
-                <p className="mt-1 text-sm text-[#8c95b0]">Try adjusting search, dates, or filters.</p>
+                <p className="text-sm font-bold text-[#032125]">No invoices found</p>
+                <p className="mt-1 text-sm text-[#437278]">Try adjusting search, dates, or filters.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1400px] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
+                    <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
                       {["Invoice #", "Customer", "Date", "Cashier", "Payment", "Branch", "Items", "Total", "Paid", "Returned", "Status", "Fiscal", "Actions"].map((h) => (
                         <th
                           key={h}
                           className={cn(
-                            "px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]",
+                            "px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]",
                             h === "Actions" && "pr-6 text-right sticky right-0 bg-black/[0.015] z-10 shadow-[-4px_0_10px_rgba(0,0,0,0.05)]",
                           )}
                         >
@@ -1374,25 +1374,25 @@ const Invoices = () => {
                       return (
                         <tr
                           key={invoice.id}
-                          className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                          className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                         >
-                          <td className="px-4 py-3.5 pl-6 align-middle font-semibold text-[#0a1128]">{invoice.invoiceNumber}</td>
-                          <td className="max-w-[140px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]" title={invoice.customer?.name || "Walk-in"}>
+                          <td className="px-4 py-3.5 pl-6 align-middle font-semibold text-[#032125]">{invoice.invoiceNumber}</td>
+                          <td className="max-w-[140px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]" title={invoice.customer?.name || "Walk-in"}>
                             {invoice.customer?.name || "Walk-in Customer"}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">
+                          <td className="whitespace-nowrap px-4 py-3.5 align-middle text-[13px] text-[#354D51]">
                             {invoice.saleDate ? formatDate(invoice.saleDate) : formatDate(invoice.createdAt)}
                           </td>
-                          <td className="max-w-[100px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{invoice.user.name}</td>
+                          <td className="max-w-[100px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{invoice.user.name}</td>
                           <td className="px-4 py-3.5 align-middle">
-                            <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                              <span className="text-[#8c95b0]">{getPaymentMethodIcon(invoice.paymentMethod)}</span>
+                            <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                              <span className="text-[#437278]">{getPaymentMethodIcon(invoice.paymentMethod)}</span>
                               {invoice.paymentMethod}
                             </div>
                           </td>
-                          <td className="max-w-[120px] truncate px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{invoice.branch.name}</td>
-                          <td className="px-4 py-3.5 align-middle text-[13px] text-[#4a5578]">{qtyLabel}</td>
-                          <td className="px-4 py-3.5 align-middle text-[13px] font-bold text-[#1a52c5]">PKR {invoice.totalAmount.toFixed(2)}</td>
+                          <td className="max-w-[120px] truncate px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{invoice.branch.name}</td>
+                          <td className="px-4 py-3.5 align-middle text-[13px] text-[#354D51]">{qtyLabel}</td>
+                          <td className="px-4 py-3.5 align-middle text-[13px] font-bold text-[#0B363B]">PKR {invoice.totalAmount.toFixed(2)}</td>
                           <td className="px-4 py-3.5 align-middle text-[13px] font-semibold text-green-600">PKR {(invoice.paidAmount || 0).toFixed(2)}</td>
                           <td className="px-4 py-3.5 align-middle text-[13px] font-semibold text-red-600">PKR {(invoice.returnedAmount || 0).toFixed(2)}</td>
                           <td className="px-4 py-3.5 align-middle">{getStatusBadge(invoice.status)}</td>
@@ -1417,7 +1417,7 @@ const Invoices = () => {
                                 type="button"
                                 title="View"
                                 onClick={() => viewInvoice(invoice)}
-                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Eye className="h-3.5 w-3.5" strokeWidth={2} />
                               </button>
@@ -1425,7 +1425,7 @@ const Invoices = () => {
                                 type="button"
                                 title="Print"
                                 onClick={() => printInvoice(invoice)}
-                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Printer className="h-3.5 w-3.5" strokeWidth={2} />
                               </button>
@@ -1433,7 +1433,7 @@ const Invoices = () => {
                                 type="button"
                                 title="Download"
                                 onClick={() => downloadInvoice(invoice)}
-                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Download className="h-3.5 w-3.5" strokeWidth={2} />
                               </button>
@@ -1441,7 +1441,7 @@ const Invoices = () => {
                                 type="button"
                                 title="Edit"
                                 onClick={() => editInvoice(invoice)}
-                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Edit className="h-3.5 w-3.5" strokeWidth={2} />
                               </button>
@@ -1451,7 +1451,7 @@ const Invoices = () => {
                                 onClick={() => openRefundDialog(invoice)}
                                 disabled={invoice.status === "REFUNDED"}
                                 className={cn(
-                                  "grid h-8 w-8 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)]",
+                                  "grid h-8 w-8 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)]",
                                   invoice.status === "REFUNDED"
                                     ? "cursor-not-allowed opacity-40"
                                     : "text-amber-600 hover:border-amber-600/20 hover:bg-amber-500/[0.06]",
@@ -1470,21 +1470,21 @@ const Invoices = () => {
             )}
 
             {paginatedInvoices.length > 0 && (
-              <div className="border-t border-[rgba(15,23,60,0.06)] px-6 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+              <div className="border-t border-[rgba(3,33,37,0.06)] px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm text-[#8c95b0]">
+                    <div className="text-sm text-[#437278]">
                       Showing {Math.min((currentPage - 1) * pageSize + 1, filteredInvoices.length)} to {Math.min(currentPage * pageSize, filteredInvoices.length)} of {filteredInvoices.length} invoices
                       {invoicesTruncationNote && (
                         <span className="ml-1 font-medium text-amber-600">({invoicesTruncationNote})</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-[#8c95b0]">Per page:</span>
+                      <span className="text-sm text-[#437278]">Per page:</span>
                       <select
                         value={pageSize}
                         onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-                        className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                        className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                       >
                         <option value="10">10</option>
                         <option value="25">25</option>
@@ -1497,16 +1497,16 @@ const Invoices = () => {
                       type="button"
                       onClick={() => setCurrentPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                      className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                     >
                       Previous
                     </button>
-                    <span className="text-sm font-semibold text-[#0a1128]">Page {currentPage} of {totalPages}</span>
+                    <span className="text-sm font-semibold text-[#032125]">Page {currentPage} of {totalPages}</span>
                     <button
                       type="button"
                       onClick={() => setCurrentPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                      className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                     >
                       Next
                     </button>
@@ -1523,14 +1523,14 @@ const Invoices = () => {
         <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#0a1128] sm:flex-row sm:items-center sm:justify-between">
+              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#032125] sm:flex-row sm:items-center sm:justify-between">
                 <span>Invoice {selectedInvoice?.invoiceNumber}</span>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(15,23,60,0.06)]" onClick={() => selectedInvoice && printInvoice(selectedInvoice)}>
+                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(3,33,37,0.06)]" onClick={() => selectedInvoice && printInvoice(selectedInvoice)}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(15,23,60,0.06)]" onClick={() => selectedInvoice && downloadInvoice(selectedInvoice)}>
+                  <Button variant="outline" size="sm" className="rounded-[10px] border border-[rgba(3,33,37,0.06)]" onClick={() => selectedInvoice && downloadInvoice(selectedInvoice)}>
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
@@ -1539,7 +1539,7 @@ const Invoices = () => {
                     size="sm"
                     onClick={() => selectedInvoice && openRefundDialog(selectedInvoice)}
                     className={cn(
-                      "rounded-[10px] border border-[rgba(15,23,60,0.06)]",
+                      "rounded-[10px] border border-[rgba(3,33,37,0.06)]",
                       selectedInvoice?.status === "REFUNDED"
                         ? "cursor-not-allowed opacity-50"
                         : "text-amber-700 hover:bg-amber-500/[0.06]",
@@ -1551,7 +1551,7 @@ const Invoices = () => {
                   </Button>
                 </div>
               </DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 Full line items, totals, and payment summary.
               </DialogDescription>
             </DialogHeader>
@@ -1728,13 +1728,13 @@ const Invoices = () => {
         <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#0a1128] sm:flex-row sm:items-center sm:justify-between">
+              <DialogTitle className="flex flex-col gap-3 text-[22px] font-extrabold tracking-tight text-[#032125] sm:flex-row sm:items-center sm:justify-between">
                 <span>Refund — {selectedInvoice?.invoiceNumber}</span>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95 disabled:opacity-50"
+                  className="rounded-[10px] border border-[rgba(3,33,37,0.06)] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95 disabled:opacity-50"
                   onClick={createRefund}
                   disabled={isRefunding}
                 >
@@ -1742,7 +1742,7 @@ const Invoices = () => {
                   {isRefunding ? "Processing…" : "Process refund"}
                 </Button>
               </DialogTitle>
-              <DialogDescription className="text-[13px] text-[#8c95b0]">
+              <DialogDescription className="text-[13px] text-[#437278]">
                 Select quantities to return to stock. Completed invoices only.
               </DialogDescription>
             </DialogHeader>
@@ -1856,11 +1856,11 @@ const Invoices = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex items-center gap-2 text-[22px] font-extrabold tracking-tight text-[#0a1128]">
-                <Edit className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+              <DialogTitle className="flex items-center gap-2 text-[22px] font-extrabold tracking-tight text-[#032125]">
+                <Edit className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
                 Edit invoice — {editingInvoice?.invoiceNumber}
               </DialogTitle>
-              <DialogDescription className="text-[13px] text-[#8c95b0]">Adjust discount, date, and payment status.</DialogDescription>
+              <DialogDescription className="text-[13px] text-[#437278]">Adjust discount, date, and payment status.</DialogDescription>
             </DialogHeader>
 
             {editingInvoice && (
@@ -1885,7 +1885,7 @@ const Invoices = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Current Total:</span>
-                      <span className="ml-2 font-medium text-[#0c2c8a]">PKR {editingInvoice.totalAmount.toFixed(2)}</span>
+                      <span className="ml-2 font-medium text-[#032125]">PKR {editingInvoice.totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -1978,8 +1978,8 @@ const Invoices = () => {
 
                 {/* New Totals Preview */}
                 {editFormData.discountPercentage !== (editingInvoice.discountPercentage || 0) && (
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-800 mb-2">New Totals Preview</h4>
+                  <div className="p-4 bg-verdant-100 rounded-lg">
+                    <h4 className="font-semibold text-spruce-900 mb-2">New Totals Preview</h4>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
@@ -1991,7 +1991,7 @@ const Invoices = () => {
                       </div>
                       <div className="flex justify-between font-semibold border-t pt-1">
                         <span>New Total:</span>
-                        <span className="text-blue-600">
+                        <span className="text-spruce-700">
                           PKR {(editingInvoice.subtotal - (editingInvoice.subtotal * editFormData.discountPercentage / 100)).toFixed(2)}
                         </span>
                       </div>
@@ -2011,7 +2011,7 @@ const Invoices = () => {
                   <Button
                     onClick={handleEditSave}
                     disabled={isEditing}
-                    className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                    className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                   >
                     <Save className="mr-2 h-4 w-4" />
                     {isEditing ? "Saving…" : "Save changes"}

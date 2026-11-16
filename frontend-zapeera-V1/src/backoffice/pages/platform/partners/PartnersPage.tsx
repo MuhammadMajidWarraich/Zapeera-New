@@ -171,7 +171,7 @@ export function PartnersPage() {
     }
   };
 
-  const inputCls = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400';
+  const inputCls = 'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-spruce-500';
 
   return (
     <div className="space-y-6">
@@ -198,7 +198,7 @@ export function PartnersPage() {
           </button>
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-spruce-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-spruce-900"
           >
             <Plus className="h-4 w-4" /> New partner
           </button>
@@ -241,7 +241,7 @@ export function PartnersPage() {
                       ) : (
                         <span
                           className="grid h-8 w-8 place-items-center rounded-lg text-sm font-bold text-white"
-                          style={{ background: p.primaryColor || '#1a52c5' }}
+                          style={{ background: p.primaryColor || '#0B363B' }}
                         >
                           {p.name.charAt(0)}
                         </span>
@@ -303,7 +303,7 @@ export function PartnersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-              <Inbox className="h-5 w-5 text-blue-600" /> Partner Applications
+              <Inbox className="h-5 w-5 text-spruce-700" /> Partner Applications
               {appFilter === 'PENDING' && applications.length > 0 && (
                 <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
                   {applications.length} pending
@@ -322,7 +322,7 @@ export function PartnersPage() {
                 onClick={() => setAppFilter(f)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
                   appFilter === f
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-spruce-700 text-white'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -383,7 +383,7 @@ export function PartnersPage() {
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            a.source === 'APP' ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'
+                            a.source === 'APP' ? 'bg-verdant-100 text-spruce-700' : 'bg-verdant-100 text-spruce-700'
                           }`}
                         >
                           {a.source === 'APP' ? 'In-app' : 'Website'}
@@ -529,7 +529,7 @@ export function PartnersPage() {
               <button
                 onClick={create}
                 disabled={creating}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                className="rounded-lg bg-spruce-700 px-4 py-2 text-sm font-semibold text-white hover:bg-spruce-900 disabled:opacity-60"
               >
                 {creating ? 'Creating…' : 'Create partner'}
               </button>
@@ -590,7 +590,7 @@ export function PartnersPage() {
               <button
                 onClick={saveReassign}
                 disabled={reassigning}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                className="rounded-lg bg-spruce-700 px-4 py-2 text-sm font-semibold text-white hover:bg-spruce-900 disabled:opacity-60"
               >
                 {reassigning ? 'Saving…' : 'Save'}
               </button>

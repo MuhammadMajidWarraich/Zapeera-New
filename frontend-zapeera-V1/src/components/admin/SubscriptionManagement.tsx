@@ -1134,7 +1134,7 @@ const SubscriptionManagement = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center rounded-xl bg-white/60">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#007bff] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0B363B] border-t-transparent" />
           <div className="text-center">
             <p className="text-base font-semibold text-slate-900">Loading subscription data...</p>
             <p className="text-xs text-slate-500">Please wait while we fetch your subscription information</p>
@@ -1145,7 +1145,7 @@ const SubscriptionManagement = () => {
   }
 
   return (
-    <div className="font-[Montserrat] px-6 py-6 md:px-10 md:py-8">
+    <div className="font-sans px-6 py-6 md:px-10 md:py-8">
       <div className="w-full">
         <div className="mb-8 flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subscription & Billing</h1>
@@ -1155,10 +1155,10 @@ const SubscriptionManagement = () => {
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div className="relative h-full overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-bl-full bg-gradient-to-br from-[#007bff]/5 to-[#007bff]/10" />
+              <div className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-bl-full bg-gradient-to-br from-[#0B363B]/5 to-[#0B363B]/10" />
               <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
-                <div className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 p-4">
-                  <ShieldCheck className="h-10 w-10 text-[#007bff]" />
+                <div className="shrink-0 rounded-lg border border-verdant-100 bg-verdant-100 p-4">
+                  <ShieldCheck className="h-10 w-10 text-[#0B363B]" />
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
@@ -1205,7 +1205,7 @@ const SubscriptionManagement = () => {
                   <button
                     type="button"
                     onClick={() => setIsUpgradeOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#007bff] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-[#0056b3]"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0B363B] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-spruce-500/30 transition-colors hover:bg-[#032125]"
                   >
                     <TrendingUp className="h-4 w-4" />
                     {hasActiveSubscription ? "Upgrade Plan" : "Get Plan"}
@@ -1240,7 +1240,7 @@ const SubscriptionManagement = () => {
                     const percent = item.total === null || item.total === 0
                       ? Math.min(100, item.used > 0 ? 60 : 0)
                       : Math.min(100, Math.round((item.used / item.total) * 100));
-                    const barColor = item.tone === "warning" ? "bg-yellow-500" : "bg-[#007bff]";
+                    const barColor = item.tone === "warning" ? "bg-yellow-500" : "bg-[#0B363B]";
                     return (
                       <div key={item.label}>
                         <div className="mb-1.5 flex items-end justify-between">
@@ -1285,7 +1285,7 @@ const SubscriptionManagement = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#007bff]/50 sm:w-64"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0B363B]/50 sm:w-64"
                   placeholder="Search invoices..."
                   type="text"
                   value={searchTerm}
@@ -1348,7 +1348,7 @@ const SubscriptionManagement = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadInvoice(payment)}
-                            className="inline-flex items-center gap-1 text-sm font-bold text-[#007bff] transition-colors hover:text-blue-700"
+                            className="inline-flex items-center gap-1 text-sm font-bold text-[#0B363B] transition-colors hover:text-spruce-900"
                           >
                             <Download className="h-4 w-4" />
                             Download
@@ -1384,7 +1384,7 @@ const SubscriptionManagement = () => {
               </Button>
             </div>
             <div className="px-6 py-4">
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-verdant-100 bg-verdant-100 p-3 text-xs text-spruce-900">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
                   Card payments are not available yet — saved cards keep card details only
@@ -1409,7 +1409,7 @@ const SubscriptionManagement = () => {
                           <p className="text-sm font-semibold text-slate-900">
                             {method.brand} •••• {method.last4}
                             {method.isDefault && (
-                              <span className="ml-2 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                              <span className="ml-2 rounded-full border border-spruce-200 bg-verdant-100 px-2 py-0.5 text-[10px] font-bold text-spruce-900">
                                 Default
                               </span>
                             )}
@@ -1477,7 +1477,7 @@ const SubscriptionManagement = () => {
                           <p className="font-semibold text-slate-900">
                             {profile.companyName || profile.name}
                             {profile.isDefault && (
-                              <span className="ml-2 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                              <span className="ml-2 rounded-full border border-spruce-200 bg-verdant-100 px-2 py-0.5 text-[10px] font-bold text-spruce-900">
                                 Default
                               </span>
                             )}
@@ -1548,7 +1548,7 @@ const SubscriptionManagement = () => {
             <DialogTitle>Add Payment Method</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+            <div className="flex items-start gap-2 rounded-lg border border-verdant-100 bg-verdant-100 p-3 text-xs text-spruce-900">
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
                 Only card details (brand, last 4 digits, expiry) are saved — never the full
@@ -1889,7 +1889,7 @@ const SubscriptionManagement = () => {
 
             <div className="rounded-xl border border-slate-200 bg-white p-6">
               <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
-                <BarChart3 className="h-5 w-5 text-[#1565C0]" />
+                <BarChart3 className="h-5 w-5 text-[#0B363B]" />
                 Pricing Model
               </h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -1933,7 +1933,7 @@ const SubscriptionManagement = () => {
 
             <div className="text-center text-sm text-slate-500">
               Prices are exclusive of taxes. Configure first and review live total before checkout.{" "}
-              <button type="button" className="text-[#1565C0] hover:underline">
+              <button type="button" className="text-[#0B363B] hover:underline">
                 Contact Sales
               </button>
             </div>
@@ -1947,7 +1947,7 @@ const SubscriptionManagement = () => {
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-[#1565C0] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
+                className="rounded-lg bg-[#0B363B] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
                 onClick={() => {
                   applyPlanDefaults(selectedPlanConfig);
                   setUpgradeStep("configure");
@@ -1971,7 +1971,7 @@ const SubscriptionManagement = () => {
                   <div className="space-y-6 lg:col-span-2">
                     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[#1565C0]">1</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-verdant-100 text-sm font-bold text-[#0B363B]">1</span>
                     Configure your setup
                   </h3>
                   <div className="space-y-8">
@@ -1987,7 +1987,7 @@ const SubscriptionManagement = () => {
                           <button
                             type="button"
                             onClick={() => setBranchesPerBusiness((prev) => Math.max(1, prev - 1))}
-                            className="absolute left-0 flex h-full w-10 items-center justify-center rounded-l-lg border-r border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#1565C0]"
+                            className="absolute left-0 flex h-full w-10 items-center justify-center rounded-l-lg border-r border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#0B363B]"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -1997,18 +1997,18 @@ const SubscriptionManagement = () => {
                             min={1}
                             value={configuredBranchesPerBusiness}
                             onChange={(e) => setBranchesPerBusiness(Math.max(1, Number.parseInt(e.target.value || "1", 10)))}
-                            className="w-full rounded-lg border border-slate-200 py-2.5 text-center font-bold text-slate-900 focus:border-[#1565C0] focus:ring-[#1565C0]"
+                            className="w-full rounded-lg border border-slate-200 py-2.5 text-center font-bold text-slate-900 focus:border-[#0B363B] focus:ring-[#0B363B]"
                           />
                           <button
                             type="button"
                             onClick={() => setBranchesPerBusiness((prev) => prev + 1)}
-                            className="absolute right-0 flex h-full w-10 items-center justify-center rounded-r-lg border-l border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#1565C0]"
+                            className="absolute right-0 flex h-full w-10 items-center justify-center rounded-r-lg border-l border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#0B363B]"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
                         </div>
                         <div className="mt-2 text-center text-xs font-medium text-slate-500">
-                          Included: <span className="text-[#1565C0]">{selectedPlanConfig?.includedBranchesPerBusiness ?? "Unlimited"}</span>
+                          Included: <span className="text-[#0B363B]">{selectedPlanConfig?.includedBranchesPerBusiness ?? "Unlimited"}</span>
                         </div>
                       </div>
                     </div>
@@ -2024,7 +2024,7 @@ const SubscriptionManagement = () => {
                           <button
                             type="button"
                             onClick={() => setCountersPerBranch((prev) => Math.max(1, prev - 1))}
-                            className="absolute left-0 flex h-full w-10 items-center justify-center rounded-l-lg border-r border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#1565C0]"
+                            className="absolute left-0 flex h-full w-10 items-center justify-center rounded-l-lg border-r border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#0B363B]"
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -2034,18 +2034,18 @@ const SubscriptionManagement = () => {
                             min={1}
                             value={configuredCountersPerBranch}
                             onChange={(e) => setCountersPerBranch(Math.max(1, Number.parseInt(e.target.value || "1", 10)))}
-                            className="w-full rounded-lg border border-slate-200 py-2.5 text-center font-bold text-slate-900 focus:border-[#1565C0] focus:ring-[#1565C0]"
+                            className="w-full rounded-lg border border-slate-200 py-2.5 text-center font-bold text-slate-900 focus:border-[#0B363B] focus:ring-[#0B363B]"
                           />
                           <button
                             type="button"
                             onClick={() => setCountersPerBranch((prev) => prev + 1)}
-                            className="absolute right-0 flex h-full w-10 items-center justify-center rounded-r-lg border-l border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#1565C0]"
+                            className="absolute right-0 flex h-full w-10 items-center justify-center rounded-r-lg border-l border-slate-200 bg-slate-100 text-slate-500 transition-colors hover:text-[#0B363B]"
                           >
                             <Plus className="h-4 w-4" />
                           </button>
                         </div>
                         <div className="mt-2 text-center text-xs font-medium text-slate-500">
-                          Included: <span className="text-[#1565C0]">{selectedPlanConfig?.includedCountersPerBranch ?? "Unlimited"}</span>
+                          Included: <span className="text-[#0B363B]">{selectedPlanConfig?.includedCountersPerBranch ?? "Unlimited"}</span>
                         </div>
                       </div>
                     </div>
@@ -2068,7 +2068,7 @@ const SubscriptionManagement = () => {
                     <h2 className="text-lg font-bold text-slate-900">Order Summary</h2>
                     <div className="mt-2 flex items-center justify-between text-sm text-slate-500">
                       <span>Plan Type</span>
-                      <span className="font-semibold text-[#1565C0]">{selectedPlan?.name || "Selected Plan"}</span>
+                      <span className="font-semibold text-[#0B363B]">{selectedPlan?.name || "Selected Plan"}</span>
                     </div>
                   </div>
                   <div className="space-y-4 p-6">
@@ -2102,14 +2102,14 @@ const SubscriptionManagement = () => {
                     <div className="my-4 border-t border-dashed border-slate-300" />
                     <div className="flex items-end justify-between">
                       <div className="text-sm font-semibold text-slate-700">Based on your configuration</div>
-                      <div className="text-2xl font-bold text-[#1565C0]">Rs {pricingBreakdown.total.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-[#0B363B]">Rs {pricingBreakdown.total.toLocaleString()}</div>
                     </div>
                     <p className="text-right text-xs text-slate-400">Excludes GST</p>
                   </div>
                   <div className="rounded-b-xl bg-slate-50 p-6">
                     <button
                       type="button"
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1565C0] px-4 py-3 font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B363B] px-4 py-3 font-bold text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
                       onClick={() => setUpgradeStep("payment")}
                     >
                       Review & Submit Proof
@@ -2135,7 +2135,7 @@ const SubscriptionManagement = () => {
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-[#1565C0] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
+                className="rounded-lg bg-[#0B363B] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
                 onClick={() => {
                   setUpgradeStep("payment");
                 }}
@@ -2159,7 +2159,7 @@ const SubscriptionManagement = () => {
               <div className="space-y-6 lg:col-span-2">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[#1565C0]">1</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-verdant-100 text-sm font-bold text-[#0B363B]">1</span>
                     Billing Information
                   </h3>
                   {/* Real saved billing profile (A11) — this used to be a
@@ -2195,7 +2195,7 @@ const SubscriptionManagement = () => {
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h3 className="mb-6 flex items-center gap-2 text-lg font-bold text-slate-900">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-[#1565C0]">2</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-verdant-100 text-sm font-bold text-[#0B363B]">2</span>
                     Payment Method
                   </h3>
                   <p className="text-sm text-slate-600 mb-6">Pay via Bank Transfer, JazzCash, or EasyPaisa and upload your receipt for verification.</p>
@@ -2217,7 +2217,7 @@ const SubscriptionManagement = () => {
                     <h2 className="text-lg font-bold text-slate-900">Order Summary</h2>
                     <div className="mt-2 flex items-center justify-between text-sm text-slate-500">
                       <span>Plan Type</span>
-                      <span className="font-semibold text-[#1565C0]">{selectedPlan?.name || "Selected Plan"}</span>
+                      <span className="font-semibold text-[#0B363B]">{selectedPlan?.name || "Selected Plan"}</span>
                     </div>
                   </div>
                   <div className="space-y-4 p-6">
@@ -2251,7 +2251,7 @@ const SubscriptionManagement = () => {
                     <div className="my-4 border-t border-dashed border-slate-300" />
                     <div className="flex items-end justify-between">
                       <div className="text-sm font-semibold text-slate-700">Based on your configuration</div>
-                      <div className="text-2xl font-bold text-[#1565C0]">Rs {pricingBreakdown.total.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-[#0B363B]">Rs {pricingBreakdown.total.toLocaleString()}</div>
                     </div>
                     <p className="text-right text-xs text-slate-400">Excludes GST</p>
                   </div>
@@ -2259,7 +2259,7 @@ const SubscriptionManagement = () => {
                     <button
                       type="button"
                       id="submitPaymentProofBtn"
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1565C0] px-4 py-3 font-bold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B363B] px-4 py-3 font-bold text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
                       onClick={() => {
                         paymentReceiptRef.current?.submit();
                       }}
@@ -2312,7 +2312,7 @@ const SubscriptionManagement = () => {
                 <div className="space-y-3 text-sm text-slate-600">
                   <div className="flex items-center justify-between">
                     <span>Plan Type</span>
-                    <span className="font-semibold text-[#1565C0]">{selectedPlan?.name || "Selected Plan"}</span>
+                    <span className="font-semibold text-[#0B363B]">{selectedPlan?.name || "Selected Plan"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Businesses</span>
@@ -2353,7 +2353,7 @@ const SubscriptionManagement = () => {
                   <div className="border-t border-dashed border-slate-200 pt-4">
                     <div className="flex items-end justify-between">
                       <span className="text-sm font-semibold text-slate-700">Based on your configuration</span>
-                      <span className="text-2xl font-bold text-[#1565C0]">Rs {
+                      <span className="text-2xl font-bold text-[#0B363B]">Rs {
                         calculateMonthlyTotal().toLocaleString()
                       }</span>
                     </div>
@@ -2448,7 +2448,7 @@ const SubscriptionManagement = () => {
               <label className="flex items-start gap-3 text-base text-slate-600">
                 <input
                   type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1565C0] focus:ring-[#1565C0]"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0B363B] focus:ring-[#0B363B]"
                   checked={cancelConfirmed}
                   onChange={(e) => setCancelConfirmed(e.target.checked)}
                 />

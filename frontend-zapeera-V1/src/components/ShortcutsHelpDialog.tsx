@@ -23,7 +23,7 @@ export function ShortcutsHelpDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] overflow-y-auto rounded-[20px] p-0 sm:max-w-[560px]">
-        <DialogHeader className="shrink-0 bg-[#0a1128] px-5 py-4 text-white">
+        <DialogHeader className="shrink-0 bg-[#032125] px-5 py-4 text-white">
           <DialogTitle className="flex items-center gap-2 text-base font-extrabold tracking-tight">
             <Keyboard className="h-5 w-5 text-white/70" strokeWidth={2} />
             Keyboard Shortcuts
@@ -37,16 +37,16 @@ export function ShortcutsHelpDialog({
         <div className="space-y-6 px-5 py-4">
           {SHORTCUT_HELP_GROUPS.map((group) => (
             <section key={group.title}>
-              <h3 className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-[#437278]">
                 {group.title}
               </h3>
-              <dl className="mt-2 divide-y divide-[rgba(15,23,60,0.06)]">
+              <dl className="mt-2 divide-y divide-[rgba(3,33,37,0.06)]">
                 {group.items.map((item) => (
                   <div
                     key={`${group.title}-${item.keys}-${item.label}`}
                     className="flex items-center justify-between gap-4 py-2"
                   >
-                    <dt className="text-sm font-medium text-[#0a1128]">
+                    <dt className="text-sm font-medium text-[#032125]">
                       {item.label}
                     </dt>
                     <dd className="flex shrink-0 items-center gap-1">
@@ -60,7 +60,7 @@ export function ShortcutsHelpDialog({
             </section>
           ))}
 
-          <p className="rounded-[12px] bg-[#f4f6fa] px-3 py-2.5 text-xs leading-relaxed text-[#4a5578]">
+          <p className="rounded-[12px] bg-[#FFFCF6] px-3 py-2.5 text-xs leading-relaxed text-[#354D51]">
             On the Point of Sale screen, <Kbd>Alt+C</Kbd> / <Kbd>Alt+B</Kbd>{" "}
             select Cash / Card tender. <Kbd>Alt+1</Kbd>–<Kbd>Alt+6</Kbd>{" "}
             navigate everywhere, including the register. Every action

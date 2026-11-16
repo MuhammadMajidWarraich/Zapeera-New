@@ -62,16 +62,16 @@ interface Manufacturer {
 }
 
 const supplierFormField = cn(
-  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 text-[15px] text-[#0a1128] transition-colors",
-  "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.08)]",
+  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 text-[15px] text-[#032125] transition-colors",
+  "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.08)]",
 );
 const supplierTextarea = cn(
-  "min-h-[90px] w-full resize-y rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 py-3.5 text-[15px] text-[#0a1128] transition-colors",
-  "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.08)]",
+  "min-h-[90px] w-full resize-y rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 py-3.5 text-[15px] text-[#032125] transition-colors",
+  "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.08)]",
 );
 const supplierSelectTrigger = cn(
-  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[15px] text-[#0a1128] shadow-none",
-  "focus:ring-4 focus:ring-[rgba(26,82,197,0.08)] focus:ring-offset-0",
+  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[15px] text-[#032125] shadow-none",
+  "focus:ring-4 focus:ring-[rgba(11,54,59,0.08)] focus:ring-offset-0",
 );
 
 const Suppliers = () => {
@@ -452,19 +452,19 @@ const Suppliers = () => {
   };
 
   const sfInput = cn(
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3.5 text-sm text-[#0a1128] shadow-none transition-all",
-    "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]",
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3.5 text-sm text-[#032125] shadow-none transition-all",
+    "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]",
   );
 
   if (error) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] flex min-h-[50vh] flex-col items-center justify-center px-6 py-16">
@@ -479,20 +479,20 @@ const Suppliers = () => {
   }
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
       <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div>
-          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Suppliers</h1>
-          <p className="text-sm text-[#8c95b0]">
+          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Suppliers</h1>
+          <p className="text-sm text-[#437278]">
             Manage your suppliers and vendor information
           </p>
         </div>
@@ -500,7 +500,7 @@ const Suppliers = () => {
           <button
             type="button"
             onClick={() => setShowAddDialog(true)}
-            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+            className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
           >
             <Plus className="h-[17px] w-[17px] stroke-[2.5]" strokeLinecap="round" />
             Add Supplier
@@ -508,10 +508,10 @@ const Suppliers = () => {
         </div>
       </div>
 
-      <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-6 py-5">
-        <p className="mb-2 text-xs font-semibold text-[#8c95b0]">Search suppliers</p>
+      <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-6 py-5">
+        <p className="mb-2 text-xs font-semibold text-[#437278]">Search suppliers</p>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" strokeWidth={2} />
           <Input
             id="search"
             placeholder="Search by name, contact, phone, email, or address..."
@@ -524,35 +524,35 @@ const Suppliers = () => {
 
       <div className="zv3-animate-fadeUp zv3-delay-3">
         <div className="mb-4 flex items-center gap-2.5">
-          <Building2 className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-          <span className="text-[17px] font-bold text-[#0a1128]">Suppliers</span>
-          <span className="text-sm font-medium text-[#8c95b0]">({filteredSuppliers.length})</span>
+          <Building2 className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+          <span className="text-[17px] font-bold text-[#032125]">Suppliers</span>
+          <span className="text-sm font-medium text-[#437278]">({filteredSuppliers.length})</span>
         </div>
 
         {user?.role === "OWNER" && !selectedBranchId && !selectedCompanyId ? (
-          <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-              <Building2 className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+          <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+              <Building2 className="h-6 w-6 text-[#437278]" strokeWidth={2} />
             </div>
-            <p className="mb-2 text-sm font-bold text-[#0a1128]">Select a branch or company</p>
-            <p className="mx-auto max-w-md text-sm text-[#8c95b0]">
+            <p className="mb-2 text-sm font-bold text-[#032125]">Select a branch or company</p>
+            <p className="mx-auto max-w-md text-sm text-[#437278]">
               Use the branch or company selectors in the header to load suppliers for that context.
             </p>
           </div>
         ) : suppliers.length === 0 ? (
-          <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-              <Building2 className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+          <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+            <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+              <Building2 className="h-6 w-6 text-[#437278]" strokeWidth={2} />
             </div>
-            <p className="mb-2 text-sm font-bold text-[#0a1128]">No suppliers found</p>
-            <p className="mx-auto mb-6 max-w-md text-sm text-[#8c95b0]">
+            <p className="mb-2 text-sm font-bold text-[#032125]">No suppliers found</p>
+            <p className="mx-auto mb-6 max-w-md text-sm text-[#437278]">
               {searchQuery ? "Try adjusting your search." : "Get started by adding your first supplier."}
             </p>
             {!searchQuery && (
               <Button
                 type="button"
                 onClick={() => setShowAddDialog(true)}
-                className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Supplier
@@ -560,30 +560,30 @@ const Suppliers = () => {
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+          <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] border-collapse">
                 <thead>
-                  <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                    <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Supplier
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Phone
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Email
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Address
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Manufacturer
                     </th>
-                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Products
                     </th>
-                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                       Actions
                     </th>
                   </tr>
@@ -592,59 +592,59 @@ const Suppliers = () => {
                   {paginatedSuppliers.map((supplier) => (
                     <tr
                       key={supplier.id}
-                      className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                      className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                     >
                       <td className="px-5 py-4 pl-8 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.12)] to-[rgba(40,194,206,0.08)] text-[#1a52c5]">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(11,54,59,0.12)] to-[rgba(67,114,120,0.08)] text-[#0B363B]">
                             <Building2 className="h-5 w-5" strokeWidth={2} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[15px] font-bold text-[#0a1128]">{supplier.name}</p>
-                            <p className="text-sm text-[#8c95b0]">{supplier.contactPerson}</p>
+                            <p className="text-[15px] font-bold text-[#032125]">{supplier.name}</p>
+                            <p className="text-sm text-[#437278]">{supplier.contactPerson}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                      <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                         <span className="inline-flex items-center gap-1.5">
-                          <Phone className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                           {supplier.phone}
                         </span>
                       </td>
-                      <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                      <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                         {supplier.email ? (
                           <span className="inline-flex max-w-[200px] items-center gap-1.5 truncate">
-                            <Mail className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                             {supplier.email}
                           </span>
                         ) : (
-                          <span className="text-[#8c95b0]">—</span>
+                          <span className="text-[#437278]">—</span>
                         )}
                       </td>
-                      <td className="max-w-[200px] px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                      <td className="max-w-[200px] px-5 py-4 align-middle text-[13px] text-[#354D51]">
                         {supplier.address ? (
                           <span className="inline-flex items-start gap-1.5" title={supplier.address}>
-                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                             <span className="line-clamp-2">{supplier.address}</span>
                           </span>
                         ) : (
-                          <span className="text-[#8c95b0]">—</span>
+                          <span className="text-[#437278]">—</span>
                         )}
                       </td>
                       <td className="px-5 py-4 align-middle text-[13px]">
                         {supplier.manufacturer ? (
                           <div>
-                            <p className="font-semibold text-[#1a52c5]">{supplier.manufacturer.name}</p>
+                            <p className="font-semibold text-[#0B363B]">{supplier.manufacturer.name}</p>
                             {supplier.manufacturer.country ? (
-                              <p className="text-xs text-[#8c95b0]">{supplier.manufacturer.country}</p>
+                              <p className="text-xs text-[#437278]">{supplier.manufacturer.country}</p>
                             ) : null}
                           </div>
                         ) : (
-                          <span className="text-[#8c95b0]">—</span>
+                          <span className="text-[#437278]">—</span>
                         )}
                       </td>
                       <td className="px-5 py-4 align-middle">
-                        <span className="text-sm font-bold text-[#0a1128]">{supplier._count?.products ?? 0}</span>
+                        <span className="text-sm font-bold text-[#032125]">{supplier._count?.products ?? 0}</span>
                       </td>
                       <td className="px-5 py-4 pr-8 text-right align-middle">
                         <div className="flex items-center justify-end gap-1.5">
@@ -652,7 +652,7 @@ const Suppliers = () => {
                             type="button"
                             title="Edit"
                             onClick={() => openEditDialog(supplier)}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                           >
                             <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -660,7 +660,7 @@ const Suppliers = () => {
                             type="button"
                             title="Delete"
                             onClick={() => openDeleteDialog(supplier)}
-                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                            className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                           >
                             <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                           </button>
@@ -671,17 +671,17 @@ const Suppliers = () => {
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
               <div className="flex items-center gap-3">
-                <div className="text-sm text-[#8c95b0]">
+                <div className="text-sm text-[#437278]">
                   Showing {Math.min((safePage - 1) * pageSize + 1, filteredSuppliers.length)} to {Math.min(safePage * pageSize, filteredSuppliers.length)} of {filteredSuppliers.length} suppliers
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-[#8c95b0]">Per page:</span>
+                  <span className="text-sm text-[#437278]">Per page:</span>
                   <select
                     value={pageSize}
                     onChange={(e) => setPageSize(Number(e.target.value))}
-                    className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                    className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                   >
                     <option value="10">10</option>
                     <option value="20">20</option>
@@ -695,16 +695,16 @@ const Suppliers = () => {
                   type="button"
                   onClick={() => setCurrentPage(safePage - 1)}
                   disabled={safePage === 1}
-                  className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                  className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                 >
                   Previous
                 </button>
-                <span className="text-sm font-semibold text-[#0a1128]">Page {safePage} of {totalPages}</span>
+                <span className="text-sm font-semibold text-[#032125]">Page {safePage} of {totalPages}</span>
                 <button
                   type="button"
                   onClick={() => setCurrentPage(safePage + 1)}
                   disabled={safePage === totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                  className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                 >
                   Next
                 </button>
@@ -731,10 +731,10 @@ const Suppliers = () => {
       }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">
               {editingSupplier ? "Edit supplier" : "Add new supplier"}
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               {editingSupplier
                 ? "Update vendor contact and manufacturer link."
                 : "Enter supplier details to add them to your branch."}
@@ -744,7 +744,7 @@ const Suppliers = () => {
           <div className="flex flex-col gap-5 py-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="name" className="text-sm font-semibold text-[#032125]">
                   Company name <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -756,7 +756,7 @@ const Suppliers = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contactPerson" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="contactPerson" className="text-sm font-semibold text-[#032125]">
                   Contact person <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -771,7 +771,7 @@ const Suppliers = () => {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="phone" className="text-sm font-semibold text-[#032125]">
                   Phone <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -783,8 +783,8 @@ const Suppliers = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-[#0a1128]">
-                  Email <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+                <Label htmlFor="email" className="text-sm font-semibold text-[#032125]">
+                  Email <span className="text-xs font-normal text-[#437278]">(optional)</span>
                 </Label>
                 <Input
                   id="email"
@@ -798,8 +798,8 @@ const Suppliers = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address" className="text-sm font-semibold text-[#0a1128]">
-                Address <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+              <Label htmlFor="address" className="text-sm font-semibold text-[#032125]">
+                Address <span className="text-xs font-normal text-[#437278]">(optional)</span>
               </Label>
               <Textarea
                 id="address"
@@ -812,8 +812,8 @@ const Suppliers = () => {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-[#0a1128]">
-                Manufacturer <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+              <Label className="text-sm font-semibold text-[#032125]">
+                Manufacturer <span className="text-xs font-normal text-[#437278]">(optional)</span>
               </Label>
               <Select
                 value={formData.manufacturerId || "none"}
@@ -839,7 +839,7 @@ const Suppliers = () => {
             <Button
               type="button"
               variant="outline"
-              className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-7 py-3 text-sm font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+              className="rounded-[10px] border border-[rgba(3,33,37,0.06)] px-7 py-3 text-sm font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
               onClick={() => {
                 setShowAddDialog(false);
                 setEditingSupplier(null);
@@ -858,7 +858,7 @@ const Suppliers = () => {
             <Button
               type="button"
               onClick={editingSupplier ? handleEditSupplier : handleAddSupplier}
-              className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               disabled={!formData.name || !formData.contactPerson || !formData.phone || isSubmitting}
             >
               {isSubmitting ? (
@@ -878,11 +878,11 @@ const Suppliers = () => {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#0a1128]">
+            <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#032125]">
               <AlertTriangle className="h-5 w-5 text-red-600" />
               Confirm delete
             </DialogTitle>
-            <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
               This action cannot be undone. The supplier will be removed from your system.
             </DialogDescription>
           </DialogHeader>
@@ -894,13 +894,13 @@ const Suppliers = () => {
                   <Trash2 className="h-5 w-5 text-red-600" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-bold tracking-tight text-[#0a1128]">Delete supplier</h3>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#8c95b0]">
+                  <h3 className="text-base font-bold tracking-tight text-[#032125]">Delete supplier</h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[#437278]">
                     Are you sure? This removes the supplier from your branch.
                   </p>
-                  <div className="mt-4 rounded-[14px] border border-[rgba(15,23,60,0.06)] bg-[#f8f9fc] p-4">
-                    <p className="text-sm font-semibold text-[#0a1128]">{deletingSupplier.name}</p>
-                    <p className="mt-1 text-xs text-[#8c95b0]">
+                  <div className="mt-4 rounded-[14px] border border-[rgba(3,33,37,0.06)] bg-[#FFFCF6] p-4">
+                    <p className="text-sm font-semibold text-[#032125]">{deletingSupplier.name}</p>
+                    <p className="mt-1 text-xs text-[#437278]">
                       {deletingSupplier.contactPerson}
                       {deletingSupplier.email ? ` • ${deletingSupplier.email}` : ""}
                     </p>
@@ -914,7 +914,7 @@ const Suppliers = () => {
             <Button
               type="button"
               variant="outline"
-              className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6"
+              className="rounded-[10px] border border-[rgba(3,33,37,0.06)] px-6"
               onClick={() => setShowDeleteDialog(false)}
             >
               Cancel

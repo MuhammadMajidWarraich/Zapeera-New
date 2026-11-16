@@ -118,7 +118,7 @@ const CustomerPicker: React.FC<{
             setQuery("");
             setOpen(true);
           }}
-          className="text-xs font-bold text-[#1a52c5] hover:underline"
+          className="text-xs font-bold text-[#0B363B] hover:underline"
         >
           Change
         </button>
@@ -141,15 +141,15 @@ const CustomerPicker: React.FC<{
       {open && (
         <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-48 overflow-y-auto rounded-[10px] border bg-white shadow-lg">
           {searching ? (
-            <div className="px-3 py-2.5 text-xs text-[#8c95b0]">Searching…</div>
+            <div className="px-3 py-2.5 text-xs text-[#437278]">Searching…</div>
           ) : results.length === 0 ? (
-            <div className="px-3 py-2.5 text-xs text-[#8c95b0]">No customers found — try a name or phone number.</div>
+            <div className="px-3 py-2.5 text-xs text-[#437278]">No customers found — try a name or phone number.</div>
           ) : (
             results.map((c) => (
               <button
                 key={c.id}
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#f4f6fa]"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#FFFCF6]"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   onChange(c);
@@ -490,7 +490,7 @@ const GiftCards = () => {
               </Button>
             </div>
             {lookupResult && (
-              <div className="space-y-2 rounded-[10px] border bg-[#f8f9fc] p-3 text-sm">
+              <div className="space-y-2 rounded-[10px] border bg-[#FFFCF6] p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-bold">{lookupResult.code}</span>
                   <Badge className={STATUS_BADGE[lookupResult.status] || ""}>{lookupResult.status}</Badge>
@@ -566,8 +566,8 @@ const GiftCards = () => {
             <CustomerPicker value={walletCustomer} onChange={setWalletCustomer} />
             {walletCustomer && (
               <>
-                <div className="rounded-[10px] bg-[#f8f9fc] px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Balance</p>
+                <div className="rounded-[10px] bg-[#FFFCF6] px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#437278]">Balance</p>
                   <p className="text-2xl font-extrabold tabular-nums">{walletBalance === null ? "…" : pkr(walletBalance)}</p>
                   {!walletExists && <p className="text-xs text-muted-foreground">No wallet yet — the first top-up creates it.</p>}
                 </div>
@@ -591,7 +591,7 @@ const GiftCards = () => {
                 </Button>
                 {walletTxns.length > 0 && (
                   <div>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#8c95b0]">Statement</p>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#437278]">Statement</p>
                     <ul className="divide-y text-sm">
                       {walletTxns.map((t) => (
                         <li key={t.id} className="flex justify-between gap-2 py-1.5">
@@ -621,7 +621,7 @@ const GiftCards = () => {
                   <li key={w.id}>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm hover:bg-[#f8f9fc]"
+                      className="flex w-full items-center justify-between gap-2 py-2 text-left text-sm hover:bg-[#FFFCF6]"
                       onClick={() => setWalletCustomer({ id: w.customer.id, name: w.customer.name, phone: w.customer.phone })}
                     >
                       <span className="min-w-0">
@@ -648,7 +648,7 @@ const GiftCards = () => {
             </p>
             <ul className="mt-3 space-y-2">
               {branches.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-2 rounded-[10px] border bg-[#f8f9fc] px-3 py-2 text-sm">
+                <li key={b.id} className="flex items-center justify-between gap-2 rounded-[10px] border bg-[#FFFCF6] px-3 py-2 text-sm">
                   <span className="font-medium">{b.name}</span>
                   <span className="flex items-center gap-2">
                     <span className="hidden font-mono text-xs text-muted-foreground sm:inline">/kiosk/{b.id}</span>

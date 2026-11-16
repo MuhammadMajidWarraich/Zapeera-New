@@ -176,7 +176,7 @@ export function BusinessTypesPage() {
         </div>
         <button
           onClick={() => { setEditing(null); setForm({ name: '', description: '' }); setShowModal(true); }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium"
         >
           <Plus className="w-4 h-4" /> New Business Type
         </button>
@@ -193,8 +193,8 @@ export function BusinessTypesPage() {
             <div key={t.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-5">
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <FileStack className="w-5 h-5 text-blue-600" />
+                  <div className="p-2 bg-verdant-100 rounded-lg">
+                    <FileStack className="w-5 h-5 text-spruce-700" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{t.name}</h3>
@@ -209,7 +209,7 @@ export function BusinessTypesPage() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => { setEditing(t); setForm({ name: t.name, description: t.description || '' }); setShowModal(true); }}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                      className="p-1.5 text-gray-400 hover:text-spruce-700 hover:bg-verdant-100 rounded-lg"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -264,7 +264,7 @@ export function BusinessTypesPage() {
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   disabled={!!editing}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50 disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50 disabled:bg-gray-50 disabled:text-gray-500"
                 />
                 {editing && <p className="text-xs text-gray-400 mt-1">Name cannot be changed after creation</p>}
               </div>
@@ -274,12 +274,12 @@ export function BusinessTypesPage() {
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50"
                 />
               </div>
               <button
                 onClick={handleSave}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium"
               >
                 <Save className="w-4 h-4" /> {editing ? 'Update' : 'Create'}
               </button>

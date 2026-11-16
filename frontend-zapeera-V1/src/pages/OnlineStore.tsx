@@ -78,7 +78,7 @@ const Picker: React.FC<{
     return (
       <div className="flex h-9 items-center gap-2 rounded-[10px] border bg-white px-2.5">
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{value.productName}</span>
-        <button type="button" onClick={() => { onChange("", ""); setQuery(""); setOpen(true); }} className="text-xs font-bold text-[#1a52c5] hover:underline">
+        <button type="button" onClick={() => { onChange("", ""); setQuery(""); setOpen(true); }} className="text-xs font-bold text-[#0B363B] hover:underline">
           Change
         </button>
       </div>
@@ -97,15 +97,15 @@ const Picker: React.FC<{
       {open && (
         <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-48 overflow-y-auto rounded-[10px] border bg-white shadow-lg">
           {searching ? (
-            <div className="px-3 py-2.5 text-xs text-[#8c95b0]">Searching…</div>
+            <div className="px-3 py-2.5 text-xs text-[#437278]">Searching…</div>
           ) : results.length === 0 ? (
-            <div className="px-3 py-2.5 text-xs text-[#8c95b0]">No products found</div>
+            <div className="px-3 py-2.5 text-xs text-[#437278]">No products found</div>
           ) : (
             results.map((product) => (
               <button
                 key={product.id}
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#f4f6fa]"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#FFFCF6]"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => { onChange(product.id, product.name); setOpen(false); }}
               >
@@ -246,8 +246,8 @@ const OnlineStore = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-[#0a1128]"><Store className="h-6 w-6" /> Online Store</h1>
-          <p className="text-sm text-[#5b6b8c]">Your public pharmacy storefront, online orders and prescription reviews.</p>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-[#032125]"><Store className="h-6 w-6" /> Online Store</h1>
+          <p className="text-sm text-[#354D51]">Your public pharmacy storefront, online orders and prescription reviews.</p>
         </div>
         <Button variant="outline" onClick={() => void loadAll()} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
@@ -256,7 +256,7 @@ const OnlineStore = () => {
 
       <section className="rounded-[10px] border bg-white p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-bold text-[#0a1128]">Storefront status</h2>
+          <h2 className="text-base font-bold text-[#032125]">Storefront status</h2>
           {storeEnabled ? (
             <Badge className="bg-[#e8f5e9] text-[#1b7a2e] hover:bg-[#e8f5e9]">Enabled</Badge>
           ) : (
@@ -264,14 +264,14 @@ const OnlineStore = () => {
           )}
         </div>
         {storeEnabled ? (
-          <p className="mt-1 text-sm text-[#5b6b8c]">
+          <p className="mt-1 text-sm text-[#354D51]">
             Customers can browse and order (cash on delivery) from these links — one per branch.
             {uploadEnabled
               ? " Prescription upload is enabled too."
               : " Prescription upload is a separate add-on (PRESCRIPTION_UPLOAD_PACK) and is not enabled."}
           </p>
         ) : (
-          <p className="mt-1 text-sm text-[#5b6b8c]">
+          <p className="mt-1 text-sm text-[#354D51]">
             The storefront is gated on the Online Pharmacy Store add-on (ONLINE_STORE_PACK). Enable it from the add-ons page to open the store.
           </p>
         )}
@@ -281,7 +281,7 @@ const OnlineStore = () => {
             return (
               <div key={b.id} className="flex flex-wrap items-center gap-2 rounded-[10px] border px-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.name}</span>
-                <span className="hidden truncate font-mono text-xs text-[#5b6b8c] md:block">{url}</span>
+                <span className="hidden truncate font-mono text-xs text-[#354D51] md:block">{url}</span>
                 <Button size="sm" variant="outline" onClick={() => void copyLink(b.id)}>
                   {copied === b.id ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
                   {copied === b.id ? "Copied" : "Copy link"}
@@ -292,30 +292,30 @@ const OnlineStore = () => {
               </div>
             );
           })}
-          {branches.length === 0 ? <p className="text-sm text-[#5b6b8c]">No active branches yet.</p> : null}
+          {branches.length === 0 ? <p className="text-sm text-[#354D51]">No active branches yet.</p> : null}
         </div>
       </section>
 
       <section className="rounded-[10px] border bg-white p-4">
-        <h2 className="text-base font-bold text-[#0a1128]">Online orders waiting ({orders.length})</h2>
-        <p className="mt-1 text-sm text-[#5b6b8c]">Cash-on-delivery orders placed on the storefront. They are real sales (status PENDING) — fulfil them from the sales/invoices flow.</p>
+        <h2 className="text-base font-bold text-[#032125]">Online orders waiting ({orders.length})</h2>
+        <p className="mt-1 text-sm text-[#354D51]">Cash-on-delivery orders placed on the storefront. They are real sales (status PENDING) — fulfil them from the sales/invoices flow.</p>
         {orders.length === 0 ? (
-          <p className="mt-3 text-sm text-[#5b6b8c]">No pending online orders.</p>
+          <p className="mt-3 text-sm text-[#354D51]">No pending online orders.</p>
         ) : (
           <div className="mt-3 space-y-3">
             {orders.map((o) => (
               <div key={o.id} className="rounded-[10px] border px-3 py-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-bold">{o.invoiceNumber || o.id.slice(0, 8)}</span>
-                  <span className="text-[#5b6b8c]">{new Date(o.createdAt).toLocaleString()}</span>
+                  <span className="text-[#354D51]">{new Date(o.createdAt).toLocaleString()}</span>
                   <span className="font-bold">{pkr(o.totalAmount)}</span>
                 </div>
-                <p className="mt-1 text-sm text-[#5b6b8c]">
+                <p className="mt-1 text-sm text-[#354D51]">
                   {o.customer?.name || "Guest"} {o.deliveryPhone ? `· ${o.deliveryPhone}` : ""} · {o.branch.name}
                   {o.deliveryAddress ? ` · ${o.deliveryAddress}` : " · Pickup"}
                 </p>
                 <p className="mt-1 text-sm">{o.items.map((i) => `${i.product?.name || i.productId} × ${i.quantity}`).join(", ")}</p>
-                {o.deliveryNotes ? <p className="mt-1 text-xs text-[#5b6b8c]">Note: {o.deliveryNotes}</p> : null}
+                {o.deliveryNotes ? <p className="mt-1 text-xs text-[#354D51]">Note: {o.deliveryNotes}</p> : null}
               </div>
             ))}
           </div>
@@ -323,23 +323,23 @@ const OnlineStore = () => {
       </section>
 
       <section className="rounded-[10px] border bg-white p-4">
-        <h2 className="text-base font-bold text-[#0a1128]">Prescription uploads waiting for review ({uploads.length})</h2>
-        <p className="mt-1 text-sm text-[#5b6b8c]">Patients cannot check out with these until a pharmacist approves them. Approval needs the medicines transcribed from the photo.</p>
+        <h2 className="text-base font-bold text-[#032125]">Prescription uploads waiting for review ({uploads.length})</h2>
+        <p className="mt-1 text-sm text-[#354D51]">Patients cannot check out with these until a pharmacist approves them. Approval needs the medicines transcribed from the photo.</p>
         {!uploadEnabled ? (
-          <p className="mt-1 text-sm text-[#5b6b8c]">
+          <p className="mt-1 text-sm text-[#354D51]">
             New uploads are gated on the Prescription Upload add-on (PRESCRIPTION_UPLOAD_PACK). Enable it from the add-ons page to accept uploads.
             {" "}Uploads already received can still be reviewed below.
           </p>
         ) : null}
         {uploads.length === 0 ? (
-          <p className="mt-3 text-sm text-[#5b6b8c]">No uploads waiting.</p>
+          <p className="mt-3 text-sm text-[#354D51]">No uploads waiting.</p>
         ) : (
           <div className="mt-3 space-y-3">
             {uploads.map((u) => (
               <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border px-3 py-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{u.patientName} {u.patientPhone ? `· ${u.patientPhone}` : ""}</p>
-                  <p className="text-xs text-[#5b6b8c]">
+                  <p className="text-xs text-[#354D51]">
                     {u.doctorName ? `Dr ${u.doctorName} · ` : ""}Uploaded {new Date(u.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -350,7 +350,7 @@ const OnlineStore = () => {
             ))}
           </div>
         )}
-        {!canReview ? <p className="mt-2 text-xs text-[#5b6b8c]">Review needs an OWNER, MANAGER or ADMIN role.</p> : null}
+        {!canReview ? <p className="mt-2 text-xs text-[#354D51]">Review needs an OWNER, MANAGER or ADMIN role.</p> : null}
       </section>
 
       <Dialog open={!!reviewing} onOpenChange={(open) => { if (!open) setReviewing(null); }}>
@@ -366,7 +366,7 @@ const OnlineStore = () => {
               {reviewing.imageUrl ? (
                 <img src={reviewing.imageUrl} alt="Uploaded prescription" className="max-h-72 w-full rounded-[10px] border object-contain" />
               ) : (
-                <p className="text-sm text-[#5b6b8c]">No photo attached to this upload.</p>
+                <p className="text-sm text-[#354D51]">No photo attached to this upload.</p>
               )}
               <div>
                 <Label>Medicines on the prescription (transcribe from the photo)</Label>
@@ -419,7 +419,7 @@ const OnlineStore = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-center gap-2 text-sm text-[#5b6b8c]">
+      <div className="flex items-center gap-2 text-sm text-[#354D51]">
         <Search className="h-4 w-4" />
         <span>Full prescription register (including reviewed uploads) lives on the Prescriptions page.</span>
       </div>

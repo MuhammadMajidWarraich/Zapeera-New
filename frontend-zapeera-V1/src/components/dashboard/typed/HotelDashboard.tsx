@@ -125,12 +125,12 @@ const HotelDashboard = () => {
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-2">
         <Panel
-          icon={<LogIn className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+          icon={<LogIn className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
           title="Arrivals Today"
           actionLabel="Front Desk"
           onAction={() => go("/front-desk")}
           isEmpty={arrivals.length === 0}
-          emptyIcon={<CalendarCheck className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+          emptyIcon={<CalendarCheck className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
           emptyTitle="No arrivals today"
           emptyText="Guests checking in today will appear here."
         >
@@ -141,7 +141,7 @@ const HotelDashboard = () => {
                 title={r.guestName}
                 meta={roomMeta(r)}
                 badge={
-                  <Badge variant="outline" className="shrink-0 border-[rgba(15,23,60,0.08)] text-xs font-semibold">
+                  <Badge variant="outline" className="shrink-0 border-[rgba(3,33,37,0.08)] text-xs font-semibold">
                     {r.status === "CHECKED_IN" ? "Checked in" : r.status === "COMPLETED" ? "Arrived" : "Expected"}
                   </Badge>
                 }
@@ -151,12 +151,12 @@ const HotelDashboard = () => {
         </Panel>
 
         <Panel
-          icon={<LogOut className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+          icon={<LogOut className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
           title="Departures Due Today"
           actionLabel="Folios"
           onAction={() => go("/folios")}
           isEmpty={departures.length === 0}
-          emptyIcon={<DoorOpen className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+          emptyIcon={<DoorOpen className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
           emptyTitle="No departures due today"
           emptyText="Guests due to check out today will appear here."
         >
@@ -170,7 +170,7 @@ const HotelDashboard = () => {
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-2">
         <Panel
-          icon={<BedDouble className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+          icon={<BedDouble className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
           title="Room Status"
           actionLabel="Rooms"
           onAction={() => go("/rooms")}
@@ -178,28 +178,28 @@ const HotelDashboard = () => {
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: "Clean / Available", count: roomStatus.AVAILABLE, icon: <Sparkles className="h-4 w-4 text-green-600" /> },
-              { label: "Occupied", count: roomStatus.OCCUPIED, icon: <BedDouble className="h-4 w-4 text-[#1a52c5]" /> },
+              { label: "Occupied", count: roomStatus.OCCUPIED, icon: <BedDouble className="h-4 w-4 text-[#0B363B]" /> },
               { label: "Dirty (to clean)", count: roomStatus.DIRTY, icon: <DoorOpen className="h-4 w-4 text-amber-600" /> },
-              { label: "Maintenance", count: roomStatus.MAINTENANCE, icon: <Wrench className="h-4 w-4 text-[#8c95b0]" /> },
+              { label: "Maintenance", count: roomStatus.MAINTENANCE, icon: <Wrench className="h-4 w-4 text-[#437278]" /> },
             ].map((s) => (
-              <div key={s.label} className="rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-black/[0.02] p-3">
-                <div className="flex items-center gap-2 text-[13px] font-medium text-[#8c95b0]">
+              <div key={s.label} className="rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-black/[0.02] p-3">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-[#437278]">
                   {s.icon}
                   {s.label}
                 </div>
-                <p className="mt-1 text-[22px] font-extrabold leading-none text-[#0a1128]">{s.count}</p>
+                <p className="mt-1 text-[22px] font-extrabold leading-none text-[#032125]">{s.count}</p>
               </div>
             ))}
           </div>
         </Panel>
 
         <Panel
-          icon={<CalendarClock className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+          icon={<CalendarClock className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
           title="Upcoming Reservations"
           actionLabel="Reservations"
           onAction={() => go("/reservations")}
           isEmpty={upcoming.length === 0}
-          emptyIcon={<CalendarClock className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+          emptyIcon={<CalendarClock className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
           emptyTitle="No upcoming reservations"
           emptyText="Future bookings will appear here."
         >
@@ -212,12 +212,12 @@ const HotelDashboard = () => {
       </div>
 
       <Panel
-        icon={<Activity className="h-[19px] w-[19px] text-[#1a52c5]" strokeWidth={2} />}
+        icon={<Activity className="h-[19px] w-[19px] text-[#0B363B]" strokeWidth={2} />}
         title="Recent Folio Activity"
         actionLabel="Folios"
         onAction={() => go("/folios")}
         isEmpty={activity.length === 0}
-        emptyIcon={<Receipt className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />}
+        emptyIcon={<Receipt className="h-6 w-6 text-[#437278]" strokeWidth={2} />}
         emptyTitle="No folio activity yet"
         emptyText="Charges and payments posted to guest folios will appear here."
       >
@@ -231,7 +231,7 @@ const HotelDashboard = () => {
               badge={
                 <Badge
                   variant="outline"
-                  className="shrink-0 border-[rgba(15,23,60,0.08)] text-xs font-semibold"
+                  className="shrink-0 border-[rgba(3,33,37,0.08)] text-xs font-semibold"
                 >
                   {a.kind === "PAYMENT" ? <Wallet className="mr-1 inline h-3 w-3" /> : <Receipt className="mr-1 inline h-3 w-3" />}
                   {formatCurrency(a.amount)}

@@ -941,7 +941,7 @@ const BusinessManagement = () => {
     const membership = user.memberships.find((m) => String(m.businessId) === String(businessId));
     if (!membership?.status) return null;
     if (membership.status === 'DOWNLOADED') {
-      return { label: 'Downloaded', badgeClass: 'border-blue-200 bg-blue-50 text-blue-600' };
+      return { label: 'Downloaded', badgeClass: 'border-spruce-200 bg-verdant-100 text-spruce-700' };
     }
     if (membership.status === 'OUT_OF_SYNC') {
       return { label: 'Out of Sync', badgeClass: 'border-amber-200 bg-amber-100 text-amber-700' };
@@ -950,7 +950,7 @@ const BusinessManagement = () => {
       return { label: 'Cloud Only', badgeClass: 'border-slate-200 bg-slate-100 text-slate-500' };
     }
     // ACTIVE (or other cloud-synced) membership -> accessible online, not downloaded for offline use.
-    return { label: 'Cloud', badgeClass: 'border-sky-200 bg-sky-50 text-sky-600' };
+    return { label: 'Cloud', badgeClass: 'border-spruce-200 bg-verdant-100 text-spruce-500' };
   };
 
   const getBusinessNavigationTarget = (business: Business) => {
@@ -982,13 +982,13 @@ const BusinessManagement = () => {
         {loading ? (
           <div className="flex min-h-[40vh] items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#1a52c5] border-t-transparent" />
-              <p className="mt-4 text-sm text-[#8c95b0]">Loading businesses...</p>
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#0B363B] border-t-transparent" />
+              <p className="mt-4 text-sm text-[#437278]">Loading businesses...</p>
             </div>
           </div>
         ) : (
           <>
-            <section className="zv3-page-hero relative mb-7 flex flex-col gap-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1a52c5] via-[#1f8ac8] to-[#28c2ce] px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-9 lg:px-10">
+            <section className="zv3-page-hero relative mb-7 flex flex-col gap-5 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0B363B] via-[#437278] to-[#437278] px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-9 lg:px-10">
               <div
                 className="pointer-events-none absolute -right-[10%] -top-1/2 h-[400px] w-[400px] rounded-full"
                 style={{ background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%)" }}
@@ -1030,7 +1030,7 @@ const BusinessManagement = () => {
                   <button
                     type="button"
                     onClick={openCreateDialog}
-                    className="inline-flex items-center gap-2 rounded-[10px] bg-white px-[26px] py-3 text-sm font-bold text-[#1a52c5] shadow-[0_4px_16px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(0,0,0,0.15)]"
+                    className="inline-flex items-center gap-2 rounded-[10px] bg-white px-[26px] py-3 text-sm font-bold text-[#0B363B] shadow-[0_4px_16px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(0,0,0,0.15)]"
                   >
                     <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
                     Create Business
@@ -1040,19 +1040,19 @@ const BusinessManagement = () => {
             </section>
 
             {businesses.length === 0 ? (
-              <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-20 text-center shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_40px_rgba(0,0,0,0.04)]">
-                <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06]">
-                  <Building2 className="h-7 w-7 text-[#8c95b0]" strokeWidth={1.8} />
+              <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-20 text-center shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_40px_rgba(0,0,0,0.04)]">
+                <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06]">
+                  <Building2 className="h-7 w-7 text-[#437278]" strokeWidth={1.8} />
                 </div>
-                <h3 className="mb-1.5 text-base font-bold text-[#0a1128]">No businesses found</h3>
-                <p className="mx-auto mb-6 max-w-[320px] text-sm leading-relaxed text-[#8c95b0]">
+                <h3 className="mb-1.5 text-base font-bold text-[#032125]">No businesses found</h3>
+                <p className="mx-auto mb-6 max-w-[320px] text-sm leading-relaxed text-[#437278]">
                   Get started by creating your first business
                 </p>
                 {showCreateBusinessButton && (
                   <button
                     type="button"
                     onClick={openCreateDialog}
-                    className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)]"
+                    className="inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)]"
                   >
                     <Plus className="h-4 w-4" />
                     Create Your First Business
@@ -1060,10 +1060,10 @@ const BusinessManagement = () => {
                 )}
               </div>
             ) : (
-              <div className="zv3-table-card overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_40px_rgba(0,0,0,0.04)]">
-                <div className="flex flex-col gap-4 border-b border-[rgba(15,23,60,0.06)] px-6 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+              <div className="zv3-table-card overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_40px_rgba(0,0,0,0.04)]">
+                <div className="flex flex-col gap-4 border-b border-[rgba(3,33,37,0.06)] px-6 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
                   {showOwnershipTabs && (
-                    <div className="flex w-full max-w-xl gap-1 rounded-[12px] border border-[rgba(15,23,60,0.08)] bg-[#f0f2f7] p-1 lg:max-w-max">
+                    <div className="flex w-full max-w-xl gap-1 rounded-[12px] border border-[rgba(3,33,37,0.08)] bg-[#EAFDE8] p-1 lg:max-w-max">
                       <button
                         type="button"
                         onClick={() => {
@@ -1073,8 +1073,8 @@ const BusinessManagement = () => {
                         className={cn(
                           "inline-flex flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2.5 text-sm font-semibold transition-all sm:flex-initial sm:px-5",
                           businessListTab === "owned"
-                            ? "bg-white text-[#1a52c5] shadow-[0_2px_8px_rgba(26,82,197,0.12)]"
-                            : "text-[#8c95b0] hover:text-[#0a1128]"
+                            ? "bg-white text-[#0B363B] shadow-[0_2px_8px_rgba(11,54,59,0.12)]"
+                            : "text-[#437278] hover:text-[#032125]"
                         )}
                       >
                         My businesses
@@ -1082,8 +1082,8 @@ const BusinessManagement = () => {
                           className={cn(
                             "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
                             businessListTab === "owned"
-                              ? "bg-[#1a52c5]/10 text-[#1a52c5]"
-                              : "bg-black/[0.04] text-[#8c95b0]"
+                              ? "bg-[#0B363B]/10 text-[#0B363B]"
+                              : "bg-black/[0.04] text-[#437278]"
                           )}
                         >
                           {ownedBusinesses.length}
@@ -1098,8 +1098,8 @@ const BusinessManagement = () => {
                         className={cn(
                           "inline-flex flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2.5 text-sm font-semibold transition-all sm:flex-initial sm:px-5",
                           businessListTab === "shared"
-                            ? "bg-white text-[#1a52c5] shadow-[0_2px_8px_rgba(26,82,197,0.12)]"
-                            : "text-[#8c95b0] hover:text-[#0a1128]"
+                            ? "bg-white text-[#0B363B] shadow-[0_2px_8px_rgba(11,54,59,0.12)]"
+                            : "text-[#437278] hover:text-[#032125]"
                         )}
                       >
                         Shared with me
@@ -1107,8 +1107,8 @@ const BusinessManagement = () => {
                           className={cn(
                             "rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums",
                             businessListTab === "shared"
-                              ? "bg-[#1a52c5]/10 text-[#1a52c5]"
-                              : "bg-black/[0.04] text-[#8c95b0]"
+                              ? "bg-[#0B363B]/10 text-[#0B363B]"
+                              : "bg-black/[0.04] text-[#437278]"
                           )}
                         >
                           {sharedBusinesses.length}
@@ -1123,7 +1123,7 @@ const BusinessManagement = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search businesses…"
-                      className="h-11 w-full rounded-[12px] border border-[rgba(15,23,60,0.06)] bg-[#f0f2f7] px-4 pl-11 text-[13px] text-[#0a1128] outline-none transition-all placeholder:text-[#8c95b0] focus:border-[#1a52c5]/30 focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)] lg:w-[260px]"
+                      className="h-11 w-full rounded-[12px] border border-[rgba(3,33,37,0.06)] bg-[#EAFDE8] px-4 pl-11 text-[13px] text-[#032125] outline-none transition-all placeholder:text-[#437278] focus:border-[#0B363B]/30 focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)] lg:w-[260px]"
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238c95b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E")`,
                         backgroundRepeat: "no-repeat",
@@ -1152,38 +1152,38 @@ const BusinessManagement = () => {
                   `}</style>
                   <table className="w-full min-w-full border-collapse">
                     <thead>
-                      <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                        <th className="px-3 py-3 pl-4 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 sm:pl-8">
+                      <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                        <th className="px-3 py-3 pl-4 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 sm:pl-8">
                           Business
                         </th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5">
+                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5">
                           Business Type
                         </th>
                         {showOwnershipTabs && businessListTab === "shared" && (
-                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 lg:table-cell">
                             Role
                           </th>
                         )}
-                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5">
+                        <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5">
                           Subscription
                         </th>
-                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
+                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 lg:table-cell">
                           Contact
                         </th>
                         {showBranchesCol && (
-                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 lg:table-cell">
                             Branches
                           </th>
                         )}
                         {showStaffCol && (
-                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
+                          <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 lg:table-cell">
                             Staff
                           </th>
                         )}
-                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#8c95b0] sm:px-6 sm:py-3.5 lg:table-cell">
+                        <th className="hidden px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[#437278] sm:px-6 sm:py-3.5 lg:table-cell">
                           Created
                         </th>
-                        <th className="sticky right-0 z-10 bg-white px-3 py-3 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-[#8c95b0] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] sm:px-6 sm:py-3.5 sm:pr-8">
+                        <th className="sticky right-0 z-10 bg-white px-3 py-3 pr-4 text-right text-xs font-semibold uppercase tracking-wide text-[#437278] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)] sm:px-6 sm:py-3.5 sm:pr-8">
                           Actions
                         </th>
                       </tr>
@@ -1193,7 +1193,7 @@ const BusinessManagement = () => {
                         <tr>
                           <td
                             colSpan={6 + (showBranchesCol ? 1 : 0) + (showStaffCol ? 1 : 0) + (showOwnershipTabs && businessListTab === "shared" ? 1 : 0)}
-                            className="px-8 py-16 text-center text-sm text-[#8c95b0]"
+                            className="px-8 py-16 text-center text-sm text-[#437278]"
                           >
                             {searchQuery.trim()
                               ? `No businesses match "${searchQuery}"`
@@ -1210,16 +1210,16 @@ const BusinessManagement = () => {
                           return (
                             <tr
                               key={business.id}
-                              className="border-b border-[rgba(15,23,60,0.06)] transition-colors last:border-b-0 hover:bg-[#1a52c5]/[0.02]"
+                              className="border-b border-[rgba(3,33,37,0.06)] transition-colors last:border-b-0 hover:bg-[#0B363B]/[0.02]"
                             >
                             <td className="px-3 py-4 pl-4 align-middle sm:px-6 sm:py-5 sm:pl-8">
                               <div className="flex items-center gap-3.5">
-                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5]/[0.08] to-[#28c2ce]/[0.06]">
-                                  <Home className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+                                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#0B363B]/[0.08] to-[#437278]/[0.06]">
+                                  <Home className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[15px] font-bold tracking-tight text-[#0a1128]">{business.name}</span>
+                                    <span className="text-[15px] font-bold tracking-tight text-[#032125]">{business.name}</span>
                                     {(() => {
                                       const ps = getProvisioningStatus(business.id);
                                       return ps ? (
@@ -1229,20 +1229,20 @@ const BusinessManagement = () => {
                                       ) : null;
                                     })()}
                                   </div>
-                                  <div className="mt-0.5 line-clamp-1 text-xs text-[#8c95b0]">
+                                  <div className="mt-0.5 line-clamp-1 text-xs text-[#437278]">
                                     {business.address || business.description || "—"}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-3 py-4 align-middle sm:px-6 sm:py-5">
-                              <span className="inline-flex max-w-full items-center rounded-full bg-[#28c2ce]/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#0f8f99]">
+                              <span className="inline-flex max-w-full items-center rounded-full bg-[#437278]/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#437278]">
                                 {getBusinessTypeLabel(business.businessType)}
                               </span>
                             </td>
                             {showOwnershipTabs && businessListTab === "shared" && (
                               <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
-                                <span className="inline-flex items-center rounded-full bg-[#0f8f99]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#0f8f99] border border-[#0f8f99]/15">
+                                <span className="inline-flex items-center rounded-full bg-[#437278]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#437278] border border-[#437278]/15">
                                   {business.memberRole || "MEMBER"}
                                 </span>
                               </td>
@@ -1258,20 +1258,20 @@ const BusinessManagement = () => {
                             <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
                               <div className="flex flex-col gap-1">
                                 {business.phone && (
-                                  <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                                    <Phone className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                                  <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                                    <Phone className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                                     <span>{business.phone}</span>
                                   </div>
                                 )}
                                 {business.email && (
-                                  <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                                    <Mail className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                                  <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                                     <span className="max-w-[200px] truncate">{business.email}</span>
                                   </div>
                                 )}
                                 {!business.phone && !business.email && business.address && (
-                                  <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                                  <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                                     <span className="max-w-[200px] truncate">{business.address}</span>
                                   </div>
                                 )}
@@ -1279,7 +1279,7 @@ const BusinessManagement = () => {
                             </td>
                             {showBranchesCol && (
                               <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1a52c5]/[0.06] px-3.5 py-1.5 text-[13px] font-semibold text-[#1a52c5]">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#0B363B]/[0.06] px-3.5 py-1.5 text-[13px] font-semibold text-[#0B363B]">
                                   <Store className="h-[15px] w-[15px]" strokeWidth={2} />
                                   {branchCount(business)}
                                 </span>
@@ -1287,7 +1287,7 @@ const BusinessManagement = () => {
                             )}
                             {showStaffCol && (
                               <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#28c2ce]/[0.08] px-3.5 py-1.5 text-[13px] font-semibold text-[#1aa8b3]">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#437278]/[0.08] px-3.5 py-1.5 text-[13px] font-semibold text-[#437278]">
                                   <Users className="h-[15px] w-[15px]" strokeWidth={2} />
                                   {(business.accessType === 'shared' && business.memberRole === 'MANAGER')
                                     ? (business._count?.memberships || 0) + (business._count?.staff || 0)
@@ -1298,7 +1298,7 @@ const BusinessManagement = () => {
                               </td>
                             )}
                             <td className="hidden px-3 py-4 align-middle sm:px-6 sm:py-5 lg:table-cell">
-                              <span className="text-sm font-medium text-[#4a5578]">{formatDate(business.createdAt)}</span>
+                              <span className="text-sm font-medium text-[#354D51]">{formatDate(business.createdAt)}</span>
                             </td>
                             <td className="sticky right-0 z-10 px-4 py-4 pr-6 bg-white text-right align-middle whitespace-nowrap shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                               <div className="flex items-center justify-end gap-1.5">
@@ -1309,7 +1309,7 @@ const BusinessManagement = () => {
                                   className={cn(
                                     "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all",
                                     canManageBusiness(business)
-                                      ? "bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_3px_12px_rgba(26,82,197,0.2)] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(26,82,197,0.3)]"
+                                      ? "bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_3px_12px_rgba(11,54,59,0.2)] hover:-translate-y-px hover:shadow-[0_6px_20px_rgba(11,54,59,0.3)]"
                                       : "cursor-not-allowed bg-slate-200 text-slate-500"
                                   )}
                                   title={!canManageBusiness(business) ? "You do not have access to this business" : undefined}
@@ -1322,7 +1322,7 @@ const BusinessManagement = () => {
                                     <button
                                       type="button"
                                       onClick={() => openEditDialog(business)}
-                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                                       title="Edit"
                                     >
                                       <Edit className="h-3.5 w-3.5" />
@@ -1330,7 +1330,7 @@ const BusinessManagement = () => {
                                     <button
                                       type="button"
                                       onClick={() => openDeleteDialog(business)}
-                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                                       title="Delete"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -1359,7 +1359,7 @@ const BusinessManagement = () => {
           else setIsCreateDialogOpen(false);
         }}
       >
-        <DialogContent className="zv3-modal-scrollbar z-[100] max-h-[90vh] gap-0 overflow-y-auto rounded-[28px] rounded-t-[28px] rounded-b-[28px] border border-[rgba(15,23,60,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[500px] [&>button]:hidden" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent', scrollbarGutter: 'stable' }}>
+        <DialogContent className="zv3-modal-scrollbar z-[100] max-h-[90vh] gap-0 overflow-y-auto rounded-[28px] rounded-t-[28px] rounded-b-[28px] border border-[rgba(3,33,37,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[500px] [&>button]:hidden" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent', scrollbarGutter: 'stable' }}>
           <style>{`
             .zv3-modal-scrollbar::-webkit-scrollbar {
               width: 8px;
@@ -1380,13 +1380,13 @@ const BusinessManagement = () => {
           <DialogHeader className="space-y-0 p-8 pb-0 text-left">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Create New Business</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[#8c95b0]">Add a new business to your account</DialogDescription>
+                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Create New Business</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[#437278]">Add a new business to your account</DialogDescription>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateDialogOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                 aria-label="Close"
               >
                 <X className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -1395,7 +1395,7 @@ const BusinessManagement = () => {
           </DialogHeader>
           <div className="flex flex-col gap-5 px-8 py-7 pr-6">
             <div className="space-y-2">
-              <Label htmlFor="cm-name" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="cm-name" className="text-sm font-semibold text-[#032125]">
                 Business Name <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1404,14 +1404,14 @@ const BusinessManagement = () => {
                 onChange={(e) => handleInputChange("name", e.target.value)}
                 placeholder="Enter business name"
                 className={cn(
-                  "h-12 rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200",
+                  "h-12 rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200",
                   formErrors.name && "border-red-500"
                 )}
               />
               {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cm-desc" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="cm-desc" className="text-sm font-semibold text-[#032125]">
                 Description
               </Label>
               <Textarea
@@ -1420,11 +1420,11 @@ const BusinessManagement = () => {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Enter business description"
                 rows={3}
-                className="min-h-[90px] rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200 resize-none"
+                className="min-h-[90px] rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200 resize-none"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cm-business-type" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="cm-business-type" className="text-sm font-semibold text-[#032125]">
                 Business Type <span className="text-red-600">*</span>
               </Label>
               <Select
@@ -1432,7 +1432,7 @@ const BusinessManagement = () => {
                   onValueChange={(value) => setFormData({ ...formData, businessType: value })}
                 >
                   <SelectTrigger id="cm-business-type" className={cn(
-                    "h-12 w-full rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white px-3 text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200",
+                    "h-12 w-full rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white px-3 text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200",
                     formErrors.businessType && "border-red-500"
                   )}>
                     <SelectValue placeholder="Select business type" />
@@ -1489,7 +1489,7 @@ const BusinessManagement = () => {
                 </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cm-addr" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="cm-addr" className="text-sm font-semibold text-[#032125]">
                 Address
               </Label>
               <Input
@@ -1497,12 +1497,12 @@ const BusinessManagement = () => {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Enter business address"
-                className="h-12 rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200"
+                className="h-12 rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200"
               />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="cm-phone" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="cm-phone" className="text-sm font-semibold text-[#032125]">
                   Phone Number <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -1511,14 +1511,14 @@ const BusinessManagement = () => {
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   placeholder="e.g., +923001234567"
                   className={cn(
-                    "h-12 rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200",
+                    "h-12 rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200",
                     formErrors.phone && "border-red-500"
                   )}
                 />
                 {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="cm-email" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="cm-email" className="text-sm font-semibold text-[#032125]">
                   Email Address <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -1530,7 +1530,7 @@ const BusinessManagement = () => {
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="e.g., business@example.com"
                   className={cn(
-                    "h-12 rounded-[10px] border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white text-[15px] focus-visible:border-[#1a52c5] focus-visible:outline-none transition-all duration-200",
+                    "h-12 rounded-[10px] border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white text-[15px] focus-visible:border-[#0B363B] focus-visible:outline-none transition-all duration-200",
                     formErrors.email && "border-red-500"
                   )}
                 />
@@ -1543,7 +1543,7 @@ const BusinessManagement = () => {
               type="button"
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
-              className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+              className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
             >
               Cancel
             </Button>
@@ -1551,7 +1551,7 @@ const BusinessManagement = () => {
               type="button"
               onClick={handleCreateBusiness}
               disabled={!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()}
-              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
             >
               Create Business
             </Button>
@@ -1561,17 +1561,17 @@ const BusinessManagement = () => {
 
       {/* Edit Dialog — same shell as Create */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="z-[100] max-h-[90vh] gap-0 overflow-y-auto rounded-[28px] border border-[rgba(15,23,60,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[560px] [&>button]:hidden">
+        <DialogContent className="z-[100] max-h-[90vh] gap-0 overflow-y-auto rounded-[28px] border border-[rgba(3,33,37,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[560px] [&>button]:hidden">
           <DialogHeader className="space-y-0 p-8 pb-0 text-left">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Edit Business</DialogTitle>
-                <DialogDescription className="mt-1 text-sm text-[#8c95b0]">Update business information</DialogDescription>
+                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Edit Business</DialogTitle>
+                <DialogDescription className="mt-1 text-sm text-[#437278]">Update business information</DialogDescription>
               </div>
               <button
                 type="button"
                 onClick={() => setIsEditDialogOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                 aria-label="Close"
               >
                 <X className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -1580,7 +1580,7 @@ const BusinessManagement = () => {
           </DialogHeader>
           <div className="flex max-h-[calc(90vh-170px)] flex-col gap-5 overflow-y-auto px-8 py-7">
             <div className="space-y-2">
-              <Label htmlFor="edit-name" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-name" className="text-sm font-semibold text-[#032125]">
                 Business Name <span className="text-red-600">*</span>
               </Label>
               <Input
@@ -1589,14 +1589,14 @@ const BusinessManagement = () => {
                 onChange={(e) => handleInputChange("name", e.target.value)}
                 placeholder="Enter business name"
                 className={cn(
-                  "h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-[#1a52c5]/8",
+                  "h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-[#0B363B]/8",
                   formErrors.name && "border-red-500"
                 )}
               />
               {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-description" className="text-sm font-semibold text-[#032125]">
                 Description
               </Label>
               <Textarea
@@ -1605,22 +1605,22 @@ const BusinessManagement = () => {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Enter business description"
                 rows={3}
-                className="min-h-[90px] rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-[#1a52c5]/8"
+                className="min-h-[90px] rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-[#0B363B]/8"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-business-type" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-business-type" className="text-sm font-semibold text-[#032125]">
                 Business Type <span className="text-red-600">*</span>
               </Label>
               <Input
                 id="edit-business-type"
                 value={getBusinessTypeLabel(formData.businessType)}
                 disabled
-                className="h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-[#1a52c5]/8"
+                className="h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-[#0B363B]/8"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-address" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-address" className="text-sm font-semibold text-[#032125]">
                 Address
               </Label>
               <Input
@@ -1628,12 +1628,12 @@ const BusinessManagement = () => {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Enter business address"
-                className="h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-[#1a52c5]/8"
+                className="h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-[#0B363B]/8"
               />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-phone" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="edit-phone" className="text-sm font-semibold text-[#032125]">
                   Phone Number <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -1642,14 +1642,14 @@ const BusinessManagement = () => {
                   onChange={(e) => handleInputChange("phone", e.target.value)}
                   placeholder="e.g., +923001234567"
                   className={cn(
-                    "h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-[#1a52c5]/8",
+                    "h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-[#0B363B]/8",
                     formErrors.phone && "border-red-500"
                   )}
                 />
                 {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-email" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="edit-email" className="text-sm font-semibold text-[#032125]">
                   Email Address <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -1661,7 +1661,7 @@ const BusinessManagement = () => {
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="e.g., business@example.com"
                   className={cn(
-                    "zv3-modal-email-input h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#1a52c5] focus-visible:ring-0 focus-visible:ring-offset-0",
+                    "zv3-modal-email-input h-12 rounded-[10px] border-[1.5px] text-[15px] focus-visible:border-[#0B363B] focus-visible:ring-0 focus-visible:ring-offset-0",
                     formErrors.email && "border-red-500"
                   )}
                 />
@@ -1674,7 +1674,7 @@ const BusinessManagement = () => {
               type="button"
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+              className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
             >
               Cancel
             </Button>
@@ -1682,7 +1682,7 @@ const BusinessManagement = () => {
               type="button"
               onClick={handleEditBusiness}
               disabled={!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()}
-              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+              className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
             >
               Update Business
             </Button>
@@ -1692,12 +1692,12 @@ const BusinessManagement = () => {
 
       {/* Delete Confirmation Dialog — v3 shell + branded destructive styling */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="z-[100] gap-0 overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[480px] [&>button]:hidden">
+        <DialogContent className="z-[100] gap-0 overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:max-w-[480px] [&>button]:hidden">
           <div className="relative px-8 pb-2 pt-8 text-center">
             <button
               type="button"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="absolute right-6 top-6 grid h-9 w-9 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+              className="absolute right-6 top-6 grid h-9 w-9 place-items-center rounded-[10px] border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
               aria-label="Close"
             >
               <X className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -1705,10 +1705,10 @@ const BusinessManagement = () => {
             <div className="mx-auto mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-gradient-to-br from-red-100 to-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <AlertTriangle className="h-9 w-9 text-red-600" strokeWidth={2} />
             </div>
-            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Delete Business</DialogTitle>
-            <DialogDescription className="mx-auto mt-3 max-w-[400px] text-center text-sm leading-relaxed text-[#8c95b0]">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Delete Business</DialogTitle>
+            <DialogDescription className="mx-auto mt-3 max-w-[400px] text-center text-sm leading-relaxed text-[#437278]">
               Are you sure you want to delete{" "}
-              <span className="font-bold text-[#0a1128]">&ldquo;{businessToDelete?.name}&rdquo;</span>? This action cannot be undone
+              <span className="font-bold text-[#032125]">&ldquo;{businessToDelete?.name}&rdquo;</span>? This action cannot be undone
               and will remove all associated data including branches, staff, and products.
             </DialogDescription>
           </div>
@@ -1737,7 +1737,7 @@ const BusinessManagement = () => {
               type="button"
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="h-11 flex-1 rounded-[10px] border-[rgba(15,23,60,0.06)] bg-white font-semibold text-[#4a5578] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+              className="h-11 flex-1 rounded-[10px] border-[rgba(3,33,37,0.06)] bg-white font-semibold text-[#354D51] hover:bg-[#EAFDE8] hover:text-[#032125]"
             >
               Cancel
             </Button>
@@ -1756,14 +1756,14 @@ const BusinessManagement = () => {
       <Dialog open={isSubscriptionRequiredDialogOpen} onOpenChange={setIsSubscriptionRequiredDialogOpen}>
         <DialogContent className="z-[100] max-w-[560px] rounded-[20px]">
           <DialogHeader>
-            <DialogTitle className="text-[#0a1128]">Subscription Required</DialogTitle>
-            <DialogDescription className="text-[#4a5578]">
+            <DialogTitle className="text-[#032125]">Subscription Required</DialogTitle>
+            <DialogDescription className="text-[#354D51]">
               {isSharedBusinessLocked
                 ? "The business owner's subscription has expired. Please contact the owner to upgrade their subscription to access this business."
                 : "A subscription is required to access business management system. Please upgrade your plan to manage this business and access business features."}
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-2 mb-6 rounded-[12px] border border-[#1a52c5]/10 bg-[#1a52c5]/[0.04] px-4 py-3 text-sm text-[#1a52c5]">
+          <div className="mt-2 mb-6 rounded-[12px] border border-[#0B363B]/10 bg-[#0B363B]/[0.04] px-4 py-3 text-sm text-[#0B363B]">
             Selected business: <span className="font-semibold">{lockedBusinessName}</span>
           </div>
           <DialogFooter className="gap-2 sm:gap-3">
@@ -1774,14 +1774,14 @@ const BusinessManagement = () => {
                 setIsSubscriptionRequiredDialogOpen(false);
                 setRefreshSubscriptionTrigger(prev => prev + 1);
               }}
-              className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+              className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
             >
               Close
             </Button>
             {!isSharedBusinessLocked && (
               <Button
                 type="button"
-                className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="h-11 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-7 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                 onClick={() => {
                   setIsSubscriptionRequiredDialogOpen(false);
                 navigate(lockedBusinessSlug ? `/business/${encodeURIComponent(lockedBusinessSlug)}/subscription` : '/zapeera/my-businesses');

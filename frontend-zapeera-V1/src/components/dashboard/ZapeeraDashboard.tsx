@@ -177,19 +177,19 @@ const ZapeeraDashboard = () => {
     return (
       <ZapeeraLayout>
         <div className="px-4 pb-14 pt-4 sm:px-8 lg:px-11">
-          <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.05)]">
-            <div className="border-b border-[rgba(15,23,60,0.06)] bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-8 py-10 text-center">
-              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#7c3aed] shadow-lg">
+          <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.05)]">
+            <div className="border-b border-[rgba(3,33,37,0.06)] bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-8 py-10 text-center">
+              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#0B363B] to-[#437278] shadow-lg">
                 <MessageCircle className="h-8 w-8 text-white" />
               </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-[#0a1128]">Account disabled</h1>
-              <p className="mt-2 text-[#4a5578]">Your account needs to be activated by an administrator.</p>
+              <h1 className="text-2xl font-extrabold tracking-tight text-[#032125]">Account disabled</h1>
+              <p className="mt-2 text-[#354D51]">Your account needs to be activated by an administrator.</p>
             </div>
             <div className="space-y-6 p-8">
-              <div className="rounded-2xl border border-[#1a52c5]/15 bg-[#1a52c5]/[0.04] p-6">
-                <h3 className="mb-2 text-sm font-bold text-[#0a1128]">Contact support</h3>
-                <p className="mb-4 text-sm text-[#4a5578]">Reach us on WhatsApp or email to activate your account.</p>
-                <div className="flex items-center justify-center gap-2 text-[#1a52c5]">
+              <div className="rounded-2xl border border-[#0B363B]/15 bg-[#0B363B]/[0.04] p-6">
+                <h3 className="mb-2 text-sm font-bold text-[#032125]">Contact support</h3>
+                <p className="mb-4 text-sm text-[#354D51]">Reach us on WhatsApp or email to activate your account.</p>
+                <div className="flex items-center justify-center gap-2 text-[#0B363B]">
                   <Phone className="h-5 w-5" />
                   <a href={callUrl()} className="text-lg font-semibold hover:underline">
                     {SUPPORT_PHONE_DISPLAY}
@@ -208,22 +208,22 @@ const ZapeeraDashboard = () => {
                 </a>
                 <a
                   href={emailUrl("Account Activation Request - Tickimo", `Hello,\n\nMy account is currently disabled and I need it to be activated.\n\nUsername: ${currentUser?.username || "N/A"}\nEmail: ${currentUser?.email || "N/A"}\n\nBest regards,\n${currentUser?.name || "User"}`)}
-                  className="inline-flex h-12 items-center justify-center rounded-[10px] border border-[rgba(15,23,60,0.12)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                  className="inline-flex h-12 items-center justify-center rounded-[10px] border border-[rgba(3,33,37,0.12)] font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
                 >
                   <Mail className="mr-2 h-5 w-5" />
                   Email
                 </a>
               </div>
-              <div className="rounded-xl bg-[#f0f2f7] p-4 text-sm text-[#4a5578]">
+              <div className="rounded-xl bg-[#EAFDE8] p-4 text-sm text-[#354D51]">
                 <p>
-                  <span className="font-semibold text-[#0a1128]">Username:</span> {currentUser?.username || "N/A"}
+                  <span className="font-semibold text-[#032125]">Username:</span> {currentUser?.username || "N/A"}
                 </p>
                 <p>
-                  <span className="font-semibold text-[#0a1128]">Email:</span> {currentUser?.email || "N/A"}
+                  <span className="font-semibold text-[#032125]">Email:</span> {currentUser?.email || "N/A"}
                 </p>
               </div>
               <div className="text-center">
-                <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut} className="text-[#8c95b0]">
+                <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut} className="text-[#437278]">
                   <LogOut className="mr-2 h-4 w-4" />
                   {isLoggingOut ? "Logging out…" : "Logout"}
                 </Button>
@@ -242,20 +242,20 @@ const ZapeeraDashboard = () => {
       <main className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         {companiesLoading && businessCount === 0 ? (
           <div className="space-y-6">
-            <div className="h-[132px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
-            <div className="h-[72px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
-            <div className="h-[220px] animate-pulse rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white" />
+            <div className="h-[132px] animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white" />
+            <div className="h-[72px] animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white" />
+            <div className="h-[220px] animate-pulse rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white" />
           </div>
         ) : businessCount === 0 ? (
           <>
             {/* Zero businesses — strong first-run state */}
-            <section className="overflow-hidden rounded-[24px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
-              <div className="bg-gradient-to-br from-[#2563eb]/[0.06] to-[#7c3aed]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-12">
-                <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-white shadow-[0_8px_24px_rgba(37,99,235,0.3)]">
+            <section className="overflow-hidden rounded-[24px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]">
+              <div className="bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-6 py-10 text-center sm:px-10 sm:py-12">
+                <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[18px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_8px_24px_rgba(11,54,59,0.3)]">
                   <Building2 className="h-8 w-8" />
                 </div>
-                <h2 className="text-[24px] font-extrabold tracking-tight text-[#0a1128] sm:text-[28px]">Let's set up your first business</h2>
-                <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-[#4a5578]">
+                <h2 className="text-[24px] font-extrabold tracking-tight text-[#032125] sm:text-[28px]">Let's set up your first business</h2>
+                <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-[#354D51]">
                   Run sales, inventory and your team from one workspace. Create your business in minutes — or join one you've been invited to.
                 </p>
                 <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -263,7 +263,7 @@ const ZapeeraDashboard = () => {
                     type="button"
                     onClick={handleCreateBusiness}
                     disabled={!canCreateBusiness}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#2563eb] px-7 text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(37,99,235,0.3)] transition-all hover:-translate-y-px hover:bg-[#1d4ed8] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#0B363B] px-7 text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(11,54,59,0.3)] transition-all hover:-translate-y-px hover:bg-[#0B363B] disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
                     Create New Business
@@ -271,9 +271,9 @@ const ZapeeraDashboard = () => {
                   <button
                     type="button"
                     onClick={() => navigate("/zapeera/invitations")}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[rgba(15,23,60,0.1)] bg-white px-7 text-[15px] font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7] sm:w-auto"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[rgba(3,33,37,0.1)] bg-white px-7 text-[15px] font-semibold text-[#032125] transition-colors hover:bg-[#EAFDE8] sm:w-auto"
                   >
-                    <UserPlus className="h-[18px] w-[18px] text-[#2563eb]" />
+                    <UserPlus className="h-[18px] w-[18px] text-[#0B363B]" />
                     Join a Business
                   </button>
                 </div>
@@ -314,17 +314,17 @@ const ZapeeraDashboard = () => {
 
       {/* Create business dialog */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-h-[90vh] max-w-[560px] gap-0 overflow-y-auto rounded-[28px] border border-[rgba(15,23,60,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] [&>button]:hidden">
+        <DialogContent className="max-h-[90vh] max-w-[560px] gap-0 overflow-y-auto rounded-[28px] border border-[rgba(3,33,37,0.06)] p-0 shadow-[0_24px_80px_rgba(0,0,0,0.18)] [&>button]:hidden">
           <DialogHeader className="shrink-0 space-y-0 p-8 pb-0 text-left">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Create New Business</DialogTitle>
-                <p className="mt-1 text-sm text-[#8c95b0]">Fill in the details to create your new business.</p>
+                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Create New Business</DialogTitle>
+                <p className="mt-1 text-sm text-[#437278]">Fill in the details to create your new business.</p>
               </div>
               <button
                 type="button"
                 onClick={handleFormCancel}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(15,23,60,0.06)] text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-[rgba(3,33,37,0.06)] text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                 aria-label="Close"
               >
                 <X className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -335,7 +335,7 @@ const ZapeeraDashboard = () => {
           <form onSubmit={handleFormSubmit}>
             <div className="flex flex-col gap-5 px-8 py-7">
               <div className="space-y-2">
-                <Label htmlFor="zv3-name" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="zv3-name" className="text-sm font-semibold text-[#032125]">
                   Business Name <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -348,7 +348,7 @@ const ZapeeraDashboard = () => {
                 {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="zv3-desc" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="zv3-desc" className="text-sm font-semibold text-[#032125]">
                   Description
                 </Label>
                 <Textarea
@@ -361,7 +361,7 @@ const ZapeeraDashboard = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="zv3-business-type" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="zv3-business-type" className="text-sm font-semibold text-[#032125]">
                   Business Type <span className="text-red-600">*</span>
                 </Label>
                 <Select value={formData.businessType} onValueChange={(value) => setFormData({ ...formData, businessType: value })}>
@@ -387,7 +387,7 @@ const ZapeeraDashboard = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="zv3-addr" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="zv3-addr" className="text-sm font-semibold text-[#032125]">
                   Address
                 </Label>
                 <Input
@@ -400,7 +400,7 @@ const ZapeeraDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="zv3-phone" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="zv3-phone" className="text-sm font-semibold text-[#032125]">
                     Phone Number <span className="text-red-600">*</span>
                   </Label>
                   <Input
@@ -414,7 +414,7 @@ const ZapeeraDashboard = () => {
                   {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="zv3-email" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="zv3-email" className="text-sm font-semibold text-[#032125]">
                     Email Address <span className="text-red-600">*</span>
                   </Label>
                   <Input
@@ -432,7 +432,7 @@ const ZapeeraDashboard = () => {
               </div>
             </div>
             <DialogFooter className="gap-3 border-0 px-8 pb-7 pt-0 sm:justify-end">
-              <Button type="button" variant="outline" onClick={handleFormCancel} className="h-11 rounded-[10px] border-[rgba(15,23,60,0.06)] px-7 font-semibold text-[#4a5578] hover:bg-[#f0f2f7] hover:text-[#0a1128]">
+              <Button type="button" variant="outline" onClick={handleFormCancel} className="h-11 rounded-[10px] border-[rgba(3,33,37,0.06)] px-7 font-semibold text-[#354D51] hover:bg-[#EAFDE8] hover:text-[#032125]">
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting} className="h-11 rounded-[10px] border-0 px-7 font-semibold shadow-soft">

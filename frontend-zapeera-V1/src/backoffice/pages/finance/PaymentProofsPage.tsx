@@ -108,7 +108,7 @@ export function PaymentProofsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-none sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by business..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-blue-500/50" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by business..." className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-full outline-none focus:ring-2 focus:ring-spruce-500/50" />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
           <option value="all">All Status</option>
@@ -135,7 +135,7 @@ export function PaymentProofsPage() {
             </tr></thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(proof => (
-                <tr key={proof.id} className="hover:bg-blue-50/30">
+                <tr key={proof.id} className="hover:bg-verdant-100/30">
                   <td className="px-4 py-3.5 text-sm font-medium text-gray-900">{proof.businessName}</td>
                   <td className="px-4 py-3.5 text-sm text-gray-600">{proof.planName}</td>
                   <td className="px-4 py-3.5 text-sm font-medium text-gray-900">PKR {proof.amount.toLocaleString()}</td>
@@ -152,7 +152,7 @@ export function PaymentProofsPage() {
                   </td>
                   <td className="px-4 py-3.5 text-sm text-gray-400">{new Date(proof.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3.5 text-right">
-                    <button onClick={() => setSelected(proof)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Eye className="w-4 h-4" /></button>
+                    <button onClick={() => setSelected(proof)} className="p-1.5 text-gray-400 hover:text-spruce-700 hover:bg-verdant-100 rounded-lg transition"><Eye className="w-4 h-4" /></button>
                   </td>
                 </tr>
               ))}

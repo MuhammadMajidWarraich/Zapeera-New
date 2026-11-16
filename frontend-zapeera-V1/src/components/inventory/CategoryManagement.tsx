@@ -285,7 +285,7 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
                           {category.description || 'No description'}
                         </TableCell>
                         <TableCell>
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-verdant-100 text-spruce-900">
                             {category._count?.products || 0} products
                           </span>
                         </TableCell>
@@ -298,7 +298,7 @@ const CategoryManagement = ({ isOpen, onClose, onCategoryChange }: CategoryManag
                               variant="ghost"
                               size="sm"
                               onClick={() => handleEditClick(category)}
-                              className="text-blue-600 hover:text-blue-700"
+                              className="text-spruce-700 hover:text-spruce-900"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>

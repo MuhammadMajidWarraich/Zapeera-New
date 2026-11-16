@@ -62,7 +62,7 @@ export function BusinessDetailPage() {
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-spruce-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}

@@ -330,12 +330,12 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-spruce-700 to-slate-900 flex relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-spruce-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-spruce-500/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-spruce-700/10 rounded-full blur-3xl" />
       </div>
 
       {/* Success Dialog */}
@@ -362,11 +362,11 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                       A verification link has been sent to <strong>{registeredEmail}</strong>. Please check your inbox (and spam folder) and click the link to activate your account before logging in.
                     </p>
                   </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-blue-800 font-medium mb-2">
+                  <div className="bg-verdant-100 border border-spruce-200 rounded-lg p-4">
+                    <p className="text-spruce-900 font-medium mb-2">
                       Next Step
                     </p>
-                    <p className="text-blue-700 text-sm">
+                    <p className="text-spruce-900 text-sm">
                       Once verified, go to the login page and sign in with your username and password.
                     </p>
                   </div>
@@ -377,7 +377,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
           <div className="mt-4 space-y-2">
             <Button
               onClick={handleSuccessDialogClose}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-spruce-700 hover:bg-spruce-900 text-white"
             >
               Go to Login Page
             </Button>
@@ -411,14 +411,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <User className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                     </div>
                     <input
                       id="signup-name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => handleInputChange("name", e.target.value)}
-                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                         nameError
                           ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20'
                           : 'border-gray-200 focus:bg-white'
@@ -441,14 +441,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <User className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                     </div>
                     <input
                       id="signup-username"
                       type="text"
                       value={formData.username}
                       onChange={(e) => handleInputChange("username", e.target.value)}
-                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                         usernameError
                           ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20'
                           : 'border-gray-200 focus:bg-white'
@@ -471,14 +471,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Mail className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                     </div>
                     <input
                       id="signup-email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
-                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                      className={`w-full pl-12 pr-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                         emailError
                           ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20'
                           : 'border-gray-200 focus:bg-white'
@@ -505,14 +505,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                     </div>
                     <input
                       id="signup-password"
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => handleInputChange("password", e.target.value)}
-                      className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                      className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                         passwordError
                           ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20'
                           : 'border-gray-200 focus:bg-white'
@@ -570,14 +570,14 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Lock className="w-5 h-5 text-gray-400 group-focus-within:text-spruce-500 transition-colors" />
                     </div>
                     <input
                       id="signup-confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                      className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-gray-50/50 ${
+                      className={`w-full pl-12 pr-12 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-spruce-500/20 focus:border-spruce-500 transition-all duration-200 bg-gray-50/50 ${
                         confirmPasswordError
                           ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/20'
                           : 'border-gray-200 focus:bg-white'
@@ -624,7 +624,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform hover:-translate-y-0.5 disabled:hover:translate-y-0"
+                className="bg-gradient-to-r from-spruce-700 to-spruce-500 text-white px-8 py-3 rounded-xl font-semibold hover:from-spruce-900 hover:to-spruce-500 transition-all duration-300 shadow-lg shadow-spruce-500/30 hover:shadow-xl hover:shadow-spruce-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform hover:-translate-y-0.5 disabled:hover:translate-y-0"
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center space-x-2">
@@ -645,7 +645,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
               <button
                 type="button"
                 onClick={() => (onNavigateToLogin ? onNavigateToLogin() : navigate('/login'))}
-                className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                className="font-semibold text-spruce-700 hover:text-spruce-900 transition-colors"
               >
                 Sign in
               </button>
@@ -661,7 +661,7 @@ const AdminSignupForm = ({ onNavigateToLogin }: AdminSignupFormProps) => {
       </div>
 
       {/* Right Side - Welcome (Matching login right side) */}
-      <div className="hidden lg:flex lg:w-2/5 relative items-center justify-center p-8 bg-gradient-to-br from-blue-600 via-cyan-500 to-blue-700 overflow-hidden">
+      <div className="hidden lg:flex lg:w-2/5 relative items-center justify-center p-8 bg-gradient-to-br from-spruce-700 via-spruce-500 to-spruce-700 overflow-hidden">
         <div className="relative z-10 text-center w-full max-w-md">
           {/* Logo */}
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl mb-4 shadow-2xl">

@@ -99,11 +99,11 @@ const formatDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString() 
 const statusBadge = (status: string) => {
   const styles: Record<string, string> = {
     DRAFT: "border-slate-200 bg-slate-50 text-slate-700",
-    SENT: "border-blue-200 bg-blue-50 text-blue-700",
+    SENT: "border-spruce-200 bg-verdant-100 text-spruce-900",
     ACCEPTED: "border-green-200 bg-green-50 text-green-700",
     REJECTED: "border-red-200 bg-red-50 text-red-700",
     EXPIRED: "border-amber-200 bg-amber-50 text-amber-700",
-    CONVERTED: "border-violet-200 bg-violet-50 text-violet-700",
+    CONVERTED: "border-spruce-200 bg-verdant-100 text-spruce-700",
   };
   return <Badge variant="outline" className={styles[status] || styles.DRAFT}>{status}</Badge>;
 };
@@ -707,7 +707,7 @@ const Quotations: React.FC = () => {
               </div>
               {detail.notes && <p className="mt-4 text-sm text-muted-foreground">Notes: {detail.notes}</p>}
               {detail.convertedSaleId && (
-                <p className="mt-4 rounded-md bg-violet-50 px-3 py-2 text-sm text-violet-700">Converted to a sale — sale record {detail.convertedSaleId}.</p>
+                <p className="mt-4 rounded-md bg-verdant-100 px-3 py-2 text-sm text-spruce-700">Converted to a sale — sale record {detail.convertedSaleId}.</p>
               )}
             </CardContent>
           </Card>

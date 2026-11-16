@@ -27,8 +27,8 @@ import { toast } from '@/hooks/use-toast';
 import { getMissingRequiredFields } from '@/lib/required-fields';
 
 const branchModalField = cn(
-  'h-11 w-full rounded-lg border-[1.5px] border-black/[0.08] bg-[#f4f5f7] px-4 text-[15px] text-[#0a1128] transition-colors',
-  'placeholder:text-[#8c95b0]',
+  'h-11 w-full rounded-lg border-[1.5px] border-black/[0.08] bg-[#f4f5f7] px-4 text-[15px] text-[#032125] transition-colors',
+  'placeholder:text-[#437278]',
   'focus-visible:border-[#1b8a5a] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#1b8a5a]/12',
 );
 
@@ -557,29 +557,29 @@ const BranchManagement = () => {
   return (
     <div className="relative min-h-full">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">
               Branch Management
             </h1>
-            <p className="text-sm text-[#8c95b0]">
+            <p className="text-sm text-[#437278]">
               Manage your branches and their details •{' '}
-              <b className="font-semibold text-[#4a5578]">{filteredBranches.length} branches total</b>
+              <b className="font-semibold text-[#354D51]">{filteredBranches.length} branches total</b>
             </p>
           </div>
           <button
             type="button"
             onClick={openCreateDialog}
-            className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+            className="inline-flex shrink-0 items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
           >
             <Plus className="h-[18px] w-[18px] stroke-[2.5]" strokeLinecap="round" />
             Add Branch
@@ -600,29 +600,29 @@ const BranchManagement = () => {
 
         <div className="relative zv3-animate-fadeUp zv3-delay-1 mb-5">
           <Search
-            className="pointer-events-none absolute left-[18px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]"
+            className="pointer-events-none absolute left-[18px] top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#437278]"
             strokeWidth={2}
           />
           <Input
             placeholder="Search branches by name, address, or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-[50px] rounded-2xl border-[1.5px] border-[rgba(15,23,60,0.06)] bg-white pl-12 pr-5 text-[15px] text-[#0a1128] shadow-none transition-all placeholder:text-[#8c95b0] placeholder:font-normal focus-visible:border-[#1a52c5] focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.06)]"
+            className="h-[50px] rounded-2xl border-[1.5px] border-[rgba(3,33,37,0.06)] bg-white pl-12 pr-5 text-[15px] text-[#032125] shadow-none transition-all placeholder:text-[#437278] placeholder:font-normal focus-visible:border-[#0B363B] focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.06)]"
           />
         </div>
 
         <div
-          className="zv3-animate-fadeUp zv3-delay-2 overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]"
+          className="zv3-animate-fadeUp zv3-delay-2 overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]"
         >
           {filteredBranches.length === 0 && !isLoading ? (
             <div className="px-8 py-16 text-center">
-              <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-                <Building2 className="h-6 w-6 text-[#8c95b0]" />
+              <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+                <Building2 className="h-6 w-6 text-[#437278]" />
               </div>
-              <h3 className="mb-2 text-sm font-bold text-[#0a1128]">
+              <h3 className="mb-2 text-sm font-bold text-[#032125]">
                 {searchTerm ? 'No branches found' : 'No branches yet'}
               </h3>
-              <p className="mx-auto mb-6 max-w-md text-sm text-[#8c95b0]">
+              <p className="mx-auto mb-6 max-w-md text-sm text-[#437278]">
                 {searchTerm
                   ? 'No branches match your search criteria. Try adjusting your search terms.'
                   : 'Get started by creating your first branch to manage your business operations.'}
@@ -630,7 +630,7 @@ const BranchManagement = () => {
               {!searchTerm && (
                 <Button
                   onClick={openCreateDialog}
-                  className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                  className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Create First Branch
@@ -642,23 +642,23 @@ const BranchManagement = () => {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                      <th className="px-6 py-4 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                      <th className="px-6 py-4 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Branch Details
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Contact Info
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Manager
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Statistics
                       </th>
-                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Status
                       </th>
-                      <th className="px-6 py-4 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-6 py-4 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Actions
                       </th>
                     </tr>
@@ -667,16 +667,16 @@ const BranchManagement = () => {
                     {paginatedBranches.map((branch) => (
                       <tr
                         key={branch.id}
-                        className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                       >
-                        <td className="px-6 py-[22px] pl-8 align-middle text-sm text-[#4a5578]">
+                        <td className="px-6 py-[22px] pl-8 align-middle text-sm text-[#354D51]">
                           <div className="flex items-center gap-3.5">
-                            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)]">
-                              <Building2 className="h-5 w-5 text-[#1a52c5]" strokeWidth={2} />
+                            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(11,54,59,0.08)] to-[rgba(67,114,120,0.06)]">
+                              <Building2 className="h-5 w-5 text-[#0B363B]" strokeWidth={2} />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-[15px] font-bold text-[#0a1128]">{branch.name}</div>
-                              <div className="text-xs text-[#8c95b0]">
+                              <div className="text-[15px] font-bold text-[#032125]">{branch.name}</div>
+                              <div className="text-xs text-[#437278]">
                                 {branch.company?.name || 'Unknown Business'} • Created{' '}
                                 {new Date(branch.createdAt).toLocaleDateString()}
                               </div>
@@ -685,18 +685,18 @@ const BranchManagement = () => {
                         </td>
                         <td className="px-6 py-[22px] align-middle">
                           <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                            <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                               <span className="max-w-[220px] truncate" title={branch.address}>
                                 {branch.address}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                              <Phone className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                            <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                               <span>{branch.phone}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                              <Mail className="h-3.5 w-3.5 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                            <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                              <Mail className="h-3.5 w-3.5 shrink-0 text-[#437278]" strokeWidth={2} />
                               <span className="max-w-[220px] truncate" title={branch.email}>
                                 {branch.email}
                               </span>
@@ -705,24 +705,24 @@ const BranchManagement = () => {
                         </td>
                         <td className="px-6 py-[22px] align-middle">
                           <div className="flex items-center gap-2.5">
-                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[rgba(26,82,197,0.1)] to-[rgba(40,194,206,0.08)]">
-                              <User className="h-4 w-4 text-[#1a52c5]" strokeWidth={2} />
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[rgba(11,54,59,0.1)] to-[rgba(67,114,120,0.08)]">
+                              <User className="h-4 w-4 text-[#0B363B]" strokeWidth={2} />
                             </div>
                             <div className="min-w-0">
                               <div
                                 className={cn(
-                                  'text-sm font-semibold text-[#0a1128]',
-                                  getManagerName(branch) === 'No Manager' && 'text-[#8c95b0]',
+                                  'text-sm font-semibold text-[#032125]',
+                                  getManagerName(branch) === 'No Manager' && 'text-[#437278]',
                                 )}
                               >
                                 {getManagerName(branch)}
                               </div>
                               {getManagerRole(branch) ? (
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#1a52c5]">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#0B363B]">
                                   {formatManagerRoleLabel(getManagerRole(branch))}
                                 </div>
                               ) : (
-                                <div className="text-[11px] font-medium text-[#8c95b0]">Unassigned</div>
+                                <div className="text-[11px] font-medium text-[#437278]">Unassigned</div>
                               )}
                             </div>
                           </div>
@@ -730,29 +730,29 @@ const BranchManagement = () => {
                         <td className="px-6 py-[22px] align-middle">
                           <div className="flex gap-4">
                             <div className="text-center">
-                              <div className="text-lg font-extrabold tracking-tight text-[#1a52c5]">
+                              <div className="text-lg font-extrabold tracking-tight text-[#0B363B]">
                                 {branch._count?.users ?? 0}
                               </div>
-                              <div className="mt-0.5 text-[11px] font-medium text-[#8c95b0]">Staff</div>
+                              <div className="mt-0.5 text-[11px] font-medium text-[#437278]">Staff</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-lg font-extrabold tracking-tight text-[#1aa8b3]">
+                              <div className="text-lg font-extrabold tracking-tight text-[#437278]">
                                 {branch._count?.products ?? 0}
                               </div>
-                              <div className="mt-0.5 text-[11px] font-medium text-[#8c95b0]">Products</div>
+                              <div className="mt-0.5 text-[11px] font-medium text-[#437278]">Products</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-lg font-extrabold tracking-tight text-[#1f8ac8]">
+                              <div className="text-lg font-extrabold tracking-tight text-[#437278]">
                                 {branch._count?.customers ?? 0}
                               </div>
-                              <div className="mt-0.5 text-[11px] font-medium text-[#8c95b0]">Customers</div>
+                              <div className="mt-0.5 text-[11px] font-medium text-[#437278]">Customers</div>
                             </div>
                             {branch._count?.sales !== undefined && (
                               <div className="text-center">
-                                <div className="text-lg font-extrabold tracking-tight text-[#1a52c5]">
+                                <div className="text-lg font-extrabold tracking-tight text-[#0B363B]">
                                   {branch._count.sales ?? 0}
                                 </div>
-                                <div className="mt-0.5 text-[11px] font-medium text-[#8c95b0]">Sales</div>
+                                <div className="mt-0.5 text-[11px] font-medium text-[#437278]">Sales</div>
                               </div>
                             )}
                           </div>
@@ -763,7 +763,7 @@ const BranchManagement = () => {
                               'inline-flex rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wide',
                               branch.isActive
                                 ? 'border border-green-600/12 bg-[rgba(22,163,74,0.08)] text-green-600'
-                                : 'border border-[rgba(15,23,60,0.08)] bg-black/[0.03] text-[#8c95b0]',
+                                : 'border border-[rgba(3,33,37,0.08)] bg-black/[0.03] text-[#437278]',
                             )}
                           >
                             {branch.isActive ? 'Active' : 'Inactive'}
@@ -775,7 +775,7 @@ const BranchManagement = () => {
                               type="button"
                               title="Edit"
                               onClick={() => openEditDialog(branch)}
-                              className="grid h-9 w-9 place-items-center rounded-[9px] border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-9 w-9 place-items-center rounded-[9px] border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Edit className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -783,7 +783,7 @@ const BranchManagement = () => {
                               type="button"
                               title="Delete"
                               onClick={() => openDeleteDialog(branch)}
-                              className="grid h-9 w-9 place-items-center rounded-[9px] border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                              className="grid h-9 w-9 place-items-center rounded-[9px] border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                             >
                               <Trash2 className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -795,20 +795,20 @@ const BranchManagement = () => {
                 </table>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                 <div className="flex items-center gap-3">
-                  <div className="text-sm text-[#8c95b0]">
+                  <div className="text-sm text-[#437278]">
                     Showing {((safePage - 1) * pageSize) + 1} to {Math.min(safePage * pageSize, filteredBranches.length)} of {filteredBranches.length} branches
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#8c95b0]">Per page:</span>
+                    <span className="text-sm text-[#437278]">Per page:</span>
                     <select
                       value={pageSize}
                       onChange={(e) => {
                         setPageSize(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                      className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                     >
                       <option value={10}>10</option>
                       <option value={20}>20</option>
@@ -823,18 +823,18 @@ const BranchManagement = () => {
                       type="button"
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={safePage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                      className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                     >
                       Previous
                     </button>
-                    <span className="text-sm font-semibold text-[#0a1128]">
+                    <span className="text-sm font-semibold text-[#032125]">
                       Page {safePage} of {totalPages}
                     </span>
                     <button
                       type="button"
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={safePage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                      className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                     >
                       Next
                     </button>
@@ -856,10 +856,10 @@ const BranchManagement = () => {
       >
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-[#032125]">
               Create New Branch
             </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-sm leading-relaxed text-[#437278]">
               Add a new branch to the system. You can assign a manager later after creating users.
             </DialogDescription>
           </DialogHeader>
@@ -871,7 +871,7 @@ const BranchManagement = () => {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="company" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="company" className="text-sm font-semibold text-[#032125]">
                 Business <span className="text-[#dc2626]">*</span>
               </Label>
               <Select value={newBranch.companyId} onValueChange={(value) => setNewBranch({ ...newBranch, companyId: value })}>
@@ -888,7 +888,7 @@ const BranchManagement = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="name" className="text-sm font-semibold text-[#032125]">
                 Branch Name <span className="text-[#dc2626]">*</span>
               </Label>
               <Input
@@ -900,7 +900,7 @@ const BranchManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="address" className="text-sm font-semibold text-[#032125]">
                 Address <span className="text-[#dc2626]">*</span>
               </Label>
               <Input
@@ -913,7 +913,7 @@ const BranchManagement = () => {
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="phone" className="text-sm font-semibold text-[#032125]">
                   Phone <span className="text-[#dc2626]">*</span>
                 </Label>
                 <Input
@@ -925,7 +925,7 @@ const BranchManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="email" className="text-sm font-semibold text-[#032125]">
                   Email <span className="text-[#dc2626]">*</span>
                 </Label>
                 <div className="relative">
@@ -937,17 +937,17 @@ const BranchManagement = () => {
                     placeholder="Enter email address"
                     className={cn(branchModalField, 'pr-11')}
                   />
-                  <ScanLine className="pointer-events-none absolute right-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]" aria-hidden />
+                  <ScanLine className="pointer-events-none absolute right-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#437278]" aria-hidden />
                 </div>
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-3 border-t border-[rgba(15,23,60,0.06)] pt-6 sm:justify-end">
+          <DialogFooter className="gap-3 border-t border-[rgba(3,33,37,0.06)] pt-6 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
-              className="h-11 rounded-lg border-[rgba(15,23,60,0.12)] bg-white px-7 text-sm font-semibold text-[#0a1128] hover:bg-[#f4f5f7]"
+              className="h-11 rounded-lg border-[rgba(3,33,37,0.12)] bg-white px-7 text-sm font-semibold text-[#032125] hover:bg-[#f4f5f7]"
             >
               Cancel
             </Button>
@@ -967,16 +967,16 @@ const BranchManagement = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-[#032125]">
               Edit Branch
             </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-sm leading-relaxed text-[#437278]">
               Update branch information and settings.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-5 py-6">
             <div className="space-y-2">
-              <Label htmlFor="edit-name" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-name" className="text-sm font-semibold text-[#032125]">
                 Branch Name <span className="text-[#dc2626]">*</span>
               </Label>
               <Input
@@ -988,7 +988,7 @@ const BranchManagement = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-address" className="text-sm font-semibold text-[#0a1128]">
+              <Label htmlFor="edit-address" className="text-sm font-semibold text-[#032125]">
                 Address <span className="text-[#dc2626]">*</span>
               </Label>
               <Input
@@ -1001,7 +1001,7 @@ const BranchManagement = () => {
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-phone" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="edit-phone" className="text-sm font-semibold text-[#032125]">
                   Phone <span className="text-[#dc2626]">*</span>
                 </Label>
                 <Input
@@ -1013,7 +1013,7 @@ const BranchManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-email" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="edit-email" className="text-sm font-semibold text-[#032125]">
                   Email <span className="text-[#dc2626]">*</span>
                 </Label>
                 <div className="relative">
@@ -1025,17 +1025,17 @@ const BranchManagement = () => {
                     placeholder="Enter email address"
                     className={cn(branchModalField, 'pr-11')}
                   />
-                  <ScanLine className="pointer-events-none absolute right-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#8c95b0]" aria-hidden />
+                  <ScanLine className="pointer-events-none absolute right-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#437278]" aria-hidden />
                 </div>
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-3 border-t border-[rgba(15,23,60,0.06)] pt-6 sm:justify-end">
+          <DialogFooter className="gap-3 border-t border-[rgba(3,33,37,0.06)] pt-6 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="h-11 rounded-lg border-[rgba(15,23,60,0.12)] bg-white px-7 text-sm font-semibold text-[#0a1128] hover:bg-[#f4f5f7]"
+              className="h-11 rounded-lg border-[rgba(3,33,37,0.12)] bg-white px-7 text-sm font-semibold text-[#032125] hover:bg-[#f4f5f7]"
             >
               Cancel
             </Button>
@@ -1055,20 +1055,20 @@ const BranchManagement = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader className="space-y-2 pr-10 text-left">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-[#0a1128]">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-[#032125]">
               Delete Branch
             </DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed text-[#8c95b0]">
+            <DialogDescription className="text-sm leading-relaxed text-[#437278]">
               Are you sure you want to delete &quot;{deletingBranch?.name}&quot;? This action will deactivate the
               branch and cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-3 border-t border-[rgba(15,23,60,0.06)] pt-6 sm:justify-end">
+          <DialogFooter className="gap-3 border-t border-[rgba(3,33,37,0.06)] pt-6 sm:justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              className="h-11 rounded-lg border-[rgba(15,23,60,0.12)] bg-white px-7 text-sm font-semibold text-[#0a1128] hover:bg-[#f4f5f7]"
+              className="h-11 rounded-lg border-[rgba(3,33,37,0.12)] bg-white px-7 text-sm font-semibold text-[#032125] hover:bg-[#f4f5f7]"
             >
               Cancel
             </Button>

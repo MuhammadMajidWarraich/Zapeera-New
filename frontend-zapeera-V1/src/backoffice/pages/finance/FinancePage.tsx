@@ -21,7 +21,7 @@ export function FinancePage() {
 
   const kpis = [
     { label: 'Monthly Revenue', value: `PKR ${(stats?.totalRevenue || 0).toLocaleString()}`, icon: DollarSign, color: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Active Subscriptions', value: stats?.activeSubscriptions || 0, icon: CreditCard, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Active Subscriptions', value: stats?.activeSubscriptions || 0, icon: CreditCard, color: 'bg-verdant-100 text-spruce-700' },
     { label: 'Trial Subscriptions', value: stats?.trialSubscriptions || 0, icon: Clock, color: 'bg-amber-50 text-amber-600' },
     { label: 'Pending Proofs', value: stats?.pendingPaymentProofs || 0, icon: AlertTriangle, color: 'bg-orange-50 text-orange-600' },
   ];
@@ -33,7 +33,7 @@ export function FinancePage() {
           <h1 className="text-2xl font-bold text-gray-900">Finance Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Revenue overview and subscription billing</p>
         </div>
-        <button onClick={() => navigate('/backoffice/payment-proofs')} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium">
+        <button onClick={() => navigate('/backoffice/payment-proofs')} className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium">
           View Payment Proofs <ArrowUpRight className="w-4 h-4" />
         </button>
       </div>
@@ -59,7 +59,7 @@ export function FinancePage() {
                 <div key={d.date} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-16">{d.date.slice(5)}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full" style={{ width: `${Math.min((d.new / (Math.max(...stats.growthChart.map((g: any) => g.new)) || 1)) * 100, 100)}%` }} />
+                    <div className="bg-gradient-to-r from-spruce-500 to-spruce-500 h-full rounded-full" style={{ width: `${Math.min((d.new / (Math.max(...stats.growthChart.map((g: any) => g.new)) || 1)) * 100, 100)}%` }} />
                   </div>
                   <span className="text-xs font-medium text-gray-600 w-8">{d.new}</span>
                 </div>

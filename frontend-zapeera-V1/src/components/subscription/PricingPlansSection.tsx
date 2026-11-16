@@ -79,7 +79,7 @@ const PricingPlansSection = ({
           {manageMode && onAddPlan && (
             <Button
               onClick={() => onAddPlan()}
-              className="bg-[#1565C0] text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
+              className="bg-[#0B363B] text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Plan
@@ -103,9 +103,9 @@ const PricingPlansSection = ({
               key={plan.id}
               className={`relative flex h-full flex-col rounded-xl bg-white p-6 shadow-sm ${
                 highlighted
-                  ? "border-2 border-[#1565C0] shadow-lg md:-translate-y-2"
+                  ? "border-2 border-[#0B363B] shadow-lg md:-translate-y-2"
                   : "border border-slate-200"
-              } ${isSelected ? "ring-2 ring-blue-200 ring-offset-2" : ""}`}
+              } ${isSelected ? "ring-2 ring-spruce-200 ring-offset-2" : ""}`}
             >
               {isCurrent && (
                 <div className="absolute right-4 top-4 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800">
@@ -113,7 +113,7 @@ const PricingPlansSection = ({
                 </div>
               )}
               {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1565C0] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#0B363B] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
                   {plan.badge}
                 </div>
               )}
@@ -152,8 +152,8 @@ const PricingPlansSection = ({
                   type="button"
                   className={
                     highlighted
-                      ? "w-full rounded-lg bg-[#1565C0] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition-colors hover:bg-blue-700"
-                      : "w-full rounded-lg border border-[#1565C0] px-4 py-2.5 text-sm font-semibold text-[#1565C0] transition-colors hover:bg-blue-50"
+                      ? "w-full rounded-lg bg-[#0B363B] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-spruce-500/20 transition-colors hover:bg-spruce-900"
+                      : "w-full rounded-lg border border-[#0B363B] px-4 py-2.5 text-sm font-semibold text-[#0B363B] transition-colors hover:bg-verdant-100"
                   }
                   onClick={() => onPrimaryAction(plan)}
                 >
@@ -167,7 +167,7 @@ const PricingPlansSection = ({
                     <Button
                       type="button"
                       onClick={() => onEditPlan(plan)}
-                      className="flex-1 bg-[#1565C0] text-white hover:bg-blue-700"
+                      className="flex-1 bg-[#0B363B] text-white hover:bg-spruce-900"
                     >
                       <Edit className="mr-2 h-4 w-4" />
                       Edit

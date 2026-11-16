@@ -438,7 +438,7 @@ const PerformanceTracking = () => {
       case "PAID":
         return "bg-green-100 text-green-800";
       case "APPROVED":
-        return "bg-blue-100 text-blue-800";
+        return "bg-verdant-100 text-spruce-900";
       case "PENDING":
         return "bg-yellow-100 text-yellow-800";
       case "CANCELLED":
@@ -614,7 +614,7 @@ const PerformanceTracking = () => {
                         {stats.totalCommissions}
                       </p>
                     </div>
-                    <BarChart3 className="w-8 h-8 text-blue-600" />
+                    <BarChart3 className="w-8 h-8 text-spruce-700" />
                   </div>
                 </CardContent>
               </Card>

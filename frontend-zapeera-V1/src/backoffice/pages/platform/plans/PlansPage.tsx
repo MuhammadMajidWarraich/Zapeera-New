@@ -190,7 +190,7 @@ export function PlansPage() {
   };
 
   const statusBadge = (status: string) => {
-    const colors: Record<string, string> = { ACTIVE: 'bg-emerald-100 text-emerald-700', TRIAL: 'bg-blue-100 text-blue-700', GRACE: 'bg-amber-100 text-amber-700', EXPIRED: 'bg-red-100 text-red-700', CANCELLED: 'bg-gray-100 text-gray-700', SUSPENDED: 'bg-rose-100 text-rose-700' };
+    const colors: Record<string, string> = { ACTIVE: 'bg-emerald-100 text-emerald-700', TRIAL: 'bg-verdant-100 text-spruce-900', GRACE: 'bg-amber-100 text-amber-700', EXPIRED: 'bg-red-100 text-red-700', CANCELLED: 'bg-gray-100 text-gray-700', SUSPENDED: 'bg-rose-100 text-rose-700' };
     return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${colors[status] || 'bg-gray-100 text-gray-700'}`}>{status}</span>;
   };
 
@@ -217,7 +217,7 @@ export function PlansPage() {
         <div className="flex items-center gap-3">
           <button onClick={fetchData} className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><RefreshCw className="w-4 h-4" /> Refresh</button>
           {activeTab === 'plans' && (
-            <button onClick={openCreateModal} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+            <button onClick={openCreateModal} className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-lg hover:bg-spruce-900 text-sm">
               <Plus className="w-4 h-4" /> New Plan
             </button>
           )}
@@ -226,10 +226,10 @@ export function PlansPage() {
 
       <div className="border-b border-gray-200">
         <div className="flex gap-6">
-          <button onClick={() => setActiveTab('plans')} className={`pb-3 text-sm font-medium border-b-2 transition ${activeTab === 'plans' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('plans')} className={`pb-3 text-sm font-medium border-b-2 transition ${activeTab === 'plans' ? 'text-spruce-700 border-spruce-700' : 'text-gray-500 border-transparent hover:text-gray-700'}`}>
             <Package className="w-4 h-4 inline mr-1.5" />Plans
           </button>
-          <button onClick={() => setActiveTab('subscriptions')} className={`pb-3 text-sm font-medium border-b-2 transition ${activeTab === 'subscriptions' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('subscriptions')} className={`pb-3 text-sm font-medium border-b-2 transition ${activeTab === 'subscriptions' ? 'text-spruce-700 border-spruce-700' : 'text-gray-500 border-transparent hover:text-gray-700'}`}>
             <CreditCard className="w-4 h-4 inline mr-1.5" />Subscriptions
           </button>
         </div>
@@ -242,7 +242,7 @@ export function PlansPage() {
               <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 font-medium">No plans yet</p>
               <p className="text-sm text-gray-400 mt-1">Create your first subscription plan</p>
-              <button onClick={openCreateModal} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"><Plus className="w-4 h-4" /> Create Plan</button>
+              <button onClick={openCreateModal} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-lg hover:bg-spruce-900 text-sm"><Plus className="w-4 h-4" /> Create Plan</button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -256,8 +256,8 @@ export function PlansPage() {
                   <div key={plan.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-5">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="p-2.5 bg-blue-50 rounded-xl">
-                          <Crown className="w-5 h-5 text-blue-600" />
+                        <div className="p-2.5 bg-verdant-100 rounded-xl">
+                          <Crown className="w-5 h-5 text-spruce-700" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -285,7 +285,7 @@ export function PlansPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => openEditModal(plan)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                            className="p-1.5 text-gray-400 hover:text-spruce-700 hover:bg-verdant-100 rounded-lg transition"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -359,7 +359,7 @@ export function PlansPage() {
                         <td className="px-4 py-3 text-gray-500 text-xs">
                           {sub.currentPeriodStart ? `${new Date(sub.currentPeriodStart).toLocaleDateString()} - ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : ''}` : '-'}
                         </td>
-                        <td className="px-4 py-3">{sub.isTrial ? <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Trial ends {sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString() : ''}</span> : <span className="text-xs text-gray-400">-</span>}</td>
+                        <td className="px-4 py-3">{sub.isTrial ? <span className="text-xs text-spruce-700 bg-verdant-100 px-2 py-0.5 rounded-full">Trial ends {sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString() : ''}</span> : <span className="text-xs text-gray-400">-</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -381,19 +381,19 @@ export function PlansPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name</label>
-                  <input value={planForm.name} onChange={e => setPlanForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input value={planForm.name} onChange={e => setPlanForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subtitle</label>
-                  <input value={planForm.subtitle} onChange={e => setPlanForm(p => ({ ...p, subtitle: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input value={planForm.subtitle} onChange={e => setPlanForm(p => ({ ...p, subtitle: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price (PKR)</label>
-                  <input type="number" value={planForm.price} onChange={e => setPlanForm(p => ({ ...p, price: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input type="number" value={planForm.price} onChange={e => setPlanForm(p => ({ ...p, price: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Interval</label>
-                  <select value={planForm.interval} onChange={e => setPlanForm(p => ({ ...p, interval: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <select value={planForm.interval} onChange={e => setPlanForm(p => ({ ...p, interval: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500">
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
                     <option value="weekly">Weekly</option>
@@ -402,29 +402,29 @@ export function PlansPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Badge</label>
-                  <input value={planForm.badge} onChange={e => setPlanForm(p => ({ ...p, badge: e.target.value }))} placeholder="e.g. Popular" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input value={planForm.badge} onChange={e => setPlanForm(p => ({ ...p, badge: e.target.value }))} placeholder="e.g. Popular" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Staff</label>
-                  <input type="number" value={planForm.maxStaffMembers} onChange={e => setPlanForm(p => ({ ...p, maxStaffMembers: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input type="number" value={planForm.maxStaffMembers} onChange={e => setPlanForm(p => ({ ...p, maxStaffMembers: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Branches</label>
-                  <input type="number" value={planForm.maxBranches} onChange={e => setPlanForm(p => ({ ...p, maxBranches: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <input type="number" value={planForm.maxBranches} onChange={e => setPlanForm(p => ({ ...p, maxBranches: Number(e.target.value) }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Features (comma separated)</label>
-                  <textarea value={planForm.features} onChange={e => setPlanForm(p => ({ ...p, features: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                  <textarea value={planForm.features} onChange={e => setPlanForm(p => ({ ...p, features: e.target.value }))} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-spruce-500 focus:border-spruce-500" />
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
-                  <input type="checkbox" checked={planForm.isActive} onChange={e => setPlanForm(p => ({ ...p, isActive: e.target.checked }))} id="planActive" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <input type="checkbox" checked={planForm.isActive} onChange={e => setPlanForm(p => ({ ...p, isActive: e.target.checked }))} id="planActive" className="rounded border-gray-300 text-spruce-700 focus:ring-spruce-500" />
                   <label htmlFor="planActive" className="text-sm text-gray-700">Active</label>
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={handleSave} className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">{editingPlan ? 'Update' : 'Create'}</button>
+              <button onClick={handleSave} className="px-4 py-2 text-sm text-white bg-spruce-700 rounded-lg hover:bg-spruce-900">{editingPlan ? 'Update' : 'Create'}</button>
             </div>
           </div>
         </div>

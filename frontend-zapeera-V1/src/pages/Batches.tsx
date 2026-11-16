@@ -1281,13 +1281,13 @@ const Batches = () => {
   const paginatedBatches = filteredBatches.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
@@ -1322,8 +1322,8 @@ const Batches = () => {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
               <DialogHeader className="space-y-2 pr-10 text-left">
-                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Add new batch</DialogTitle>
-                <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+                <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Add new batch</DialogTitle>
+                <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                   Enter the details for the new product batch.
                 </DialogDescription>
               </DialogHeader>
@@ -1342,7 +1342,7 @@ const Batches = () => {
                   }}
                   className={`px-6 py-3 font-semibold text-sm transition-all duration-200 relative ${
                     batchType === 'medical'
-                      ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
+                      ? 'text-spruce-700 bg-verdant-100 border-b-2 border-spruce-700'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -1364,7 +1364,7 @@ const Batches = () => {
                   }}
                   className={`px-6 py-3 font-semibold text-sm transition-all duration-200 relative ${
                     batchType === 'non-medical'
-                      ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
+                      ? 'text-spruce-700 bg-verdant-100 border-b-2 border-spruce-700'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -1506,12 +1506,12 @@ const Batches = () => {
               <AlertTriangle className="h-5 w-5" strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-bold tracking-tight text-[#0a1128]">
+              <p className="text-[15px] font-bold tracking-tight text-[#032125]">
                 Near expiry {typeLabels.itemNounPluralLower}{" "}
                 <span className="font-extrabold text-amber-700">({nearExpiryBatches.length})</span>
               </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-[#8c95b0]">
-                Some batches expire within <span className="font-semibold text-[#4a5578]">30 days</span>. Review
+              <p className="mt-1.5 text-sm leading-relaxed text-[#437278]">
+                Some batches expire within <span className="font-semibold text-[#354D51]">30 days</span>. Review
                 stock, rotate product, or create a purchase order.
               </p>
             </div>
@@ -1534,40 +1534,40 @@ const Batches = () => {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+        <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[960px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                  <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                  <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Batch no.
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Product
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Supplier
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Stock
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Expire date
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Status
                   </th>
                   {activeTab === "reported" && (
                     <>
-                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Reported by
                       </th>
-                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Reason
                       </th>
                     </>
                   )}
-                  <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                  <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                     Actions
                   </th>
                 </tr>
@@ -1587,39 +1587,39 @@ const Batches = () => {
                   paginatedBatches.map((batch) => {
                     const qty = batch.quantity || 0;
                     const qtyColor =
-                      qty <= 10 ? "text-red-600" : qty <= 50 ? "text-amber-600" : "text-[#0a1128]";
+                      qty <= 10 ? "text-red-600" : qty <= 50 ? "text-amber-600" : "text-[#032125]";
                     return (
                       <tr
                         key={batch.id}
-                        className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                       >
-                        <td className="px-5 py-4 pl-8 align-middle font-mono text-[13px] font-semibold text-[#0a1128]">
+                        <td className="px-5 py-4 pl-8 align-middle font-mono text-[13px] font-semibold text-[#032125]">
                           {batch.batchNo}
                         </td>
                         <td className="px-5 py-4 align-middle">
-                          <div className="font-semibold text-[#0a1128]">{batch.product.name}</div>
-                          <div className="mt-0.5 text-[13px] text-[#8c95b0]">{batch.product.sku}</div>
+                          <div className="font-semibold text-[#032125]">{batch.product.name}</div>
+                          <div className="mt-0.5 text-[13px] text-[#437278]">{batch.product.sku}</div>
                           {batch.variant?.name && (
-                            <div className="mt-0.5 text-[12px] font-medium text-[#1a52c5]">Variant: {batch.variant.name}</div>
+                            <div className="mt-0.5 text-[12px] font-medium text-[#0B363B]">Variant: {batch.variant.name}</div>
                           )}
                         </td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                           {batch.supplierName || "N/A"}
                         </td>
                         <td className="px-5 py-4 align-middle">
                           <div className="flex items-start gap-2.5">
-                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[rgba(26,82,197,0.08)] to-[rgba(40,194,206,0.06)] text-[#1a52c5]">
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[rgba(11,54,59,0.08)] to-[rgba(67,114,120,0.06)] text-[#0B363B]">
                               <Package className="h-4 w-4" strokeWidth={2} />
                             </div>
                             <div className="flex flex-col gap-1">
                               <span className={cn("text-lg font-extrabold leading-none tabular-nums", qtyColor)}>
                                 {qty}
                               </span>
-                              <span className="text-[11px] font-medium uppercase tracking-wide text-[#8c95b0]">
+                              <span className="text-[11px] font-medium uppercase tracking-wide text-[#437278]">
                                 units
                               </span>
                               {isStructured(batch.product) && (
-                                <span className="text-[11px] font-medium normal-case tracking-normal text-[#4a5578]">
+                                <span className="text-[11px] font-medium normal-case tracking-normal text-[#354D51]">
                                   {scopedBreakdown(qty, batch.product)}
                                 </span>
                               )}
@@ -1634,8 +1634,8 @@ const Batches = () => {
                         <td className="px-5 py-4 align-middle">
                           {batch.expireDate ? (
                             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-                              <div className="flex items-center gap-1.5 text-[13px] text-[#4a5578]">
-                                <Calendar className="h-4 w-4 shrink-0 text-[#8c95b0]" strokeWidth={2} />
+                              <div className="flex items-center gap-1.5 text-[13px] text-[#354D51]">
+                                <Calendar className="h-4 w-4 shrink-0 text-[#437278]" strokeWidth={2} />
                                 {safeFormatDate(batch.expireDate, "MMM dd, yyyy")}
                               </div>
                               <div className="flex flex-wrap gap-1.5">
@@ -1652,7 +1652,7 @@ const Batches = () => {
                               </div>
                             </div>
                           ) : (
-                            <span className="text-[13px] text-[#8c95b0]">N/A</span>
+                            <span className="text-[13px] text-[#437278]">N/A</span>
                           )}
                         </td>
                         <td className="px-5 py-4 align-middle">
@@ -1661,7 +1661,7 @@ const Batches = () => {
                               "inline-flex rounded-md px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide",
                               batch.isActive
                                 ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
-                                : "border border-[rgba(15,23,60,0.1)] bg-[#f0f2f7] text-[#4a5578]",
+                                : "border border-[rgba(3,33,37,0.1)] bg-[#EAFDE8] text-[#354D51]",
                             )}
                           >
                             {batch.isActive ? "Active" : "Inactive"}
@@ -1669,7 +1669,7 @@ const Batches = () => {
                         </td>
                         {activeTab === "reported" && (
                           <>
-                            <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                            <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                               {(batch.reportedByName && batch.reportedByName.trim()) ||
                               (batch.reportedBy && batch.reportedBy.trim())
                                 ? batch.reportedByName || batch.reportedBy
@@ -1677,14 +1677,14 @@ const Batches = () => {
                                   ? "Unknown"
                                   : "N/A"}
                             </td>
-                            <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                            <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                               {batch.reportReason && batch.reportReason.trim() ? (
                                 batch.reportReason.length > 50 ? (
                                   <span>
                                     {batch.reportReason.substring(0, 50)}…{" "}
                                     <button
                                       type="button"
-                                      className="text-[13px] font-semibold text-[#1a52c5] underline-offset-2 hover:underline"
+                                      className="text-[13px] font-semibold text-[#0B363B] underline-offset-2 hover:underline"
                                       onClick={() => setViewingReasonBatch(batch)}
                                     >
                                       View
@@ -1694,7 +1694,7 @@ const Batches = () => {
                                   batch.reportReason
                                 )
                               ) : (
-                                <span className="text-[#8c95b0]">N/A</span>
+                                <span className="text-[#437278]">N/A</span>
                               )}
                             </td>
                           </>
@@ -1705,7 +1705,7 @@ const Batches = () => {
                               type="button"
                               onClick={() => handleViewBatch(batch)}
                               title="View details"
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-[#1a52c5]/25 hover:bg-[rgba(26,82,197,0.06)] hover:text-[#1a52c5]"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-[#0B363B]/25 hover:bg-[rgba(11,54,59,0.06)] hover:text-[#0B363B]"
                             >
                               <Eye className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -1713,7 +1713,7 @@ const Batches = () => {
                               type="button"
                               onClick={() => setLabelBatch(batch)}
                               title="Print barcode label"
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-[#1a52c5]/25 hover:bg-[rgba(26,82,197,0.06)] hover:text-[#1a52c5]"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-[#0B363B]/25 hover:bg-[rgba(11,54,59,0.06)] hover:text-[#0B363B]"
                             >
                               <Printer className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -1721,7 +1721,7 @@ const Batches = () => {
                               type="button"
                               onClick={() => handleAddBatchForProduct(batch)}
                               title="Add batch for this product"
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-[#1a52c5]/25 hover:bg-[rgba(26,82,197,0.06)] hover:text-[#1a52c5]"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-[#0B363B]/25 hover:bg-[rgba(11,54,59,0.06)] hover:text-[#0B363B]"
                             >
                               <Plus className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -1730,7 +1730,7 @@ const Batches = () => {
                                 type="button"
                                 onClick={() => handleReportBatch(batch)}
                                 title="Report batch"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-amber-300/60 hover:bg-amber-50 hover:text-amber-800"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-amber-300/60 hover:bg-amber-50 hover:text-amber-800"
                               >
                                 <Flag className="h-4 w-4" strokeWidth={2} />
                               </button>
@@ -1742,7 +1742,7 @@ const Batches = () => {
                                 size="sm"
                                 onClick={() => setViewingReasonBatch(batch)}
                                 title="View report reason"
-                                className="h-8 rounded-[8px] border border-[rgba(15,23,60,0.08)] px-2.5 text-xs font-semibold text-[#1a52c5] hover:bg-[rgba(26,82,197,0.06)]"
+                                className="h-8 rounded-[8px] border border-[rgba(3,33,37,0.08)] px-2.5 text-xs font-semibold text-[#0B363B] hover:bg-[rgba(11,54,59,0.06)]"
                               >
                                 Reason
                               </Button>
@@ -1752,7 +1752,7 @@ const Batches = () => {
                                 type="button"
                                 onClick={() => handleRestoreBatch(batch)}
                                 title="Restore to active"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-emerald-300/60 hover:bg-emerald-50 hover:text-emerald-800"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-emerald-300/60 hover:bg-emerald-50 hover:text-emerald-800"
                               >
                                 <RotateCcw className="h-4 w-4" strokeWidth={2} />
                               </button>
@@ -1761,7 +1761,7 @@ const Batches = () => {
                               type="button"
                               onClick={() => handleDeleteClick(batch)}
                               title="Delete"
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.08)] bg-white text-[#4a5578] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.08)] bg-white text-[#354D51] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
                             >
                               <Trash2 className="h-4 w-4" strokeWidth={2} />
                             </button>
@@ -1775,20 +1775,20 @@ const Batches = () => {
             </table>
           </div>
           {filteredBatches.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
               <div className="flex items-center gap-3">
-                <div className="text-sm text-[#8c95b0]">
+                <div className="text-sm text-[#437278]">
                   Showing {((safePage - 1) * pageSize) + 1} to {Math.min(safePage * pageSize, filteredBatches.length)} of {filteredBatches.length} batches
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-[#8c95b0]">Per page:</span>
+                  <span className="text-sm text-[#437278]">Per page:</span>
                   <select
                     value={pageSize}
                     onChange={(e) => {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                    className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                   >
                     <option value={10}>10</option>
                     <option value={20}>20</option>
@@ -1803,18 +1803,18 @@ const Batches = () => {
                     type="button"
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={safePage === 1}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Previous
                   </button>
-                  <span className="text-sm font-semibold text-[#0a1128]">
+                  <span className="text-sm font-semibold text-[#032125]">
                     Page {safePage} of {totalPages}
                   </span>
                   <button
                     type="button"
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={safePage === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Next
                   </button>
@@ -1843,7 +1843,7 @@ const Batches = () => {
                 onClick={() => setBatchType('medical')}
                 className={`px-6 py-3 font-semibold text-sm transition-all duration-200 relative ${
                   batchType === 'medical'
-                    ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
+                    ? 'text-spruce-700 bg-verdant-100 border-b-2 border-spruce-700'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1857,7 +1857,7 @@ const Batches = () => {
                 onClick={() => setBatchType('non-medical')}
                 className={`px-6 py-3 font-semibold text-sm transition-all duration-200 relative ${
                   batchType === 'non-medical'
-                    ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
+                    ? 'text-spruce-700 bg-verdant-100 border-b-2 border-spruce-700'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -1930,10 +1930,10 @@ const Batches = () => {
                 <div className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium text-gray-500">Stock Information</Label>
-                    <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <div className="mt-2 p-3 bg-verdant-100 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-blue-600" />
-                        <span className="text-2xl font-bold text-blue-600">
+                        <Package className="w-5 h-5 text-spruce-700" />
+                        <span className="text-2xl font-bold text-spruce-700">
                           {viewingBatch.quantity || 0}
                         </span>
                         <span className="text-gray-600">units</span>
@@ -2051,7 +2051,7 @@ const Batches = () => {
                     setViewingBatch(null);
                     handleEdit(viewingBatch);
                   }}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-spruce-700 hover:bg-spruce-900"
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Edit Batch
@@ -2209,7 +2209,7 @@ const Batches = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
-              <Plus className="w-5 h-5 text-[#0c2c8a]" />
+              <Plus className="w-5 h-5 text-[#032125]" />
               <span>Add New {typeLabels.itemNoun}</span>
             </DialogTitle>
             <DialogDescription>
@@ -2439,7 +2439,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
               }}
               placeholder="Select supplier"
               emptyText="No supplier found"
-              className="flex-1 bg-blue-50 border-blue-200 text-blue-900 hover:bg-blue-100 focus:ring-blue-500"
+              className="flex-1 bg-verdant-100 border-spruce-200 text-spruce-900 hover:bg-verdant-100 focus:ring-spruce-500"
             />
             <Button
               type="button"
@@ -2564,7 +2564,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
             }}
             placeholder="Select Shelf"
             emptyText="No shelf found"
-            className="flex-1 bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100 focus:ring-purple-500"
+            className="flex-1 bg-verdant-100 border-spruce-200 text-spruce-900 hover:bg-verdant-100 focus:ring-spruce-500"
           />
           <Button
             type="button"
@@ -2707,7 +2707,7 @@ const BatchForm: React.FC<BatchFormProps> = ({
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" onClick={onSubmit}>
+        <Button className="bg-spruce-700 hover:bg-spruce-900 text-white shadow-md hover:shadow-lg transition-all duration-200" onClick={onSubmit}>
           {(editingBatch ? 'Update' : 'Add') + ' Batch'}
         </Button>
       </div>
@@ -2947,7 +2947,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   <SelectItem
                     key={category.id}
                     value={category.id}
-                    className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                    className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                   >
                     {category.name}
                   </SelectItem>
@@ -2995,7 +2995,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200">
+        <Button type="submit" className="text-white bg-spruce-700 hover:bg-spruce-900 border-spruce-700 shadow-md hover:shadow-lg transition-all duration-200">
           Add Product
         </Button>
       </div>

@@ -42,7 +42,7 @@ export function SidebarUserWidget({ user, onNavigate, onLogout, collapsed = fals
   const [menuOpen, setMenuOpen] = useState(false);
 
   const avatar = (
-    <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-bold text-white">
+    <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-bold text-white">
       {user?.profileImage ? (
         <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
       ) : (
@@ -88,12 +88,12 @@ export function SidebarUserWidget({ user, onNavigate, onLogout, collapsed = fals
           OVER the sidebar, so at z-50 it rendered underneath the
           ZapeeraLayout sidebar — invisible and unclickable, which is why
           the chip looked dead in the installed app. */}
-      <DropdownMenuContent side="top" align="start" className="z-[200] w-[240px] rounded-2xl border border-[rgba(15,23,60,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
-        <DropdownMenuItem onClick={() => onNavigate("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+      <DropdownMenuContent side="top" align="start" className="z-[200] w-[240px] rounded-2xl border border-[rgba(3,33,37,0.06)] p-2 shadow-[0_12px_48px_rgba(0,0,0,0.12)]">
+        <DropdownMenuItem onClick={() => onNavigate("/settings")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#354D51]">
           <User className="h-[18px] w-[18px] opacity-60" />
           Edit Profile
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onNavigate("/zapeera")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+        <DropdownMenuItem onClick={() => onNavigate("/zapeera")} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#354D51]">
           <ArrowLeft className="h-[18px] w-[18px] opacity-60" />
           Back to Dashboard
         </DropdownMenuItem>

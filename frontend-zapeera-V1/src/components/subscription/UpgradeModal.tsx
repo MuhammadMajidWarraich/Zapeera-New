@@ -75,7 +75,7 @@ export function UpgradeModal({ module, moduleName, isOpen, onClose }: UpgradeMod
 
         <div className="bg-gray-50 rounded-lg p-4 mt-4">
           <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-purple-500 mt-0.5" />
+            <Sparkles className="w-5 h-5 text-spruce-500 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-gray-900">Upgrade to unlock</p>
               <p className="text-sm text-gray-500 mt-1">
@@ -95,7 +95,7 @@ export function UpgradeModal({ module, moduleName, isOpen, onClose }: UpgradeMod
           </Button>
           <Button
             onClick={handleUpgrade}
-            className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            className="w-full sm:w-auto bg-gradient-to-r from-spruce-500 to-spruce-500 hover:from-spruce-700 hover:to-spruce-700"
           >
             Upgrade Now
             <ArrowRight className="w-4 h-4 ml-2" />
@@ -106,7 +106,7 @@ export function UpgradeModal({ module, moduleName, isOpen, onClose }: UpgradeMod
           Need a custom plan?{' '}
           <button
             onClick={handleContactSales}
-            className="text-blue-600 hover:underline"
+            className="text-spruce-700 hover:underline"
           >
             Contact sales
           </button>

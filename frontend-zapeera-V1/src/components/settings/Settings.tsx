@@ -55,12 +55,12 @@ function ZV3DeviceStat({
   label: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2.5 rounded-2xl px-4 py-7 transition-colors hover:bg-[#1a52c5]/[0.02]">
+    <div className="flex flex-col items-center gap-2.5 rounded-2xl px-4 py-7 transition-colors hover:bg-[#0B363B]/[0.02]">
       <div className={cn("grid h-12 w-12 place-items-center rounded-[14px]", iconClass)}>
         <Icon className="h-[22px] w-[22px]" strokeWidth={2} />
       </div>
-      <div className="text-center text-[15px] font-bold text-[#0a1128]">{value}</div>
-      <div className="text-center text-xs font-medium text-[#8c95b0]">{label}</div>
+      <div className="text-center text-[15px] font-bold text-[#032125]">{value}</div>
+      <div className="text-center text-xs font-medium text-[#437278]">{label}</div>
     </div>
   );
 }
@@ -91,7 +91,7 @@ const formatBytes = (bytes?: number | null): string | null => {
 };
 
 const ZV3_POS_SWITCH =
-  "h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#1a52c5] data-[state=checked]:to-[#28c2ce] data-[state=checked]:shadow-[0_2px_8px_rgba(26,82,197,0.25)]";
+  "h-6 w-11 shrink-0 border-0 shadow-none data-[state=unchecked]:bg-[#d1d5db] data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#0B363B] data-[state=checked]:to-[#437278] data-[state=checked]:shadow-[0_2px_8px_rgba(11,54,59,0.25)]";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -1446,13 +1446,13 @@ toast({
   // All dashboard users see the same settings
   return (
     <>
-      <div className="min-h-full bg-[#f0f2f7]">
+      <div className="min-h-full bg-[#EAFDE8]">
       <div className="px-11 pb-14 pt-9">
         {/* Page header — zapeera-settings.html */}
         <div className="zv3-settings-block mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Settings</h1>
-            <p className="text-sm text-[#8c95b0]">Manage your business POS configuration</p>
+            <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Settings</h1>
+            <p className="text-sm text-[#437278]">Manage your business POS configuration</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             {/* Sync Now is desktop-only (2026-10-28): on web it calls
@@ -1465,7 +1465,7 @@ toast({
                 type="button"
                 variant="outline"
                 onClick={handleSyncNow}
-                className="h-11 gap-2 rounded-[10px] border border-[rgba(15,23,60,0.06)] bg-white px-[22px] text-sm font-semibold text-[#4a5578] shadow-none transition-all hover:border-black/10 hover:bg-white hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                className="h-11 gap-2 rounded-[10px] border border-[rgba(3,33,37,0.06)] bg-white px-[22px] text-sm font-semibold text-[#354D51] shadow-none transition-all hover:border-black/10 hover:bg-white hover:text-[#032125] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
               >
                 <RefreshCw className="h-[17px] w-[17px]" strokeWidth={2} />
                 Sync Now
@@ -1476,7 +1476,7 @@ toast({
               onClick={handleSaveSettings}
               data-shortcut-save
               title="Save (Ctrl+S)"
-              className="h-11 gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(26,82,197,0.35)]"
+              className="h-11 gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-px hover:shadow-[0_6px_24px_rgba(11,54,59,0.35)]"
             >
               <Save className="h-[17px] w-[17px]" strokeWidth={2} />
               Save Changes
@@ -1486,12 +1486,12 @@ toast({
 
         {/* Device Status */}
         <section
-          className="zv3-settings-block mb-[22px] overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block mb-[22px] overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "0ms" }}
         >
-          <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Monitor className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Monitor className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               Device Status
             </div>
           </div>
@@ -1526,14 +1526,14 @@ toast({
             )}
             <ZV3DeviceStat
               icon={RefreshCw}
-              iconClass="bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]"
+              iconClass="bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]"
               value={deviceStatus.lastSync}
               label="Last Sync"
             />
             {deviceStatus.storage && (
               <ZV3DeviceStat
                 icon={HardDrive}
-                iconClass="bg-indigo-500/10 text-indigo-600"
+                iconClass="bg-spruce-500/10 text-spruce-700"
                 value={deviceStatus.storage}
                 label="Storage (this device)"
               />
@@ -1555,18 +1555,18 @@ toast({
 
         {/* User Profile */}
         <section
-          className="zv3-settings-block mb-[22px] overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block mb-[22px] overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "80ms" }}
         >
-          <div className="flex items-center justify-between border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <User className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex items-center justify-between border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <User className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               User Profile
             </div>
             <button
               type="button"
               onClick={() => setIsEditingProfile(!isEditingProfile)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#4a5578] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#354D51] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
             >
               <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
               {isEditingProfile ? "Cancel" : "Edit"}
@@ -1575,11 +1575,11 @@ toast({
           <div className="px-[30px] py-[30px]">
             <div className="mb-6 flex flex-wrap items-center gap-5">
               <div className="relative shrink-0">
-                <div className="relative h-16 w-16 overflow-hidden rounded-[18px] shadow-[0_4px_16px_rgba(26,82,197,0.25)]">
+                <div className="relative h-16 w-16 overflow-hidden rounded-[18px] shadow-[0_4px_16px_rgba(11,54,59,0.25)]">
                   {user?.profileImage ? (
                     <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-2xl font-extrabold text-white">
+                    <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#0B363B] to-[#437278] text-2xl font-extrabold text-white">
                       {(settings.user.name?.charAt(0) || "?").toUpperCase()}
                     </div>
                   )}
@@ -1590,7 +1590,7 @@ toast({
                 />
                 <Button
                   size="icon"
-                  className="absolute -right-1 -top-1 h-7 w-7 rounded-full border-2 border-white bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] p-0 text-white shadow-md hover:opacity-95"
+                  className="absolute -right-1 -top-1 h-7 w-7 rounded-full border-2 border-white bg-gradient-to-br from-[#0B363B] to-[#437278] p-0 text-white shadow-md hover:opacity-95"
                   onClick={handleUpdateProfilePicture}
                   title="Change profile photo"
                 >
@@ -1599,32 +1599,32 @@ toast({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex flex-wrap items-center gap-2.5">
-                  <span className="text-lg font-bold text-[#0a1128]">{settings.user.name}</span>
-                  <span className="inline-flex rounded-md border border-[rgba(26,82,197,0.1)] bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#1a52c5]">
+                  <span className="text-lg font-bold text-[#032125]">{settings.user.name}</span>
+                  <span className="inline-flex rounded-md border border-[rgba(11,54,59,0.1)] bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#0B363B]">
                     {settings.user.role}
                   </span>
                 </div>
                 {settings.user.deviceId ? (
-                  <p className="text-[13px] text-[#8c95b0]">Device: {settings.user.deviceId}</p>
+                  <p className="text-[13px] text-[#437278]">Device: {settings.user.deviceId}</p>
                 ) : null}
               </div>
             </div>
 
             {isEditingProfile && (
-              <div className="mb-6 space-y-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f0f2f7]/60 p-5">
+              <div className="mb-6 space-y-4 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-[#EAFDE8]/60 p-5">
                 <div className="space-y-2">
-                  <Label htmlFor="user-name" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="user-name" className="text-sm font-semibold text-[#032125]">
                     Full Name
                   </Label>
                   <Input
                     id="user-name"
                     value={settings.user.name}
                     onChange={(e) => handleSettingChange("user", "name", e.target.value)}
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-[#0a1128] transition-all focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-[#032125] transition-all focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="user-email" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="user-email" className="text-sm font-semibold text-[#032125]">
                     Email
                   </Label>
                   <Input
@@ -1632,14 +1632,14 @@ toast({
                     type="email"
                     value={settings.user.email || ""}
                     onChange={(e) => handleSettingChange("user", "email", e.target.value)}
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-[#0a1128] transition-all focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-[#032125] transition-all focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     onClick={handleUpdateProfile}
-                    className="flex-1 gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px hover:opacity-95"
+                    className="flex-1 gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px hover:opacity-95"
                   >
                     <Save className="h-4 w-4" />
                     Save Changes
@@ -1648,7 +1648,7 @@ toast({
                     type="button"
                     variant="outline"
                     onClick={() => setIsEditingProfile(false)}
-                    className="gap-2 rounded-[10px] border-[rgba(15,23,60,0.06)]"
+                    className="gap-2 rounded-[10px] border-[rgba(3,33,37,0.06)]"
                   >
                     <X className="h-4 w-4" />
                     Cancel
@@ -1657,39 +1657,39 @@ toast({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-10 border-t border-[rgba(15,23,60,0.06)] pt-5">
+            <div className="flex flex-wrap gap-10 border-t border-[rgba(3,33,37,0.06)] pt-5">
               {settings.user.lastLogin ? (
                 <div>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Last Login</div>
-                  <div className="text-sm font-semibold text-[#0a1128]">{settings.user.lastLogin}</div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#437278]">Last Login</div>
+                  <div className="text-sm font-semibold text-[#032125]">{settings.user.lastLogin}</div>
                 </div>
               ) : null}
               {userProfile.branchName ? (
                 <div>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#8c95b0]">Branch</div>
-                  <div className="text-sm font-semibold text-[#0a1128]">{userProfile.branchName}</div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#437278]">Branch</div>
+                  <div className="text-sm font-semibold text-[#032125]">{userProfile.branchName}</div>
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-5 flex flex-col gap-4 border-t border-[rgba(15,23,60,0.06)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-5 flex flex-col gap-4 border-t border-[rgba(3,33,37,0.06)] pt-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h4 className="text-sm font-bold text-[#0a1128]">Change Password</h4>
-                <p className="text-[13px] text-[#8c95b0]">Update your account password</p>
+                <h4 className="text-sm font-bold text-[#032125]">Change Password</h4>
+                <p className="text-[13px] text-[#437278]">Update your account password</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsChangingPassword(!isChangingPassword)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-5 py-2 text-[13px] font-semibold text-[#4a5578] transition-all hover:border-black/10 hover:text-[#0a1128] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-5 py-2 text-[13px] font-semibold text-[#354D51] transition-all hover:border-black/10 hover:text-[#032125] hover:shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
               >
                 {isChangingPassword ? "Cancel" : "Change"}
               </button>
             </div>
 
             {isChangingPassword && (
-              <div className="mt-5 space-y-4 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-[#f0f2f7]/60 p-5">
+              <div className="mt-5 space-y-4 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-[#EAFDE8]/60 p-5">
                 <div className="space-y-2">
-                  <Label htmlFor="current-password" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="current-password" className="text-sm font-semibold text-[#032125]">
                     Current Password
                   </Label>
                   <Input
@@ -1698,11 +1698,11 @@ toast({
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter current password"
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="new-password" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="new-password" className="text-sm font-semibold text-[#032125]">
                     New Password
                   </Label>
                   <Input
@@ -1711,11 +1711,11 @@ toast({
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-sm font-semibold text-[#0a1128]">
+                  <Label htmlFor="confirm-password" className="text-sm font-semibold text-[#032125]">
                     Confirm New Password
                   </Label>
                   <Input
@@ -1724,13 +1724,13 @@ toast({
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 <Button
                   type="button"
                   onClick={handleChangePassword}
-                  className="w-full gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  className="w-full gap-2 rounded-[10px] border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                 >
                   <Save className="h-4 w-4" />
                   Update Password
@@ -1742,12 +1742,12 @@ toast({
 
         {/* POS Configuration */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "160ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <SettingsIcon className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <SettingsIcon className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               POS Configuration
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1755,7 +1755,7 @@ toast({
                 <button
                   type="button"
                   onClick={handlePOSEdit}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#4a5578] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent px-4 py-1.5 text-[13px] font-semibold text-[#354D51] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
                 >
                   <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                   Edit
@@ -1765,12 +1765,12 @@ toast({
                   <Button
                     type="button"
                     onClick={handlePOSSave}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                   >
                     <Save className="h-4 w-4" />
                     Save
                   </Button>
-                  <Button type="button" onClick={handlePOSCancel} variant="outline" className="rounded-lg border-[rgba(15,23,60,0.06)]">
+                  <Button type="button" onClick={handlePOSCancel} variant="outline" className="rounded-lg border-[rgba(3,33,37,0.06)]">
                     <X className="mr-1 h-4 w-4" />
                     Cancel
                   </Button>
@@ -1779,10 +1779,10 @@ toast({
             </div>
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px] first:pt-0">
+            <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px] first:pt-0">
               <div>
-                <h4 className="text-sm font-bold text-[#0a1128]">Auto Sync</h4>
-                <p className="text-[13px] text-[#8c95b0]">Automatically sync when online</p>
+                <h4 className="text-sm font-bold text-[#032125]">Auto Sync</h4>
+                <p className="text-[13px] text-[#437278]">Automatically sync when online</p>
               </div>
               <Switch
                 id="auto-sync"
@@ -1792,10 +1792,10 @@ toast({
                 disabled={!isEditingPOS}
               />
             </div>
-            <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+            <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
               <div>
-                <h4 className="text-sm font-bold text-[#0a1128]">Offline Mode</h4>
-                <p className="text-[13px] text-[#8c95b0]">Allow operations without internet</p>
+                <h4 className="text-sm font-bold text-[#032125]">Offline Mode</h4>
+                <p className="text-[13px] text-[#437278]">Allow operations without internet</p>
               </div>
               <Switch
                 id="offline-mode"
@@ -1806,10 +1806,10 @@ toast({
               />
             </div>
             {isBarcodeApplicableBusinessType((selectedCompany as any)?.businessType) && (
-              <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+              <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
                 <div>
-                  <h4 className="text-sm font-bold text-[#0a1128]">Barcode Scanning</h4>
-                  <p className="text-[13px] text-[#8c95b0]">
+                  <h4 className="text-sm font-bold text-[#032125]">Barcode Scanning</h4>
+                  <p className="text-[13px] text-[#437278]">
                     USB/Bluetooth scanner and camera scanning at the POS — scanned products are added to the sale automatically
                   </p>
                 </div>
@@ -1822,8 +1822,8 @@ toast({
                 />
               </div>
             )}
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px] last:border-b-0">
-              <Label htmlFor="receipt-printer" className="mb-2 block text-sm font-bold text-[#0a1128]">
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px] last:border-b-0">
+              <Label htmlFor="receipt-printer" className="mb-2 block text-sm font-bold text-[#032125]">
                 Receipt Printer
               </Label>
               <Input
@@ -1831,11 +1831,11 @@ toast({
                 value={settings.pos.receiptPrinter}
                 onChange={(e) => handleSettingChange("pos", "receiptPrinter", e.target.value)}
                 disabled={!isEditingPOS}
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
             </div>
             <div className="py-[18px]">
-              <Label htmlFor="default-tax" className="mb-2 block text-sm font-bold text-[#0a1128]">
+              <Label htmlFor="default-tax" className="mb-2 block text-sm font-bold text-[#032125]">
                 Default Tax (%) — fallback rate
               </Label>
               <Input
@@ -1845,16 +1845,16 @@ toast({
                 onChange={(e) => handleSettingChange("pos", "defaultTax", parseFloat(e.target.value) || 0)}
                 disabled={!isEditingPOS}
                 placeholder="Enter tax percentage (e.g., 17 for 17%)"
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
-              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                 The fallback tax rate for products without a tax class. Products assigned a tax class
                 (Sales → Tax Classes) use their class rate instead; a product with no class uses the
                 default class when one is set, otherwise this rate. Set to 0 for no tax.
               </p>
             </div>
-            <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="loyalty-point-value" className="mb-2 block text-sm font-bold text-[#0a1128]">
+            <div className="border-t border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="loyalty-point-value" className="mb-2 block text-sm font-bold text-[#032125]">
                 Loyalty Point Value (PKR)
               </Label>
               <Input
@@ -1866,9 +1866,9 @@ toast({
                 onChange={(e) => handleSettingChange("pos", "loyaltyPointValue", parseFloat(e.target.value) || 0)}
                 disabled={!isEditingPOS}
                 placeholder="PKR value of one loyalty point (e.g., 1)"
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
-              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                 What one loyalty point is worth when a customer redeems points at the POS. Customers earn 1 point per PKR 100 spent.
               </p>
             </div>
@@ -1876,8 +1876,8 @@ toast({
                 every other business type the setting is meaningless, and the server
                 now ignores an explicit ON for non-pharmacy too. */}
             {(selectedCompany as any)?.businessType === 'PHARMACY' && (
-            <div className="border-t border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="require-prescription-pos" className="mb-2 block text-sm font-bold text-[#0a1128]">
+            <div className="border-t border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="require-prescription-pos" className="mb-2 block text-sm font-bold text-[#032125]">
                 Prescription Required at POS
               </Label>
               <Select
@@ -1885,7 +1885,7 @@ toast({
                 onValueChange={(value) => handleSettingChange("pos", "requirePrescriptionAtPos", value)}
                 disabled={!isEditingPOS}
               >
-                <SelectTrigger id="require-prescription-pos" className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white">
+                <SelectTrigger id="require-prescription-pos" className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1894,7 +1894,7 @@ toast({
                   <SelectItem value="off">Never require</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                 When a cart contains prescription-only medicines, must a prescription from the register be attached before the sale can complete?
                 Automatic: required for pharmacy businesses, off for other business types. When it is off, Rx items can be sold without a
                 record — the cashier sees a warning instead.
@@ -1906,22 +1906,22 @@ toast({
 
         {/* FBR POS (Wave B7) */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "200ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               FBR POS — Fiscal Invoicing
             </div>
             {fbrCounts && (
-              <div className="text-xs font-medium text-[#8c95b0]">
+              <div className="text-xs font-medium text-[#437278]">
                 Queue: {fbrCounts.PENDING || 0} pending · {fbrCounts.SENT || 0} sent · {fbrCounts.TEST || 0} test · {fbrCounts.FAILED || 0} failed
               </div>
             )}
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+            <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
               When enabled, every sale is posted to FBR's POS invoicing system and the receipt carries the
               FBR invoice number and its QR code. Posting happens in the background — if FBR is unreachable,
               sales continue and invoices sync later. Use TEST mode to see the full flow with simulated
@@ -1937,14 +1937,14 @@ toast({
               </p>
             )}
             {!canManageFbr && (
-              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+              <p className="mb-[18px] rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                 Only the owner or a manager can change FBR settings.
               </p>
             )}
-            <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px] first:pt-0">
+            <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px] first:pt-0">
               <div>
-                <h4 className="text-sm font-bold text-[#0a1128]">Enable FBR POS</h4>
-                <p className="text-[13px] text-[#8c95b0]">Post every new sale to FBR and print the fiscal number + QR on receipts</p>
+                <h4 className="text-sm font-bold text-[#032125]">Enable FBR POS</h4>
+                <p className="text-[13px] text-[#437278]">Post every new sale to FBR and print the fiscal number + QR on receipts</p>
               </div>
               <Switch
                 id="fbr-enabled"
@@ -1954,36 +1954,36 @@ toast({
                 disabled={!canManageFbr || isDesktopApp}
               />
             </div>
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="fbr-environment" className="mb-2 block text-sm font-bold text-[#0a1128]">Environment</Label>
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="fbr-environment" className="mb-2 block text-sm font-bold text-[#032125]">Environment</Label>
               <select
                 id="fbr-environment"
                 value={fbrConfig.environment}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, environment: e.target.value as "TEST" | "SANDBOX" | "PRODUCTION" })}
                 disabled={!canManageFbr || isDesktopApp}
-                className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               >
                 <option value="TEST">TEST — simulated numbers, nothing sent to FBR</option>
                 <option value="SANDBOX">SANDBOX — FBR test system</option>
                 <option value="PRODUCTION">PRODUCTION — live FBR reporting</option>
               </select>
-              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                 Start with TEST. Move to SANDBOX with the test POS ID/token FBR gives you, then PRODUCTION when FBR approves go-live.
               </p>
             </div>
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="fbr-pos-id" className="mb-2 block text-sm font-bold text-[#0a1128]">POS ID</Label>
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="fbr-pos-id" className="mb-2 block text-sm font-bold text-[#032125]">POS ID</Label>
               <Input
                 id="fbr-pos-id"
                 value={fbrConfig.posId}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, posId: e.target.value })}
                 disabled={!canManageFbr || isDesktopApp}
                 placeholder="The POS ID FBR issued for this till"
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
             </div>
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="fbr-token" className="mb-2 block text-sm font-bold text-[#0a1128]">API Token</Label>
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="fbr-token" className="mb-2 block text-sm font-bold text-[#032125]">API Token</Label>
               <Input
                 id="fbr-token"
                 type="password"
@@ -1992,9 +1992,9 @@ toast({
                 onChange={(e) => { setFbrTokenInput(e.target.value); setFbrClearToken(false); }}
                 disabled={!canManageFbr || isDesktopApp}
                 placeholder={fbrConfig.hasToken && !fbrClearToken ? "•••••••••• (saved — type to replace)" : "Bearer token issued with the POS ID"}
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
-              <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                 Write-only: the token is never shown again after saving and is never printed in logs.
                 {fbrConfig.hasToken && !fbrClearToken && (
                   <button type="button" onClick={() => { setFbrClearToken(true); setFbrTokenInput(""); }} className="ml-2 font-semibold text-red-600 hover:underline">
@@ -2004,26 +2004,26 @@ toast({
                 {fbrClearToken && <span className="ml-2 font-semibold text-red-600">The saved token will be removed on Save.</span>}
               </p>
             </div>
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="fbr-seller-name" className="mb-2 block text-sm font-bold text-[#0a1128]">Registered Business Name (optional)</Label>
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="fbr-seller-name" className="mb-2 block text-sm font-bold text-[#032125]">Registered Business Name (optional)</Label>
               <Input
                 id="fbr-seller-name"
                 value={fbrConfig.sellerName}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, sellerName: e.target.value })}
                 disabled={!canManageFbr || isDesktopApp}
                 placeholder="Trade name exactly as registered with FBR"
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
             </div>
-            <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-              <Label htmlFor="fbr-seller-strn" className="mb-2 block text-sm font-bold text-[#0a1128]">STRN (optional)</Label>
+            <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+              <Label htmlFor="fbr-seller-strn" className="mb-2 block text-sm font-bold text-[#032125]">STRN (optional)</Label>
               <Input
                 id="fbr-seller-strn"
                 value={fbrConfig.sellerStrn}
                 onChange={(e) => setFbrConfig({ ...fbrConfig, sellerStrn: e.target.value })}
                 disabled={!canManageFbr || isDesktopApp}
                 placeholder="Sales Tax Registration Number"
-                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
               />
             </div>
             {fbrTestResult && (
@@ -2037,7 +2037,7 @@ toast({
                   type="button"
                   onClick={handleFbrSave}
                   disabled={isSavingFbr || isDesktopApp}
-                  className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                  className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                 >
                   <Save className="h-4 w-4" />
                   {isSavingFbr ? "Saving…" : "Save FBR Settings"}
@@ -2047,13 +2047,13 @@ toast({
                   onClick={handleFbrTest}
                   disabled={isTestingFbr || isDesktopApp}
                   variant="outline"
-                  className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                  className="rounded-lg border-[rgba(3,33,37,0.06)] text-sm font-semibold"
                 >
                   {isTestingFbr ? "Testing…" : "Test Connection"}
                 </Button>
               </div>
             )}
-            <p className="pt-3 text-xs leading-relaxed text-[#8c95b0]">
+            <p className="pt-3 text-xs leading-relaxed text-[#437278]">
               The connection test never posts an invoice — in TEST mode it only checks this configuration;
               in SANDBOX/PRODUCTION it checks the FBR endpoint is reachable.
             </p>
@@ -2061,37 +2061,37 @@ toast({
         </section>
         {/* Provincial Tax — PRA / SRB / KPRA / BRA (Gap item 1) */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "225ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               Provincial Tax — PRA / SRB / KPRA / BRA
             </div>
-            <div className="text-xs font-medium text-[#8c95b0]">Owner only</div>
+            <div className="text-xs font-medium text-[#437278]">Owner only</div>
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+            <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
               Provincial sales tax on services, charged on each invoice alongside FBR — on the same
               post-discount amount, but as its own line (never inside the FBR tax and never sent to
               FBR). Pick the authority for your province; a branch in another province can have its
               own row. With nothing configured here, invoices are exactly as they are today.
             </p>
             {!isProvTaxOwner && (
-              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+              <p className="mb-[18px] rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                 Only the business owner can change provincial tax settings.
               </p>
             )}
             {isProvTaxOwner && (
               <>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="prov-tax-authority" className="mb-2 block text-sm font-bold text-[#0a1128]">Provincial Authority</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-authority" className="mb-2 block text-sm font-bold text-[#032125]">Provincial Authority</Label>
                   <select
                     id="prov-tax-authority"
                     value={provTaxForm.authority}
                     onChange={(e) => setProvTaxForm({ ...provTaxForm, authority: e.target.value as ProvincialAuthority })}
-                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   >
                     {(provTaxAuthorities.length > 0 ? provTaxAuthorities : [
                       { authority: "PRA" as ProvincialAuthority, name: "Punjab Revenue Authority", province: "Punjab" },
@@ -2103,18 +2103,18 @@ toast({
                     ))}
                   </select>
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="prov-tax-reg" className="mb-2 block text-sm font-bold text-[#0a1128]">Registration Number (optional)</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-reg" className="mb-2 block text-sm font-bold text-[#032125]">Registration Number (optional)</Label>
                   <Input
                     id="prov-tax-reg"
                     value={provTaxForm.registrationNumber}
                     onChange={(e) => setProvTaxForm({ ...provTaxForm, registrationNumber: e.target.value })}
                     placeholder="e.g. the PRA / SRB registration number printed on invoices"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="prov-tax-rate" className="mb-2 block text-sm font-bold text-[#0a1128]">Rate (%)</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-rate" className="mb-2 block text-sm font-bold text-[#032125]">Rate (%)</Label>
                   <Input
                     id="prov-tax-rate"
                     type="number"
@@ -2124,30 +2124,30 @@ toast({
                     value={provTaxForm.rate}
                     onChange={(e) => setProvTaxForm({ ...provTaxForm, rate: e.target.value })}
                     placeholder="e.g. 5"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="prov-tax-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="prov-tax-branch" className="mb-2 block text-sm font-bold text-[#032125]">Applies To</Label>
                   <select
                     id="prov-tax-branch"
                     value={provTaxForm.branchId}
                     onChange={(e) => setProvTaxForm({ ...provTaxForm, branchId: e.target.value })}
-                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   >
                     <option value="">All branches (business-wide)</option>
                     {provTaxBranches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name} only</option>
                     ))}
                   </select>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                     A branch row overrides the business-wide row for that branch&apos;s sales.
                   </p>
                 </div>
-                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
                   <div>
-                    <h4 className="text-sm font-bold text-[#0a1128]">Enabled</h4>
-                    <p className="text-[13px] text-[#8c95b0]">Charge this provincial tax on new sales</p>
+                    <h4 className="text-sm font-bold text-[#032125]">Enabled</h4>
+                    <p className="text-[13px] text-[#437278]">Charge this provincial tax on new sales</p>
                   </div>
                   <Switch
                     id="prov-tax-enabled"
@@ -2161,7 +2161,7 @@ toast({
                     type="button"
                     onClick={handleProvTaxSave}
                     disabled={isSavingProvTax}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                   >
                     <Save className="h-4 w-4" />
                     {isSavingProvTax ? "Saving…" : provTaxEditingId ? "Update Provincial Tax" : "Save Provincial Tax"}
@@ -2171,7 +2171,7 @@ toast({
                       type="button"
                       variant="outline"
                       onClick={() => { setProvTaxEditingId(null); setProvTaxForm({ authority: "PRA", registrationNumber: "", rate: "", branchId: "", enabled: true }); }}
-                      className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                      className="rounded-lg border-[rgba(3,33,37,0.06)] text-sm font-semibold"
                     >
                       Cancel Edit
                     </Button>
@@ -2181,18 +2181,18 @@ toast({
             )}
             {provTaxConfigs.length > 0 && (
               <div className="pt-[22px]">
-                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                <h4 className="pb-2 text-sm font-bold text-[#032125]">Configured</h4>
                 {provTaxConfigs.map((cfg) => (
-                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(3,33,37,0.06)] py-3 first:border-t-0">
                     <div className="text-[13px] leading-relaxed">
-                      <span className="font-bold text-[#0a1128]">{cfg.authorityName} ({cfg.authority}) — {Number(cfg.rate)}%</span>
-                      <span className="text-[#8c95b0]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
-                      {cfg.registrationNumber && <span className="text-[#8c95b0]"> · Reg: {cfg.registrationNumber}</span>}
+                      <span className="font-bold text-[#032125]">{cfg.authorityName} ({cfg.authority}) — {Number(cfg.rate)}%</span>
+                      <span className="text-[#437278]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
+                      {cfg.registrationNumber && <span className="text-[#437278]"> · Reg: {cfg.registrationNumber}</span>}
                       {!cfg.enabled && <span className="ml-2 font-semibold text-red-600">Disabled</span>}
                     </div>
                     {isProvTaxOwner && (
                       <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => handleProvTaxEdit(cfg)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        <Button type="button" variant="outline" onClick={() => handleProvTaxEdit(cfg)} className="h-8 rounded-lg border-[rgba(3,33,37,0.06)] px-3 text-xs font-semibold">Edit</Button>
                         {cfg.enabled && (
                           <Button type="button" variant="outline" onClick={() => handleProvTaxRetire(cfg)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Retire</Button>
                         )}
@@ -2203,7 +2203,7 @@ toast({
               </div>
             )}
             {provTaxConfigs.length === 0 && (
-              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+              <p className="pt-[18px] text-xs leading-relaxed text-[#437278]">
                 No provincial tax configured — invoices charge FBR/general tax only, as today.
               </p>
             )}
@@ -2211,86 +2211,86 @@ toast({
         </section>
         {/* Receipt Templates (v1.0.22) */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "235ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Receipt className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Receipt className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               Receipt Templates
             </div>
-            <div className="text-xs font-medium text-[#8c95b0]">Owner / Manager</div>
+            <div className="text-xs font-medium text-[#437278]">Owner / Manager</div>
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+            <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
               Shape how printed receipts look — a custom header line, a logo, and which blocks
               show. A branch template wins over the business-wide default. The ownership footer
               line stays on every receipt no matter what is set here; the footer note below is
               an extra line above it.
             </p>
             {!canManageReceiptSettings && (
-              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+              <p className="mb-[18px] rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                 Only the business owner or a manager can change receipt templates.
               </p>
             )}
             {canManageReceiptSettings && (
               <>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="receipt-template-name" className="mb-2 block text-sm font-bold text-[#0a1128]">Template name</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-name" className="mb-2 block text-sm font-bold text-[#032125]">Template name</Label>
                   <Input
                     id="receipt-template-name"
                     value={receiptTemplateForm.name}
                     onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, name: e.target.value })}
                     placeholder="e.g. Default"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="receipt-template-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-branch" className="mb-2 block text-sm font-bold text-[#032125]">Applies To</Label>
                   <select
                     id="receipt-template-branch"
                     value={receiptTemplateForm.branchId}
                     onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, branchId: e.target.value })}
-                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   >
                     <option value="">All branches (business-wide)</option>
                     {provTaxBranches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name} only</option>
                     ))}
                   </select>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                     A branch template overrides the business-wide template for that branch&apos;s receipts.
                   </p>
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="receipt-template-header" className="mb-2 block text-sm font-bold text-[#0a1128]">Header text (optional)</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-header" className="mb-2 block text-sm font-bold text-[#032125]">Header text (optional)</Label>
                   <Input
                     id="receipt-template-header"
                     value={receiptTemplateForm.headerText}
                     onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, headerText: e.target.value })}
                     placeholder="e.g. Thank you for shopping with us"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="receipt-template-logo" className="mb-2 block text-sm font-bold text-[#0a1128]">Logo URL (optional)</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-logo" className="mb-2 block text-sm font-bold text-[#032125]">Logo URL (optional)</Label>
                   <Input
                     id="receipt-template-logo"
                     value={receiptTemplateForm.logoUrl}
                     onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, logoUrl: e.target.value })}
                     placeholder="https://…/logo.png"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">The logo prints only when a URL is set and the logo toggle below is on.</p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">The logo prints only when a URL is set and the logo toggle below is on.</p>
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="receipt-template-footer" className="mb-2 block text-sm font-bold text-[#0a1128]">Footer note (optional)</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="receipt-template-footer" className="mb-2 block text-sm font-bold text-[#032125]">Footer note (optional)</Label>
                   <Input
                     id="receipt-template-footer"
                     value={receiptTemplateForm.footerText}
                     onChange={(e) => setReceiptTemplateForm({ ...receiptTemplateForm, footerText: e.target.value })}
                     placeholder="e.g. Goods once sold are not returnable"
-                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   />
                 </div>
                 {([
@@ -2301,10 +2301,10 @@ toast({
                   { key: "showFooterNote", label: "Show footer note", hint: "Print the footer note above the fixed ownership line" },
                   { key: "isDefault", label: "Default for this scope", hint: "Only one default per scope — setting this clears the others" },
                 ] as const).map((row) => (
-                  <div key={row.key} className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                  <div key={row.key} className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
                     <div>
-                      <h4 className="text-sm font-bold text-[#0a1128]">{row.label}</h4>
-                      <p className="text-[13px] text-[#8c95b0]">{row.hint}</p>
+                      <h4 className="text-sm font-bold text-[#032125]">{row.label}</h4>
+                      <p className="text-[13px] text-[#437278]">{row.hint}</p>
                     </div>
                     <Switch
                       className={ZV3_POS_SWITCH}
@@ -2318,7 +2318,7 @@ toast({
                     type="button"
                     onClick={handleReceiptTemplateSave}
                     disabled={isSavingReceiptTemplate}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                   >
                     <Save className="h-4 w-4" />
                     {isSavingReceiptTemplate ? "Saving…" : receiptTemplateEditingId ? "Update Template" : "Save Template"}
@@ -2328,7 +2328,7 @@ toast({
                       type="button"
                       variant="outline"
                       onClick={() => { setReceiptTemplateEditingId(null); setReceiptTemplateForm({ branchId: "", name: "Default", headerText: "", footerText: "", logoUrl: "", showLogo: true, showCustomerBlock: true, showTaxLines: true, showLoyalty: true, showFooterNote: true, isDefault: false }); }}
-                      className="rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                      className="rounded-lg border-[rgba(3,33,37,0.06)] text-sm font-semibold"
                     >
                       Cancel Edit
                     </Button>
@@ -2338,14 +2338,14 @@ toast({
             )}
             {receiptTemplates.length > 0 && (
               <div className="pt-[22px]">
-                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                <h4 className="pb-2 text-sm font-bold text-[#032125]">Configured</h4>
                 {receiptTemplates.map((tpl: any) => (
-                  <div key={tpl.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                  <div key={tpl.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(3,33,37,0.06)] py-3 first:border-t-0">
                     <div className="text-[13px] leading-relaxed">
-                      <span className="font-bold text-[#0a1128]">{tpl.name}</span>
-                      <span className="text-[#8c95b0]"> · {tpl.branch ? `${tpl.branch.name} only` : "All branches"}</span>
-                      {tpl.isDefault && <span className="ml-2 font-semibold text-[#1a52c5]">Default</span>}
-                      <span className="block text-[#8c95b0]">
+                      <span className="font-bold text-[#032125]">{tpl.name}</span>
+                      <span className="text-[#437278]"> · {tpl.branch ? `${tpl.branch.name} only` : "All branches"}</span>
+                      {tpl.isDefault && <span className="ml-2 font-semibold text-[#0B363B]">Default</span>}
+                      <span className="block text-[#437278]">
                         {[
                           tpl.showLogo ? null : "no logo",
                           tpl.showCustomerBlock ? null : "no customer block",
@@ -2357,7 +2357,7 @@ toast({
                     </div>
                     {canManageReceiptSettings && (
                       <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => handleReceiptTemplateEdit(tpl)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        <Button type="button" variant="outline" onClick={() => handleReceiptTemplateEdit(tpl)} className="h-8 rounded-lg border-[rgba(3,33,37,0.06)] px-3 text-xs font-semibold">Edit</Button>
                         <Button type="button" variant="outline" onClick={() => handleReceiptTemplateDelete(tpl)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Delete</Button>
                       </div>
                     )}
@@ -2366,7 +2366,7 @@ toast({
               </div>
             )}
             {receiptTemplates.length === 0 && (
-              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+              <p className="pt-[18px] text-xs leading-relaxed text-[#437278]">
                 No custom templates — receipts print with the built-in layout, including the ownership footer line.
               </p>
             )}
@@ -2374,62 +2374,62 @@ toast({
         </section>
         {/* POS Service Charge (v1.0.22) */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "240ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Percent className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Percent className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               POS Service Charge
             </div>
-            <div className="text-xs font-medium text-[#8c95b0]">Owner / Manager</div>
+            <div className="text-xs font-medium text-[#437278]">Owner / Manager</div>
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+            <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
               A configurable charge on each sale — a percentage of the discounted bill or a fixed
               amount — added after tax and shown as its own receipt line. Tax is never computed
               on it. The cashier can still toggle it per sale at the POS; with nothing configured
               here, invoices are exactly as they are today.
             </p>
             {!canManageReceiptSettings && (
-              <p className="mb-[18px] rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+              <p className="mb-[18px] rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                 Only the business owner or a manager can change the service charge.
               </p>
             )}
             {canManageReceiptSettings && (
               <>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="service-charge-branch" className="mb-2 block text-sm font-bold text-[#0a1128]">Applies To</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="service-charge-branch" className="mb-2 block text-sm font-bold text-[#032125]">Applies To</Label>
                   <select
                     id="service-charge-branch"
                     value={serviceChargeForm.branchId}
                     onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, branchId: e.target.value })}
-                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   >
                     <option value="">All branches (business-wide)</option>
                     {provTaxBranches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name} only</option>
                     ))}
                   </select>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#8c95b0]">
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#437278]">
                     A branch row overrides the business-wide row for that branch&apos;s sales. Saving a scope again updates it.
                   </p>
                 </div>
-                <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                  <Label htmlFor="service-charge-type" className="mb-2 block text-sm font-bold text-[#0a1128]">Charge type</Label>
+                <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                  <Label htmlFor="service-charge-type" className="mb-2 block text-sm font-bold text-[#032125]">Charge type</Label>
                   <select
                     id="service-charge-type"
                     value={serviceChargeForm.chargeType}
                     onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, chargeType: e.target.value })}
-                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] px-3 text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                    className="h-11 w-full max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] px-3 text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                   >
                     <option value="PERCENT">Percentage of the bill</option>
                     <option value="FIXED">Fixed amount per sale</option>
                   </select>
                 </div>
                 {serviceChargeForm.chargeType === "PERCENT" ? (
-                  <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                    <Label htmlFor="service-charge-pct" className="mb-2 block text-sm font-bold text-[#0a1128]">Percentage (%)</Label>
+                  <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                    <Label htmlFor="service-charge-pct" className="mb-2 block text-sm font-bold text-[#032125]">Percentage (%)</Label>
                     <Input
                       id="service-charge-pct"
                       type="number"
@@ -2439,12 +2439,12 @@ toast({
                       value={serviceChargeForm.percentage}
                       onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, percentage: e.target.value })}
                       placeholder="e.g. 5"
-                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                     />
                   </div>
                 ) : (
-                  <div className="border-b border-[rgba(15,23,60,0.06)] py-[18px]">
-                    <Label htmlFor="service-charge-fixed" className="mb-2 block text-sm font-bold text-[#0a1128]">Fixed amount (PKR)</Label>
+                  <div className="border-b border-[rgba(3,33,37,0.06)] py-[18px]">
+                    <Label htmlFor="service-charge-fixed" className="mb-2 block text-sm font-bold text-[#032125]">Fixed amount (PKR)</Label>
                     <Input
                       id="service-charge-fixed"
                       type="number"
@@ -2453,14 +2453,14 @@ toast({
                       value={serviceChargeForm.fixedAmount}
                       onChange={(e) => setServiceChargeForm({ ...serviceChargeForm, fixedAmount: e.target.value })}
                       placeholder="e.g. 50"
-                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#f0f2f7] text-sm focus:border-[#1a52c5] focus:bg-white focus:shadow-[0_0_0_4px_rgba(26,82,197,0.06)]"
+                      className="h-11 max-w-[400px] rounded-[10px] border-[1.5px] border-black/10 bg-[#EAFDE8] text-sm focus:border-[#0B363B] focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,54,59,0.06)]"
                     />
                   </div>
                 )}
-                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
                   <div>
-                    <h4 className="text-sm font-bold text-[#0a1128]">Apply by default</h4>
-                    <p className="text-[13px] text-[#8c95b0]">Charge every sale unless the cashier turns it off for that sale</p>
+                    <h4 className="text-sm font-bold text-[#032125]">Apply by default</h4>
+                    <p className="text-[13px] text-[#437278]">Charge every sale unless the cashier turns it off for that sale</p>
                   </div>
                   <Switch
                     className={ZV3_POS_SWITCH}
@@ -2468,10 +2468,10 @@ toast({
                     onCheckedChange={(checked) => setServiceChargeForm({ ...serviceChargeForm, applyByDefault: checked })}
                   />
                 </div>
-                <div className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,60,0.06)] py-[18px]">
+                <div className="flex items-center justify-between gap-4 border-b border-[rgba(3,33,37,0.06)] py-[18px]">
                   <div>
-                    <h4 className="text-sm font-bold text-[#0a1128]">Enabled</h4>
-                    <p className="text-[13px] text-[#8c95b0]">Charge the service charge on new sales</p>
+                    <h4 className="text-sm font-bold text-[#032125]">Enabled</h4>
+                    <p className="text-[13px] text-[#437278]">Charge the service charge on new sales</p>
                   </div>
                   <Switch
                     className={ZV3_POS_SWITCH}
@@ -2484,7 +2484,7 @@ toast({
                     type="button"
                     onClick={handleServiceChargeSave}
                     disabled={isSavingServiceCharge}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                   >
                     <Save className="h-4 w-4" />
                     {isSavingServiceCharge ? "Saving…" : "Save Service Charge"}
@@ -2494,20 +2494,20 @@ toast({
             )}
             {serviceChargeConfigs.length > 0 && (
               <div className="pt-[22px]">
-                <h4 className="pb-2 text-sm font-bold text-[#0a1128]">Configured</h4>
+                <h4 className="pb-2 text-sm font-bold text-[#032125]">Configured</h4>
                 {serviceChargeConfigs.map((cfg: any) => (
-                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(15,23,60,0.06)] py-3 first:border-t-0">
+                  <div key={cfg.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(3,33,37,0.06)] py-3 first:border-t-0">
                     <div className="text-[13px] leading-relaxed">
-                      <span className="font-bold text-[#0a1128]">
+                      <span className="font-bold text-[#032125]">
                         {cfg.chargeType === "PERCENT" ? `${Number(cfg.percentage)}% of the bill` : `PKR ${Number(cfg.fixedAmount).toFixed(2)} per sale`}
                       </span>
-                      <span className="text-[#8c95b0]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
-                      <span className="text-[#8c95b0]"> · {cfg.applyByDefault ? "applies by default" : "cashier opts in per sale"}</span>
+                      <span className="text-[#437278]"> · {cfg.branch ? `${cfg.branch.name} only` : "All branches"}</span>
+                      <span className="text-[#437278]"> · {cfg.applyByDefault ? "applies by default" : "cashier opts in per sale"}</span>
                       {!cfg.enabled && <span className="ml-2 font-semibold text-red-600">Disabled</span>}
                     </div>
                     {canManageReceiptSettings && (
                       <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => handleServiceChargeEdit(cfg)} className="h-8 rounded-lg border-[rgba(15,23,60,0.06)] px-3 text-xs font-semibold">Edit</Button>
+                        <Button type="button" variant="outline" onClick={() => handleServiceChargeEdit(cfg)} className="h-8 rounded-lg border-[rgba(3,33,37,0.06)] px-3 text-xs font-semibold">Edit</Button>
                         <Button type="button" variant="outline" onClick={() => handleServiceChargeDelete(cfg)} className="h-8 rounded-lg border-red-200 px-3 text-xs font-semibold text-red-600">Remove</Button>
                       </div>
                     )}
@@ -2516,7 +2516,7 @@ toast({
               </div>
             )}
             {serviceChargeConfigs.length === 0 && (
-              <p className="pt-[18px] text-xs leading-relaxed text-[#8c95b0]">
+              <p className="pt-[18px] text-xs leading-relaxed text-[#437278]">
                 No service charge configured — invoices carry no service-charge line, as today.
               </p>
             )}
@@ -2526,18 +2526,18 @@ toast({
         <IntegrationsSection canManage={canManageIntegrations} selectedCompanyId={selectedCompanyId} />
         {/* Backup & Restore (owner only) */}
         <section
-          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
+          className="zv3-settings-block overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]"
           style={{ animationDelay: "250ms" }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(15,23,60,0.06)] px-[30px] py-6">
-            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#0a1128]">
-              <Archive className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(3,33,37,0.06)] px-[30px] py-6">
+            <div className="flex items-center gap-2.5 text-[17px] font-bold tracking-[-0.2px] text-[#032125]">
+              <Archive className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
               Backup &amp; Restore
             </div>
-            <div className="text-xs font-medium text-[#8c95b0]">Owner only</div>
+            <div className="text-xs font-medium text-[#437278]">Owner only</div>
           </div>
           <div className="flex flex-col px-[30px] py-[30px]">
-            <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
+            <p className="text-[13px] leading-relaxed text-[#437278] pb-[18px]">
               Download a complete backup of your business — products, stock, customers, sales, khata,
               prescriptions, clinic and hotel data — as a single file. Passwords and secret keys
               (like the FBR token) are never included in a backup. Restoring a backup can create a
@@ -2548,7 +2548,7 @@ toast({
               automatically. Staff accounts are not recreated — you re-invite your team afterwards.
             </p>
             {!isBackupOwner && (
-              <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
+              <p className="rounded-[10px] bg-[#EAFDE8] px-4 py-3 text-[13px] text-[#354D51]">
                 Only the business owner can export or restore backups.
               </p>
             )}
@@ -2559,7 +2559,7 @@ toast({
                     type="button"
                     onClick={handleExportBusinessBackup}
                     disabled={isExportingBusiness}
-                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:-translate-y-px"
+                    className="gap-2 rounded-lg border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:-translate-y-px"
                   >
                     <Download className="h-4 w-4" />
                     {isExportingBusiness ? "Preparing…" : "Export this business"}
@@ -2569,7 +2569,7 @@ toast({
                     onClick={handleExportAccountBackup}
                     disabled={isExportingAccount}
                     variant="outline"
-                    className="gap-2 rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                    className="gap-2 rounded-lg border-[rgba(3,33,37,0.06)] text-sm font-semibold"
                   >
                     <Download className="h-4 w-4" />
                     {isExportingAccount ? "Preparing…" : "Export my whole account"}
@@ -2578,7 +2578,7 @@ toast({
                     type="button"
                     onClick={() => restoreFileInputRef.current?.click()}
                     variant="outline"
-                    className="gap-2 rounded-lg border-[rgba(15,23,60,0.06)] text-sm font-semibold"
+                    className="gap-2 rounded-lg border-[rgba(3,33,37,0.06)] text-sm font-semibold"
                   >
                     <Upload className="h-4 w-4" />
                     Restore from file…
@@ -2625,24 +2625,24 @@ toast({
                   </div>
                 )}
                 {safetyBackups.length > 0 && (
-                  <div className="mt-[18px] rounded-[10px] border border-[rgba(15,23,60,0.06)] px-4 py-3">
-                    <p className="flex items-center gap-1.5 text-[13px] font-bold text-[#0a1128]">
-                      <History className="h-4 w-4 text-[#1a52c5]" /> Safety backups
+                  <div className="mt-[18px] rounded-[10px] border border-[rgba(3,33,37,0.06)] px-4 py-3">
+                    <p className="flex items-center gap-1.5 text-[13px] font-bold text-[#032125]">
+                      <History className="h-4 w-4 text-[#0B363B]" /> Safety backups
                     </p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[#8c95b0]">
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#437278]">
                       Saved automatically before each update of this business. A safety backup is a
                       normal backup file — you can restore from it the same way.
                     </p>
                     <div className="mt-2 flex flex-col gap-1.5">
                       {safetyBackups.map((s: any) => (
-                        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-[#4a5578]">
+                        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-[#354D51]">
                           <span>
                             {new Date(s.createdAt).toLocaleString()} · {Math.max(1, Math.round((s.sizeBytes || 0) / 1024))} KB
                           </span>
                           <button
                             type="button"
                             onClick={() => handleDownloadSafetyBackup(s.id)}
-                            className="font-semibold text-[#1a52c5] underline underline-offset-2"
+                            className="font-semibold text-[#0B363B] underline underline-offset-2"
                           >
                             Download
                           </button>
@@ -2697,37 +2697,37 @@ toast({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Archive className="h-5 w-5 text-[#1a52c5]" /> Restore from backup
+            <Archive className="h-5 w-5 text-[#0B363B]" /> Restore from backup
           </DialogTitle>
         </DialogHeader>
 
         {restoreStep === "mode" && (
           <div className="flex flex-col gap-3 py-2">
-            <p className="text-[13px] leading-relaxed text-[#4a5578]">
+            <p className="text-[13px] leading-relaxed text-[#354D51]">
               “{restoreFileName}” contains {restoreSources.length === 1 ? <>one business: <strong>{restoreSources[0]?.name}</strong></> : <>{restoreSources.length} businesses</>}.
               How should it be restored?
             </p>
             <button
               type="button"
               onClick={() => { setShowRestoreFlow(false); setShowRestoreConfirm(true); }}
-              className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3 text-left transition hover:border-[#1a52c5]"
+              className="rounded-[12px] border border-[rgba(3,33,37,0.08)] px-4 py-3 text-left transition hover:border-[#0B363B]"
             >
-              <span className="flex items-center gap-1.5 text-sm font-bold text-[#0a1128]">
-                Restore as a new business <ArrowRight className="h-4 w-4 text-[#1a52c5]" />
+              <span className="flex items-center gap-1.5 text-sm font-bold text-[#032125]">
+                Restore as a new business <ArrowRight className="h-4 w-4 text-[#0B363B]" />
               </span>
-              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#8c95b0]">
+              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#437278]">
                 Creates a separate “(Restored)” copy under your account. Your existing businesses are not touched.
               </span>
             </button>
             <button
               type="button"
               onClick={openUpdateTargets}
-              className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3 text-left transition hover:border-[#1a52c5]"
+              className="rounded-[12px] border border-[rgba(3,33,37,0.08)] px-4 py-3 text-left transition hover:border-[#0B363B]"
             >
-              <span className="flex items-center gap-1.5 text-sm font-bold text-[#0a1128]">
-                Update a business I choose <ArrowRight className="h-4 w-4 text-[#1a52c5]" />
+              <span className="flex items-center gap-1.5 text-sm font-bold text-[#032125]">
+                Update a business I choose <ArrowRight className="h-4 w-4 text-[#0B363B]" />
               </span>
-              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#8c95b0]">
+              <span className="mt-0.5 block text-[13px] leading-relaxed text-[#437278]">
                 Applies the backup inside one of your existing businesses: matching records are updated,
                 missing records come back, and nothing is ever deleted. A safety backup is saved first.
               </span>
@@ -2737,13 +2737,13 @@ toast({
 
         {restoreStep === "target" && (
           <div className="flex flex-col gap-3 py-2">
-            <p className="text-[13px] leading-relaxed text-[#4a5578]">
+            <p className="text-[13px] leading-relaxed text-[#354D51]">
               Choose which of your businesses each backed-up business should update.
               Nothing is changed yet — you will see a preview next.
             </p>
             {restoreSources.map((s) => (
               <div key={s.id} className="flex flex-col gap-1">
-                <Label className="text-[13px] font-semibold text-[#0a1128]">{s.name || "Business"}</Label>
+                <Label className="text-[13px] font-semibold text-[#032125]">{s.name || "Business"}</Label>
                 <Select
                   value={targetSelections[s.id] || ""}
                   onValueChange={(v: string) => setTargetSelections((prev) => ({ ...prev, [s.id]: v }))}
@@ -2762,7 +2762,7 @@ toast({
               </div>
             ))}
             {restoreSources.length > 0 && !allTargetsChosen && (
-              <p className="text-xs text-[#8c95b0]">Pick a different target business for each one to continue.</p>
+              <p className="text-xs text-[#437278]">Pick a different target business for each one to continue.</p>
             )}
             <div className="mt-1 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setRestoreStep("mode")}>Back</Button>
@@ -2770,7 +2770,7 @@ toast({
                 type="button"
                 disabled={!allTargetsChosen || isPreviewing}
                 onClick={handlePreviewUpdate}
-                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+                className="border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white"
               >
                 {isPreviewing ? "Checking…" : "Preview changes"}
               </Button>
@@ -2781,18 +2781,18 @@ toast({
         {restoreStep === "preview" && updatePreview && (
           <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto py-2">
             {(updatePreview.previews || []).map((p: any) => (
-              <div key={p.sourceBusinessId} className="rounded-[12px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
-                <p className="text-sm font-bold text-[#0a1128]">
-                  {p.sourceBusinessName} <ArrowRight className="inline h-4 w-4 text-[#1a52c5]" /> {p.targetBusinessName}
+              <div key={p.sourceBusinessId} className="rounded-[12px] border border-[rgba(3,33,37,0.08)] px-4 py-3">
+                <p className="text-sm font-bold text-[#032125]">
+                  {p.sourceBusinessName} <ArrowRight className="inline h-4 w-4 text-[#0B363B]" /> {p.targetBusinessName}
                   {p.sameBusiness ? " (same business)" : ""}
                 </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-[#4a5578]">
+                <p className="mt-1 text-[13px] leading-relaxed text-[#354D51]">
                   <strong>{p.toUpdate}</strong> record(s) will be updated · <strong>{p.toAdd}</strong> record(s)
                   will be brought back · <strong>{p.keptTargetOnly}</strong> record(s) in “{p.targetBusinessName}”
                   are not in the backup and will be kept untouched.
                 </p>
                 {p.skippedMembers > 0 && (
-                  <p className="mt-1 text-[13px] text-[#8c95b0]">
+                  <p className="mt-1 text-[13px] text-[#437278]">
                     {p.skippedMembers} staff member(s) have no account in Tickimo and will be reported for re-inviting.
                   </p>
                 )}
@@ -2800,20 +2800,20 @@ toast({
                   {Object.entries(p.perTable || {})
                     .filter(([, d]: any) => d.update + d.add + d.kept > 0)
                     .map(([key, d]: any) => (
-                      <p key={key} className="text-xs text-[#8c95b0]">
+                      <p key={key} className="text-xs text-[#437278]">
                         {key}: {d.update} update · {d.add} add · {d.kept} kept
                       </p>
                     ))}
                 </div>
               </div>
             ))}
-            <p className="flex items-start gap-1.5 text-[13px] leading-relaxed text-[#4a5578]">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1a52c5]" />
+            <p className="flex items-start gap-1.5 text-[13px] leading-relaxed text-[#354D51]">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#0B363B]" />
               Before anything changes, a safety backup of the current state is saved automatically —
               you will be able to download it afterwards from this section.
             </p>
             <div className="flex flex-col gap-1">
-              <Label className="text-[13px] font-semibold text-[#0a1128]">
+              <Label className="text-[13px] font-semibold text-[#032125]">
                 {isAccountBackupFile
                   ? <>Type <strong>UPDATE</strong> to confirm</>
                   : <>Type the target business name <strong>“{expectedConfirmText}”</strong> to confirm</>}
@@ -2830,7 +2830,7 @@ toast({
                 type="button"
                 disabled={!updateConfirmValid || isRestoring}
                 onClick={handleConfirmUpdate}
-                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+                className="border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white"
               >
                 {isRestoring ? "Updating…" : "Update business"}
               </Button>
@@ -2875,7 +2875,7 @@ toast({
               <Button
                 type="button"
                 onClick={() => { setShowRestoreFlow(false); setRestorePayload(null); }}
-                className="border-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] font-semibold text-white"
+                className="border-0 bg-gradient-to-br from-[#0B363B] to-[#437278] font-semibold text-white"
               >
                 Done
               </Button>

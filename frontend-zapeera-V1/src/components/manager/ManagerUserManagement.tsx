@@ -319,7 +319,7 @@ const ManagerUserManagement = () => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'MANAGER':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-verdant-100 text-spruce-900';
       case 'CASHIER':
         return 'bg-yellow-100 text-yellow-800';
       default:

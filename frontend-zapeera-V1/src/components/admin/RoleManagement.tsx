@@ -74,7 +74,7 @@ const ASSIGNABLE_ROLES = ['OWNER', 'USER', 'MANAGER', 'CASHIER'];
 const ROLE_COLORS: Record<string, string> = {
   OWNER: 'bg-orange-100 text-orange-800',
   USER: 'bg-slate-100 text-slate-800',
-  MANAGER: 'bg-blue-100 text-blue-800',
+  MANAGER: 'bg-verdant-100 text-spruce-900',
   CASHIER: 'bg-yellow-100 text-yellow-800'
 };
 

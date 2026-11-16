@@ -1355,16 +1355,16 @@ const renderInvoiceHtml = (invoice: {
 <meta charset="utf-8" />
 <title>Invoice ${escapeHtml(invoice.invoiceNumber)}</title>
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; color: #1a2233; margin: 40px; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a52c5; padding-bottom: 16px; }
-  .brand { font-size: 26px; font-weight: 800; color: #1a52c5; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #101828; margin: 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #0B363B; padding-bottom: 16px; }
+  .brand { font-size: 26px; font-weight: 800; color: #0B363B; }
   .inv { text-align: right; }
   .inv .num { font-size: 20px; font-weight: 700; }
   table { width: 100%; border-collapse: collapse; margin-top: 24px; }
   th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e5e8f0; font-size: 14px; }
-  th { background: #f4f6fb; }
+  th { background: #FFFCF6; }
   .total { font-size: 16px; font-weight: 700; }
-  .meta { margin-top: 24px; font-size: 13px; color: #4a5578; line-height: 1.7; }
+  .meta { margin-top: 24px; font-size: 13px; color: #354D51; line-height: 1.7; }
   .status { font-weight: 700; text-transform: uppercase; }
 </style>
 </head>

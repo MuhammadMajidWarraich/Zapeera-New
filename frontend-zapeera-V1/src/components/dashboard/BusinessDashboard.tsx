@@ -1478,10 +1478,10 @@ const BusinessDashboard = () => {
   // Only show full loading screen on initial load if no data exists
   if (loading && !hasInitialLoad) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f0f2f7] px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#EAFDE8] px-6">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-[#1a52c5] border-t-transparent" />
-          <p className="text-sm text-[#8c95b0]">Loading dashboard data…</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-[#0B363B] border-t-transparent" />
+          <p className="text-sm text-[#437278]">Loading dashboard data…</p>
         </div>
       </div>
     );
@@ -1489,13 +1489,13 @@ const BusinessDashboard = () => {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f0f2f7] px-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#EAFDE8] px-6">
         <div className="text-center">
           <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-red-600" />
           <p className="mb-4 text-red-600">{error}</p>
           <Button
             onClick={() => loadDashboardData(true)}
-            className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white"
+            className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] text-white"
           >
             Retry
           </Button>
@@ -1505,20 +1505,20 @@ const BusinessDashboard = () => {
   }
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
         className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full blur-[100px]"
-        style={{ background: "rgba(40,194,206,0.06)" }}
+        style={{ background: "rgba(67,114,120,0.06)" }}
       />
       <div
         className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full blur-[100px]"
-        style={{ background: "rgba(26,82,197,0.04)" }}
+        style={{ background: "rgba(11,54,59,0.04)" }}
       />
 
       <div className="relative z-[1] space-y-6 px-6 pb-14 pt-9 md:px-11">
         <div className="zv3-animate-fadeUp flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#0a1128]">
+            <h1 className="text-[26px] font-extrabold tracking-[-0.6px] text-[#032125]">
               {displayCompany
                 ? `${displayCompany.name} Dashboard`
                 : selectedBranchId
@@ -1527,7 +1527,7 @@ const BusinessDashboard = () => {
                     ? "Admin Dashboard"
                     : "Dashboard"}
             </h1>
-            <p className="mt-1 text-sm text-[#8c95b0]">
+            <p className="mt-1 text-sm text-[#437278]">
               {selectedBranchId
                 ? `Overview of ${globalSelectedBranch?.name} branch operations`
                 : displayCompany
@@ -1538,8 +1538,8 @@ const BusinessDashboard = () => {
             </p>
           </div>
           <div className="text-left sm:text-right">
-            <p className="text-[13px] font-medium text-[#8c95b0]">{formattedDateTime.date}</p>
-            <p className="mt-0.5 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] bg-clip-text text-[20px] font-extrabold tracking-tight text-transparent">
+            <p className="text-[13px] font-medium text-[#437278]">{formattedDateTime.date}</p>
+            <p className="mt-0.5 bg-gradient-to-br from-[#0B363B] to-[#437278] bg-clip-text text-[20px] font-extrabold tracking-tight text-transparent">
               {formattedDateTime.time}
             </p>
           </div>
@@ -1552,8 +1552,8 @@ const BusinessDashboard = () => {
               role={stat.clickable ? "button" : undefined}
               tabIndex={stat.clickable ? 0 : undefined}
               className={cn(
-                "rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-300",
-                stat.clickable && "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a52c5]/30",
+                "rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-300",
+                stat.clickable && "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B363B]/30",
                 !stat.clickable && "cursor-default"
               )}
               onClick={() => handleStatCardClick(stat)}
@@ -1566,28 +1566,28 @@ const BusinessDashboard = () => {
               }}
             >
               <div className="min-w-0">
-                <p className="mb-2 text-[13px] font-medium text-[#8c95b0]">{stat.title}</p>
+                <p className="mb-2 text-[13px] font-medium text-[#437278]">{stat.title}</p>
                 {stat.type === "today-sales" && stat.revenue ? (
                   <>
-                    <p className="mb-1 break-words text-[16px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+                    <p className="mb-1 break-words text-[16px] font-extrabold leading-none tracking-tight text-[#032125]">
                       {stat.value}
                     </p>
-                    <p className="mb-2 break-words text-[24px] font-extrabold leading-none tracking-tight text-[#0a1128]">{stat.revenue}</p>
+                    <p className="mb-2 break-words text-[24px] font-extrabold leading-none tracking-tight text-[#032125]">{stat.revenue}</p>
                   </>
                 ) : stat.type === "refunds" && stat.refundedAmount ? (
                   <>
-                    <p className="mb-1 break-words text-[16px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+                    <p className="mb-1 break-words text-[16px] font-extrabold leading-none tracking-tight text-[#032125]">
                       {stat.value}
                     </p>
-                    <p className="mb-2 break-words text-[24px] font-extrabold leading-none tracking-tight text-[#0a1128]">{stat.refundedAmount}</p>
+                    <p className="mb-2 break-words text-[24px] font-extrabold leading-none tracking-tight text-[#032125]">{stat.refundedAmount}</p>
                   </>
                 ) : (
-                  <p className="mb-2 break-words text-[28px] font-extrabold leading-none tracking-tight text-[#0a1128]">
+                  <p className="mb-2 break-words text-[28px] font-extrabold leading-none tracking-tight text-[#032125]">
                     {stat.value}
                   </p>
                 )}
                 {stat.type !== "refunds" && stat.type !== "today-sales" ? (
-                  <div className="mt-2.5 inline-flex items-center gap-1 rounded-full bg-black/[0.03] px-2.5 py-1 text-xs font-semibold text-[#8c95b0]">
+                  <div className="mt-2.5 inline-flex items-center gap-1 rounded-full bg-black/[0.03] px-2.5 py-1 text-xs font-semibold text-[#437278]">
                     <TrendingUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
                     <span>
                       {stat.trendValue} {stat.description}
@@ -1600,17 +1600,17 @@ const BusinessDashboard = () => {
         </div>
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
-            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
-              <ShoppingCart className="h-[19px] w-[19px] shrink-0 text-[#1a52c5]" strokeWidth={2} />
+            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#032125]">
+              <ShoppingCart className="h-[19px] w-[19px] shrink-0 text-[#0B363B]" strokeWidth={2} />
               Recent Sales
             </div>
             {filteredData.sales.length > 5 && (
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border-[#1a52c5]/20 font-semibold text-[#1a52c5] h-9 px-3 text-xs hover:bg-[#1a52c5]/10"
+                className="rounded-[10px] border-[#0B363B]/20 font-semibold text-[#0B363B] h-9 px-3 text-xs hover:bg-[#0B363B]/10"
                 onClick={() => navigate('/invoices')}
               >
                 View All Sales ({filteredData.sales.length})
@@ -1626,10 +1626,10 @@ const BusinessDashboard = () => {
                     className="rounded-[8px] border border-green-600/15 bg-green-600/[0.06] p-2.5 transition-colors hover:bg-green-600/[0.08]"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#0a1128]">
+                      <p className="text-sm font-semibold text-[#032125]">
                         {sale.invoiceNumber || `INV-${sale.id.slice(0, 8)}`}
                       </p>
-                      <Badge variant="outline" className="shrink-0 border-[rgba(15,23,60,0.08)] text-xs font-semibold">
+                      <Badge variant="outline" className="shrink-0 border-[rgba(3,33,37,0.08)] text-xs font-semibold">
                         {formatCurrency(sale.totalAmount)}
                       </Badge>
                     </div>
@@ -1638,11 +1638,11 @@ const BusinessDashboard = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center px-5 py-10 text-center">
-                <div className="mb-3.5 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-[#1a52c5]/10">
-                  <ShoppingCart className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+                <div className="mb-3.5 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-[#0B363B]/10">
+                  <ShoppingCart className="h-6 w-6 text-[#437278]" strokeWidth={2} />
                 </div>
-                <h4 className="mb-1 text-sm font-bold text-[#0a1128]">No recent sales found</h4>
-                <p className="max-w-[280px] text-[13px] text-[#8c95b0]">
+                <h4 className="mb-1 text-sm font-bold text-[#032125]">No recent sales found</h4>
+                <p className="max-w-[280px] text-[13px] text-[#437278]">
                   {selectedBranchId
                     ? `No recent sales for ${globalSelectedBranch?.name}. Sales will appear here.`
                     : "Sales transactions will appear here."}
@@ -1652,9 +1652,9 @@ const BusinessDashboard = () => {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
-            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
+            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#032125]">
               <AlertTriangle className="h-[19px] w-[19px] shrink-0 text-amber-600" strokeWidth={2} />
               Low Stock Alert
             </div>
@@ -1662,7 +1662,7 @@ const BusinessDashboard = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border-[#1a52c5]/20 font-semibold text-[#1a52c5] h-9 px-3 text-xs hover:bg-[#1a52c5]/10"
+                className="rounded-[10px] border-[#0B363B]/20 font-semibold text-[#0B363B] h-9 px-3 text-xs hover:bg-[#0B363B]/10"
                 onClick={() => {
                   if (!hasModule('inventory')) {
                     toast.error('Inventory Management Not Available', {
@@ -1691,7 +1691,7 @@ const BusinessDashboard = () => {
                       className="rounded-[8px] border border-amber-500/20 bg-amber-500/[0.06] p-2.5 transition-colors hover:bg-amber-500/[0.08]"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-[#0a1128]">{product.name || "Unknown Product"}</p>
+                        <p className="text-sm font-semibold text-[#032125]">{product.name || "Unknown Product"}</p>
                         <Badge
                           variant="outline"
                           className="shrink-0 border-amber-500/25 bg-amber-500/10 text-xs font-semibold text-amber-800"
@@ -1713,7 +1713,7 @@ const BusinessDashboard = () => {
                     ? `All products in ${globalSelectedBranch?.name} are well stocked!`
                     : "All products are well stocked!"}
                 </h4>
-                <p className="text-[13px] text-[#8c95b0]">
+                <p className="text-[13px] text-[#437278]">
                   {selectedBranchId ? "No low stock products for this branch." : "No low stock product alerts at this time."}
                 </p>
               </div>
@@ -1723,17 +1723,17 @@ const BusinessDashboard = () => {
       </div>
 
       <div className="zv3-settings-block grid grid-cols-1 gap-[18px] lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
-            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
-              <TrendingUp className="h-[19px] w-[19px] shrink-0 text-[#1a52c5]" strokeWidth={2} />
+            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#032125]">
+              <TrendingUp className="h-[19px] w-[19px] shrink-0 text-[#0B363B]" strokeWidth={2} />
               Most Selling Products
             </div>
             {mostSellingProducts.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border-[#1a52c5]/20 font-semibold text-[#1a52c5] h-9 px-3 text-xs hover:bg-[#1a52c5]/10"
+                className="rounded-[10px] border-[#0B363B]/20 font-semibold text-[#0B363B] h-9 px-3 text-xs hover:bg-[#0B363B]/10"
                 onClick={() => {
                   if (!hasModule('inventory')) {
                     toast.error('Inventory Management Not Available', {
@@ -1759,7 +1759,7 @@ const BusinessDashboard = () => {
                     className="rounded-[8px] border border-green-600/15 bg-green-600/[0.06] p-2.5 transition-colors hover:bg-green-600/[0.08]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#0a1128]">{product.name || "Unknown Product"}</p>
+                      <p className="text-sm font-semibold text-[#032125]">{product.name || "Unknown Product"}</p>
                       <Badge
                         variant="outline"
                         className="shrink-0 border-green-600/20 bg-green-600/10 text-xs font-semibold text-green-800"
@@ -1767,32 +1767,32 @@ const BusinessDashboard = () => {
                         {product.salesCount} sold
                       </Badge>
                     </div>
-                    <p className="text-xs text-[#8c95b0]">Revenue: {formatCurrency(product.revenue || 0)}</p>
+                    <p className="text-xs text-[#437278]">Revenue: {formatCurrency(product.revenue || 0)}</p>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">
-                <div className="mb-3 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-[#1a52c5]/10">
-                  <BarChart3 className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+                <div className="mb-3 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-[#0B363B]/10">
+                  <BarChart3 className="h-6 w-6 text-[#437278]" strokeWidth={2} />
                 </div>
-                <p className="text-[13px] text-[#8c95b0]">No sales data available</p>
+                <p className="text-[13px] text-[#437278]">No sales data available</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between px-7 pt-4 pb-0">
-            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#0a1128]">
-              <TrendingUp className="h-[19px] w-[19px] shrink-0 rotate-180 text-[#1a52c5]" strokeWidth={2} />
+            <div className="flex items-center gap-2.5 text-base font-bold tracking-tight text-[#032125]">
+              <TrendingUp className="h-[19px] w-[19px] shrink-0 rotate-180 text-[#0B363B]" strokeWidth={2} />
               Slow Selling Products
             </div>
             {slowSellingProducts.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border-[#1a52c5]/20 font-semibold text-[#1a52c5] h-9 px-3 text-xs hover:bg-[#1a52c5]/10"
+                className="rounded-[10px] border-[#0B363B]/20 font-semibold text-[#0B363B] h-9 px-3 text-xs hover:bg-[#0B363B]/10"
                 onClick={() => {
                   if (!hasModule('inventory')) {
                     toast.error('Inventory Management Not Available', {
@@ -1818,7 +1818,7 @@ const BusinessDashboard = () => {
                     className="rounded-[8px] border border-amber-500/20 bg-amber-500/[0.06] p-2.5 transition-colors hover:bg-amber-500/[0.08]"
                   >
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#0a1128]">{product.name || "Unknown Product"}</p>
+                      <p className="text-sm font-semibold text-[#032125]">{product.name || "Unknown Product"}</p>
                       <Badge
                         variant="outline"
                         className="shrink-0 border-amber-500/25 bg-amber-500/10 text-xs font-semibold text-amber-900"
@@ -1826,7 +1826,7 @@ const BusinessDashboard = () => {
                         {product.salesCount} sold
                       </Badge>
                     </div>
-                    <p className="text-xs text-[#8c95b0]">Revenue: {formatCurrency(product.revenue || 0)}</p>
+                    <p className="text-xs text-[#437278]">Revenue: {formatCurrency(product.revenue || 0)}</p>
                   </div>
                 ))}
               </div>
@@ -1835,7 +1835,7 @@ const BusinessDashboard = () => {
                 <div className="mb-3 grid h-[52px] w-[52px] place-items-center rounded-[14px] bg-green-600/10">
                   <CheckCircle className="h-6 w-6 text-green-600" strokeWidth={2} />
                 </div>
-                <p className="text-[13px] text-[#8c95b0]">All products are selling well</p>
+                <p className="text-[13px] text-[#437278]">All products are selling well</p>
               </div>
             )}
           </div>
@@ -1970,7 +1970,7 @@ const BusinessDashboard = () => {
                           {formatCurrency(branchDetails.totalStats?.revenue || 0)}
                         </p>
                       </div>
-                      <DollarSign className="h-8 w-8 text-[#0C2C8A]" />
+                      <DollarSign className="h-8 w-8 text-[#032125]" />
                     </div>
                   </CardContent>
                 </Card>
@@ -2022,7 +2022,7 @@ const BusinessDashboard = () => {
                 <Card className="shadow-soft border-0">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <ShoppingCart className="h-5 w-5 text-[#0C2C8A]" />
+                      <ShoppingCart className="h-5 w-5 text-[#032125]" />
                       <span>Recent Sales</span>
                     </CardTitle>
                   </CardHeader>
@@ -2055,7 +2055,7 @@ const BusinessDashboard = () => {
                 <Card className="shadow-soft border-0">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <Users className="h-5 w-5 text-[#0C2C8A]" />
+                      <Users className="h-5 w-5 text-[#032125]" />
                       <span>Recent Customers</span>
                     </CardTitle>
                   </CardHeader>

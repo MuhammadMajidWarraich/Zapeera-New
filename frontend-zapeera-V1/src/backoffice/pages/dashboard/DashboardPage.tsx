@@ -42,7 +42,7 @@ export function DashboardPage() {
         <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
         <p className="text-gray-600 font-medium mb-2">Failed to load dashboard</p>
         <p className="text-sm text-gray-400 mb-4">{error}</p>
-        <button onClick={fetchStats} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+        <button onClick={fetchStats} className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-lg hover:bg-spruce-900 transition text-sm">
           <RefreshCw className="w-4 h-4" /> Retry
         </button>
       </div>
@@ -52,10 +52,10 @@ export function DashboardPage() {
   if (!stats) return null;
 
   const kpiCards = [
-    { label: 'Total Businesses', value: stats.totalBusinesses, icon: Building2, color: 'from-blue-500 to-blue-600', bg: 'bg-blue-50 text-blue-600' },
+    { label: 'Total Businesses', value: stats.totalBusinesses, icon: Building2, color: 'from-spruce-500 to-spruce-500', bg: 'bg-verdant-100 text-spruce-700' },
     { label: 'Active Businesses', value: stats.activeBusinesses, icon: CheckCircle, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 text-emerald-600' },
-    { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'from-violet-500 to-violet-600', bg: 'bg-violet-50 text-violet-600' },
-    { label: 'Active Subscriptions', value: stats.activeSubscriptions, icon: CreditCard, color: 'from-cyan-500 to-cyan-600', bg: 'bg-cyan-50 text-cyan-600' },
+    { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'from-spruce-500 to-spruce-700', bg: 'bg-verdant-100 text-spruce-500' },
+    { label: 'Active Subscriptions', value: stats.activeSubscriptions, icon: CreditCard, color: 'from-spruce-500 to-spruce-500', bg: 'bg-verdant-100 text-spruce-500' },
     { label: 'Monthly Revenue', value: `PKR ${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 text-emerald-600' },
     { label: 'Trial Subs', value: stats.trialSubscriptions, icon: Clock, color: 'from-amber-500 to-amber-600', bg: 'bg-amber-50 text-amber-600' },
     { label: 'New This Month', value: stats.newSubscriptionsThisMonth, icon: TrendingUp, color: 'from-rose-500 to-rose-600', bg: 'bg-rose-50 text-rose-600' },
@@ -94,7 +94,7 @@ export function DashboardPage() {
           <div className="space-y-3">
             {stats.recentActivity.slice(0, 6).map((activity: any) => (
               <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0">
-                <div className={`p-1.5 rounded-lg mt-0.5 ${activity.type === 'business_created' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                <div className={`p-1.5 rounded-lg mt-0.5 ${activity.type === 'business_created' ? 'bg-verdant-100 text-spruce-700' : 'bg-emerald-50 text-emerald-600'}`}>
                   {activity.type === 'business_created' ? <Building2 className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ export function DashboardPage() {
           <div className="space-y-3">
             {stats.recentBusinesses.map((biz: any) => (
               <div key={biz.id} className="flex items-center gap-3 pb-3 border-b border-gray-100 last:border-0">
-                <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                <div className="p-1.5 bg-verdant-100 text-spruce-700 rounded-lg">
                   <Building2 className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">

@@ -52,7 +52,7 @@ import { readUserScopedBusinesses, RECENT_BUSINESSES_KEY } from "@/lib/user-scop
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/components/user-dashboard/business-cards";
 
-const CARD = "rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]";
+const CARD = "rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)]";
 
 /** Pending invitations, derived exactly like the old InvitationsWidget. */
 export function usePendingInvitations() {
@@ -85,10 +85,10 @@ export function InvitationsStrip() {
         <UserPlus className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-[#0a1128]">
+        <p className="text-sm font-bold text-[#032125]">
           {invites.length === 1 ? "You have a pending invitation" : `You have ${invites.length} pending invitations`}
         </p>
-        <p className="truncate text-[13px] text-[#4a5578]">
+        <p className="truncate text-[13px] text-[#354D51]">
           {first.businessName} invited you as <b>{first.role}</b>
           {invites.length > 1 ? ` — and ${invites.length - 1} more` : ""}. Invitations can expire, review them soon.
         </p>
@@ -146,39 +146,39 @@ export function CompletionStrip() {
   return (
     <section className={cn(CARD, "mt-6 px-5 py-4")} aria-label="Account completion">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#1a52c5]/10 text-[#1a52c5]">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0B363B]/10 text-[#0B363B]">
           <Target className="h-[22px] w-[22px]" />
         </span>
         <div className="min-w-[190px]">
-          <p className="text-sm font-bold text-[#0a1128]">Finish setting up your account</p>
-          <p className="mt-0.5 text-xs text-[#8c95b0]">Complete a few more steps to get the most out of Tickimo.</p>
+          <p className="text-sm font-bold text-[#032125]">Finish setting up your account</p>
+          <p className="mt-0.5 text-xs text-[#437278]">Complete a few more steps to get the most out of Tickimo.</p>
         </div>
         <div className="flex min-w-[200px] flex-1 items-center gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e8edf6]">
-            <div className="h-full rounded-full bg-gradient-to-r from-[#1a52c5] to-[#28c2ce] transition-all duration-500" style={{ width: `${pct}%` }} />
+            <div className="h-full rounded-full bg-gradient-to-r from-[#0B363B] to-[#437278] transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
-          <span className="whitespace-nowrap text-[13px] font-bold text-[#1a52c5]">
+          <span className="whitespace-nowrap text-[13px] font-bold text-[#0B363B]">
             {pct}% · {doneCount} of {items.length} complete
           </span>
         </div>
-        <div className="flex items-center gap-2 border-[rgba(15,23,60,0.07)] max-lg:w-full max-lg:justify-between lg:border-l lg:pl-5">
+        <div className="flex items-center gap-2 border-[rgba(3,33,37,0.07)] max-lg:w-full max-lg:justify-between lg:border-l lg:pl-5">
           <button type="button" onClick={() => navigate(next.to)} className="text-left">
-            <span className="block text-[13px] font-bold text-[#1a52c5]">Next: {next.label}</span>
-            <span className="block text-xs text-[#8c95b0]">{nextHints[next.key] || "One quick step"}</span>
+            <span className="block text-[13px] font-bold text-[#0B363B]">Next: {next.label}</span>
+            <span className="block text-xs text-[#437278]">{nextHints[next.key] || "One quick step"}</span>
           </button>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-label={expanded ? "Hide all steps" : "Show all steps"}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#8c95b0] transition-colors hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#437278] transition-colors hover:bg-[#EAFDE8] hover:text-[#032125]"
           >
             <ChevronDown className={cn("h-[18px] w-[18px] transition-transform", expanded && "rotate-180")} />
           </button>
         </div>
       </div>
       {expanded && (
-        <div className="mt-2 grid gap-1 border-t border-[rgba(15,23,60,0.05)] pt-2 sm:grid-cols-2">
+        <div className="mt-2 grid gap-1 border-t border-[rgba(3,33,37,0.05)] pt-2 sm:grid-cols-2">
           {items.map((it) => {
             const Icon = it.icon;
             return (
@@ -186,11 +186,11 @@ export function CompletionStrip() {
                 key={it.key}
                 type="button"
                 onClick={() => navigate(it.to)}
-                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-[#f0f2f7]"
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-[#EAFDE8]"
               >
                 {it.done ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" /> : <XCircle className="h-4 w-4 shrink-0 text-amber-500" />}
-                <Icon className="h-4 w-4 shrink-0 text-[#8c95b0]" />
-                <span className={cn("flex-1", it.done ? "text-[#4a5578]" : "font-medium text-[#0a1128]")}>{it.label}</span>
+                <Icon className="h-4 w-4 shrink-0 text-[#437278]" />
+                <span className={cn("flex-1", it.done ? "text-[#354D51]" : "font-medium text-[#032125]")}>{it.label}</span>
               </button>
             );
           })}
@@ -220,21 +220,21 @@ export function RecentActivity({ onOpen }: { onOpen: (slug?: string | null, id: 
     const list: Array<{ id: string; icon: React.ElementType; tint: string; title: string; time: string }> = [];
     const desktopCount = (runtime.desktopBusinessStates || []).filter((b) => b.availableOffline).length;
     if (desktopCount > 0) {
-      list.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500/10 text-violet-600", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
+      list.push({ id: "desktop", icon: Laptop, tint: "bg-spruce-500/10 text-spruce-500", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
     }
-    list.push({ id: "login", icon: LogIn, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Tickimo", time: "Sign up" });
+    list.push({ id: "login", icon: LogIn, tint: "bg-[#0B363B]/10 text-[#0B363B]", title: "New login from your account", time: "Today" });
+    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#437278]/10 text-[#437278]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
 
   return (
     <section className={cn(CARD, "mt-6 p-5 sm:p-6")} aria-label="Recent activity">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-extrabold tracking-tight text-[#0a1128]">Recent activity</h3>
+        <h3 className="text-base font-extrabold tracking-tight text-[#032125]">Recent activity</h3>
         <button
           type="button"
           onClick={() => navigate("/zapeera/notifications")}
-          className="inline-flex items-center gap-1 rounded-lg bg-[#f0f2f7] px-3 py-1.5 text-[13px] font-semibold text-[#1a52c5] transition-colors hover:bg-[#e4eaf5]"
+          className="inline-flex items-center gap-1 rounded-lg bg-[#EAFDE8] px-3 py-1.5 text-[13px] font-semibold text-[#0B363B] transition-colors hover:bg-[#e4eaf5]"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" />
@@ -243,29 +243,29 @@ export function RecentActivity({ onOpen }: { onOpen: (slug?: string | null, id: 
 
       {recent.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Recently accessed</p>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Recently accessed</p>
           <div className="grid gap-1 sm:grid-cols-2">
             {recent.map((b) => (
               <button
                 key={b.id}
                 type="button"
                 onClick={() => onOpen(b.slug, b.id)}
-                className="flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#f0f2f7]"
+                className="flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-[#EAFDE8]"
               >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#1a52c5]/10 to-[#28c2ce]/10 text-[#1a52c5]">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#0B363B]/10 to-[#437278]/10 text-[#0B363B]">
                   <Building2 className="h-4 w-4" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#0a1128]">{b.name}</span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-[#8c95b0]" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#032125]">{b.name}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-[#437278]" />
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className={cn("relative", recent.length > 0 && "mt-5 border-t border-[rgba(15,23,60,0.05)] pt-4")}>
-        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8c95b0]">Account activity</p>
-        <span className="absolute bottom-3 left-[15px] top-10 w-px bg-[rgba(15,23,60,0.08)]" aria-hidden />
+      <div className={cn("relative", recent.length > 0 && "mt-5 border-t border-[rgba(3,33,37,0.05)] pt-4")}>
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#437278]">Account activity</p>
+        <span className="absolute bottom-3 left-[15px] top-10 w-px bg-[rgba(3,33,37,0.08)]" aria-hidden />
         <ul className="space-y-3.5">
           {events.map((it) => {
             const Icon = it.icon;
@@ -275,8 +275,8 @@ export function RecentActivity({ onOpen }: { onOpen: (slug?: string | null, id: 
                   <Icon className="h-4 w-4" strokeWidth={2.2} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold leading-snug text-[#0a1128]">{it.title}</p>
-                  <p className="mt-0.5 text-xs text-[#8c95b0]">{it.time}</p>
+                  <p className="text-sm font-semibold leading-snug text-[#032125]">{it.title}</p>
+                  <p className="mt-0.5 text-xs text-[#437278]">{it.time}</p>
                 </div>
               </li>
             );
@@ -297,19 +297,19 @@ export function DesktopBanner() {
 
   if (!runtime.isDesktop) {
     return (
-      <section className="relative mt-6 overflow-hidden rounded-2xl border border-[#d9e6f7] bg-gradient-to-r from-[#e9f1fd] via-[#e9f4fb] to-[#e3f6f8] px-5 py-5 sm:px-6" aria-label="Desktop app">
+      <section className="relative mt-6 overflow-hidden rounded-2xl border border-[#A1C2C6] bg-gradient-to-r from-[#EAFDE8] via-[#FFFCF6] to-[#EAFDE8] px-5 py-5 sm:px-6" aria-label="Desktop app">
         {/* Decorative laptop mock, echoing the reference banner visual */}
         <div aria-hidden className="pointer-events-none absolute -right-6 top-1/2 hidden w-[248px] -translate-y-1/2 rotate-[-5deg] lg:block">
-          <div className="overflow-hidden rounded-t-xl border-[5px] border-b-0 border-[#12234d] bg-white shadow-[0_24px_50px_rgba(10,25,60,0.22)]">
+          <div className="overflow-hidden rounded-t-xl border-[5px] border-b-0 border-[#12234d] bg-white shadow-[0_24px_50px_rgba(3,33,37,0.22)]">
             <div className="flex h-[94px]">
               <div className="flex w-9 shrink-0 flex-col items-center gap-1.5 bg-[#0a1633] py-2">
-                <span className="h-3.5 w-3.5 rounded-[4px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce]" />
+                <span className="h-3.5 w-3.5 rounded-[4px] bg-gradient-to-br from-[#0B363B] to-[#437278]" />
                 <span className="mt-1 h-1.5 w-5 rounded bg-white/25" />
                 <span className="h-1.5 w-5 rounded bg-white/15" />
                 <span className="h-1.5 w-5 rounded bg-white/15" />
               </div>
-              <div className="min-w-0 flex-1 bg-[#f4f7fc] p-2">
-                <div className="h-2 w-2/5 rounded bg-[#c9d6ee]" />
+              <div className="min-w-0 flex-1 bg-[#FFFCF6] p-2">
+                <div className="h-2 w-2/5 rounded bg-[#A1C2C6]" />
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
                   <span className="h-6 rounded-md bg-white shadow-sm" />
                   <span className="h-6 rounded-md bg-white shadow-sm" />
@@ -320,23 +320,23 @@ export function DesktopBanner() {
               </div>
             </div>
           </div>
-          <div className="mx-[-14px] h-[9px] rounded-b-xl bg-gradient-to-b from-[#2a3c66] to-[#0d1830] shadow-[0_10px_24px_rgba(10,25,60,0.25)]" />
+          <div className="mx-[-14px] h-[9px] rounded-b-xl bg-gradient-to-b from-[#032125] to-[#00191C] shadow-[0_10px_24px_rgba(3,33,37,0.25)]" />
         </div>
         <div className="relative z-[1] flex flex-wrap items-center gap-4 lg:pr-[250px]">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_6px_18px_rgba(26,82,197,0.3)]">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_6px_18px_rgba(11,54,59,0.3)]">
             <Monitor className="h-6 w-6" />
           </span>
           <div className="min-w-[210px] flex-1">
-            <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Get the Tickimo desktop app</p>
-            <p className="mt-0.5 text-[13px] text-[#4a5578]">Work offline at the counter, your data syncs automatically.</p>
+            <p className="text-[15px] font-extrabold tracking-tight text-[#032125]">Get the Tickimo desktop app</p>
+            <p className="mt-0.5 text-[13px] text-[#354D51]">Work offline at the counter, your data syncs automatically.</p>
           </div>
           <a
             href={DESKTOP_DOWNLOAD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[rgba(15,23,60,0.08)] bg-white px-5 py-3 text-sm font-bold text-[#0a1128] shadow-[0_6px_20px_rgba(10,25,60,0.1)] transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(10,25,60,0.14)] max-sm:w-full max-sm:justify-center"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[rgba(3,33,37,0.08)] bg-white px-5 py-3 text-sm font-bold text-[#032125] shadow-[0_6px_20px_rgba(3,33,37,0.1)] transition-all hover:-translate-y-px hover:shadow-[0_10px_28px_rgba(3,33,37,0.14)] max-sm:w-full max-sm:justify-center"
           >
-            <Download className="h-4 w-4 text-[#1a52c5]" />
+            <Download className="h-4 w-4 text-[#0B363B]" />
             Download Desktop App
           </a>
         </div>
@@ -355,29 +355,29 @@ export function DesktopBanner() {
   };
 
   return (
-    <section className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white px-4 py-3.5 shadow-[0_1px_4px_rgba(0,0,0,0.03)] sm:px-5" aria-label="Desktop status">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-600">
+    <section className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[rgba(3,33,37,0.06)] bg-white px-4 py-3.5 shadow-[0_1px_4px_rgba(0,0,0,0.03)] sm:px-5" aria-label="Desktop status">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-spruce-500/10 text-spruce-500">
         <Laptop className="h-5 w-5" />
       </span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#4a5578]">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#354D51]">
         <span className="inline-flex items-center gap-1.5">
           {online ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-gray-400" />}
           Desktop <b className={online ? "text-green-600" : "text-gray-400"}>{online ? "Connected" : "Offline"}</b>
         </span>
         <span>
-          <b className="font-semibold text-[#0a1128]">{businessCount}</b> offline {businessCount === 1 ? "business" : "businesses"}
+          <b className="font-semibold text-[#032125]">{businessCount}</b> offline {businessCount === 1 ? "business" : "businesses"}
         </span>
         <span>
-          Last sync <b className="font-semibold text-[#0a1128]">{lastSync ? formatDate(lastSync) : "Never"}</b>
+          Last sync <b className="font-semibold text-[#032125]">{lastSync ? formatDate(lastSync) : "Never"}</b>
         </span>
       </div>
       <button
         type="button"
         onClick={handleSync}
         disabled={syncing || status.syncState === "syncing"}
-        className="inline-flex shrink-0 items-center gap-2 rounded-[10px] border border-[rgba(15,23,60,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0a1128] transition-colors hover:bg-[#f0f2f7] disabled:opacity-50"
+        className="inline-flex shrink-0 items-center gap-2 rounded-[10px] border border-[rgba(3,33,37,0.1)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#032125] transition-colors hover:bg-[#EAFDE8] disabled:opacity-50"
       >
-        <RefreshCw className={cn("h-4 w-4 text-[#1a52c5]", syncing && "animate-spin")} />
+        <RefreshCw className={cn("h-4 w-4 text-[#0B363B]", syncing && "animate-spin")} />
         {syncing ? "Syncing…" : "Sync Now"}
       </button>
     </section>

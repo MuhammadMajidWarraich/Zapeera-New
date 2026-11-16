@@ -189,7 +189,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                   <p className="text-sm font-medium text-muted-foreground">Total Products</p>
                   <p className="text-2xl font-bold text-foreground">{currentData.totalProducts.toLocaleString()}</p>
                 </div>
-                <Package className="w-8 h-8 text-blue-600" />
+                <Package className="w-8 h-8 text-spruce-700" />
               </div>
             </CardContent>
           </Card>
@@ -201,7 +201,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                   <p className="text-sm font-medium text-muted-foreground">Total Stock</p>
                   <p className="text-2xl font-bold text-foreground">{currentData.totalStock.toLocaleString()}</p>
                 </div>
-                <Package className="w-8 h-8 text-purple-600" />
+                <Package className="w-8 h-8 text-spruce-500" />
               </div>
             </CardContent>
           </Card>
@@ -251,7 +251,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                     </span>
                   </div>
                 </div>
-                <Users className="w-8 h-8 text-blue-600" />
+                <Users className="w-8 h-8 text-spruce-700" />
               </div>
             </CardContent>
           </Card>
@@ -273,7 +273,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                     </span>
                   </div>
                 </div>
-                <DollarSign className="w-8 h-8 text-purple-600" />
+                <DollarSign className="w-8 h-8 text-spruce-500" />
               </div>
             </CardContent>
           </Card>
@@ -313,7 +313,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                   <p className="text-sm font-medium text-muted-foreground">Total Products</p>
                   <p className="text-2xl font-bold text-foreground">{currentData.totalProducts.toLocaleString()}</p>
                 </div>
-                <Package className="w-8 h-8 text-blue-600" />
+                <Package className="w-8 h-8 text-spruce-700" />
               </div>
             </CardContent>
           </Card>
@@ -349,7 +349,7 @@ const TimePeriodReports: React.FC<TimePeriodReportsProps> = ({
                   <p className="text-sm font-medium text-muted-foreground">Top Products</p>
                   <p className="text-2xl font-bold text-foreground">{currentData.topProducts.length}</p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-purple-600" />
+                <BarChart3 className="w-8 h-8 text-spruce-500" />
               </div>
             </CardContent>
           </Card>

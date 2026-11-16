@@ -349,7 +349,7 @@ const DoctorsPage: React.FC = () => {
             ) : (
               records.map((record) => (
                 <tr key={record.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-[#0a1128]">Dr {record.name}</td>
+                  <td className="px-4 py-3 font-medium text-[#032125]">Dr {record.name}</td>
                   <td className="px-4 py-3">{record.specialization || "—"}</td>
                   <td className="px-4 py-3">{record.phone || "—"}</td>
                   <td className="px-4 py-3">{money(record.consultationFee)}</td>
@@ -390,7 +390,7 @@ const DoctorsPage: React.FC = () => {
       <div className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="flex items-center gap-2 text-xl font-bold text-[#0a1128]">
+            <h2 className="flex items-center gap-2 text-xl font-bold text-[#032125]">
               <HandCoins className="h-5 w-5" /> Doctor-share settlement
             </h2>
             <p className="text-sm text-gray-500">
@@ -443,7 +443,7 @@ const DoctorsPage: React.FC = () => {
                 <>
                   {report.doctors.map((row) => (
                     <tr key={row.doctorId} className="border-t hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-[#0a1128]">
+                      <td className="px-4 py-3 font-medium text-[#032125]">
                         Dr {row.doctor.name}
                         {!row.doctor.isActive && <span className="ml-2 text-xs text-gray-400">(inactive)</span>}
                       </td>
@@ -485,7 +485,7 @@ const DoctorsPage: React.FC = () => {
 
         {settlements.length > 0 && (
           <div className="rounded-lg border bg-white">
-            <h3 className="border-b px-4 py-3 text-sm font-semibold text-[#0a1128]">Recent payouts</h3>
+            <h3 className="border-b px-4 py-3 text-sm font-semibold text-[#032125]">Recent payouts</h3>
             <div className="divide-y">
               {settlements.map((s) => (
                 <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">

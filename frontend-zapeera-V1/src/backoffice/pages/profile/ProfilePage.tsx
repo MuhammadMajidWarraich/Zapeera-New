@@ -61,7 +61,7 @@ export function ProfilePage() {
     }
   };
 
-  const inputCls = "w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/50";
+  const inputCls = "w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-spruce-500/50";
 
   return (
     <div className="space-y-6">
@@ -69,7 +69,7 @@ export function ProfilePage() {
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-white text-spruce-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}
@@ -79,13 +79,13 @@ export function ProfilePage() {
         {activeTab === 'profile' && (
           <div className="space-y-6 max-w-2xl">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-blue-500/25">
+              <div className="w-16 h-16 bg-gradient-to-br from-spruce-700 to-spruce-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-spruce-500/25">
                 {admin?.email?.charAt(0).toUpperCase() || 'A'}
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{admin?.email?.split('@')[0] || 'Admin'}</h2>
                 <p className="text-sm text-gray-500">{admin?.email}</p>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{admin?.role}</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 bg-verdant-100 text-spruce-900 rounded-full text-xs font-medium">{admin?.role}</span>
               </div>
             </div>
 
@@ -100,7 +100,7 @@ export function ProfilePage() {
               <h3 className="text-lg font-semibold text-gray-900">Change Email</h3>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">New Email</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={admin?.email || 'admin@example.com'} className={inputCls} /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Current Password (to confirm)</label><input type="password" value={emailCurrentPassword} onChange={e => setEmailCurrentPassword(e.target.value)} className={inputCls} /></div>
-              <button onClick={handleEmailChange} disabled={savingEmail} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50">
+              <button onClick={handleEmailChange} disabled={savingEmail} className="inline-flex items-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium disabled:opacity-50">
                 {savingEmail ? 'Saving...' : <><Mail className="w-4 h-4" /> Update Email</>}
               </button>
             </div>
@@ -113,7 +113,7 @@ export function ProfilePage() {
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label><input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className={inputCls} /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">New Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputCls} /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputCls} /></div>
-            <button onClick={handlePasswordChange} disabled={savingPassword} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50">
+            <button onClick={handlePasswordChange} disabled={savingPassword} className="inline-flex items-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium disabled:opacity-50">
               {savingPassword ? 'Saving...' : <><Key className="w-4 h-4" /> Update Password</>}
             </button>
             <p className="text-xs text-gray-400 flex items-center gap-1"><Save className="w-3.5 h-3.5" /> Changes are saved to your admin account immediately.</p>

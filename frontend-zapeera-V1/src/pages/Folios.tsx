@@ -136,7 +136,7 @@ const FoliosPage: React.FC = () => {
                   <Badge
                     className={
                       folio.status === "OPEN"
-                        ? "bg-blue-100 text-blue-800"
+                        ? "bg-verdant-100 text-spruce-900"
                         : "bg-green-100 text-green-800"
                     }
                   >

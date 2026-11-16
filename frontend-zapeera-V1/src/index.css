@@ -1,3 +1,127 @@
+/* Outfit — BUNDLED static woff2 (weights 400-900, latin + latin-ext).
+   Source: @fontsource/outfit 5.3.0, files/ (verified static: no fvar table).
+   License: SIL Open Font License 1.1 — see src/assets/fonts/OFL.txt.
+   No Google Fonts CDN dependency: these files ship inside dist/ via Vite. */
+
+/* outfit-latin-ext-400-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./assets/fonts/outfit-latin-ext-400-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-400-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./assets/fonts/outfit-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* outfit-latin-ext-500-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./assets/fonts/outfit-latin-ext-500-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-500-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./assets/fonts/outfit-latin-500-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* outfit-latin-ext-600-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./assets/fonts/outfit-latin-ext-600-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-600-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./assets/fonts/outfit-latin-600-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* outfit-latin-ext-700-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./assets/fonts/outfit-latin-ext-700-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-700-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./assets/fonts/outfit-latin-700-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* outfit-latin-ext-800-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./assets/fonts/outfit-latin-ext-800-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-800-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./assets/fonts/outfit-latin-800-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* outfit-latin-ext-900-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./assets/fonts/outfit-latin-ext-900-normal.woff2) format('woff2');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+/* outfit-latin-900-normal */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./assets/fonts/outfit-latin-900-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,35 +131,35 @@
 @layer base {
   :root {
     /* Core Backgrounds */
-    --background: 220 23% 97%;      /* #F7F9FB - very light gray */
-    --foreground: 215 25% 20%;      /* #1E293B - dark text */
+    --background: 40 100% 98%;      /* #FFFCF6 - cream warm */
+    --foreground: 220 43% 11%;      /* #101828 - heading ink */
 
     /* Cards */
     --card: 0 0% 100%;              /* #FFFFFF */
-    --card-foreground: 215 25% 20%;
+    --card-foreground: 220 43% 11%;
 
     /* Popover */
     --popover: 0 0% 100%;           /* #FFFFFF */
-    --popover-foreground: 215 25% 20%;
+    --popover-foreground: 220 43% 11%;
 
-    /* Primary Green (Items Sold box) */
-    --primary: 152 62% 33%;         /* #1F7C47 ✅ exact */
-    --primary-foreground: 0 0% 100%;
+    /* Primary Spruce (primary actions) */
+    --primary: 186 69% 14%;         /* #0B363B ✅ exact */
+    --primary-foreground: 40 100% 98%;
 
     /* Sidebar / Secondary */
-    --secondary: 210 40% 96%;       /* #F3F6F9 ✅ sidebar bg */
-    --secondary-foreground: 215 25% 20%;
+    --secondary: 114 84% 95%;       /* #EAFDE8 ✅ verdant whisper */
+    --secondary-foreground: 186 69% 14%;
 
-    /* Accent Blue (icons, highlights) */
-    --accent: 200 90% 55%;          /* #2CA6E2 */
-    --accent-foreground: 0 0% 100%;
+    /* Accent Spruce (icons, highlights) */
+    --accent: 187 28% 37%;          /* #437278 */
+    --accent-foreground: 40 100% 98%;
 
     /* Ring */
-    --ring: 200 90% 55%;
+    --ring: 187 28% 37%;
 
     /* Muted Texts & Backgrounds */
-    --muted: 210 20% 95%;           /* #F5F7FA */
-    --muted-foreground: 215 15% 45%;/* #6B7280 */
+    --muted: 114 84% 95%;           /* #EAFDE8 */
+    --muted-foreground: 189 21% 26%;/* #354D51 */
 
     /* Status Colors */
     --success: 152 62% 33%;         /* same green */
@@ -43,14 +167,14 @@
     --destructive: 0 84% 60%;         /* #EF4444 red */
 
     /* Borders / Inputs */
-    --border: 214 32% 91%;          /* #E5E7EB */
-    --input: 214 32% 91%;
-    --ring: 152 62% 33%;            /* green focus */
+    --border: 186 25% 70%;          /* #A1C2C6 */
+    --input: 186 25% 70%;
+    --ring: 187 28% 37%;            /* spruce focus */
 
     /* Shadows */
-    --shadow-soft: 0 2px 8px -2px hsl(215 25% 20% / 0.08);
-    --shadow-medium: 0 4px 16px -4px hsl(215 25% 20% / 0.12);
-    --shadow-strong: 0 8px 32px -8px hsl(215 25% 20% / 0.16);
+    --shadow-soft: 0 2px 8px -2px hsl(187 85% 8% / 0.08);
+    --shadow-medium: 0 4px 16px -4px hsl(187 85% 8% / 0.12);
+    --shadow-strong: 0 8px 32px -8px hsl(187 85% 8% / 0.16);
 
     /* Radius */
     --radius: 0.75rem;
@@ -58,6 +182,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
     overflow-x: hidden;
   }
 
@@ -198,12 +323,12 @@
   }
 }
 /* Dark system-bar bands: paints the safe-area strips (under the Android
-   status bar and navigation bar) in the brand navy so the system icons
+   status bar and navigation bar) in the brand abyss so the system icons
    and nav buttons stay prominent. Zero-height where insets are 0 (web). */
 .safe-bars {
   background-image:
-    linear-gradient(#060d1f, #060d1f),
-    linear-gradient(#060d1f, #060d1f);
+    linear-gradient(#00191C, #00191C),
+    linear-gradient(#00191C, #00191C);
   background-position:
     top left,
     bottom left;

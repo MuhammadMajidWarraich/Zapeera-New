@@ -104,7 +104,7 @@ export function ContentPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold text-gray-900">Content Management</h1><p className="text-sm text-gray-500 mt-1">Manage platform pages (legal, help, landing copy) served at /api/content/:slug</p></div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-medium"><Plus className="w-4 h-4" /> New Page</button>
+        <button onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 bg-spruce-700 text-white rounded-xl hover:bg-spruce-900 transition text-sm font-medium"><Plus className="w-4 h-4" /> New Page</button>
       </div>
 
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
@@ -113,7 +113,7 @@ export function ContentPage() {
           { id: 'PUBLISHED', label: 'Published' },
           { id: 'DRAFT', label: 'Drafts' },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setStatusFilter(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          <button key={tab.id} onClick={() => setStatusFilter(tab.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === tab.id ? 'bg-white text-spruce-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             {tab.label}
           </button>
         ))}
@@ -147,7 +147,7 @@ export function ContentPage() {
               >
                 {item.status}
               </button>
-              <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit">
+              <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-spruce-700 hover:bg-verdant-100 rounded-lg" title="Edit">
                 <Edit2 className="w-4 h-4" />
               </button>
               <button onClick={() => setDeleting(item)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete">
@@ -169,11 +169,11 @@ export function ContentPage() {
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Title</label>
-                  <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Privacy Policy" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+                  <input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Privacy Policy" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as ContentPageItem['status'] })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500/50">
+                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as ContentPageItem['status'] })} className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-spruce-500/50">
                     <option value="DRAFT">Draft</option>
                     <option value="PUBLISHED">Published</option>
                   </select>
@@ -181,17 +181,17 @@ export function ContentPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Slug</label>
-                <input type="text" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder="privacy-policy" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+                <input type="text" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder="privacy-policy" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" />
                 <p className="mt-1 text-xs text-gray-400">Lowercase letters, numbers and hyphens. Published pages are served at /api/content/&lt;slug&gt;.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Body</label>
-                <textarea value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} rows={10} placeholder="Page content (plain text or HTML)…" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/50" />
+                <textarea value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} rows={10} placeholder="Page content (plain text or HTML)…" className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-spruce-500/50" />
               </div>
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
               <button onClick={() => setShowModal(false)} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60">
+              <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 bg-spruce-700 text-white rounded-lg text-sm font-medium hover:bg-spruce-900 disabled:opacity-60">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
               </button>
             </div>

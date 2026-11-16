@@ -64,7 +64,7 @@ export function AdminMenu() {
         aria-expanded={open}
         aria-label="Admin menu"
       >
-        <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-blue-500/25">
+        <div className="w-9 h-9 bg-gradient-to-br from-spruce-700 to-spruce-500 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-spruce-500/25">
           {admin.email.charAt(0).toUpperCase()}
         </div>
         <div className="hidden md:block text-left">
@@ -82,13 +82,13 @@ export function AdminMenu() {
           role="menu"
         >
           <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 bg-gray-50/60">
-            <div className="w-11 h-11 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-blue-500/25 flex-shrink-0">
+            <div className="w-11 h-11 bg-gradient-to-br from-spruce-700 to-spruce-500 rounded-full flex items-center justify-center text-white font-semibold shadow-lg shadow-spruce-500/25 flex-shrink-0">
               {admin.email.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
               <p className="text-xs text-gray-500 truncate">{admin.email}</p>
-              <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 rounded-full">
+              <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-semibold bg-verdant-100 text-spruce-900 border border-verdant-100 rounded-full">
                 {admin.role}
               </span>
             </div>

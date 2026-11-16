@@ -210,18 +210,18 @@ const TaxClasses = () => {
     <div className="w-full px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#1a52c5]/10 bg-gradient-to-br from-[#1a52c5]/[0.06] to-[#28c2ce]/[0.06] px-3 py-1 text-xs font-semibold text-[#1a52c5]">
+          <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-[#0B363B]/10 bg-gradient-to-br from-[#0B363B]/[0.06] to-[#437278]/[0.06] px-3 py-1 text-xs font-semibold text-[#0B363B]">
             <Percent className="h-3.5 w-3.5" /> Sales
           </div>
-          <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Tax Classes</h1>
-          <p className="mt-1 max-w-[720px] text-sm text-[#8c95b0]">
+          <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#032125]">Tax Classes</h1>
+          <p className="mt-1 max-w-[720px] text-sm text-[#437278]">
             Rate groups for your products — e.g. Standard 17%, Reduced 5%, Exempt 0%. Assign a class on the
             product form; products without a class use the default class, or the Default Tax setting when
             no classes exist. Tax is always calculated by the server.
           </p>
         </div>
         {canManage && (
-          <Button onClick={openCreate} className="bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-90">
+          <Button onClick={openCreate} className="bg-gradient-to-br from-[#0B363B] to-[#437278] text-white hover:opacity-90">
             <Plus className="mr-1.5 h-4 w-4" /> New Tax Class
           </Button>
         )}
@@ -229,7 +229,7 @@ const TaxClasses = () => {
 
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-[220px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]" />
           <Input
             placeholder="Search by name…"
             value={searchQuery}
@@ -252,16 +252,16 @@ const TaxClasses = () => {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-[14px] border border-[rgba(15,23,60,0.08)] bg-white">
+      <div className="overflow-hidden rounded-[14px] border border-[rgba(3,33,37,0.08)] bg-white">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-[#8c95b0]">
+          <div className="flex items-center justify-center gap-2 py-16 text-sm text-[#437278]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading tax classes…
           </div>
         ) : taxClasses.length === 0 ? (
           <div className="py-16 text-center">
             <Percent className="mx-auto mb-3 h-8 w-8 text-[#c3cad9]" />
-            <p className="text-sm font-semibold text-[#0a1128]">No tax classes yet</p>
-            <p className="mx-auto mt-1 max-w-[520px] text-sm text-[#8c95b0]">
+            <p className="text-sm font-semibold text-[#032125]">No tax classes yet</p>
+            <p className="mx-auto mt-1 max-w-[520px] text-sm text-[#437278]">
               {canManage
                 ? "Sales currently use the single Default Tax rate from Settings. Create classes when different products need different rates."
                 : "No tax classes have been created for this business yet — sales use the Default Tax rate."}
@@ -270,7 +270,7 @@ const TaxClasses = () => {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] text-left text-xs uppercase tracking-wide text-[#8c95b0]">
+              <tr className="border-b border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] text-left text-xs uppercase tracking-wide text-[#437278]">
                 <th className="px-4 py-3 font-semibold">Tax class</th>
                 <th className="px-4 py-3 font-semibold">Rate</th>
                 <th className="px-4 py-3 font-semibold">Default</th>
@@ -280,11 +280,11 @@ const TaxClasses = () => {
             </thead>
             <tbody>
               {taxClasses.map((taxClass) => (
-                <tr key={taxClass.id} className="border-b border-[rgba(15,23,60,0.05)] last:border-0 hover:bg-[#f8f9fc]/60">
+                <tr key={taxClass.id} className="border-b border-[rgba(3,33,37,0.05)] last:border-0 hover:bg-[#FFFCF6]/60">
                   <td className="px-4 py-3">
-                    <span className="font-semibold text-[#0a1128]">{taxClass.name}</span>
+                    <span className="font-semibold text-[#032125]">{taxClass.name}</span>
                     {!taxClass.isActive && (
-                      <span className="block text-xs text-[#8c95b0]">Retired — products fall back to the default</span>
+                      <span className="block text-xs text-[#437278]">Retired — products fall back to the default</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -292,9 +292,9 @@ const TaxClasses = () => {
                   </td>
                   <td className="px-4 py-3">
                     {taxClass.isDefault ? (
-                      <Badge className="bg-[#1a52c5] font-semibold text-white hover:bg-[#1a52c5]">Default</Badge>
+                      <Badge className="bg-[#0B363B] font-semibold text-white hover:bg-[#0B363B]">Default</Badge>
                     ) : (
-                      <span className="text-xs font-medium text-[#8c95b0]">—</span>
+                      <span className="text-xs font-medium text-[#437278]">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -311,7 +311,7 @@ const TaxClasses = () => {
                           type="button"
                           onClick={() => openEdit(taxClass)}
                           aria-label={`Edit ${taxClass.name}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-[#4a5578] transition-colors hover:bg-[#f4f6fa]"
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-[#354D51] transition-colors hover:bg-[#FFFCF6]"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -319,7 +319,7 @@ const TaxClasses = () => {
                           type="button"
                           onClick={() => setRetiring(taxClass)}
                           aria-label={`Retire ${taxClass.name}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(15,23,60,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
+                          className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-[rgba(3,33,37,0.1)] bg-white text-red-500 transition-colors hover:bg-red-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -336,7 +336,7 @@ const TaxClasses = () => {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-          <span className="text-sm text-[#8c95b0]">Page {page} of {totalPages}</span>
+          <span className="text-sm text-[#437278]">Page {page} of {totalPages}</span>
           <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
         </div>
       )}
@@ -376,25 +376,25 @@ const TaxClasses = () => {
                 value={form.rate}
                 onChange={(e) => setForm({ ...form, rate: e.target.value })}
               />
-              <p className="text-xs text-[#8c95b0]">Use 0 for tax-exempt products.</p>
+              <p className="text-xs text-[#437278]">Use 0 for tax-exempt products.</p>
             </div>
 
-            <div className="flex items-center justify-between rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2.5">
-              <span className="text-sm font-medium text-[#0a1128]">
+            <div className="flex items-center justify-between rounded-[10px] border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] px-3 py-2.5">
+              <span className="text-sm font-medium text-[#032125]">
                 Default class
-                <span className="block text-xs font-normal text-[#8c95b0]">Applies to products without a class</span>
+                <span className="block text-xs font-normal text-[#437278]">Applies to products without a class</span>
               </span>
               <Switch checked={form.isDefault} onCheckedChange={(next) => setForm({ ...form, isDefault: next })} />
             </div>
 
-            <div className="flex items-center justify-between rounded-[10px] border border-[rgba(15,23,60,0.08)] bg-[#f8f9fc] px-3 py-2.5">
-              <span className="text-sm font-medium text-[#0a1128]">Active — new sales can use this class</span>
+            <div className="flex items-center justify-between rounded-[10px] border border-[rgba(3,33,37,0.08)] bg-[#FFFCF6] px-3 py-2.5">
+              <span className="text-sm font-medium text-[#032125]">Active — new sales can use this class</span>
               <Switch checked={form.isActive} onCheckedChange={(next) => setForm({ ...form, isActive: next })} />
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
-              <Button onClick={handleSubmit} disabled={submitting} className="bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-90">
+              <Button onClick={handleSubmit} disabled={submitting} className="bg-gradient-to-br from-[#0B363B] to-[#437278] text-white hover:opacity-90">
                 {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 {editing ? "Save changes" : "Create tax class"}
               </Button>

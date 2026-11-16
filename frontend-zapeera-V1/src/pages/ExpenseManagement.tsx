@@ -467,7 +467,7 @@ const ExpenseManagement = () => {
               <p className="text-sm font-medium text-slate-500">Filtered Expenses</p>
               <p className="mt-1 text-2xl font-bold text-slate-950">{currencyFormatter.format(totals.total)}</p>
             </div>
-            <Wallet className="h-9 w-9 text-[#1a52c5]" />
+            <Wallet className="h-9 w-9 text-[#0B363B]" />
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -476,7 +476,7 @@ const ExpenseManagement = () => {
               <p className="text-sm font-medium text-slate-500">Pending Approvals</p>
               <p className="mt-1 text-2xl font-bold text-slate-950">{totals.pending}</p>
             </div>
-            <Receipt className="h-9 w-9 text-[#28c2ce]" />
+            <Receipt className="h-9 w-9 text-[#437278]" />
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -494,7 +494,7 @@ const ExpenseManagement = () => {
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Tags className="h-5 w-5 text-[#1a52c5]" />
+              <Tags className="h-5 w-5 text-[#0B363B]" />
               Add Expense Categories First
             </CardTitle>
           </CardHeader>
@@ -564,7 +564,7 @@ const ExpenseManagement = () => {
         <Card className="border-0 shadow-sm" id="record-expense-form">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Receipt className="h-5 w-5 text-[#1a52c5]" />
+              <Receipt className="h-5 w-5 text-[#0B363B]" />
               {editingExpenseId ? "Edit Expense" : "Add Expenses"}
             </CardTitle>
           </CardHeader>
@@ -699,7 +699,7 @@ const ExpenseManagement = () => {
         <CardHeader>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Filter className="h-5 w-5 text-[#1a52c5]" />
+              <Filter className="h-5 w-5 text-[#0B363B]" />
               Expenses
             </CardTitle>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[140px_140px_170px_170px_150px_220px]">

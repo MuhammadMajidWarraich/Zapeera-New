@@ -63,7 +63,7 @@ function inventoryCategoryBadgeClass(name: string) {
   if (n.includes("allerg") || n.includes("antibiot")) {
     return "border border-red-600/10 bg-[rgba(239,68,68,0.06)] text-red-600";
   }
-  return "border border-[rgba(26,82,197,0.1)] bg-[rgba(26,82,197,0.06)] text-[#1a52c5]";
+  return "border border-[rgba(11,54,59,0.1)] bg-[rgba(11,54,59,0.06)] text-[#0B363B]";
 }
 
 interface Product {
@@ -2478,41 +2478,41 @@ const Inventory = () => {
   };
 
   const filterBarInput = cn(
-    "h-[42px] min-w-[200px] flex-1 rounded-[10px] border-[1.5px] border-black/[0.07] bg-white pl-10 pr-3.5 text-[13px] font-medium text-[#0a1128] shadow-none transition-all",
-    "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[rgba(26,82,197,0.06)]",
+    "h-[42px] min-w-[200px] flex-1 rounded-[10px] border-[1.5px] border-black/[0.07] bg-white pl-10 pr-3.5 text-[13px] font-medium text-[#032125] shadow-none transition-all",
+    "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[3px] focus-visible:ring-[rgba(11,54,59,0.06)]",
   );
   const filterBarSelect = cn(
-    "h-[42px] rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] text-[13px] font-medium text-[#0a1128] shadow-none",
-    "focus:ring-[3px] focus:ring-[rgba(26,82,197,0.06)] focus:ring-offset-0",
+    "h-[42px] rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] text-[13px] font-medium text-[#032125] shadow-none",
+    "focus:ring-[3px] focus:ring-[rgba(11,54,59,0.06)] focus:ring-offset-0",
   );
   const filterBarBtn = cn(
-    "inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] px-4 text-[13px] font-semibold text-[#4a5578] transition-colors",
-    "hover:border-black/12 hover:text-[#0a1128]",
+    "inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] px-4 text-[13px] font-semibold text-[#354D51] transition-colors",
+    "hover:border-black/12 hover:text-[#032125]",
   );
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
       {/* Header */}
       <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
         <div>
-          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">
+          <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">
             Inventory Management
           </h1>
-          <p className="text-sm text-[#8c95b0]">
+          <p className="text-sm text-[#437278]">
             Manage your business inventory
             {selectedBranch?.name ? (
               <>
                 {" "}
-                • <b className="font-semibold text-[#4a5578]">{selectedBranch.name}</b>
+                • <b className="font-semibold text-[#354D51]">{selectedBranch.name}</b>
               </>
             ) : null}
           </p>
@@ -2581,10 +2581,10 @@ const Inventory = () => {
 
                   <div className="grid grid-cols-1 gap-4">
                     {/* Excel Sheet Upload */}
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                    <div className="border-2 border-dashed border-spruce-200 rounded-lg p-6 text-center hover:border-spruce-500 transition-colors">
                       <div className="flex flex-col items-center space-y-3">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <FileSpreadsheet className="w-6 h-6 text-blue-600" />
+                        <div className="w-12 h-12 bg-verdant-100 rounded-full flex items-center justify-center">
+                          <FileSpreadsheet className="w-6 h-6 text-spruce-700" />
                         </div>
                         <div>
                           <h4 className="font-medium text-gray-900">Upload CSV File</h4>
@@ -2601,7 +2601,7 @@ const Inventory = () => {
                         />
                         <Button
                           variant="outline"
-                          className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                          className="border-spruce-500 text-spruce-700 hover:bg-verdant-100"
                           onClick={() => document.getElementById('excel-upload')?.click()}
                         >
                           <FileSpreadsheet className="w-4 h-4 mr-2" />
@@ -2703,7 +2703,7 @@ const Inventory = () => {
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
-                  <Plus className="w-5 h-5 text-[#0c2c8a]" />
+                  <Plus className="w-5 h-5 text-[#032125]" />
                   <span>Add New {typeLabels.itemNoun}</span>
                 </DialogTitle>
                 <DialogDescription>
@@ -2743,7 +2743,7 @@ const Inventory = () => {
                               <SelectItem
                                 key={category.id}
                                 value={category.id}
-                                className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                                className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                               >
                                 {category.name}
                               </SelectItem>
@@ -3035,7 +3035,7 @@ const Inventory = () => {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleAddMedicine} disabled={isAdding}>
+                <Button className="text-white bg-spruce-700 hover:bg-spruce-900 border-spruce-700 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleAddMedicine} disabled={isAdding}>
                   {isAdding ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -3140,7 +3140,7 @@ const Inventory = () => {
                             <SelectItem
                               key={category.id}
                               value={category.id}
-                              className="!hover:bg-blue-100 !hover:text-blue-900 !focus:bg-blue-200 !focus:text-blue-900 !transition-colors !duration-200 cursor-pointer"
+                              className="!hover:bg-verdant-100 !hover:text-spruce-900 !focus:bg-spruce-200 !focus:text-spruce-900 !transition-colors !duration-200 cursor-pointer"
                             >
                               {category.name}
                             </SelectItem>
@@ -3429,7 +3429,7 @@ const Inventory = () => {
                 }}>
                   Cancel
                 </Button>
-                <Button className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleUpdateProduct} disabled={loading}>
+                <Button className="text-white bg-spruce-700 hover:bg-spruce-900 border-spruce-700 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleUpdateProduct} disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -3619,10 +3619,10 @@ const Inventory = () => {
       </div>
 
       {/* Filter bar */}
-      <div className="zv3-animate-fadeUp zv3-delay-2 flex flex-wrap items-center gap-3 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-6 py-4">
+      <div className="zv3-animate-fadeUp zv3-delay-2 flex flex-wrap items-center gap-3 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-6 py-4">
             {/* Search */}
             <div className="relative min-w-[200px] flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-[#8c95b0]" strokeWidth={2} />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-[#437278]" strokeWidth={2} />
               <Input
                 placeholder="Search by name or barcode..."
                 value={searchQuery}
@@ -3700,17 +3700,17 @@ const Inventory = () => {
               </SelectContent>
             </Select>
 
-            <div className="hidden h-7 w-px shrink-0 bg-[rgba(15,23,60,0.06)] sm:block" aria-hidden />
+            <div className="hidden h-7 w-px shrink-0 bg-[rgba(3,33,37,0.06)] sm:block" aria-hidden />
 
             {/* Stock Filter Checkboxes */}
             <div className="flex flex-wrap items-center gap-3 text-[12px] font-semibold">
-              <span className="text-[#8c95b0]">Filter:</span>
+              <span className="text-[#437278]">Filter:</span>
               <label className="flex cursor-pointer items-center gap-1.5 text-red-600 transition-colors hover:text-red-700">
                 <input
                   type="checkbox"
                   checked={showOutOfStock}
                   onChange={(e) => setShowOutOfStock(e.target.checked)}
-                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#1a52c5]"
+                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#0B363B]"
                 />
                 <span>Out of Stock</span>
               </label>
@@ -3719,7 +3719,7 @@ const Inventory = () => {
                   type="checkbox"
                   checked={showLowStock}
                   onChange={(e) => setShowLowStock(e.target.checked)}
-                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#1a52c5]"
+                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#0B363B]"
                 />
                 <span>Low Stock</span>
               </label>
@@ -3728,7 +3728,7 @@ const Inventory = () => {
                   type="checkbox"
                   checked={showExpired}
                   onChange={(e) => setShowExpired(e.target.checked)}
-                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#1a52c5]"
+                  className="h-4 w-4 rounded border-[1.5px] border-black/15 accent-[#0B363B]"
                 />
                 <span>Expired</span>
               </label>
@@ -3749,7 +3749,7 @@ const Inventory = () => {
                   setShowLowStock(false);
                   setShowExpired(false);
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[rgba(15,23,60,0.06)] p-0 text-[#8c95b0] hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[rgba(3,33,37,0.06)] p-0 text-[#437278] hover:bg-[#EAFDE8] hover:text-[#032125]"
                 title="Clear Filters"
               >
                 <X className="h-4 w-4" />
@@ -3758,11 +3758,11 @@ const Inventory = () => {
       </div>
 
       {/* Products Table */}
-      <div className="zv3-animate-fadeUp zv3-delay-3 overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-col gap-3 border-b border-[rgba(15,23,60,0.06)] px-8 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="zv3-animate-fadeUp zv3-delay-3 overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-col gap-3 border-b border-[rgba(3,33,37,0.06)] px-8 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[17px] font-bold text-[#0a1128]">Products</span>
-            <span className="text-sm font-medium text-[#8c95b0]">({pagination.total})</span>
+            <span className="text-[17px] font-bold text-[#032125]">Products</span>
+            <span className="text-sm font-medium text-[#437278]">({pagination.total})</span>
           </div>
           {selectedProducts.length > 0 && (
             <Button
@@ -3788,39 +3788,39 @@ const Inventory = () => {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] border-collapse">
                 <thead>
-                  <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
+                  <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
                     <th className="w-12 py-3.5 pl-8 pr-2 text-left">
                       <input
                         type="checkbox"
                         checked={selectedProducts.length === products.length && products.length > 0}
                         onChange={handleSelectAll}
-                        className="h-[18px] w-[18px] rounded border-[1.5px] border-black/12 accent-[#1a52c5]"
+                        className="h-[18px] w-[18px] rounded border-[1.5px] border-black/12 accent-[#0B363B]"
                         aria-label="Select all products"
                         title="Select all products"
                       />
                     </th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Product</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Type</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Category</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Supplier</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Manufacturer</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">{typeLabels.compositionLabel}</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Cost Price</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Sale Price</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Total Qty</th>
-                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Remaining</th>
-                    <th className="px-4 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">Actions</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Product</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Type</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Category</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Supplier</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Manufacturer</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">{typeLabels.compositionLabel}</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Cost Price</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Sale Price</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Total Qty</th>
+                    <th className="px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">Remaining</th>
+                    <th className="px-4 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="px-8 py-16 text-center">
-                        <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-                          <Package className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+                        <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+                          <Package className="h-6 w-6 text-[#437278]" strokeWidth={2} />
                         </div>
-                        <p className="mb-2 text-sm font-bold text-[#0a1128]">No products found</p>
-                        <p className="mx-auto mb-6 max-w-md text-sm text-[#8c95b0]">
+                        <p className="mb-2 text-sm font-bold text-[#032125]">No products found</p>
+                        <p className="mx-auto mb-6 max-w-md text-sm text-[#437278]">
                           Start by adding your first product to the inventory.
                         </p>
                         <Button
@@ -3839,22 +3839,22 @@ const Inventory = () => {
                       return (
                         <tr
                           key={product.id}
-                          className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                          className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                         >
                           <td className="w-12 py-4 pl-8 pr-2 align-middle">
                             <input
                               type="checkbox"
                               checked={selectedProducts.includes(product.id)}
                               onChange={() => handleSelectProduct(product.id)}
-                              className="h-[18px] w-[18px] rounded border-[1.5px] border-black/12 accent-[#1a52c5]"
+                              className="h-[18px] w-[18px] rounded border-[1.5px] border-black/12 accent-[#0B363B]"
                               aria-label={`Select ${product.name}`}
                               title={`Select ${product.name}`}
                             />
                           </td>
-                          <td className="px-4 py-4 align-middle text-[13px] text-[#4a5578]">
+                          <td className="px-4 py-4 align-middle text-[13px] text-[#354D51]">
                             <div className="flex flex-col gap-0.5">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[14px] font-bold text-[#0a1128]">{product.name}</span>
+                                <span className="text-[14px] font-bold text-[#032125]">{product.name}</span>
                                 {product.requiresPrescription && (
                                   <span className="inline-flex items-center gap-0.5 rounded-md border border-amber-300/40 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">
                                     <AlertCircle className="h-3 w-3" />
@@ -3863,7 +3863,7 @@ const Inventory = () => {
                                 )}
                               </div>
                               {product.barcode ? (
-                                <span className="font-mono text-[11px] tracking-wide text-[#8c95b0]">{product.barcode}</span>
+                                <span className="font-mono text-[11px] tracking-wide text-[#437278]">{product.barcode}</span>
                               ) : null}
                             </div>
                           </td>
@@ -3871,10 +3871,10 @@ const Inventory = () => {
                             <span
                               className={cn(
                                 "inline-flex whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold",
-                                product.category?.type === 'MEDICAL' ? 'bg-blue-50 text-blue-700' :
-                                product.category?.type === 'NON_MEDICAL' ? 'bg-purple-50 text-purple-700' :
+                                product.category?.type === 'MEDICAL' ? 'bg-verdant-100 text-spruce-900' :
+                                product.category?.type === 'NON_MEDICAL' ? 'bg-verdant-100 text-spruce-700' :
                                 product.category?.type === 'FOOD' ? 'bg-green-50 text-green-700' :
-                                product.category?.type === 'NON_FOOD' ? 'bg-purple-50 text-purple-700' :
+                                product.category?.type === 'NON_FOOD' ? 'bg-verdant-100 text-spruce-700' :
                                 'bg-gray-50 text-gray-700'
                               )}
                             >
@@ -3891,37 +3891,37 @@ const Inventory = () => {
                               {catName}
                             </span>
                           </td>
-                          <td className="px-4 py-4 align-middle text-[13px] text-[#4a5578]">
+                          <td className="px-4 py-4 align-middle text-[13px] text-[#354D51]">
                             {(() => {
                               const batchWithSupplier = product.batches?.find((b) => b.supplier || b.supplierName);
                               const supplierName =
                                 batchWithSupplier?.supplier?.name || batchWithSupplier?.supplierName;
                               return supplierName ? (
-                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#0a1128]" title={supplierName}>{supplierName}</span>
+                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#032125]" title={supplierName}>{supplierName}</span>
                               ) : (
-                                <span className="text-[#8c95b0]">—</span>
+                                <span className="text-[#437278]">—</span>
                               );
                             })()}
                           </td>
-                          <td className="px-4 py-4 align-middle text-[13px] text-[#4a5578]">
+                          <td className="px-4 py-4 align-middle text-[13px] text-[#354D51]">
                             {(() => {
                               const batchWithManufacturer = product.batches?.find((b) => b.supplier?.manufacturer);
                               const manufacturerName = batchWithManufacturer?.supplier?.manufacturer?.name;
                               return manufacturerName ? (
-                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#0a1128]" title={manufacturerName}>{manufacturerName}</span>
+                                <span className="block max-w-[150px] truncate text-[13px] font-medium text-[#032125]" title={manufacturerName}>{manufacturerName}</span>
                               ) : (
-                                <span className="text-[#8c95b0]">—</span>
+                                <span className="text-[#437278]">—</span>
                               );
                             })()}
                           </td>
-                          <td className="max-w-[200px] px-4 py-4 align-middle text-[12px] italic text-[#8c95b0]">
+                          <td className="max-w-[200px] px-4 py-4 align-middle text-[12px] italic text-[#437278]">
                             {product.formula || (isPharmacyBusiness ? "No formula provided" : "No details provided")}
                           </td>
                           <td className="px-4 py-4 align-middle">
                             {(() => {
                               const latestBatch = product.batches?.length > 0 ? product.batches[product.batches.length - 1] : null;
                               const costPrice = latestBatch?.purchasePrice || 0;
-                              return <span className="whitespace-nowrap text-[13px] font-medium text-[#4a5578]">PKR {costPrice}</span>;
+                              return <span className="whitespace-nowrap text-[13px] font-medium text-[#354D51]">PKR {costPrice}</span>;
                             })()}
                           </td>
                           <td className="px-4 py-4 align-middle">
@@ -3973,7 +3973,7 @@ const Inventory = () => {
                               const structured =
                                 (product.unitsPerPack || 1) > 1 && breakdownText !== `${remaining} ${baseUnitWord}${remaining === 1 ? "" : "s"}`;
                               const sub = structured ? (
-                                <span className="block text-[11px] font-normal leading-tight text-[#8c95b0]">{breakdownText}</span>
+                                <span className="block text-[11px] font-normal leading-tight text-[#437278]">{breakdownText}</span>
                               ) : null;
                               if (remaining === 0) {
                                 return (
@@ -4001,7 +4001,7 @@ const Inventory = () => {
                                 }
                                 disabled={!product.barcode && !product.sku}
                                 onClick={() => setLabelProduct(product)}
-                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128] disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125] disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 <Printer className="h-[15px] w-[15px]" strokeWidth={2} />
                               </button>
@@ -4009,7 +4009,7 @@ const Inventory = () => {
                                 type="button"
                                 title="Variants (size × colour)"
                                 onClick={() => setVariantsProduct(product)}
-                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Layers className="h-[15px] w-[15px]" strokeWidth={2} />
                               </button>
@@ -4017,7 +4017,7 @@ const Inventory = () => {
                                 type="button"
                                 title="Edit"
                                 onClick={() => handleEditProduct(product)}
-                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                               >
                                 <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                               </button>
@@ -4025,7 +4025,7 @@ const Inventory = () => {
                                 type="button"
                                 title="Delete"
                                 onClick={() => handleDeleteClick(product)}
-                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                                className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                               >
                                 <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                               </button>
@@ -4041,13 +4041,13 @@ const Inventory = () => {
 
             {/* Pagination */}
             {pagination.total > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                 <div className="flex items-center gap-3">
-                  <div className="text-sm text-[#8c95b0]">
+                  <div className="text-sm text-[#437278]">
                     Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} products
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-[#8c95b0]">Per page:</span>
+                    <span className="text-sm text-[#437278]">Per page:</span>
                     <select
                       value={pagination.limit}
                       onChange={(e) => {
@@ -4057,7 +4057,7 @@ const Inventory = () => {
                         setPagination({ page: 1, limit: newLimit, total: source.length, pages: newPages });
                         setProducts(source.slice(0, newLimit));
                       }}
-                      className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                      className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                     >
                       <option value={10}>10</option>
                       <option value={20}>20</option>
@@ -4079,11 +4079,11 @@ const Inventory = () => {
                       setProducts(source.slice(startIndex, endIndex));
                     }}
                     disabled={pagination.page === 1}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Previous
                   </button>
-                  <span className="text-sm font-semibold text-[#0a1128]">
+                  <span className="text-sm font-semibold text-[#032125]">
                     Page {pagination.page} of {pagination.pages}
                   </span>
                   <button
@@ -4097,7 +4097,7 @@ const Inventory = () => {
                       setProducts(source.slice(startIndex, endIndex));
                     }}
                     disabled={pagination.page === pagination.pages}
-                    className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                    className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                   >
                     Next
                   </button>
@@ -4167,10 +4167,10 @@ const Inventory = () => {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-verdant-100 border border-spruce-200 rounded-lg p-4">
               <div className="flex items-center space-x-2">
-                <AlertCircle className="w-5 h-5 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">
+                <AlertCircle className="w-5 h-5 text-spruce-700" />
+                <span className="text-sm font-medium text-spruce-900">
                   Review the extracted product information below. You can edit any fields before proceeding with the import.
                 </span>
               </div>
@@ -4225,7 +4225,7 @@ const Inventory = () => {
                               </SelectContent>
                             </Select>
                             {!categories.find(cat => cat.name.toLowerCase() === product.category.toLowerCase()) && (
-                              <p className="text-xs text-blue-600 mt-1">
+                              <p className="text-xs text-spruce-700 mt-1">
                                 📁 Category "{product.category}" will be auto-created during import.
                               </p>
                             )}

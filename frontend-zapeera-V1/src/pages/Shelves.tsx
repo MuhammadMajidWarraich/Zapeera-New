@@ -33,8 +33,8 @@ interface Shelf {
 }
 
 const shelfFormField = cn(
-  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 text-[15px] text-[#0a1128] transition-colors",
-  "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(26,82,197,0.08)]",
+  "h-[46px] w-full rounded-[10px] border-[1.5px] border-black/[0.08] bg-white px-4 text-[15px] text-[#032125] transition-colors",
+  "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,54,59,0.08)]",
 );
 
 const batchCount = (s: Shelf) => s._count?.batches ?? 0;
@@ -131,13 +131,13 @@ const Shelves: React.FC = () => {
   const totalCount = filteredShelves.length;
 
   const sfInput = cn(
-    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#f0f2f7] pl-10 pr-3.5 text-sm text-[#0a1128] shadow-none transition-all",
-    "placeholder:text-[#8c95b0] focus-visible:border-[#1a52c5] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(26,82,197,0.06)]",
+    "h-11 w-full rounded-[10px] border-[1.5px] border-black/[0.07] bg-[#EAFDE8] pl-10 pr-3.5 text-sm text-[#032125] shadow-none transition-all",
+    "placeholder:text-[#437278] focus-visible:border-[#0B363B] focus-visible:bg-white focus-visible:ring-[4px] focus-visible:ring-[rgba(11,54,59,0.06)]",
   );
 
   const mfSelectTrigger = cn(
-    "h-11 w-full min-w-[140px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[14px] text-[#0a1128] shadow-none md:w-[160px]",
-    "focus:ring-4 focus:ring-[rgba(26,82,197,0.08)] focus:ring-offset-0",
+    "h-11 w-full min-w-[140px] rounded-[10px] border-[1.5px] border-black/[0.08] bg-white text-[14px] text-[#032125] shadow-none md:w-[160px]",
+    "focus:ring-4 focus:ring-[rgba(11,54,59,0.08)] focus:ring-offset-0",
   );
 
   const handleAddShelf = async () => {
@@ -273,13 +273,13 @@ const Shelves: React.FC = () => {
 
   if (error && shelves.length === 0 && !loading) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] flex min-h-[50vh] flex-col items-center justify-center px-6 py-16">
@@ -295,39 +295,39 @@ const Shelves: React.FC = () => {
 
   if (loading && shelves.length === 0) {
     return (
-      <div className="relative min-h-full bg-[#f0f2f7]">
+      <div className="relative min-h-full bg-[#EAFDE8]">
         <div
-          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+          className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
           aria-hidden
         />
         <div
-          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+          className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
           aria-hidden
         />
         <div className="relative z-[1] flex min-h-[50vh] flex-col items-center justify-center px-6 py-16">
-          <Loader2 className="h-10 w-10 animate-spin text-[#1a52c5]" strokeWidth={2} />
-          <p className="mt-4 text-sm font-medium text-[#8c95b0]">Loading shelves…</p>
+          <Loader2 className="h-10 w-10 animate-spin text-[#0B363B]" strokeWidth={2} />
+          <p className="mt-4 text-sm font-medium text-[#437278]">Loading shelves…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-full bg-[#f0f2f7]">
+    <div className="relative min-h-full bg-[#EAFDE8]">
       <div
-        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(40,194,206,0.06)] blur-[100px]"
+        className="pointer-events-none fixed right-[-100px] top-[-100px] z-0 h-[500px] w-[500px] rounded-full bg-[rgba(67,114,120,0.06)] blur-[100px]"
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(26,82,197,0.04)] blur-[100px]"
+        className="pointer-events-none fixed bottom-[100px] left-[350px] z-0 h-[400px] w-[400px] rounded-full bg-[rgba(11,54,59,0.04)] blur-[100px]"
         aria-hidden
       />
 
       <div className="relative z-[1] space-y-5 px-6 pb-14 pt-9 sm:px-11">
         <div className="zv3-animate-fadeUp flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#0a1128]">Shelves</h1>
-            <p className="text-sm text-[#8c95b0]">
+            <h1 className="mb-1 text-[26px] font-extrabold tracking-tight text-[#032125]">Shelves</h1>
+            <p className="text-sm text-[#437278]">
               Manage storage locations and batch placement
             </p>
           </div>
@@ -338,7 +338,7 @@ const Shelves: React.FC = () => {
                 resetForm();
                 setIsCreateDialogOpen(true);
               }}
-              className="ml-1 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(26,82,197,0.35)]"
+              className="ml-1 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-[22px] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(11,54,59,0.35)]"
             >
               <Plus className="h-[17px] w-[17px] stroke-[2.5]" strokeLinecap="round" />
               Add Shelf
@@ -346,13 +346,13 @@ const Shelves: React.FC = () => {
           </div>
         </div>
 
-        <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(15,23,60,0.06)] bg-white px-6 py-5">
+        <div className="zv3-animate-fadeUp zv3-delay-1 rounded-[22px] border border-[rgba(3,33,37,0.06)] bg-white px-6 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
             <div className="min-w-0 flex-1">
-              <p className="mb-2 text-xs font-semibold text-[#8c95b0]">Search shelves</p>
+              <p className="mb-2 text-xs font-semibold text-[#437278]">Search shelves</p>
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c95b0]"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#437278]"
                   strokeWidth={2}
                 />
                 <Input
@@ -368,18 +368,18 @@ const Shelves: React.FC = () => {
 
         <div className="zv3-animate-fadeUp zv3-delay-3">
           <div className="mb-4 flex items-center gap-2.5">
-            <Package className="h-5 w-5 shrink-0 text-[#1a52c5]" strokeWidth={2} />
-            <span className="text-[17px] font-bold text-[#0a1128]">Shelves</span>
-            <span className="text-sm font-medium text-[#8c95b0]">({totalCount})</span>
+            <Package className="h-5 w-5 shrink-0 text-[#0B363B]" strokeWidth={2} />
+            <span className="text-[17px] font-bold text-[#032125]">Shelves</span>
+            <span className="text-sm font-medium text-[#437278]">({totalCount})</span>
           </div>
 
           {filteredShelves.length === 0 ? (
-            <div className="rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
-              <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(26,82,197,0.06)]">
-                <Package className="h-6 w-6 text-[#8c95b0]" strokeWidth={2} />
+            <div className="rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white px-8 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+              <div className="mx-auto mb-6 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] bg-[rgba(11,54,59,0.06)]">
+                <Package className="h-6 w-6 text-[#437278]" strokeWidth={2} />
               </div>
-              <p className="mb-2 text-sm font-bold text-[#0a1128]">No shelves found</p>
-              <p className="mx-auto mb-6 max-w-md text-sm text-[#8c95b0]">
+              <p className="mb-2 text-sm font-bold text-[#032125]">No shelves found</p>
+              <p className="mx-auto mb-6 max-w-md text-sm text-[#437278]">
                 {searchTerm
                   ? "Try adjusting your search."
                   : "Get started by adding your first shelf."}
@@ -391,7 +391,7 @@ const Shelves: React.FC = () => {
                     resetForm();
                     setIsCreateDialogOpen(true);
                   }}
-                  className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                  className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Shelf
@@ -399,21 +399,21 @@ const Shelves: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[28px] border border-[rgba(15,23,60,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
+            <div className="overflow-hidden rounded-[28px] border border-[rgba(3,33,37,0.06)] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.02),0_8px_40px_rgba(0,0,0,0.04)]">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[600px] border-collapse">
                   <thead>
-                    <tr className="border-b border-[rgba(15,23,60,0.06)] bg-black/[0.015]">
-                      <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                    <tr className="border-b border-[rgba(3,33,37,0.06)] bg-black/[0.015]">
+                      <th className="px-5 py-3.5 pl-8 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Shelf
                       </th>
-                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Location
                       </th>
-                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Batches
                       </th>
-                      <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#8c95b0]">
+                      <th className="px-5 py-3.5 pr-8 text-right text-[11px] font-bold uppercase tracking-wide text-[#437278]">
                         Actions
                       </th>
                     </tr>
@@ -422,34 +422,34 @@ const Shelves: React.FC = () => {
                     {paginatedShelves.map((shelf) => (
                       <tr
                         key={shelf.id}
-                        className="transition-colors hover:bg-[rgba(26,82,197,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(15,23,60,0.06)]"
+                        className="transition-colors hover:bg-[rgba(11,54,59,0.015)] [&:not(:last-child)_td]:border-b [&:not(:last-child)_td]:border-[rgba(3,33,37,0.06)]"
                       >
                         <td className="px-5 py-4 pl-8 align-middle">
                           <div className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(26,82,197,0.12)] to-[rgba(40,194,206,0.08)] text-[#1a52c5]">
+                            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[rgba(11,54,59,0.12)] to-[rgba(67,114,120,0.08)] text-[#0B363B]">
                               <Package className="h-5 w-5" strokeWidth={2} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-[15px] font-bold text-[#0a1128]">{shelf.name}</p>
+                              <p className="text-[15px] font-bold text-[#032125]">{shelf.name}</p>
                               {shelf.description && (
-                                <p className="text-xs text-[#8c95b0]">{shelf.description}</p>
+                                <p className="text-xs text-[#437278]">{shelf.description}</p>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 align-middle text-[13px] text-[#4a5578]">
+                        <td className="px-5 py-4 align-middle text-[13px] text-[#354D51]">
                           {shelf.location ? (
                             <span className="inline-flex items-center gap-1.5">
-                              <MapPin className="h-3.5 w-3.5 text-[#8c95b0]" strokeWidth={2} />
+                              <MapPin className="h-3.5 w-3.5 text-[#437278]" strokeWidth={2} />
                               {shelf.location}
                             </span>
                           ) : (
-                            <span className="text-[#8c95b0]">—</span>
+                            <span className="text-[#437278]">—</span>
                           )}
                         </td>
                         <td className="px-5 py-4 align-middle">
-                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#0a1128]">
-                            <Package className="h-3.5 w-3.5 text-[#8c95b0]" strokeWidth={2} />
+                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#032125]">
+                            <Package className="h-3.5 w-3.5 text-[#437278]" strokeWidth={2} />
                             {batchCount(shelf)}
                           </span>
                         </td>
@@ -459,7 +459,7 @@ const Shelves: React.FC = () => {
                               type="button"
                               title="Edit"
                               onClick={() => openEditDialog(shelf)}
-                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-black/10 hover:bg-[#f0f2f7] hover:text-[#0a1128]"
+                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-black/10 hover:bg-[#EAFDE8] hover:text-[#032125]"
                             >
                               <Edit className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -467,7 +467,7 @@ const Shelves: React.FC = () => {
                               type="button"
                               title="Delete"
                               onClick={() => openDeleteDialog(shelf)}
-                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(15,23,60,0.06)] bg-transparent text-[#8c95b0] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
+                              className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-[rgba(3,33,37,0.06)] bg-transparent text-[#437278] transition-colors hover:border-red-600/15 hover:bg-red-600/[0.05] hover:text-red-600"
                             >
                               <Trash2 className="h-[15px] w-[15px]" strokeWidth={2} />
                             </button>
@@ -479,20 +479,20 @@ const Shelves: React.FC = () => {
                 </table>
               </div>
               {filteredShelves.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(15,23,60,0.06)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-8 py-4 border-t border-[rgba(3,33,37,0.06)]">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm text-[#8c95b0]">
+                    <div className="text-sm text-[#437278]">
                       Showing {((safePage - 1) * pageSize) + 1} to {Math.min(safePage * pageSize, filteredShelves.length)} of {filteredShelves.length} shelves
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-[#8c95b0]">Per page:</span>
+                      <span className="text-sm text-[#437278]">Per page:</span>
                       <select
                         value={pageSize}
                         onChange={(e) => {
                           setPageSize(Number(e.target.value));
                           setCurrentPage(1);
                         }}
-                        className="h-[32px] rounded-lg border border-[rgba(15,23,60,0.06)] bg-white px-2 text-sm font-semibold text-[#0a1128] outline-none focus:ring-2 focus:ring-[rgba(26,82,197,0.15)]"
+                        className="h-[32px] rounded-lg border border-[rgba(3,33,37,0.06)] bg-white px-2 text-sm font-semibold text-[#032125] outline-none focus:ring-2 focus:ring-[rgba(11,54,59,0.15)]"
                       >
                         <option value={10}>10</option>
                         <option value={20}>20</option>
@@ -507,18 +507,18 @@ const Shelves: React.FC = () => {
                         type="button"
                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                         disabled={safePage === 1}
-                        className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                        className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                       >
                         Previous
                       </button>
-                      <span className="text-sm font-semibold text-[#0a1128]">
+                      <span className="text-sm font-semibold text-[#032125]">
                         Page {safePage} of {totalPages}
                       </span>
                       <button
                         type="button"
                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                         disabled={safePage === totalPages}
-                        className="px-3 py-1.5 rounded-lg border border-[rgba(15,23,60,0.06)] text-sm font-semibold text-[#4a5578] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f0f2f7]"
+                        className="px-3 py-1.5 rounded-lg border border-[rgba(3,33,37,0.06)] text-sm font-semibold text-[#354D51] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#EAFDE8]"
                       >
                         Next
                       </button>
@@ -533,14 +533,14 @@ const Shelves: React.FC = () => {
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Add shelf</DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Add shelf</DialogTitle>
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 Create a shelf or storage slot for batch assignments.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-5 py-6">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="name" className="text-sm font-semibold text-[#032125]">
                   Shelf name <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -552,8 +552,8 @@ const Shelves: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location" className="text-sm font-semibold text-[#0a1128]">
-                  Location <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+                <Label htmlFor="location" className="text-sm font-semibold text-[#032125]">
+                  Location <span className="text-xs font-normal text-[#437278]">(optional)</span>
                 </Label>
                 <Input
                   id="location"
@@ -568,7 +568,7 @@ const Shelves: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                className="rounded-[10px] border border-[rgba(3,33,37,0.06)] px-6 font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
                 onClick={() => setIsCreateDialogOpen(false)}
               >
                 Cancel
@@ -577,7 +577,7 @@ const Shelves: React.FC = () => {
                 type="button"
                 onClick={() => void handleAddShelf()}
                 disabled={isSubmitting || !formData.name.trim()}
-                className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               >
                 {isSubmitting ? (
                   <>
@@ -595,14 +595,14 @@ const Shelves: React.FC = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Edit shelf</DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogTitle className="text-[22px] font-extrabold tracking-tight text-[#032125]">Edit shelf</DialogTitle>
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 Update name and location.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-5 py-6">
               <div className="space-y-2">
-                <Label htmlFor="edit-name" className="text-sm font-semibold text-[#0a1128]">
+                <Label htmlFor="edit-name" className="text-sm font-semibold text-[#032125]">
                   Shelf name <span className="text-red-600">*</span>
                 </Label>
                 <Input
@@ -613,8 +613,8 @@ const Shelves: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-location" className="text-sm font-semibold text-[#0a1128]">
-                  Location <span className="text-xs font-normal text-[#8c95b0]">(optional)</span>
+                <Label htmlFor="edit-location" className="text-sm font-semibold text-[#032125]">
+                  Location <span className="text-xs font-normal text-[#437278]">(optional)</span>
                 </Label>
                 <Input
                   id="edit-location"
@@ -628,7 +628,7 @@ const Shelves: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6 font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
+                className="rounded-[10px] border border-[rgba(3,33,37,0.06)] px-6 font-semibold text-[#354D51] hover:bg-[#EAFDE8]"
                 onClick={() => setIsEditDialogOpen(false)}
               >
                 Cancel
@@ -637,7 +637,7 @@ const Shelves: React.FC = () => {
                 type="button"
                 onClick={() => void handleEditShelf()}
                 disabled={isSubmitting || !formData.name.trim()}
-                className="rounded-[10px] bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(26,82,197,0.25)] hover:opacity-95"
+                className="rounded-[10px] bg-gradient-to-br from-[#0B363B] to-[#437278] px-6 font-semibold text-white shadow-[0_4px_16px_rgba(11,54,59,0.25)] hover:opacity-95"
               >
                 {isSubmitting ? (
                   <>
@@ -661,18 +661,18 @@ const Shelves: React.FC = () => {
         >
           <DialogContent className="max-w-md">
             <DialogHeader className="space-y-2 pr-10 text-left">
-              <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#0a1128]">
+              <DialogTitle className="flex items-center gap-2 text-xl font-extrabold tracking-tight text-[#032125]">
                 <AlertTriangle className="h-5 w-5 text-red-600" />
                 Confirm delete
               </DialogTitle>
-              <DialogDescription className="text-[13px] leading-relaxed text-[#8c95b0]">
+              <DialogDescription className="text-[13px] leading-relaxed text-[#437278]">
                 This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             {deletingShelf && (
               <div className="py-4">
-                <p className="text-sm text-[#4a5578]">
-                  Delete <span className="font-bold text-[#0a1128]">{deletingShelf.name}</span>?
+                <p className="text-sm text-[#354D51]">
+                  Delete <span className="font-bold text-[#032125]">{deletingShelf.name}</span>?
                 </p>
               </div>
             )}
@@ -680,7 +680,7 @@ const Shelves: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-[10px] border border-[rgba(15,23,60,0.06)] px-6"
+                className="rounded-[10px] border border-[rgba(3,33,37,0.06)] px-6"
                 onClick={() => {
                   setShowDeleteDialog(false);
                   setDeletingShelf(null);

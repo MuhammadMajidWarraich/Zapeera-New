@@ -50,8 +50,8 @@ import {
 // hands the desk straight into the folio.
 
 const STATUS_STYLES: Record<string, string> = {
-  BOOKED: "bg-blue-100 text-blue-800",
-  CHECKED_IN: "bg-purple-100 text-purple-800",
+  BOOKED: "bg-verdant-100 text-spruce-900",
+  CHECKED_IN: "bg-verdant-100 text-spruce-900",
   COMPLETED: "bg-green-100 text-green-800",
   CANCELLED: "bg-gray-200 text-gray-700",
   NO_SHOW: "bg-red-100 text-red-800",

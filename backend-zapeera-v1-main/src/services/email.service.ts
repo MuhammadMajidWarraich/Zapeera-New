@@ -278,9 +278,9 @@ class EmailService {
 <style>
 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-.header { background: linear-gradient(135deg, #0c2c8a 0%, #153186 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+.header { background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
 .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-.button { display: inline-block; padding: 12px 30px; background: #0c2c8a; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+.button { display: inline-block; padding: 12px 30px; background: #032125; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
 .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
 .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
 </style>
@@ -294,7 +294,7 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     <p>Click the button below to reset your password:</p>
     <div style="text-align: center;"><a href="${url}" class="button">Reset Password</a></div>
     <p>Or copy and paste this link into your browser:</p>
-    <p style="word-break: break-all; color: #0c2c8a;">${url}</p>
+    <p style="word-break: break-all; color: #032125;">${url}</p>
     <div class="warning">
       <strong>Security Notice:</strong>
       <ul><li>This link will expire in 1 hour</li><li>If you didn't request this, please ignore this email</li><li>Never share this link with anyone</li></ul>
@@ -360,11 +360,11 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
   <style>
     body { font-family: Arial, sans-serif; background-color: #f5f5f5; }
     .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .header { background: linear-gradient(135deg, #0c2c8a 0%, #153186 100%); color: white; padding: 20px; border-radius: 4px; }
+    .header { background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; padding: 20px; border-radius: 4px; }
     .content { padding: 20px; }
-    .button { display: inline-block; background-color: #0c2c8a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .button { display: inline-block; background-color: #032125; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0; }
     .footer { border-top: 1px solid #e5e7eb; padding-top: 20px; color: #6b7280; font-size: 12px; }
-    .info-box { background-color: #f3f4f6; border-left: 4px solid #0c2c8a; padding: 15px; margin: 15px 0; }
+    .info-box { background-color: #f3f4f6; border-left: 4px solid #032125; padding: 15px; margin: 15px 0; }
   </style>
 </head>
 <body>
@@ -381,7 +381,7 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         <a href="${acceptanceLink}" class="button">Accept Invitation</a>
       </center>
       <p>or copy and paste this link in your browser:</p>
-      <p style="word-break: break-all; color: #0c2c8a;"><small>${acceptanceLink}</small></p>
+      <p style="word-break: break-all; color: #032125;"><small>${acceptanceLink}</small></p>
       <div class="info-box">
         <p><strong>⏰ This invitation expires on ${expiresDate}</strong></p>
       </div>
@@ -485,14 +485,14 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
   ): string {
     return `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+  <div style="background: linear-gradient(135deg, #0B363B 0%, #032125 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
     <h1 style="color: white; margin: 0; font-size: 28px;">Subscription Activated!</h1>
   </div>
   <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
     <p style="font-size: 16px; color: #333;">Dear ${recipientName},</p>
     <p style="font-size: 16px; color: #333;">Great news! Your payment proof has been verified and your subscription has been activated.</p>
     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e0e0e0;">
-      <h3 style="margin-top: 0; color: #007bff;">Subscription Details</h3>
+      <h3 style="margin-top: 0; color: #0B363B;">Subscription Details</h3>
       <p style="margin: 10px 0; color: #333;"><strong>Business:</strong> ${businessName}</p>
       <p style="margin: 10px 0; color: #333;"><strong>Plan:</strong> ${planName}</p>
       <p style="margin: 10px 0; color: #333;"><strong>Amount Paid:</strong> PKR ${amount.toLocaleString()}</p>
@@ -500,7 +500,7 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     </div>
     <p style="font-size: 16px; color: #333;">You can now access all features of your subscription plan.</p>
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${frontendUrl}/business/${businessName}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Go to Dashboard</a>
+      <a href="${frontendUrl}/business/${businessName}" style="background: #0B363B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Go to Dashboard</a>
     </div>
     <p style="font-size: 14px; color: #666; margin-top: 30px;">If you have any questions, please contact our support team.</p>
     <p style="font-size: 14px; color: #666;">This is an automated message. Please do not reply to this email.</p>
@@ -561,7 +561,7 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     </div>
     <p style="font-size: 16px; color: #333;">Please review the reason above and submit a new payment proof with the correct information.</p>
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${frontendUrl}/business/${businessName}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Submit New Payment Proof</a>
+      <a href="${frontendUrl}/business/${businessName}" style="background: #0B363B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Submit New Payment Proof</a>
     </div>
     <p style="font-size: 14px; color: #666; margin-top: 30px;">If you believe this is an error or need assistance, please contact our support team.</p>
     <p style="font-size: 14px; color: #666;">This is an automated message. Please do not reply to this email.</p>
@@ -601,20 +601,20 @@ body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 <html>
 <head><meta charset="utf-8">
 <style>
-body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f6f8; margin: 0; padding: 20px; }
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #FFFCF6; margin: 0; padding: 20px; }
 .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-.header { background: linear-gradient(135deg, #0c2c8a 0%, #2563eb 100%); color: white; padding: 40px 30px; text-align: center; }
+.header { background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; padding: 40px 30px; text-align: center; }
 .header h1 { margin: 0 0 8px 0; font-size: 26px; }
 .header p { margin: 0; opacity: 0.9; font-size: 15px; }
 .content { padding: 35px 30px; }
 .greeting { font-size: 17px; color: #1f2937; margin-bottom: 20px; }
 .button-wrap { text-align: center; margin: 28px 0; }
-.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #0c2c8a 0%, #2563eb 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
 .link-box { background: #f3f4f6; padding: 14px 16px; border-radius: 8px; margin: 18px 0; word-break: break-all; color: #374151; font-size: 13px; }
 .expiry { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px 18px; margin: 22px 0; border-radius: 0 8px 8px 0; }
 .expiry strong { color: #92400e; }
 .alt-action { text-align: center; margin: 24px 0; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-.alt-action a { color: #2563eb; text-decoration: none; font-weight: 500; }
+.alt-action a { color: #0B363B; text-decoration: none; font-weight: 500; }
 .footer { text-align: center; padding: 24px 30px; color: #9ca3af; font-size: 12px; border-top: 1px solid #f3f4f6; }
 </style>
 </head>
@@ -671,7 +671,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 <html>
 <head><meta charset="utf-8">
 <style>
-body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f6f8; margin: 0; padding: 20px; }
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #FFFCF6; margin: 0; padding: 20px; }
 .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
 .header { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; padding: 40px 30px; text-align: center; }
 .header h1 { margin: 0 0 8px 0; font-size: 26px; }
@@ -680,11 +680,11 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 .greeting { font-size: 17px; color: #1f2937; margin-bottom: 20px; }
 .steps { margin: 22px 0; }
 .step { display: flex; align-items: flex-start; margin: 16px 0; padding: 14px 16px; background: #f9fafb; border-radius: 8px; }
-.step-num { width: 28px; height: 28px; background: linear-gradient(135deg, #0c2c8a 0%, #2563eb 100%); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; margin-right: 14px; flex-shrink: 0; }
+.step-num { width: 28px; height: 28px; background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; margin-right: 14px; flex-shrink: 0; }
 .step-text { color: #374151; font-size: 14px; }
 .step-text strong { color: #111827; }
 .button-wrap { text-align: center; margin: 28px 0; }
-.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #0c2c8a 0%, #2563eb 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
 .footer { text-align: center; padding: 24px 30px; color: #9ca3af; font-size: 12px; border-top: 1px solid #f3f4f6; }
 </style>
 </head>
@@ -739,17 +739,17 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 <html>
 <head><meta charset="utf-8">
 <style>
-body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f6f8; margin: 0; padding: 20px; }
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #FFFCF6; margin: 0; padding: 20px; }
 .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-.header { background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); color: white; padding: 40px 30px; text-align: center; }
+.header { background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; padding: 40px 30px; text-align: center; }
 .header h1 { margin: 0 0 8px 0; font-size: 26px; }
 .content { padding: 35px 30px; }
 .greeting { font-size: 17px; color: #1f2937; margin-bottom: 20px; }
-.business-card { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); padding: 22px; border-radius: 10px; margin: 20px 0; text-align: center; border: 1px solid #ddd6fe; }
-.business-card h2 { margin: 0 0 6px 0; color: #5b21b6; font-size: 22px; }
-.business-card p { margin: 0; color: #6d28d9; font-size: 14px; }
+.business-card { background: linear-gradient(135deg, #EAFDE8 0%, #EAFDE8 100%); padding: 22px; border-radius: 10px; margin: 20px 0; text-align: center; border: 1px solid #A1C2C6; }
+.business-card h2 { margin: 0 0 6px 0; color: #0B363B; font-size: 22px; }
+.business-card p { margin: 0; color: #437278; font-size: 14px; }
 .button-wrap { text-align: center; margin: 28px 0; }
-.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #032125 0%, #0B363B 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
 .tips { margin: 22px 0; padding: 18px 20px; background: #f9fafb; border-radius: 8px; }
 .tips h4 { margin: 0 0 10px 0; color: #111827; font-size: 14px; }
 .tips ul { margin: 0; padding-left: 18px; color: #374151; font-size: 13px; }
@@ -813,9 +813,9 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 <html>
 <head><meta charset="utf-8">
 <style>
-body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f6f8; margin: 0; padding: 20px; }
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #FFFCF6; margin: 0; padding: 20px; }
 .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-.header { background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 40px 30px; text-align: center; }
+.header { background: linear-gradient(135deg, #0B363B 0%, #437278 100%); color: white; padding: 40px 30px; text-align: center; }
 .header h1 { margin: 0 0 8px 0; font-size: 26px; }
 .header p { margin: 0; opacity: 0.9; font-size: 15px; }
 .content { padding: 35px 30px; }
@@ -825,11 +825,11 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 .receipt-row:last-child { border-bottom: none; }
 .receipt-label { color: #6b7280; font-size: 14px; }
 .receipt-value { color: #111827; font-weight: 600; font-size: 14px; }
-.total { background: #eff6ff; border-radius: 8px; padding: 14px 16px; margin-top: 14px; }
-.total .receipt-label { color: #1e40af; }
-.total .receipt-value { color: #1d4ed8; font-size: 16px; }
+.total { background: #EAFDE8; border-radius: 8px; padding: 14px 16px; margin-top: 14px; }
+.total .receipt-label { color: #0B363B; }
+.total .receipt-value { color: #0B363B; font-size: 16px; }
 .button-wrap { text-align: center; margin: 28px 0; }
-.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+.button { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #0B363B 0%, #437278 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
 .footer { text-align: center; padding: 24px 30px; color: #9ca3af; font-size: 12px; border-top: 1px solid #f3f4f6; }
 </style>
 </head>
@@ -902,7 +902,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333
 <html>
 <head><meta charset="utf-8">
 <style>
-body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f6f8; margin: 0; padding: 20px; }
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; background: #FFFCF6; margin: 0; padding: 20px; }
 .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
 .header { background: linear-gradient(135deg, ${urgencyColor} 0%, #f97316 100%); color: white; padding: 40px 30px; text-align: center; }
 .header h1 { margin: 0 0 8px 0; font-size: 26px; }

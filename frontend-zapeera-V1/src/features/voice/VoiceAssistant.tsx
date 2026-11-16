@@ -385,14 +385,14 @@ export default function VoiceAssistant() {
         aria-label="Open voice assistant"
         title="Voice Assistant"
         style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
-        className="fixed right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(26,82,197,0.45)]"
+        className="fixed right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#0B363B] to-[#437278] text-white shadow-[0_8px_24px_rgba(11,54,59,0.4)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(11,54,59,0.45)]"
       >
         <Mic className="h-6 w-6" />
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="flex w-[92vw] flex-col p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:w-[400px]">
-          <SheetHeader className="shrink-0 bg-gradient-to-br from-[#0f2350] to-[#1a52c5] px-5 py-4 text-left">
+          <SheetHeader className="shrink-0 bg-gradient-to-br from-[#0f2350] to-[#0B363B] px-5 py-4 text-left">
             <div className="flex items-center justify-between gap-2">
               <SheetTitle className="flex items-center gap-2 text-white">
                 <Mic className="h-5 w-5" /> Voice Assistant
@@ -402,14 +402,14 @@ export default function VoiceAssistant() {
                   <button
                     type="button"
                     onClick={() => toggleLang('en-US')}
-                    className={`px-2.5 py-1 ${lang === 'en-US' ? 'bg-white text-[#1a52c5]' : 'text-white/85 hover:bg-white/10'}`}
+                    className={`px-2.5 py-1 ${lang === 'en-US' ? 'bg-white text-[#0B363B]' : 'text-white/85 hover:bg-white/10'}`}
                   >
                     EN
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleLang('ur-PK')}
-                    className={`px-2.5 py-1 ${lang === 'ur-PK' ? 'bg-white text-[#1a52c5]' : 'text-white/85 hover:bg-white/10'}`}
+                    className={`px-2.5 py-1 ${lang === 'ur-PK' ? 'bg-white text-[#0B363B]' : 'text-white/85 hover:bg-white/10'}`}
                   >
                     اردو
                   </button>
@@ -432,15 +432,15 @@ export default function VoiceAssistant() {
           {/* AI usage meter — visible only when the AI layer is on */}
           {aiUsage && (
             <div className="shrink-0 border-b border-black/[0.06] bg-[#f7f9fc] px-5 py-2.5">
-              <div className="flex items-center justify-between text-[11.5px] text-[#4a5578]">
+              <div className="flex items-center justify-between text-[11.5px] text-[#354D51]">
                 <span>
-                  AI commands this month: <b className="text-[#16213c]">{aiUsage.calls}</b> of ~{aiUsage.approxLimit}
+                  AI commands this month: <b className="text-[#032125]">{aiUsage.calls}</b> of ~{aiUsage.approxLimit}
                 </span>
                 <span>{Math.round(aiUsage.percent)}%</span>
               </div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-black/[0.07]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#1a52c5] to-[#28c2ce]"
+                  className="h-full rounded-full bg-gradient-to-r from-[#0B363B] to-[#437278]"
                   style={{ width: `${Math.min(100, Math.max(0, aiUsage.percent))}%` }}
                 />
               </div>
@@ -455,14 +455,14 @@ export default function VoiceAssistant() {
 
           {/* Pending confirmation card */}
           {pending && (
-            <div className="shrink-0 border-b border-[#1a52c5]/20 bg-[#eef4ff] px-5 py-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#1a52c5]">
+            <div className="shrink-0 border-b border-[#0B363B]/20 bg-[#EAFDE8] px-5 py-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#0B363B]">
                 Please confirm
               </p>
-              <p className="mt-1 text-sm font-semibold text-[#16213c]">{pending.summary}</p>
+              <p className="mt-1 text-sm font-semibold text-[#032125]">{pending.summary}</p>
               <ul className="mt-1.5 space-y-0.5">
                 {pending.detailLines.map((line, i) => (
-                  <li key={i} className="text-[12px] text-[#4a5578]">
+                  <li key={i} className="text-[12px] text-[#354D51]">
                     {line}
                   </li>
                 ))}
@@ -472,7 +472,7 @@ export default function VoiceAssistant() {
                   size="sm"
                   disabled={busy}
                   onClick={() => void confirmPending(pending)}
-                  className="bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-95"
+                  className="bg-gradient-to-br from-[#0B363B] to-[#437278] text-white hover:opacity-95"
                 >
                   {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
                   Confirm
@@ -489,7 +489,7 @@ export default function VoiceAssistant() {
                   <X className="mr-1.5 h-4 w-4" /> Cancel
                 </Button>
               </div>
-              <p className="mt-2 text-[11px] text-[#4a5578]">
+              <p className="mt-2 text-[11px] text-[#354D51]">
                 Ya bolain: &ldquo;confirm&rdquo; / &ldquo;cancel&rdquo;
               </p>
             </div>
@@ -497,8 +497,8 @@ export default function VoiceAssistant() {
 
           {/* Product choices card */}
           {choices && !pending && (
-            <div className="shrink-0 border-b border-[#1a52c5]/20 bg-[#eef4ff] px-5 py-3.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#1a52c5]">
+            <div className="shrink-0 border-b border-[#0B363B]/20 bg-[#EAFDE8] px-5 py-3.5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#0B363B]">
                 {choices.title}
               </p>
               <div className="mt-2 flex flex-col gap-1.5">
@@ -507,7 +507,7 @@ export default function VoiceAssistant() {
                     key={option.key}
                     type="button"
                     onClick={() => chooseOption(option)}
-                    className="rounded-lg border border-[#1a52c5]/25 bg-white px-3 py-2 text-left text-[13px] font-medium text-[#16213c] transition-colors hover:border-[#1a52c5]"
+                    className="rounded-lg border border-[#0B363B]/25 bg-white px-3 py-2 text-left text-[13px] font-medium text-[#032125] transition-colors hover:border-[#0B363B]"
                   >
                     {option.label}
                   </button>
@@ -520,7 +520,7 @@ export default function VoiceAssistant() {
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
             {history.length === 0 && (
               <div>
-                <p className="text-[13px] text-[#4a5578]">
+                <p className="text-[13px] text-[#354D51]">
                   Try one of these — tap a chip or press the mic:
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -529,7 +529,7 @@ export default function VoiceAssistant() {
                       key={cmd}
                       type="button"
                       onClick={() => void processUtterance(cmd)}
-                      className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[12px] font-medium text-[#16213c] shadow-sm transition-colors hover:border-[#1a52c5] hover:text-[#1a52c5]"
+                      className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[12px] font-medium text-[#032125] shadow-sm transition-colors hover:border-[#0B363B] hover:text-[#0B363B]"
                     >
                       {cmd}
                     </button>
@@ -540,7 +540,7 @@ export default function VoiceAssistant() {
             {history.map((entry) =>
               entry.role === 'user' ? (
                 <div key={entry.id} className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] px-3.5 py-2 text-[13px] font-medium text-white">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-gradient-to-br from-[#0B363B] to-[#437278] px-3.5 py-2 text-[13px] font-medium text-white">
                     {entry.lines?.[0]}
                   </div>
                 </div>
@@ -556,7 +556,7 @@ export default function VoiceAssistant() {
                   {entry.title && (
                     <p
                       className={`text-[13px] font-semibold ${
-                        entry.role === 'error' ? 'text-red-700' : 'text-[#16213c]'
+                        entry.role === 'error' ? 'text-red-700' : 'text-[#032125]'
                       }`}
                     >
                       {entry.title}
@@ -566,7 +566,7 @@ export default function VoiceAssistant() {
                     <p
                       key={i}
                       className={`text-[12.5px] leading-relaxed ${
-                        entry.role === 'error' ? 'text-red-600' : 'text-[#4a5578]'
+                        entry.role === 'error' ? 'text-red-600' : 'text-[#354D51]'
                       } ${entry.title ? 'mt-0.5' : ''}`}
                     >
                       {line}
@@ -576,15 +576,15 @@ export default function VoiceAssistant() {
               ),
             )}
             {busy && (
-              <div className="flex items-center gap-2 text-[12px] text-[#4a5578]">
-                <Loader2 className="h-4 w-4 animate-spin text-[#1a52c5]" /> Working…
+              <div className="flex items-center gap-2 text-[12px] text-[#354D51]">
+                <Loader2 className="h-4 w-4 animate-spin text-[#0B363B]" /> Working…
               </div>
             )}
             {listening && (
-              <div className="flex items-center gap-2 text-[12.5px] italic text-[#1a52c5]">
+              <div className="flex items-center gap-2 text-[12.5px] italic text-[#0B363B]">
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1a52c5] opacity-60" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#1a52c5]" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#0B363B] opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#0B363B]" />
                 </span>
                 {interim || 'Listening… bolain'}
               </div>
@@ -609,7 +609,7 @@ export default function VoiceAssistant() {
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-white transition-all ${
                   listening
                     ? 'bg-red-500 shadow-[0_4px_14px_rgba(239,68,68,0.4)]'
-                    : 'bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] shadow-[0_4px_14px_rgba(26,82,197,0.35)]'
+                    : 'bg-gradient-to-br from-[#0B363B] to-[#437278] shadow-[0_4px_14px_rgba(11,54,59,0.35)]'
                 }`}
               >
                 <Mic className="h-5 w-5" />
@@ -619,13 +619,13 @@ export default function VoiceAssistant() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a command… e.g. sell 2 paracetamol"
-              className="h-10 min-w-0 flex-1 rounded-[10px] border border-black/[0.08] bg-[#f7f9fc] px-3 text-[13px] text-[#16213c] outline-none placeholder:text-[#8a94b0] focus:border-[#1a52c5] focus:bg-white"
+              className="h-10 min-w-0 flex-1 rounded-[10px] border border-black/[0.08] bg-[#f7f9fc] px-3 text-[13px] text-[#032125] outline-none placeholder:text-[#437278] focus:border-[#0B363B] focus:bg-white"
             />
             <Button
               type="submit"
               size="icon"
               disabled={busy || !input.trim()}
-              className="h-10 w-10 shrink-0 bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white hover:opacity-95"
+              className="h-10 w-10 shrink-0 bg-gradient-to-br from-[#0B363B] to-[#437278] text-white hover:opacity-95"
               aria-label="Send command"
             >
               <Send className="h-4 w-4" />
