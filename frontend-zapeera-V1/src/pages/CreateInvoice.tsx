@@ -3461,7 +3461,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     const companyAddress = selectedCompany?.address || selectedBranch?.address || '';
     const companyPhone = selectedCompany?.phone || selectedBranch?.phone || '';
     const companyEmail = selectedCompany?.email || selectedBranch?.email || '';
-    const companyWebsite = 'www.zapeera.pk'; // Default website
+    const companyWebsite = 'www.tickimo.com'; // Default website
 
     // Generate receipt HTML content with improved design
     const receiptHTML = `
