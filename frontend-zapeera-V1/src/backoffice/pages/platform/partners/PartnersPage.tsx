@@ -53,7 +53,7 @@ export function PartnersPage() {
       const res = await backofficeApi.approvePartnerApplication(a.id);
       if (res.data?.adminClaimPending) {
         toast.success(
-          `Partner "${res.data.partner.name}" created — ${a.email} has no Zapeera account yet; they'll be claimed as admin when they sign up.`
+          `Partner "${res.data.partner.name}" created — ${a.email} has no Tickimo account yet; they'll be claimed as admin when they sign up.`
         );
       } else {
         toast.success(`Partner "${res.data?.partner?.name || a.companyName}" created — portal is live for ${a.email}`);
@@ -179,7 +179,7 @@ export function PartnersPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">White-Label Partners</h1>
           <p className="text-sm text-gray-500">
-            Resellers who sell Zapeera under their own branding. Attribution is set at signup and
+            Resellers who sell Tickimo under their own branding. Attribution is set at signup and
             only changes here.
           </p>
         </div>
@@ -228,7 +228,7 @@ export function PartnersPage() {
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                   No partners yet. Create the first one — the admin email must belong to an existing
-                  Zapeera user account.
+                  Tickimo user account.
                 </td>
               </tr>
             ) : (
@@ -500,7 +500,7 @@ export function PartnersPage() {
                 <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Acme POS" />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-gray-500">Admin user email * (must already have a Zapeera account)</span>
+                <span className="text-xs font-medium text-gray-500">Admin user email * (must already have a Tickimo account)</span>
                 <input className={inputCls} value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} placeholder="admin@acme.com" type="email" />
               </label>
               <label className="block">
@@ -571,7 +571,7 @@ export function PartnersPage() {
                   value={reassign.partnerId}
                   onChange={(e) => setReassign({ ...reassign, partnerId: e.target.value })}
                 >
-                  <option value="">No partner (direct Zapeera)</option>
+                  <option value="">No partner (direct Tickimo)</option>
                   {partners.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.slug})

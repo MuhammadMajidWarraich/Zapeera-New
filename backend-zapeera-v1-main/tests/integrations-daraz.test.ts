@@ -627,7 +627,7 @@ describe('daraz handler', () => {
       items: [{ productId: 'prod-a', quantity: 2, name: 'Product A' }]
     };
 
-    it('marks a pending Daraz order packed from its Zapeera sale', async () => {
+    it('marks a pending Daraz order packed from its Tickimo sale', async () => {
       mock.on('/order/get', () => ({ code: '0', data: { ...ORDER_A, status: 'pending' } }));
       mock.on('/order/items/get', () => ({
         code: '0',

@@ -1,4 +1,4 @@
-# Nginx Configuration for Zapeera Frontend
+# Nginx Configuration for Tickimo Frontend
 # This ensures proper MIME types and SPA routing
 
 server {

@@ -142,7 +142,7 @@ const BecomePartner: React.FC = () => {
             <CheckCircle2 className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-bold text-[#0a1128]">You're a Zapeera partner 🎉</h1>
+            <h1 className="text-2xl font-bold text-[#0a1128]">You're a Tickimo partner 🎉</h1>
             <p className="mt-1 max-w-xl text-sm text-[#4a5578]">
               {application?.createdPartner
                 ? <>Your partner <b>{application.createdPartner.name}</b> is active. Open the Partner Portal to manage your branding, join link and businesses.</>
@@ -170,7 +170,7 @@ const BecomePartner: React.FC = () => {
               {statusBadge(application.status)}
             </div>
             <p className="max-w-xl text-sm text-[#4a5578]">
-              You applied to sell Zapeera as <b>{application.companyName}</b> on {fmtDate(application.createdAt)}.
+              You applied to sell Tickimo as <b>{application.companyName}</b> on {fmtDate(application.createdAt)}.
               Our team reviews every application personally — once approved, this account becomes the
               partner admin and your portal, branding and join link switch on here.
             </p>
@@ -185,14 +185,14 @@ const BecomePartner: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-[#0a1128]">Become a Partner</h1>
         <p className="mt-1 text-sm text-[#4a5578]">
-          Sell Zapeera under your own brand — your name, your logo, your color. We handle the software,
+          Sell Tickimo under your own brand — your name, your logo, your color. We handle the software,
           hosting and updates; you handle your customers.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { icon: Palette, title: "Your branding", body: "Your logo and color across the app, sign-in and sign-up — Zapeera's name stays hidden from your customers." },
+          { icon: Palette, title: "Your branding", body: "Your logo and color across the app, sign-in and sign-up — Tickimo's name stays hidden from your customers." },
           { icon: Link2, title: "Your join link", body: "Every business that signs up through your link is attributed to you automatically." },
           { icon: LayoutDashboard, title: "Your portal", body: "See your businesses, their plans and statuses, and update your branding any time." },
         ].map((f) => (

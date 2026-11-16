@@ -2,7 +2,7 @@
  * Safe port conflict management (Issue 7).
  *
  * NEVER terminates an arbitrary process found listening on a port. A process
- * is only stopped when it is VERIFIED to be a (stale) Zapeera backend via a
+ * is only stopped when it is VERIFIED to be a (stale) Tickimo backend via a
  * local health/identity probe. Anything else is reported as 'unknown-owner'
  * so callers can error out or pick another port.
  */
@@ -47,9 +47,9 @@ export function parseLsofPids(output: string): string[] {
 }
 
 /**
- * Zapeera identity check against a local endpoint's JSON body.
+ * Tickimo identity check against a local endpoint's JSON body.
  * Accepts the /health payload (status:ok + database object) or the root
- * handler payload (message containing "Zapeera").
+ * handler payload (message containing "Tickimo").
  */
 export function isZapeeraHealthPayload(body: unknown): boolean {
   if (!body || typeof body !== 'object') return false;
@@ -57,15 +57,15 @@ export function isZapeeraHealthPayload(body: unknown): boolean {
   if (b.status === 'ok' && b.database && typeof b.database === 'object') {
     return true;
   }
-  if (typeof b.message === 'string' && b.message.includes('Zapeera')) {
+  if (typeof b.message === 'string' && b.message.includes('Tickimo')) {
     return true;
   }
   return false;
 }
 
 /**
- * Probe a local port to confirm it is serving a Zapeera backend.
- * Checks /health, /api/health and / in order; any successful Zapeera-shaped
+ * Probe a local port to confirm it is serving a Tickimo backend.
+ * Checks /health, /api/health and / in order; any successful Tickimo-shaped
  * response confirms identity. Never throws — returns false on any failure.
  */
 export async function probeIsZapeera(port: number, timeoutMs = 1500): Promise<boolean> {
@@ -94,7 +94,7 @@ export async function probeIsZapeera(port: number, timeoutMs = 1500): Promise<bo
 
 /**
  * Find which pids own a listening port and whether they are a verified
- * Zapeera backend. Never kills anything — pure discovery.
+ * Tickimo backend. Never kills anything — pure discovery.
  */
 export async function findPortOwnerPids(
   port: number,

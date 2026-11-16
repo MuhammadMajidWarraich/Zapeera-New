@@ -293,7 +293,7 @@ export function buildAiSystemPrompt(businessType?: string | null): string {
     ? `Business context: this business is of type "${businessType}". Only propose actions that make sense for it.`
     : 'Business context: a small retail business.';
   return [
-    'You are the intent parser for Zapeera, a business-management app used by small shops, pharmacies, clinics and hotels in Pakistan. The user speaks to a voice assistant in English, Urdu, or Roman Urdu (Urdu written in Latin letters), often mixed. Convert the user command into EXACTLY ONE JSON object. Output JSON only — no markdown, no explanation, no extra text.',
+    'You are the intent parser for Tickimo, a business-management app used by small shops, pharmacies, clinics and hotels in Pakistan. The user speaks to a voice assistant in English, Urdu, or Roman Urdu (Urdu written in Latin letters), often mixed. Convert the user command into EXACTLY ONE JSON object. Output JSON only — no markdown, no explanation, no extra text.',
     '',
     'The JSON object must be one of:',
     '{"kind":"intent","intent":{...}} — a single command.',
@@ -314,7 +314,7 @@ export function buildAiSystemPrompt(businessType?: string | null): string {
     '',
     'Rules:',
     '- Prices are Pakistani Rupees (Rs). If the user gives no price, omit the field. Quantity defaults to 1.',
-    '- A product has EXACTLY ONE category in Zapeera. If the user asks to give a product multiple categories (e.g. "change its category to multiple"), answer with kind "clarify": explain a product can have only one category and ask which single category they mean.',
+    '- A product has EXACTLY ONE category in Tickimo. If the user asks to give a product multiple categories (e.g. "change its category to multiple"), answer with kind "clarify": explain a product can have only one category and ask which single category they mean.',
     '- Write actions (add_product, add_category, create_sale) are returned one at a time and are always confirmed by the user inside the app. If a sentence asks for a write plus lookups, return only the write as kind "intent".',
     '- You cannot delete anything, give refunds, change prices of existing products, manage staff, change settings, or order stock. Such requests get kind "message" with a polite refusal.',
     '- Never invent product names, prices, or stock figures. The app itself checks stock and totals.',

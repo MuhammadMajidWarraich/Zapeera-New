@@ -1,4 +1,4 @@
-# Zapeera OCR service — RapidOCR (ONNX) on ARM64 + x86_64
+# Tickimo OCR service — RapidOCR (ONNX) on ARM64 + x86_64
 # Python 3.11 is deliberate: onnxruntime 1.20.x / opencv 4.10.x resolve
 # against the numpy 1.26.4 pin on 3.11 (on >=3.12 they demand numpy>=2,
 # which conflicts with rapidocr-onnxruntime 1.4.4's tested range here).

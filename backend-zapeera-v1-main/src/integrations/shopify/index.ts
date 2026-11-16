@@ -17,8 +17,8 @@
 // a deliberate no-op: the framework wipes the stored credentials
 // regardless (a failed revoke never leaves credentials stored).
 //
-// SYNC DIRECTIONS: products + stock OUT (Zapeera -> Shopify), orders IN
-// (Shopify -> Zapeera sales). One Shopify store maps to ONE Zapeera
+// SYNC DIRECTIONS: products + stock OUT (Tickimo -> Shopify), orders IN
+// (Shopify -> Tickimo sales). One Shopify store maps to ONE Tickimo
 // branch (config.branchId, else the first active branch) — enforced in
 // ./sync-core.ts. Honest limitation (registry card): Stripe/PayPal
 // checkout does not work in Pakistan — PK merchants use COD or local

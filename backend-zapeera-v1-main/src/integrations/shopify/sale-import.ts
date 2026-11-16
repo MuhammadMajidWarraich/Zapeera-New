@@ -1,5 +1,5 @@
 // ─── Shopify integration — sale import adapter (feature/integration-shopify)
-// Imported Shopify orders become Zapeera sales through the EXISTING
+// Imported Shopify orders become Tickimo sales through the EXISTING
 // createSale handler (src/controllers/sale.controller.ts) — NOT a
 // parallel sales writer. Calling it in-process with a synthesized
 // request means an imported order gets exactly what a POS sale gets:
@@ -17,7 +17,7 @@
 export interface ImportedSaleLineInput {
   productId: string;
   variantId?: string | null;
-  /** Base units (Zapeera sale lines store base units). */
+  /** Base units (Tickimo sale lines store base units). */
   quantity: number;
   /** Per-base-unit price (PKR). Must be > 0 (createSale Joi rule). */
   unitPrice: number;

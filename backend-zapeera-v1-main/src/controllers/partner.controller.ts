@@ -7,7 +7,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 // ─── Partner portal (White-label Feature 3) ───────────────────────────
 // Tenant-side endpoints behind /api/partners, used by the /partner page
 // in the main app. The portal identity is the partner's adminUserId
-// (v1: exactly one admin per partner) — a regular Zapeera account that
+// (v1: exactly one admin per partner) — a regular Tickimo account that
 // happens to administer a partner. There is NO module gate: like the
 // /zapeera account area, this is account-level, not business data. A
 // user who administers no partner gets 404 NOT_A_PARTNER_ADMIN so the

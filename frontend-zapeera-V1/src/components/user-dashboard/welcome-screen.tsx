@@ -968,7 +968,7 @@ export function WelcomeActivityPanel({ onOpen }: { onOpen: (slug: string | null 
       });
     }
     list.push({ id: "login", icon: LogIn, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Zapeera", time: "Sign up" });
+    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
 
@@ -1058,7 +1058,7 @@ export function WelcomeQuickActions({ onCreate }: { onCreate: () => void }) {
 /* ------------------------------------------------------------------ */
 /* Storage & Data — DESKTOP ONLY, via the same getStorageInfo IPC      */
 /* Settings uses (statfs device disk + local database file). Labeled   */
-/* as this device's disk — never "Zapeera storage". Renders nothing    */
+/* as this device's disk — never "Tickimo storage". Renders nothing    */
 /* when the IPC is absent or returns no disk figures, and never on web.*/
 /* ------------------------------------------------------------------ */
 export function WelcomeStoragePanel() {
@@ -1110,7 +1110,7 @@ export function WelcomeStoragePanel() {
       <div className="mt-4 flex items-center gap-2 border-t border-[rgba(15,23,60,0.05)] pt-3 text-[13px] text-[#4a5578]">
         <span className="h-2 w-2 shrink-0 rounded-full bg-[#1a52c5]" />
         <span>
-          Local Zapeera database{dbLabel ? `: ${dbLabel}` : ""}
+          Local Tickimo database{dbLabel ? `: ${dbLabel}` : ""}
         </span>
         <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-green-600">
           <CheckCircle2 className="h-3.5 w-3.5" /> Local Storage · Secure
@@ -1132,7 +1132,7 @@ export function WelcomeDownloadWidget() {
 
   if (runtime.isDesktop) return null;
 
-  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/Zapeera-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
+  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/Tickimo-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
   const versionLabel = versionMatch ? `Version ${versionMatch[1]} · Windows` : "Windows";
 
   return (
@@ -1142,7 +1142,7 @@ export function WelcomeDownloadWidget() {
           <Laptop className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Download Zapeera for Windows</p>
+          <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Download Tickimo for Windows</p>
           <p className="mt-0.5 text-[13px] text-[#4a5578]">
             {versionLabel} · Work offline at the counter, syncs automatically.
           </p>

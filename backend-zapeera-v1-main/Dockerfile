@@ -1,4 +1,4 @@
-# Zapeera backend — Node + Express + TypeScript (single-host stack)
+# Tickimo backend — Node + Express + TypeScript (single-host stack)
 #
 # Base image choice: node:22-slim (Debian/glibc), NOT Alpine/musl.
 #  - The repo's Prisma generator already ships binaryTargets for

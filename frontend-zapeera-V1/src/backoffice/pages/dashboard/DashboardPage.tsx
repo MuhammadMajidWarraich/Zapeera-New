@@ -67,7 +67,7 @@ export function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Platform Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Real-time overview of your Zapeera platform</p>
+          <p className="text-sm text-gray-500 mt-1">Real-time overview of your Tickimo platform</p>
         </div>
         <button onClick={fetchStats} className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
           <RefreshCw className="w-4 h-4" /> Refresh

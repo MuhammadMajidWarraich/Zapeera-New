@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Zapeera single-host — PostgreSQL backup
+# Tickimo single-host — PostgreSQL backup
 #
 # Dumps the compose `postgres` service to a timestamped, gzipped SQL file.
 # Run from the repo root on the host VM (cron example in MIGRATION.md):

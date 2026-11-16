@@ -1017,7 +1017,7 @@ const AppRoutes = () => {
           </AuthStatus>
         } />
 
-        {/* Zapeera-specific routes that use ZapeeraLayout */}
+        {/* Tickimo-specific routes that use ZapeeraLayout */}
         <Route path="/zapeera/my-businesses" element={
           <AuthStatus>
             <BusinessTypeGuard>

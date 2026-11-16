@@ -82,7 +82,7 @@ export function formatTxnDateTime(date: Date = new Date()): string {
 /**
  * Merchant transaction reference: 'ZAP' + timestamp + 3 random digits.
  * JazzCash requires it unique per transaction and <= 20 chars
- * (alphanumeric). The 'ZAP' prefix marks it as a Zapeera reference.
+ * (alphanumeric). The 'ZAP' prefix marks it as a Tickimo reference.
  */
 export function newTxnRefNo(prefix = 'ZAP'): string {
   const stamp = formatTxnDateTime().slice(2); // yymmddHHMMSS (12 chars)

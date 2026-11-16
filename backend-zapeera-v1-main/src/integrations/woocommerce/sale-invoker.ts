@@ -1,5 +1,5 @@
 // ─── Invoke the existing sale engine in-process (feature/integration-woocommerce)
-// Imported WooCommerce orders become Zapeera sales through the SAME
+// Imported WooCommerce orders become Tickimo sales through the SAME
 // createSale path a POS sale uses — never a parallel writer. This is
 // the codebase's own precedent: appointment.controller.ts and
 // folio.controller.ts "lend" createSale a synthetic request and capture

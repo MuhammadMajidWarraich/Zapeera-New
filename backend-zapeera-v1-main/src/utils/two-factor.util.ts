@@ -1,7 +1,7 @@
 /**
  * Two-factor authentication (TOTP) utilities.
  *
- * Real 2FA for Zapeera (built 2026-10-24, replacing the old flag-only
+ * Real 2FA for Tickimo (built 2026-10-24, replacing the old flag-only
  * toggle that persisted `twoFactorEnabled` without any enforcement):
  *
  *  - TOTP secrets are generated/verified with otplib (RFC 6238, ±1 step
@@ -19,7 +19,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 
-export const TWO_FACTOR_ISSUER = 'Zapeera';
+export const TWO_FACTOR_ISSUER = 'Tickimo';
 export const CHALLENGE_PURPOSE = '2fa-challenge';
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 export const MAX_CHALLENGE_ATTEMPTS = 5;

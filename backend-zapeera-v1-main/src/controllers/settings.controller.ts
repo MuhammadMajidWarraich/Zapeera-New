@@ -91,10 +91,10 @@ export const getSettings = async (req: AuthRequest, res: Response): Promise<void
     });
 
     // Set default values if not found
-    const pharmacyName = settingsObj.pharmacyName || process.env.DEFAULT_PHARMACY_NAME || 'Zapeera Pharmacy';
+    const pharmacyName = settingsObj.pharmacyName || process.env.DEFAULT_PHARMACY_NAME || 'Tickimo Pharmacy';
     const pharmacyAddress = settingsObj.pharmacyAddress || 'Block A, Gulberg III, Lahore';
     const pharmacyPhone = settingsObj.pharmacyPhone || process.env.DEFAULT_PHARMACY_PHONE || '+92 42 1234567';
-    const pharmacyEmail = settingsObj.pharmacyEmail || process.env.DEFAULT_PHARMACY_EMAIL || 'info@zapeera.com';
+    const pharmacyEmail = settingsObj.pharmacyEmail || process.env.DEFAULT_PHARMACY_EMAIL || 'info@tickimo.com';
     const pharmacyLicense = settingsObj.pharmacyLicense || process.env.DEFAULT_PHARMACY_LICENSE || 'PHR-LHR-2024-001';
     const pharmacyTaxNumber = settingsObj.pharmacyTaxNumber || '1234567890123';
     const defaultSettings = {

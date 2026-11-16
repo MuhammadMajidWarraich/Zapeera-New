@@ -1,5 +1,5 @@
 /**
- * Keyboard shortcuts — single source of truth for Zapeera's keyboard map.
+ * Keyboard shortcuts — single source of truth for Tickimo's keyboard map.
  *
  * Why one file: the help overlay, the global listener and the POS listener
  * must never drift apart. Every shortcut is declared here as data; the

@@ -733,7 +733,7 @@ const Refunds = () => {
                 {/* Refund Header */}
                 <div className="flex justify-between items-start border-b pb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-primary">Zapeera</h2>
+                    <h2 className="text-2xl font-bold text-primary">Tickimo</h2>
                     <p className="text-muted-foreground">Refund Receipt</p>
                     <div className="mt-4 space-y-1 text-sm">
                       <p><strong>Refund ID:</strong> {selectedRefund.id}</p>

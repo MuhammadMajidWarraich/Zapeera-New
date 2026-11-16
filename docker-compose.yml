@@ -1,5 +1,5 @@
 # ============================================================================
-# Zapeera — single-host stack (Oracle Cloud Always Free, Ampere A1 ARM64)
+# Tickimo — single-host stack (Oracle Cloud Always Free, Ampere A1 ARM64)
 # ============================================================================
 # One VM, one command:  docker compose up -d --build
 #
@@ -15,7 +15,7 @@
 #   ocr       — FastAPI + RapidOCR (ONNX) on :8000 (internal only)
 #
 # Configuration: copy .env.example to .env and fill it in (never commit .env).
-# Domain portability: to move to Zapeera's own domain later, change the
+# Domain portability: to move to Tickimo's own domain later, change the
 # FRONTEND_DOMAIN / API_DOMAIN / FRONTEND_URL / CORS_ORIGINS / VITE_* values
 # in .env, update DNS, and re-run `docker compose up -d --build` — the
 # frontend is built with relative /api URLs, so nothing else changes.

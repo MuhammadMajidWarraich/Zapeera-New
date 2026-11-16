@@ -14,7 +14,7 @@ from pydantic import BaseModel
 logger = logging.getLogger("zapeera-ocr")
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Zapeera OCR Service", version="1.0.0")
+app = FastAPI(title="Tickimo OCR Service", version="1.0.0")
 
 # ---------------------------------------------------------------------------
 # Security (QA fix 2026-10-19, Track A A-11)
@@ -293,7 +293,7 @@ def extract_entities(text: str) -> Dict:
 
 @app.get("/")
 async def root():
-    return {"message": "Zapeera OCR Service is running", "status": "healthy", "engine": _ocr_engine_kind or "not-initialized"}
+    return {"message": "Tickimo OCR Service is running", "status": "healthy", "engine": _ocr_engine_kind or "not-initialized"}
 
 @app.post("/scan-document", response_model=ExtractedData)
 async def scan_document(file: UploadFile = File(...), _: None = Depends(require_ocr_key)):

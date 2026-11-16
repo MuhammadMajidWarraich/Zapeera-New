@@ -20,7 +20,7 @@ import { slugifyPartnerName, uniquePartnerSlug } from '../utils/partner.util';
 // partner name, slug derived + uniquified via uniquePartnerSlug — the
 // same slug machinery Backoffice partner creation uses). Admin
 // assignment mirrors createPartner's email designation, extended for
-// the case createPartner rejects: when NO Zapeera user owns the
+// the case createPartner rejects: when NO Tickimo user owns the
 // application email yet, the partner is created with pendingAdminEmail
 // set and adminUserId null; claimPendingPartnerAdmins (partner.util)
 // resolves the claim when that user signs up / first loads the portal.
@@ -93,7 +93,7 @@ async function createApplication(
       body: {
         success: false,
         code: 'ALREADY_PARTNER',
-        message: 'This email already belongs to a Zapeera partner. Sign in and open the Partner Portal instead.'
+        message: 'This email already belongs to a Tickimo partner. Sign in and open the Partner Portal instead.'
       }
     };
   }
@@ -108,7 +108,7 @@ async function createApplication(
       body: {
         success: false,
         code: 'ALREADY_PARTNER',
-        message: 'This email already belongs to a Zapeera partner. Sign in and open the Partner Portal instead.'
+        message: 'This email already belongs to a Tickimo partner. Sign in and open the Partner Portal instead.'
       }
     };
   }
@@ -202,7 +202,7 @@ export const applyAuthenticated = async (req: AuthRequest, res: Response): Promi
       res.status(409).json({
         success: false,
         code: 'ALREADY_PARTNER',
-        message: 'You already administer a Zapeera partner — open the Partner Portal instead.'
+        message: 'You already administer a Tickimo partner — open the Partner Portal instead.'
       });
       return;
     }

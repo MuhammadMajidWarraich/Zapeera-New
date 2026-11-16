@@ -97,9 +97,9 @@ export class BurstTracker {
 }
 
 /**
- * Barcode-shaped check: symbologies Zapeera sells with (EAN/UPC —
+ * Barcode-shaped check: symbologies Tickimo sells with (EAN/UPC —
  * digits; Code 128 / Code 39 — compact alphanumerics; generated
- * Zapeera codes — prefix + digits) never contain spaces, and a
+ * Tickimo codes — prefix + digits) never contain spaces, and a
  * plain lowercase word is a human search term, not a code.
  */
 export function looksLikeBarcode(code: string): boolean {

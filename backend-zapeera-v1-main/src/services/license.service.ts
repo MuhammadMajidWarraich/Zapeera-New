@@ -1,5 +1,5 @@
 /**
- * Signed-license issuance — server side of the Zapeera signed-license system.
+ * Signed-license issuance — server side of the Tickimo signed-license system.
  *
  * Approved by Muhammad 2026-10-28 18:58 PKT (audit decisions 2–4):
  *   - Ed25519 license tokens, issued at login / provision / refresh.

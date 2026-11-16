@@ -15,7 +15,7 @@ import { getPrisma } from './db.util';
 //    localStorage → createCompany payload). Tenants can never change
 //    business.partnerId afterwards; Backoffice can reassign.
 //  · A SUSPENDED partner stops resolving for NEW attributions and for
-//    branding (its businesses fall back to default Zapeera branding)
+//    branding (its businesses fall back to default Tickimo branding)
 //    but the partnerId on existing businesses is kept, so reactivation
 //    restores the branding exactly as it was.
 
@@ -28,10 +28,10 @@ export interface PublicBranding {
   partnerSlug: string | null;
 }
 
-/** The stock Zapeera branding — what every surface renders when no
+/** The stock Tickimo branding — what every surface renders when no
  *  ACTIVE partner applies. Identical to the pre-white-label product. */
 export const DEFAULT_BRANDING: PublicBranding = {
-  productName: 'Zapeera',
+  productName: 'Tickimo',
   logoUrl: null,
   primaryColor: null,
   tagline: null,
@@ -66,7 +66,7 @@ export async function uniquePartnerSlug(prisma: any, name: string): Promise<stri
 }
 
 /** Claim any partner whose admin was designated by email before that
- *  email had a Zapeera account (partner applications approved for a
+ *  email had a Tickimo account (partner applications approved for a
  *  not-yet-registered email create the partner with pendingAdminEmail
  *  set and adminUserId null). Called on signup and on GET /partners/me
  *  so the claim resolves the first time the designated admin shows up.
@@ -108,7 +108,7 @@ export async function findActivePartnerBySlug(prisma: any, slug: unknown) {
 
 /** The partner attribution for a new business: the partner id when the
  *  carried slug resolves to an ACTIVE partner, otherwise null (direct
- *  Zapeera sale). Never throws — a bad slug must not block signup. */
+ *  Tickimo sale). Never throws — a bad slug must not block signup. */
 export async function resolvePartnerAttribution(
   prisma: any,
   slug: unknown

@@ -154,7 +154,7 @@ process.on('uncaughtException', (error) => {
     log('ERROR', 'App not ready - cannot show error dialog');
   } else if (process.platform === 'win32' && app && app.isReady()) {
     dialog.showErrorBox(
-      'Zapeera - Critical Error',
+      'Tickimo - Critical Error',
       `An unexpected error occurred.\n\nError: ${error.message}\n\nPlease check the logs at: ${logFile}`
     );
   }
@@ -854,7 +854,7 @@ function ensureJwtSecret() {
 }
 
 /**
- * Start backend - Spawns the packaged Zapeera backend server
+ * Start backend - Spawns the packaged Tickimo backend server
  * Uses SQLite for offline data storage
  */
 async function startBackend() {
@@ -1207,7 +1207,7 @@ function createSplashWindow() {
 </head>
 <body>
   <div class="splash">
-    <div class="logo">Zapeera</div>
+    <div class="logo">Tickimo</div>
     <div class="subtitle">Business Management Platform</div>
     <div class="spinner"></div>
     <div class="status">Starting application...</div>
@@ -1373,7 +1373,7 @@ function createWindow() {
 
     if (shouldShowImmediately && isAppEntryFailure) {
       dialog.showErrorBox(
-        'Zapeera - Load Error',
+        'Tickimo - Load Error',
         `Failed to load application.\n\nError: ${errorDescription}\n\nCode: ${errorCode}\n\nPlease check the logs at: ${logFile}`
       );
     }
@@ -1875,12 +1875,12 @@ function createMenu() {
       label: 'Help',
       submenu: [
         {
-          label: 'About Zapeera',
+          label: 'About Tickimo',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: 'About Zapeera',
-              message: `Zapeera v${app.getVersion()}`,
+              title: 'About Tickimo',
+              message: `Tickimo v${app.getVersion()}`,
               detail: `Business Management Platform\n\nDatabase: ${SQLITE_DB_PATH}`
             });
           }
@@ -1911,7 +1911,7 @@ function createMenu() {
 // ============================================================
 app.whenReady().then(async () => {
   log('INFO', '========================================');
-  log('INFO', '=== Zapeera Starting ===');
+  log('INFO', '=== Tickimo Starting ===');
   log('INFO', `Platform: ${process.platform}`);
   log('INFO', `Arch: ${process.arch}`);
   log('INFO', `Electron: ${process.versions.electron}`);
@@ -1973,7 +1973,7 @@ app.whenReady().then(async () => {
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
     if (process.platform === 'win32') {
       dialog.showErrorBox(
-        'Zapeera - Startup Error',
+        'Tickimo - Startup Error',
         `Failed to create application window.\n\nError: ${error.message}\n\nPlease check the logs at: ${logFile}`
       );
     }
@@ -1999,5 +1999,5 @@ app.on('before-quit', () => {
   }
 });
 
-app.setName('Zapeera');
+app.setName('Tickimo');
 log('INFO', 'Main process initialized');

@@ -416,7 +416,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     writeStoredUser(normalizedUserData);
     localStorage.setItem('fresh_install_checked', 'true');
 
-    // Clear admin company selection to force Zapeera screen on fresh login
+    // Clear admin company selection to force Tickimo screen on fresh login
     if (normalizedUserData.role === 'OWNER') {
       localStorage.removeItem(`selected_company_${normalizedUserData.id}`);
       localStorage.removeItem(`selected_branch_${normalizedUserData.id}`);

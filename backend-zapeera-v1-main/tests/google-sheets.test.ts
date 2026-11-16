@@ -147,7 +147,7 @@ function googleHappyPath(stub: StubFetch, opts: { existingTabs?: string[]; heade
         status: 200,
         body: {
           spreadsheetId: 'sheet-created-1',
-          properties: { title: body?.properties?.title ?? 'Zapeera Export' },
+          properties: { title: body?.properties?.title ?? 'Tickimo Export' },
           sheets: (body?.sheets ?? []).map((s: any) => ({ properties: { title: s?.properties?.title } })),
           spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-created-1'
         }
@@ -469,7 +469,7 @@ describe('google-sheets exportData', () => {
     expect(result.recordsProcessed).toBe(8);
     expect(result.recordsFailed).toBe(0);
     expect(result.message).toContain('Sales 2, Stock 2, Customers 1, Khata 3');
-    expect(result.message).toContain('Zapeera Export — Test Pharmacy');
+    expect(result.message).toContain('Tickimo Export — Test Pharmacy');
 
     // Khata running balances: 500, then 300, then 350 (cumulative per customer).
     const khataAppend = appends.find((c) => c.url.includes('Khata'));

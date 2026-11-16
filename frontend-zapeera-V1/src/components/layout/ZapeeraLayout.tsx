@@ -550,7 +550,7 @@ const ZapeeraLayout = ({ children }: ZapeeraLayoutProps) => {
                   <ArrowLeft className="h-[18px] w-[18px] opacity-60" />
                   Back to Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openExternal(whatsappUrl("Hello! I need support with Zapeera."))} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
+                <DropdownMenuItem onClick={() => openExternal(whatsappUrl("Hello! I need support with Tickimo."))} className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-medium text-[#4a5578]">
                   <MessageCircle className="h-[18px] w-[18px] opacity-60" />
                   WhatsApp Support
                 </DropdownMenuItem>

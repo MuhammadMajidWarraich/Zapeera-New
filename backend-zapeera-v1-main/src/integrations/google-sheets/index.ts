@@ -4,7 +4,7 @@
 // card from "Coming soon" to connectable. The OAuth HTTP handlers are
 // wired separately: start inside routes/integrations.routes.ts, callback
 // in server.ts (before the universal module protection middleware — the
-// callback arrives from Google with no Zapeera session).
+// callback arrives from Google with no Tickimo session).
 import './handler';
 
 export { googleSheetsHandler } from './handler';

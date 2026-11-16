@@ -1014,7 +1014,7 @@ const createFromSuggestionsSchema = Joi.object({
 });
 
 // POST /purchases/draft-from-suggestions — one-click order creation from
-// reorder suggestions. HONEST SCOPE: Zapeera purchases have no draft /
+// reorder suggestions. HONEST SCOPE: Tickimo purchases have no draft /
 // receive lifecycle — Purchase.status is a PAYMENT status (PENDING /
 // PARTIAL / COMPLETED, derived from paidAmount) and creating a purchase
 // lands stock immediately. So this creates a REAL purchase order through

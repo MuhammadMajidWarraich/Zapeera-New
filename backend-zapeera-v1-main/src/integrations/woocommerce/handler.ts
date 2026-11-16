@@ -1,16 +1,16 @@
 // ─── WooCommerce sync handler (feature/integration-woocommerce) ──────────
 // Implements IntegrationSyncHandler for provider 'woocommerce' (contract
 // §5) against the WooCommerce WP REST API v3. One WooCommerce store maps
-// to ONE Zapeera branch — the binding is stored in the connection config
+// to ONE Tickimo branch — the binding is stored in the connection config
 // (IntegrationSyncConfig.branchId) and enforced on every method: only
 // that branch's products, stock and customers ever touch the store, and
 // only that branch's products can be sold by an imported order.
 //
 //   connect()     — cheap vendor read: GET /products?per_page=1.
-//   syncProducts  — Zapeera → WooCommerce: create/update products
+//   syncProducts  — Tickimo → WooCommerce: create/update products
 //                   (incl. variants → variations) by SKU.
-//   syncStock     — Zapeera → WooCommerce: push base-unit batch stock.
-//   importOrders  — WooCommerce → Zapeera sales via the existing
+//   syncStock     — Tickimo → WooCommerce: push base-unit batch stock.
+//   importOrders  — WooCommerce → Tickimo sales via the existing
 //                   createSale engine (sale-invoker.ts) — FEFO batch
 //                   deduction, receipts, khata, tax, FBR all come free.
 //                   Idempotent via Sale.channel = 'woocommerce' +
@@ -304,7 +304,7 @@ async function findWcVariationBySku(
 // ─── Outbound: push one product / one product's stock ────────────────────────
 
 /**
- * Push a single Zapeera product to WooCommerce (create or update by SKU),
+ * Push a single Tickimo product to WooCommerce (create or update by SKU),
  * then its variants as variations (matched by SKU; variants without a
  * SKU are skipped — they cannot be matched on a later push or on an
  * order import — and reported in the returned note).
@@ -426,7 +426,7 @@ async function matchOrCreateCustomer(
 }
 
 /**
- * Match every WooCommerce line to a Zapeera product in the BOUND branch
+ * Match every WooCommerce line to a Tickimo product in the BOUND branch
  * by SKU (variation lines also match their variant by variation SKU).
  * Any line that cannot be matched fails the WHOLE order — a partial sale
  * would silently drop items the customer paid for. No sale is created
@@ -535,14 +535,14 @@ function runSerialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 
 export interface ImportWooOrderOutcome {
-  /** Zapeera sale id, or null when the order was skipped (not importable). */
+  /** Tickimo sale id, or null when the order was skipped (not importable). */
   saleId: string | null;
   alreadyImported: boolean;
   skippedReason?: string;
 }
 
 /**
- * Import ONE WooCommerce order as a Zapeera sale. Idempotent: a sale
+ * Import ONE WooCommerce order as a Tickimo sale. Idempotent: a sale
  * tagged channel 'woocommerce' + this order's id already exists →
  * return it without creating anything. The tag travels INSIDE the
  * createSale payload (channel + externalOrderId are accepted by

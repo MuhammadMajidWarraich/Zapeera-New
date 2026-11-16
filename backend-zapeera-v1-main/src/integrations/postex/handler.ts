@@ -6,7 +6,7 @@
 //   connect / getStatus — OAuth token grant (the cheap vendor read; no
 //     separate "account" endpoint is evidenced, and the grant itself
 //     validates all three credentials).
-//   createShipment — book a shipment from a Zapeera sale, fetch the AWB
+//   createShipment — book a shipment from a Tickimo sale, fetch the AWB
 //     label URL when the vendor returns one, store the tracking number +
 //     carrier status on the sale (Sale.postexTrackingNumber /
 //     Sale.postexShipmentStatus — the FBR fbrInvoiceNumber/fbrStatus

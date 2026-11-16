@@ -306,7 +306,7 @@ function basePaymentFields(
     pp_TxnDateTime: txnDateTime,
     pp_BillReference: req.billReference || sale.invoiceNumber || sale.id,
     pp_Description: sanitizeDescription(
-      req.description || `Zapeera sale ${sale.invoiceNumber || sale.id} — JazzCash`
+      req.description || `Tickimo sale ${sale.invoiceNumber || sale.id} — JazzCash`
     ),
     pp_TxnExpiryDateTime: expiryDateTime,
     ppmpf_1: sale.id, // merchant field: lets the IPN/Return find this sale
@@ -472,7 +472,7 @@ function processBankAccountPayment(
  * Card — page redirection (hosted form), NOT a server-side card call.
  * JazzCash card payments need 3-D Secure enrollment + payer
  * authentication in the customer's browser; collecting card numbers
- * server-side would put Zapeera in PCI scope for no benefit. We build
+ * server-side would put Tickimo in PCI scope for no benefit. We build
  * the SIGNED form fields (Integration Guide v4.2 §5.2 / vendor PHP
  * sample) and hand them back: the caller POSTs the customer to the
  * JazzCash merchant form, JazzCash POSTs the result to the Return URL,
@@ -566,7 +566,7 @@ async function resolveCallbackContext(
     }
   }
   if (!sale) {
-    return { ok: false, code: 'UNKNOWN_SALE', message: `No Zapeera sale matches this callback (txn ${txnRefNo}).` };
+    return { ok: false, code: 'UNKNOWN_SALE', message: `No Tickimo sale matches this callback (txn ${txnRefNo}).` };
   }
   const connection = await prisma.integrationConnection.findUnique({
     where: { businessId_provider: { businessId: sale.companyId, provider: 'jazzcash' } }

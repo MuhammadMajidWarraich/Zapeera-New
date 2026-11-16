@@ -28,4 +28,4 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
-        value: noreply@zapeera.com
+        value: noreply@tickimo.com

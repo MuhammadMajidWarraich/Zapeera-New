@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Zapeera API
+  title: Tickimo API
   description: |
     Multi-business SaaS Management Platform API
     
@@ -25,13 +25,13 @@ info:
     ```
   version: 1.0.0
   contact:
-    name: Zapeera Support
-    email: support@zapeera.com
+    name: Tickimo Support
+    email: support@tickimo.com
 
 servers:
   - url: http://localhost:4200/api
     description: Local development server
-  - url: https://api.zapeera.com/api
+  - url: https://api.tickimo.com/api
     description: Production server
 
 tags:

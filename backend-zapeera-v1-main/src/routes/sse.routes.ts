@@ -12,7 +12,7 @@ router.options('/events', (req: Request, res: Response) => {
   const origin = req.headers.origin;
   // Allowed origins: shared env-driven allowlist (utils/allowed-origins.ts)
   // — CORS_ORIGINS / FRONTEND_URL + historical defaults. This list used to be
-  // a hardcoded zapeera.com array duplicated in both handlers below/above.
+  // a hardcoded tickimo.com array duplicated in both handlers below/above.
   
   const originAllowed = isAllowedOrigin(origin);
 
@@ -96,7 +96,7 @@ router.get('/events', async (req: Request, res: Response) => {
   const origin = req.headers.origin;
   // Allowed origins: shared env-driven allowlist (utils/allowed-origins.ts)
   // — CORS_ORIGINS / FRONTEND_URL + historical defaults. This list used to be
-  // a hardcoded zapeera.com array duplicated in both handlers below/above.
+  // a hardcoded tickimo.com array duplicated in both handlers below/above.
   
   // Allow origin if it's in the shared allowlist or in development
   const originAllowed = isAllowedOrigin(origin);

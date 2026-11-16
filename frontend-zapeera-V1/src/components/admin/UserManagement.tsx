@@ -225,7 +225,7 @@ const UserManagement = () => {
 
   const [isCheckingUnique, setIsCheckingUnique] = useState(false);
 
-  /** When email/username matches an existing Zapeera account (add staff → give access flow). */
+  /** When email/username matches an existing Tickimo account (add staff → give access flow). */
   const [existingUserMatch, setExistingUserMatch] = useState<{
     id: string;
     name: string;
@@ -266,8 +266,8 @@ const UserManagement = () => {
             ...prev,
             [field]:
               field === 'username'
-                ? 'This username is already registered in Zapeera.'
-                : 'This email is already registered in Zapeera.',
+                ? 'This username is already registered in Tickimo.'
+                : 'This email is already registered in Tickimo.',
           }));
           return false;
         }
@@ -1091,10 +1091,10 @@ const UserManagement = () => {
     const emailUnique = await checkUsernameOrEmailUniqueness('email');
     if (!usernameUnique || !emailUnique) {
       setError(
-        "This email or username is already registered in Zapeera. Use “Give access” to share this business with that account.",
+        "This email or username is already registered in Tickimo. Use “Give access” to share this business with that account.",
       );
       toast({
-        title: "Account already exists in Zapeera",
+        title: "Account already exists in Tickimo",
         description:
           "You cannot create a second login with the same email or username. Use “Give access” to add this existing user as staff for your business.",
         variant: "destructive",
@@ -1301,7 +1301,7 @@ const UserManagement = () => {
           );
           setIsGiveAccessDialogOpen(true);
           toast({
-            title: "This person already has a Zapeera account",
+            title: "This person already has a Tickimo account",
             description:
               "We opened “Give access” so you can share this business with their existing login—no duplicate account.",
             variant: "default",
@@ -1830,7 +1830,7 @@ const UserManagement = () => {
               <DialogHeader>
                 <DialogTitle>Give access to this business</DialogTitle>
                 <DialogDescription>
-                  Link an existing Zapeera account to your business. No new login is created.
+                  Link an existing Tickimo account to your business. No new login is created.
                 </DialogDescription>
               </DialogHeader>
               {existingUserMatch && (
@@ -2520,7 +2520,7 @@ const UserManagement = () => {
             </DialogTitle>
             <DialogDescription>
               {selectedCompanyId
-                ? "This removes the person from the current business only. Their Zapeera login and other businesses are not deleted."
+                ? "This removes the person from the current business only. Their Tickimo login and other businesses are not deleted."
                 : "Select a business in the header to remove someone from that business without deleting their account."}
             </DialogDescription>
           </DialogHeader>

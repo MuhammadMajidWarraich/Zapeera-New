@@ -207,7 +207,7 @@ const ZapeeraDashboard = () => {
                   WhatsApp
                 </a>
                 <a
-                  href={emailUrl("Account Activation Request - Zapeera", `Hello,\n\nMy account is currently disabled and I need it to be activated.\n\nUsername: ${currentUser?.username || "N/A"}\nEmail: ${currentUser?.email || "N/A"}\n\nBest regards,\n${currentUser?.name || "User"}`)}
+                  href={emailUrl("Account Activation Request - Tickimo", `Hello,\n\nMy account is currently disabled and I need it to be activated.\n\nUsername: ${currentUser?.username || "N/A"}\nEmail: ${currentUser?.email || "N/A"}\n\nBest regards,\n${currentUser?.name || "User"}`)}
                   className="inline-flex h-12 items-center justify-center rounded-[10px] border border-[rgba(15,23,60,0.12)] font-semibold text-[#4a5578] hover:bg-[#f0f2f7]"
                 >
                   <Mail className="mr-2 h-5 w-5" />

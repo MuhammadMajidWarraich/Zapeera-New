@@ -292,7 +292,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
           </div>
           <h2 className="text-xl font-semibold">Internet connection required</h2>
           <p className="text-sm text-muted-foreground">
-            Connect to the internet the first time you sign in to Zapeera Desktop. After setup, supported businesses can be used offline.
+            Connect to the internet the first time you sign in to Tickimo Desktop. After setup, supported businesses can be used offline.
           </p>
           <button onClick={handleRetry} className="px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
             Try Again
@@ -309,7 +309,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
           <div className="bg-red-50 dark:bg-red-950 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
             <AlertTriangle className="h-10 w-10 text-red-500" />
           </div>
-          <h2 className="text-xl font-semibold">Zapeera Desktop could not finish setting up your account.</h2>
+          <h2 className="text-xl font-semibold">Tickimo Desktop could not finish setting up your account.</h2>
           <p className="text-sm text-muted-foreground">{errorMessage}</p>
           <div className="flex gap-3 justify-center">
             <button onClick={handleRetry} className="inline-flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
@@ -332,7 +332,7 @@ export function DesktopLoginFlow({ onLogin }: DesktopLoginFlowProps) {
         <div className="text-center space-y-4">
           <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
           <h2 className="text-xl font-semibold">Ready to go!</h2>
-          <p className="text-sm text-muted-foreground">Opening Zapeera Desktop...</p>
+          <p className="text-sm text-muted-foreground">Opening Tickimo Desktop...</p>
         </div>
       </div>
     );

@@ -1132,7 +1132,7 @@ export function CloneActivityPanel({ onOpen }: { onOpen: (slug: string | null | 
       });
     }
     list.push({ id: "login", icon: LogIn, tint: "bg-[#e8effd] text-[#2563eb]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#e5f6ec] text-[#16a34a]", title: "Account created on Zapeera", time: "Sign up" });
+    list.push({ id: "signup", icon: CheckCircle2, tint: "bg-[#e5f6ec] text-[#16a34a]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
 
@@ -1359,7 +1359,7 @@ function CloneStoragePanel() {
 
 function CloneDownloadPanel() {
   const navigate = useNavigate();
-  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/Zapeera-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
+  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/Tickimo-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
   const versionLabel = versionMatch ? `Version ${versionMatch[1]} · Windows` : "Windows";
 
   return (
@@ -1369,7 +1369,7 @@ function CloneDownloadPanel() {
           <Monitor className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <p className="whitespace-nowrap text-[13px] font-extrabold tracking-tight text-[#0a1128]">Zapeera for Windows</p>
+          <p className="whitespace-nowrap text-[13px] font-extrabold tracking-tight text-[#0a1128]">Tickimo for Windows</p>
           <p className="mt-0.5 text-[12px] leading-snug text-[#4a5578]">
             {versionLabel} · Work offline at the counter, syncs automatically.
           </p>

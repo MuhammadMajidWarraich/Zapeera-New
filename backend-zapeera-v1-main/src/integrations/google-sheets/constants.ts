@@ -25,7 +25,7 @@ export const GOOGLE_OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
  *   (the connect verification read uses Drive files.list pageSize=1 —
  *   the Sheets API has no "list spreadsheets" endpoint, so this is the
  *   cheapest documented read that proves the token works).
- * drive.file is deliberately the narrowest Drive scope: Zapeera never
+ * drive.file is deliberately the narrowest Drive scope: Tickimo never
  * sees the merchant's other Drive files.
  */
 export const GOOGLE_SHEETS_SCOPES: string[] = [

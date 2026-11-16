@@ -3456,7 +3456,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
     if (!currentReceipt) return;
 
     // Get pharmacy information
-    const companyName = selectedCompany?.name || selectedBranch?.name || 'Zapeera';
+    const companyName = selectedCompany?.name || selectedBranch?.name || 'Tickimo';
     const branchName = selectedBranch?.name || '';
     const companyAddress = selectedCompany?.address || selectedBranch?.address || '';
     const companyPhone = selectedCompany?.phone || selectedBranch?.phone || '';
@@ -3784,7 +3784,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <p>Thank you for choosing ${companyName}!</p>
             ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : '<p>For any queries, contact us</p>'}
             ${tplShow.footerNote ? `<p>${escapeHtml(receiptTemplate.footerText)}</p>` : ''}
-            <p class="software-note">This invoice is generated using Zapeera A business management software</p>
+            <p class="software-note">This invoice is generated using Tickimo A business management software</p>
           </div>
         </body>
       </html>
@@ -3887,7 +3887,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
   };
 
   const generateReceiptHTML = (receipt: Receipt) => {
-    const companyName = selectedCompany?.name || selectedBranch?.name || 'Zapeera';
+    const companyName = selectedCompany?.name || selectedBranch?.name || 'Tickimo';
     const branchName = selectedBranch?.name || '';
     const companyAddress = selectedCompany?.address || selectedBranch?.address || '';
     const companyPhone = selectedCompany?.phone || selectedBranch?.phone || '';
@@ -4186,7 +4186,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
           ${companyPhone ? `<p>For any queries, contact us at: ${companyPhone}</p>` : ''}
           <p style="font-style: italic; margin-top: 5px;">Your Health, Our Priority</p>
           ${tplShow.footerNote ? `<p>${escapeHtml(receiptTemplate.footerText)}</p>` : ''}
-          <p class="footer-software">This invoice is generated using Zapeera A business management software</p>
+          <p class="footer-software">This invoice is generated using Tickimo A business management software</p>
         </div>
       </body>
       </html>
@@ -4775,7 +4775,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="truncate text-[15px] font-extrabold leading-tight tracking-tight">
-                  {selectedCompany?.name || "Zapeera"}
+                  {selectedCompany?.name || "Tickimo"}
                 </p>
                 <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
                   {registerLayout ? "POS" : "Invoice"}
@@ -4783,10 +4783,10 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               </div>
               {/* Subtitle hidden below 2xl (fix-up 2026-10-26): it
                   repeats the branch name a third time and truncated
-                  to "Zapeera Point of S…" at 1280/1440; hiding it
+                  to "Tickimo Point of S…" at 1280/1440; hiding it
                   frees the width the brand name needs. */}
               <p className="hidden truncate text-xs leading-tight text-white/60 2xl:block">
-                Zapeera {registerLayout ? "Point of Sale" : "Sales"}{selectedBranch?.name ? ` • ${selectedBranch.name}` : ""}
+                Tickimo {registerLayout ? "Point of Sale" : "Sales"}{selectedBranch?.name ? ` • ${selectedBranch.name}` : ""}
               </p>
             </div>
           </div>
@@ -5716,11 +5716,11 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                   {/* POS reference pass: the reference billing panel
                       carries LARGE tender buttons of its own. Cash and
-                      Card are real Zapeera tenders — tapping one
+                      Card are real Tickimo tenders — tapping one
                       preselects that method and opens the same payment
                       dialog (tendered / change / split live there).
                       The reference's third panel button, Insurance,
-                      has no Zapeera backend and is deliberately absent. */}
+                      has no Tickimo backend and is deliberately absent. */}
                   <div className="mt-2 flex gap-2">
                     {PAYMENT_METHOD_OPTIONS.filter(o => o.key === 'CASH' || o.key === 'CARD').map(({ key, label, Icon }) => (
                       <button
@@ -5807,7 +5807,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
       )}
 
       {/* POS redesign: PAYMENT dialog — the reference layout's payment
-          modal, carrying Zapeera's REAL checkout controls: the six
+          modal, carrying Tickimo's REAL checkout controls: the six
           tender methods, amount tendered with quick chips and change,
           Paid/Unpaid (khata), split tender (Wave B1) and salesperson
           attribution (Wave C6) — same state and handlers as the rail
@@ -6549,7 +6549,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Zapeera Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
+                        const smsUrl = `sms:${currentReceipt.customer.phone}?body=${encodeURIComponent(`Tickimo Receipt\nReceipt: ${currentReceipt.receiptNumber}\nTotal: PKR ${currentReceipt.total.toFixed(2)}\nDate: ${currentReceipt.date} ${currentReceipt.time}\n\nThank you for choosing us!`)}`;
                         window.location.href = smsUrl;
                       }}
                       className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
@@ -6561,7 +6561,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Zapeera', baseUnitWord);
+                        const url = buildWhatsAppReceiptUrl(currentReceipt, selectedCompany?.name || selectedBranch?.name || 'Tickimo', baseUnitWord);
                         window.open(url, '_blank', 'noopener');
                       }}
                       className="border border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
@@ -6576,8 +6576,8 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      const emailSubject = `Receipt from Zapeera - ${currentReceipt.receiptNumber}`;
-                      const emailBody = `Dear ${currentReceipt.customer.name},\n\nThank you for your purchase at Zapeera!\n\nReceipt Details:\n- Receipt Number: ${currentReceipt.receiptNumber}\n- Date: ${currentReceipt.date}\n- Time: ${currentReceipt.time}\n- Total: PKR ${currentReceipt.total.toFixed(2)}\n\nThank you for choosing us!`;
+                      const emailSubject = `Receipt from Tickimo - ${currentReceipt.receiptNumber}`;
+                      const emailBody = `Dear ${currentReceipt.customer.name},\n\nThank you for your purchase at Tickimo!\n\nReceipt Details:\n- Receipt Number: ${currentReceipt.receiptNumber}\n- Date: ${currentReceipt.date}\n- Time: ${currentReceipt.time}\n- Total: PKR ${currentReceipt.total.toFixed(2)}\n\nThank you for choosing us!`;
                       const emailUrl = `mailto:${currentReceipt.customer.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
                       window.location.href = emailUrl;
                     }}
@@ -6620,7 +6620,7 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
               <div className="mx-auto w-full max-w-[360px] bg-white px-5 py-5 font-mono text-[12px] leading-relaxed text-neutral-700 shadow-[0_2px_14px_rgba(15,23,60,0.10)]">
                 <div className="text-center">
                   <p className="text-[15px] font-bold uppercase tracking-wide text-neutral-900">
-                    {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}
+                    {selectedCompany?.name || selectedBranch?.name || 'Tickimo'}
                   </p>
                   {selectedBranch && selectedCompany?.name && (
                     <p className="font-semibold text-neutral-800">{selectedBranch.name}</p>
@@ -6745,14 +6745,14 @@ const CreateInvoice = ({ registerLayout = false }: { registerLayout?: boolean } 
 
                 <div className="mt-4 border-t border-dashed border-neutral-300 pt-3 text-center">
                   <p className="text-[13px] font-bold tracking-wide text-neutral-900">THANK YOU!</p>
-                  <p className="text-[11px]">Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Zapeera'}!</p>
+                  <p className="text-[11px]">Thank you for choosing {selectedCompany?.name || selectedBranch?.name || 'Tickimo'}!</p>
                   {(selectedCompany?.phone || selectedBranch?.phone) && (
                     <p className="text-[11px]">For any queries, contact us at: {selectedCompany?.phone || selectedBranch?.phone}</p>
                   )}
                   {tplShow.footerNote && (
                     <p className="text-[11px]">{receiptTemplate.footerText}</p>
                   )}
-                  <p className="mt-2 text-[10px] text-neutral-400">Powered by Zapeera Business Management Software</p>
+                  <p className="mt-2 text-[10px] text-neutral-400">Powered by Tickimo Business Management Software</p>
                 </div>
               </div>
             </div>

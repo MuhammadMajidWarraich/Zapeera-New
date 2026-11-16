@@ -286,10 +286,10 @@ export function validateBackupEnvelope(payload: any): { ok: boolean; message?: s
     return { ok: false, message: 'Backup file must be a JSON object' };
   }
   if (payload.format !== BACKUP_FORMAT) {
-    return { ok: false, message: `Not a Zapeera backup file (format must be "${BACKUP_FORMAT}")` };
+    return { ok: false, message: `Not a Tickimo backup file (format must be "${BACKUP_FORMAT}")` };
   }
   if (payload.version !== BACKUP_VERSION) {
-    return { ok: false, message: `Unsupported backup version ${payload.version} (this version of Zapeera restores version ${BACKUP_VERSION})` };
+    return { ok: false, message: `Unsupported backup version ${payload.version} (this version of Tickimo restores version ${BACKUP_VERSION})` };
   }
   const hasBusinesses = Array.isArray(payload.businesses) && payload.businesses.length > 0;
   const hasSingle = payload.tables && typeof payload.tables === 'object';

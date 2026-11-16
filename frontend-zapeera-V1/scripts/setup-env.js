@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Environment setup script for Zapeera
+ * Environment setup script for Tickimo
  * This script helps set up environment variables for different environments
  */
 
@@ -12,7 +12,7 @@ const environments = {
   development: {
     VITE_API_BASE_URL: 'http://localhost:5002/api',
     VITE_API_TIMEOUT: '30000',
-    VITE_APP_NAME: 'Zapeera',
+    VITE_APP_NAME: 'Tickimo',
     VITE_APP_VERSION: '1.0.0',
     VITE_DEBUG_MODE: 'true',
     VITE_LOG_LEVEL: 'debug',
@@ -28,7 +28,7 @@ const environments = {
     VITE_SSE_BASE_URL: '/api',
     VITE_CLOUD_API_URL: 'https://api.zapeera.seikho.online/api',
     VITE_API_TIMEOUT: '30000',
-    VITE_APP_NAME: 'Zapeera',
+    VITE_APP_NAME: 'Tickimo',
     VITE_APP_VERSION: '1.0.0',
     VITE_DEBUG_MODE: 'true',
     VITE_LOG_LEVEL: 'info',
@@ -39,12 +39,12 @@ const environments = {
   },
   production: {
     // Single-host deployment (2026-10-15): relative /api keeps the build
-    // domain-portable — moving to Zapeera's own domain needs no rebuild.
+    // domain-portable — moving to Tickimo's own domain needs no rebuild.
     VITE_API_BASE_URL: '/api',
     VITE_SSE_BASE_URL: '/api',
     VITE_CLOUD_API_URL: 'https://api.zapeera.seikho.online/api',
     VITE_API_TIMEOUT: '60000',
-    VITE_APP_NAME: 'Zapeera',
+    VITE_APP_NAME: 'Tickimo',
     VITE_APP_VERSION: '1.0.0',
     VITE_DEBUG_MODE: 'false',
     VITE_LOG_LEVEL: 'error',
@@ -69,7 +69,7 @@ function createEnvFile(environment) {
 
 function showHelp() {
   console.log(`
-🔧 Zapeera Environment Setup Script
+🔧 Tickimo Environment Setup Script
 
 Usage:
   node scripts/setup-env.js <environment>

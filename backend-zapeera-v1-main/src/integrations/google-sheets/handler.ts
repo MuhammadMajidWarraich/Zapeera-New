@@ -1,5 +1,5 @@
 // ─── Google Sheets provider — sync handler (feature/integration-google-sheets) ─
-// EXPORT-ONLY provider: Zapeera data -> a Google Sheet the merchant
+// EXPORT-ONLY provider: Tickimo data -> a Google Sheet the merchant
 // picks (spreadsheet id in the connection config). One tab per entity —
 // Sales, Stock, Customers, Khata — header row + APPENDED rows (append,
 // never overwrite: history is never touched, a repeat export adds a
@@ -187,7 +187,7 @@ export const googleSheetsHandler: IntegrationSyncHandler = {
       }
     } else {
       const business = await prisma.business?.findUnique?.({ where: { id: businessId }, select: { name: true } });
-      const title = business?.name ? `Zapeera Export — ${business.name}` : 'Zapeera Export';
+      const title = business?.name ? `Tickimo Export — ${business.name}` : 'Tickimo Export';
       const created = await client.createSpreadsheet(accessToken, title, [...GOOGLE_SHEETS_TABS]);
       spreadsheetId = created.spreadsheetId;
       spreadsheetTitle = created.title;

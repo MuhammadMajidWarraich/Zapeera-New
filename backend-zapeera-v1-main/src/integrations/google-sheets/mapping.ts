@@ -1,4 +1,4 @@
-// ─── Google Sheets provider — Zapeera → sheet row mapping ─────────────
+// ─── Google Sheets provider — Tickimo → sheet row mapping ─────────────
 // Pure functions (no I/O): one header row + one row per record, per
 // entity. EVERY row starts with the Branch column — exports are
 // per-business AND per-branch, and when the merchant exports all

@@ -1,5 +1,5 @@
 
-# Zapeera Icon Setup Instructions
+# Tickimo Icon Setup Instructions
 
 ## Current Status
 ✅ Icons directory created: /Users/ixbspartan/Desktop/Genroar/Pharmacy-App/frontend-zapeera-V1/public/icons
@@ -7,7 +7,7 @@
 
 ## Required Icon Files
 
-You need to create these icon files from your Zapeera logo:
+You need to create these icon files from your Tickimo logo:
 
 ### 1. Windows (.ico file)
 **File:** `public/icons/icon.ico`
@@ -82,7 +82,7 @@ Once you have all three icon files:
 npm run electron:build:win:x64
 ```
 
-The Zapeera logo will now appear as the app icon! 🎉
+The Tickimo logo will now appear as the app icon! 🎉
 
 ## Quick Copy Command
 

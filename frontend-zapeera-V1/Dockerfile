@@ -4,7 +4,7 @@ WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=2048
 
 # Single-host build args (2026-10-15): relative /api URLs keep ONE build
-# valid on any domain (test: zapeera.seikho.online; later: Zapeera's own
+# valid on any domain (test: zapeera.seikho.online; later: Tickimo's own
 # domain) — moving domains never needs a rebuild. VITE_* values are baked
 # in at build time by Vite, so they are passed as build args from
 # docker-compose.yml / the root .env.

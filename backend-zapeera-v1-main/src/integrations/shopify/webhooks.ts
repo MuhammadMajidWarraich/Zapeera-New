@@ -13,14 +13,14 @@
 //                               only; stock is NOT auto-restored —
 //                               a cancelled order's goods may already be
 //                               picked; restocking is a manual step).
-//   products/update          -> LOG ONLY. Zapeera is the product source
+//   products/update          -> LOG ONLY. Tickimo is the product source
 //                               of truth; a Shopify-side edit is
 //                               overwritten by the next product push.
 //                               There is no product import in v1.
 //   inventory_levels/update  -> reconcile: read Shopify's level for the
-//                               variant, compare with Zapeera's branch
-//                               stock, and push Zapeera's level back when
-//                               they differ (Zapeera owns stock). A push
+//                               variant, compare with Tickimo's branch
+//                               stock, and push Tickimo's level back when
+//                               they differ (Tickimo owns stock). A push
 //                               that lands makes the levels equal, so a
 //                               re-delivery of our own change is a no-op
 //                               — the handler converges, it never loops.
@@ -192,11 +192,11 @@ export async function handleShopifyWebhook(input: WebhookInput): Promise<Webhook
       }
 
       case 'products/update': {
-        // Read-only by design: Zapeera is the product source of truth.
+        // Read-only by design: Tickimo is the product source of truth.
         // A Shopify-side edit is overwritten by the next product push.
         // eslint-disable-next-line no-console
-        console.info(`[Shopify webhook] products/update for ${payload.id} (${payload.title ?? ''}) — no Zapeera write; Zapeera is the product source of truth.`);
-        return { httpStatus: 200, message: 'Product edit noted — Zapeera is the product source of truth; the next product push overwrites Shopify-side edits.' };
+        console.info(`[Shopify webhook] products/update for ${payload.id} (${payload.title ?? ''}) — no Tickimo write; Tickimo is the product source of truth.`);
+        return { httpStatus: 200, message: 'Product edit noted — Tickimo is the product source of truth; the next product push overwrites Shopify-side edits.' };
       }
 
       case 'inventory_levels/update': {
@@ -208,8 +208,8 @@ export async function handleShopifyWebhook(input: WebhookInput): Promise<Webhook
         const locationGid = shopifyIdToGid('Location', String(payload.location_id));
         const item = await fetchInventoryItem(creds, inventoryItemGid, locationGid);
         if (!item.sku) {
-          await writeLog(prisma, businessId, 'out', 'stock', 'failed', 0, 1, 'Inventory item has no variant SKU — cannot map it to a Zapeera product.');
-          return { httpStatus: 500, message: 'Inventory item has no variant SKU — cannot map it to a Zapeera product.' };
+          await writeLog(prisma, businessId, 'out', 'stock', 'failed', 0, 1, 'Inventory item has no variant SKU — cannot map it to a Tickimo product.');
+          return { httpStatus: 500, message: 'Inventory item has no variant SKU — cannot map it to a Tickimo product.' };
         }
         const catalog = await loadBranchCatalog(prisma, businessId, branch.id);
         let zapeeraStock: number | null = null;
@@ -230,7 +230,7 @@ export async function handleShopifyWebhook(input: WebhookInput): Promise<Webhook
         }
         if (item.available !== null && item.available === zapeeraStock) {
           await writeLog(prisma, businessId, 'out', 'stock', 'success', 0, 0, null);
-          return { httpStatus: 200, message: `SKU "${item.sku}" already matches Zapeera stock (${zapeeraStock}) — no push needed.` };
+          return { httpStatus: 200, message: `SKU "${item.sku}" already matches Tickimo stock (${zapeeraStock}) — no push needed.` };
         }
         // The idempotency key is stable per webhook delivery (Shopify
         // retries carry the same X-Shopify-Webhook-Id), so a retried
@@ -242,7 +242,7 @@ export async function handleShopifyWebhook(input: WebhookInput): Promise<Webhook
           `zapeera-${deliveryKey}-reconcile-${String(payload.inventory_item_id)}`
         );
         await writeLog(prisma, businessId, 'out', 'stock', 'success', 1, 0, null);
-        return { httpStatus: 200, message: `SKU "${item.sku}" diverged (Shopify ${item.available}, Zapeera ${zapeeraStock}) — pushed Zapeera's level.` };
+        return { httpStatus: 200, message: `SKU "${item.sku}" diverged (Shopify ${item.available}, Tickimo ${zapeeraStock}) — pushed Tickimo's level.` };
       }
 
       case 'refunds/create': {

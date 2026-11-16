@@ -985,7 +985,7 @@ export interface IntegrationSyncConfig {
   syncOrders: boolean;
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
-  /** The ONE Zapeera branch a sales-channel store maps to (WooCommerce: the id of the ONE branch the store is bound to; Shopify: first active branch when absent). Single-branch scope for an export/sync; absent = all branches (rows branch-labelled). */
+  /** The ONE Tickimo branch a sales-channel store maps to (WooCommerce: the id of the ONE branch the store is bound to; Shopify: first active branch when absent). Single-branch scope for an export/sync; absent = all branches (rows branch-labelled). */
   branchId?: string | null;
   /** Google Sheets export target (merchant-picked, or recorded when the handler creates one). */
   spreadsheetId?: string;
@@ -1279,8 +1279,8 @@ export class ApiService {
         const companyId = explicitCompanyId || (ctx?.companyId ? String(ctx.companyId) : '');
         const branchId = explicitBranchId || (ctx?.branchId ? String(ctx.branchId) : '');
         if (companyId) headers.set('X-Business-ID', companyId);
-        if (branchId && !headers.has('X-Zapeera-Omit-Branch-Context')) headers.set('X-Branch-ID', branchId);
-        headers.delete('X-Zapeera-Omit-Branch-Context');
+        if (branchId && !headers.has('X-Tickimo-Omit-Branch-Context')) headers.set('X-Branch-ID', branchId);
+        headers.delete('X-Tickimo-Omit-Branch-Context');
       } catch {
         // ignore
       }
@@ -2258,9 +2258,9 @@ export class ApiService {
   async getBranches(options?: { skipCache?: boolean }) {
     const headers: Record<string, string> = {};
     if (options?.skipCache) {
-      headers['X-Zapeera-Skip-Cache'] = '1';
+      headers['X-Tickimo-Skip-Cache'] = '1';
     }
-    headers['X-Zapeera-Omit-Branch-Context'] = '1';
+    headers['X-Tickimo-Omit-Branch-Context'] = '1';
 
     return this.request<{
       branches: Array<{
@@ -5084,7 +5084,7 @@ export class ApiService {
 
     const query = queryParams.toString();
     const requestOptions: RequestInit & { headers?: Record<string, string> } = params?.omitBranchContext
-      ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+      ? { headers: { 'X-Tickimo-Omit-Branch-Context': '1' } }
       : {};
     return this.request<{
       expenses: Array<{
@@ -5160,7 +5160,7 @@ export class ApiService {
       // An explicit null branchId means a company-level expense: stop the
       // request helper from attaching the globally selected branch instead.
       ...(expenseData.branchId === null
-        ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+        ? { headers: { 'X-Tickimo-Omit-Branch-Context': '1' } }
         : {}),
     });
   }
@@ -5222,7 +5222,7 @@ export class ApiService {
 
     const query = queryParams.toString();
     const requestOptions: RequestInit & { headers?: Record<string, string> } = params?.omitBranchContext
-      ? { headers: { 'X-Zapeera-Omit-Branch-Context': '1' } }
+      ? { headers: { 'X-Tickimo-Omit-Branch-Context': '1' } }
       : {};
     return this.request<{
       categories: Array<{
@@ -9808,7 +9808,7 @@ export class ApiService {
   }
 
   // Creates a REAL purchase order from suggestion lines (quantities in
-  // base units). Zapeera purchases have no draft state — the created
+  // base units). Tickimo purchases have no draft state — the created
   // purchase is PENDING (unpaid) and lands stock, like any purchase.
   async createPurchaseFromSuggestions(payload: {
     supplierId: string;

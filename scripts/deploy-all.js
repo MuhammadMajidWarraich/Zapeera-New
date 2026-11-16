@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Universal Deployment Script for Zapeera Platform
+ * Universal Deployment Script for Tickimo Platform
  * Builds and deploys to Web, Desktop, and Mobile
  */
 
@@ -129,7 +129,7 @@ async function deployMobile() {
 }
 
 async function main() {
-  log('\n🚀 ZAPEERA UNIVERSAL DEPLOYMENT', 'bright');
+  log('\n🚀 TICKIMO UNIVERSAL DEPLOYMENT', 'bright');
   log('='.repeat(50));
   
   const startTime = Date.now();

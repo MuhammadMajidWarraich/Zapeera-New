@@ -292,8 +292,8 @@ function registerBackupRoutes(app, authMiddleware, deps) {
   // ── Restore helpers ───────────────────────────────────────────────
   function validateEnvelope(payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return 'Backup file must be a JSON object';
-    if (payload.format !== BACKUP_FORMAT) return `Not a Zapeera backup file (format must be "${BACKUP_FORMAT}")`;
-    if (payload.version !== BACKUP_VERSION) return `Unsupported backup version ${payload.version} (this version of Zapeera restores version ${BACKUP_VERSION})`;
+    if (payload.format !== BACKUP_FORMAT) return `Not a Tickimo backup file (format must be "${BACKUP_FORMAT}")`;
+    if (payload.version !== BACKUP_VERSION) return `Unsupported backup version ${payload.version} (this version of Tickimo restores version ${BACKUP_VERSION})`;
     const hasBusinesses = Array.isArray(payload.businesses) && payload.businesses.length > 0;
     const hasSingle = payload.tables && typeof payload.tables === 'object';
     if (!hasBusinesses && !hasSingle) return 'Backup file contains no business data';

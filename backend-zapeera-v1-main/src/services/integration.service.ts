@@ -323,7 +323,7 @@ export interface TriggerSyncOptions {
 }
 
 /**
- * Build the vendor-neutral shipment input from a Zapeera sale — the ONE
+ * Build the vendor-neutral shipment input from a Tickimo sale — the ONE
  * builder for all couriers (Daraz pack reads channel / externalOrderId /
  * saleInvoiceNumber; PostEx booking reads orderRef / recipient /
  * paymentMethod / parcel / sender). Recipient from the sale's customer

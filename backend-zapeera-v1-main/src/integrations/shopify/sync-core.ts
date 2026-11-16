@@ -2,7 +2,7 @@
 // The shared sync/import logic used by the handler (manual syncs) and by
 // the webhook receiver (single-order import, inventory reconcile).
 //
-// TENANCY — one Shopify store maps to ONE Zapeera branch, enforced here:
+// TENANCY — one Shopify store maps to ONE Tickimo branch, enforced here:
 // every product/batch/customer/sale query in this file is scoped to
 // (businessId, branchId). Nothing in this module ever reads another
 // branch's products or stock. The branch comes from the connection
@@ -232,7 +232,7 @@ export function poolStock(batches: BranchCatalogBatch[], variantId: string | nul
     .reduce((sum, b) => sum + Math.max(0, b.quantity), 0);
 }
 
-/** A Zapeera variant's Shopify variant input (price/stock from its pool). */
+/** A Tickimo variant's Shopify variant input (price/stock from its pool). */
 function variantInputForCatalog(
   product: BranchCatalogProduct,
   variant: BranchCatalogVariant | null,
@@ -300,7 +300,7 @@ export async function syncShopifyProducts(
       const missingSku = product.variants.filter((v) => !v.sku);
       if (missingSku.length > 0) {
         throw new Error(
-          `variant(s) without an SKU cannot sync: ${missingSku.map((v) => `"${v.name}"`).join(', ')}. Set an SKU on each variant in Zapeera first.`
+          `variant(s) without an SKU cannot sync: ${missingSku.map((v) => `"${v.name}"`).join(', ')}. Set an SKU on each variant in Tickimo first.`
         );
       }
 
@@ -467,7 +467,7 @@ export async function syncShopifyStock(
 // ─── importOrders (in) ────────────────────────────────────────────────────
 
 export interface ImportShopifyOrderOutcome {
-  /** A new Zapeera sale was created. */
+  /** A new Tickimo sale was created. */
   imported: boolean;
   /** The order was already imported earlier (idempotent skip). */
   alreadyImported: boolean;
@@ -489,7 +489,7 @@ export async function findImportedSale(
 }
 
 /**
- * Import ONE Shopify order as a Zapeera sale. Shared by the manual
+ * Import ONE Shopify order as a Tickimo sale. Shared by the manual
  * importOrders run and the orders/create webhook. Idempotent: a sale
  * with this external order id is never created twice (pre-check +
  * the (companyId, channel, externalOrderId) unique index; a concurrent
@@ -581,7 +581,7 @@ export async function importShopifyOrder(
         imported: false,
         alreadyImported: false,
         skipped: false,
-        message: `Order ${order.name} not imported — line "${line.title}" has no SKU, so it cannot be matched to a Zapeera product.`
+        message: `Order ${order.name} not imported — line "${line.title}" has no SKU, so it cannot be matched to a Tickimo product.`
       };
     }
     const variantHit = variantBySku.get(line.sku);
@@ -591,7 +591,7 @@ export async function importShopifyOrder(
         imported: false,
         alreadyImported: false,
         skipped: false,
-        message: `Order ${order.name} not imported — SKU "${line.sku}" ("${line.title}") is not a product in the ${opts.branchName} branch. Add it to Zapeera first.`
+        message: `Order ${order.name} not imported — SKU "${line.sku}" ("${line.title}") is not a product in the ${opts.branchName} branch. Add it to Tickimo first.`
       };
     }
     if (line.quantity < 1) continue;
@@ -659,7 +659,7 @@ export async function importShopifyOrder(
     };
   }
 
-  // Money truth check: Zapeera recomputes the total with its own tax
+  // Money truth check: Tickimo recomputes the total with its own tax
   // engine and has no shipping field, so a Shopify order with tax or
   // shipping lands with a different total. Report the gap, don't hide it.
   const zapeeraTotal = created.totalAmount;
@@ -667,11 +667,11 @@ export async function importShopifyOrder(
   const fulfillment = order.fulfillmentStatus ? ` Fulfillment: ${order.fulfillmentStatus}.` : '';
   const gapNote =
     Math.abs(gap) > 0.01
-      ? ` Note: Shopify total PKR ${order.total.toFixed(2)} (incl. shipping PKR ${order.totalShipping.toFixed(2)} + tax PKR ${order.totalTax.toFixed(2)}) vs Zapeera sale PKR ${zapeeraTotal.toFixed(2)} — shipping/tax are not itemized on imported sales.`
+      ? ` Note: Shopify total PKR ${order.total.toFixed(2)} (incl. shipping PKR ${order.totalShipping.toFixed(2)} + tax PKR ${order.totalTax.toFixed(2)}) vs Tickimo sale PKR ${zapeeraTotal.toFixed(2)} — shipping/tax are not itemized on imported sales.`
       : '';
   const freeNote =
     skippedFree.length > 0
-      ? ` ${skippedFree.length} free line(s) skipped (${skippedFree.join(', ')}) — Zapeera sales need a positive unit price.`
+      ? ` ${skippedFree.length} free line(s) skipped (${skippedFree.join(', ')}) — Tickimo sales need a positive unit price.`
       : '';
   return {
     imported: true,

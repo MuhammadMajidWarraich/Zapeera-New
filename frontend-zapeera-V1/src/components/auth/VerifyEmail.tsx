@@ -64,7 +64,7 @@ const VerifyEmail = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-6">
-          <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Zapeera" className="w-10 h-10 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}images/favicon.png`} alt="Tickimo" className="w-10 h-10 object-contain" />
         </div>
 
         {status === "loading" && (

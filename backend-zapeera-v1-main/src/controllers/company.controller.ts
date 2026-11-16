@@ -724,7 +724,7 @@ export const createCompany = async (req: AuthRequest, res: Response): Promise<vo
     // White-label attribution (Feature 3): set ONCE here, at business
     // creation, from the partner slug the signup carried. Immutable for
     // tenants afterwards — only Backoffice can reassign it. An unknown
-    // or suspended partner's slug simply means a direct Zapeera sale.
+    // or suspended partner's slug simply means a direct Tickimo sale.
     const partnerId = await resolvePartnerAttribution(
       prisma,
       (normalizedBody as any).partnerSlug

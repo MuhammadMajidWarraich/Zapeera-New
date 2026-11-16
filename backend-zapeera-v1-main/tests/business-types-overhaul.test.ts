@@ -1,7 +1,7 @@
 /**
  * Business-types overhaul (2026-10-31) regression coverage.
  *
- * Muhammad's decision: Zapeera has FOUR industries — PHARMACY,
+ * Muhammad's decision: Tickimo has FOUR industries — PHARMACY,
  * RETAIL_STORE, HOTEL, CLINIC. DEPARTMENTAL_STORE merged into
  * RETAIL_STORE. Covered here:
  *  - canonical types + legacy alias resolution (DEPARTMENTAL_STORE →

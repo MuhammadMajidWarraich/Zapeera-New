@@ -298,7 +298,7 @@ function registerCompaniesRoutes(app, authMiddleware, deps) {
         return res.status(410).json({
           success: false,
           code: 'BUSINESS_CREATION_ONLINE_ONLY',
-          message: 'Businesses are created online. Connect to the internet and create the business from Zapeera Desktop while online (or in the web app) — it will then appear here automatically.'
+          message: 'Businesses are created online. Connect to the internet and create the business from Tickimo Desktop while online (or in the web app) — it will then appear here automatically.'
         });
       });
 

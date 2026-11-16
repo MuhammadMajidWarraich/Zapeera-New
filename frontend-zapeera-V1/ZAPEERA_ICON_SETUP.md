@@ -1,6 +1,6 @@
-# Zapeera Logo Setup for .exe File
+# Tickimo Logo Setup for .exe File
 
-## ✅ Found Your Zapeera Logo!
+## ✅ Found Your Tickimo Logo!
 
 Your logo files:
 - `public/images/logo.png` (1374x466)
@@ -14,7 +14,7 @@ Since you're on macOS and want to create icons for Windows .exe, here are the ea
 
 1. **Go to**: https://convertio.co/png-ico/ or https://www.icoconverter.com/
 
-2. **Upload**: `public/images/logo.png` (your Zapeera logo)
+2. **Upload**: `public/images/logo.png` (your Tickimo logo)
 
 3. **Settings**:
    - Select sizes: 16x16, 32x32, 48x48, 256x256
@@ -82,7 +82,7 @@ rm -rf public/icons/icon.iconset
    ```bash
    npm run electron:build:win:x64
    ```
-3. **Install and test** - Your Zapeera logo will appear as the app icon! 🎉
+3. **Install and test** - Your Tickimo logo will appear as the app icon! 🎉
 
 ## 💡 Tips
 

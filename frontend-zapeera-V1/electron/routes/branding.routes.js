@@ -10,17 +10,17 @@
  * with optional auth — anonymous/invalid identity is never an error —
  * and it must never break the app shell: on any failure it serves the
  * default branding. Resolution order on the web is partner-by-slug →
- * partner behind the caller's business → default Zapeera branding.
+ * partner behind the caller's business → default Tickimo branding.
  *
  * The desktop local DB has no partner/branding tables (white-label is
  * a cloud-side feature; local `companies` carries no partnerId), and a
- * desktop install is a direct Zapeera business, so the correct local
+ * desktop install is a direct Tickimo business, so the correct local
  * answer is exactly what the web backend returns for such businesses:
  * DEFAULT_BRANDING plus the non-partner viewer block.
  */
 
 const DEFAULT_BRANDING = {
-  productName: 'Zapeera',
+  productName: 'Tickimo',
   logoUrl: null,
   primaryColor: null,
   tagline: null,

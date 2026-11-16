@@ -10,7 +10,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 // else null (the renderer falls back to built-in defaults).
 //
 // HARD RULE: the ownership footer line ("This invoice is generated
-// using Zapeera A business management software") is NOT stored here
+// using Tickimo A business management software") is NOT stored here
 // and is NOT customizable — the receipt renderer appends it
 // unconditionally on every template. footerText is an ADDITIONAL
 // custom note shown above the fixed line. Nothing in this API can

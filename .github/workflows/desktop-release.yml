@@ -1,8 +1,8 @@
 name: Desktop Release (Windows installer)
 
-# Builds the Zapeera Windows installer (NSIS) on a Windows runner and
+# Builds the Tickimo Windows installer (NSIS) on a Windows runner and
 # publishes it as a GitHub Release asset. The website's Downloads page
-# links: releases/download/v1.0.0/Zapeera-Setup-1.0.0.exe
+# links: releases/download/v1.0.0/Tickimo-Setup-1.0.0.exe
 on:
   push:
     tags:
@@ -60,10 +60,10 @@ jobs:
           # No latest.yml: electron-builder only emits one when a publish
           # provider is configured, and listing it here with
           # fail_on_unmatched_files failed run 39455862761 AFTER the
-          # installer (Zapeera-Setup-1.0.1.exe, 264,794,172 bytes) had
+          # installer (Tickimo-Setup-1.0.1.exe, 264,794,172 bytes) had
           # already built successfully.
           files: |
-            frontend-zapeera-V1/release/Zapeera-Setup-*.exe
-            frontend-zapeera-V1/release/Zapeera-Setup-*.exe.blockmap
+            frontend-zapeera-V1/release/Tickimo-Setup-*.exe
+            frontend-zapeera-V1/release/Tickimo-Setup-*.exe.blockmap
           fail_on_unmatched_files: true
           generate_release_notes: true

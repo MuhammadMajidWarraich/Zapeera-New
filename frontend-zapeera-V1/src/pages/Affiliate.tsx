@@ -27,7 +27,7 @@ import {
 import { apiService, type AffiliateDashboardData, type AffiliateReferralItem, type AffiliateCommissionItem, type AffiliatePayoutItem, type AffiliatePayoutDetails } from "@/services/api";
 import { toast } from "@/hooks/use-toast";
 
-// Zapeera Affiliate Program — account-level dashboard (NOT business
+// Tickimo Affiliate Program — account-level dashboard (NOT business
 // scoped: an affiliate may also own businesses, and the two views
 // coexist). Covers: join (PENDING → backoffice approves to ACTIVE),
 // referral link, referred businesses, commissions, payout details,
@@ -105,7 +105,7 @@ const Affiliate: React.FC = () => {
     setJoining(true);
     try {
       await apiService.joinAffiliate();
-      toast({ title: "Application submitted", description: "Your affiliate account is pending approval from the Zapeera team." });
+      toast({ title: "Application submitted", description: "Your affiliate account is pending approval from the Tickimo team." });
       await load();
     } catch (e: any) {
       toast({ title: "Join failed", description: e?.message || "Please try again.", variant: "destructive" });
@@ -146,7 +146,7 @@ const Affiliate: React.FC = () => {
     setRequesting(true);
     try {
       await apiService.requestAffiliatePayout();
-      toast({ title: "Payout requested", description: "The Zapeera team will process it shortly." });
+      toast({ title: "Payout requested", description: "The Tickimo team will process it shortly." });
       await load();
     } catch (e: any) {
       toast({ title: "Request failed", description: e?.message || "Your balance may be below the minimum payout.", variant: "destructive" });
@@ -168,7 +168,7 @@ const Affiliate: React.FC = () => {
     return (
       <div className="w-full space-y-6 px-4 py-7 sm:px-8 lg:px-11 lg:py-9">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Zapeera Affiliate Program</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tickimo Affiliate Program</h1>
           <p className="mt-1 text-sm text-gray-500">Earn commission on every paid subscription from businesses you refer.</p>
         </div>
         <Card className="border-0 bg-white shadow-soft">
@@ -194,7 +194,7 @@ const Affiliate: React.FC = () => {
               {joining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Join the affiliate program
             </Button>
-            <p className="text-xs text-gray-400">Applications are reviewed by the Zapeera team before your link starts earning.</p>
+            <p className="text-xs text-gray-400">Applications are reviewed by the Tickimo team before your link starts earning.</p>
           </CardContent>
         </Card>
       </div>
@@ -220,14 +220,14 @@ const Affiliate: React.FC = () => {
         <Card className="border-amber-200 bg-amber-50 shadow-soft">
           <CardContent className="flex items-center gap-3 p-4 text-sm text-amber-900">
             <Clock3 className="h-5 w-5 shrink-0" />
-            Your application is being reviewed. Your referral link is ready to share and attribution already works — commissions start earning once the Zapeera team activates your account.
+            Your application is being reviewed. Your referral link is ready to share and attribution already works — commissions start earning once the Tickimo team activates your account.
           </CardContent>
         </Card>
       )}
       {affiliate.status === "SUSPENDED" && (
         <Card className="border-rose-200 bg-rose-50 shadow-soft">
           <CardContent className="p-4 text-sm text-rose-900">
-            Your affiliate account is suspended. New commissions no longer accrue — please contact Zapeera support.
+            Your affiliate account is suspended. New commissions no longer accrue — please contact Tickimo support.
           </CardContent>
         </Card>
       )}

@@ -437,7 +437,7 @@ const ProfileSecurityPage = () => {
 
   const downloadRecoveryCodes = () => {
     const blob = new Blob(
-      [`Zapeera two-factor recovery codes\nAccount: ${profile.email || profile.username}\nEach code works once. Keep this file somewhere safe.\n\n${issuedRecoveryCodes.join("\n")}\n`],
+      [`Tickimo two-factor recovery codes\nAccount: ${profile.email || profile.username}\nEach code works once. Keep this file somewhere safe.\n\n${issuedRecoveryCodes.join("\n")}\n`],
       { type: "text/plain" }
     );
     const url = URL.createObjectURL(blob);
@@ -1185,7 +1185,7 @@ const ProfileSecurityPage = () => {
             <p className="mt-1 text-[13px] text-[#8c95b0]">Contact support and our team will help you update your account email.</p>
             <Button
               variant="outline"
-              onClick={() => (window.location.href = "mailto:support@zapeera.com?subject=Change%20account%20email")}
+              onClick={() => (window.location.href = "mailto:support@tickimo.com?subject=Change%20account%20email")}
               className="mt-4 h-10 w-full rounded-[10px] border-[rgba(15,23,60,0.1)] bg-white font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
             >
               <Mail className="mr-2 h-4 w-4 text-[#1a52c5]" />

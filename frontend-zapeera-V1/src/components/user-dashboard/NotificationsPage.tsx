@@ -47,7 +47,7 @@ const NotificationsPage = () => {
       id: "welcome",
       icon: Sparkles,
       tint: "bg-gradient-to-br from-[#1a52c5]/15 to-[#28c2ce]/15 text-[#1a52c5]",
-      title: "Welcome to Zapeera",
+      title: "Welcome to Tickimo",
       body: "Your account is set up. Create or join a business to get started.",
       time: "Sign up",
     });

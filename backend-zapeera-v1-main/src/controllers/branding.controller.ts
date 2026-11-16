@@ -15,8 +15,8 @@ import {
 //     unknown or the partner is suspended.
 //   · authenticated, no slug → the branding of the partner behind the
 //     caller's current business (X-Business-ID header), or the default
-//     for direct Zapeera businesses.
-//   · anonymous, no slug    → the default Zapeera branding.
+//     for direct Tickimo businesses.
+//   · anonymous, no slug    → the default Tickimo branding.
 // The response also carries a `viewer` block when authenticated so the
 // app shell can show the Partner Portal entry exactly when the signed-
 // in user is a partner admin (v1: the partner's adminUserId).

@@ -1,9 +1,9 @@
-# Build script for Zapeera Installer
+# Build script for Tickimo Installer
 # This script builds the NSIS installer for Windows
 # IMPORTANT: Run PowerShell as Administrator to avoid symlink permission errors
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Zapeera Installer Build Script" -ForegroundColor Cyan
+Write-Host "  Tickimo Installer Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -54,10 +54,10 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  Build completed successfully!" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
-    $buildPath = "$env:USERPROFILE\Desktop\Zapeera-Build"
+    $buildPath = "$env:USERPROFILE\Desktop\Tickimo-Build"
     Write-Host "Installer location: $buildPath" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Look for: Zapeera Setup 1.0.0.exe" -ForegroundColor Cyan
+    Write-Host "Look for: Tickimo Setup 1.0.0.exe" -ForegroundColor Cyan
 } else {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Red

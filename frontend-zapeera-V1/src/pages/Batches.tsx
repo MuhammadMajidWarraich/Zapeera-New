@@ -1498,7 +1498,7 @@ const Batches = () => {
         </CardHeader>
       </Card>
 
-      {/* Near expiry — Zapeera alert */}
+      {/* Near expiry — Tickimo alert */}
       {nearExpiryBatches.length > 0 && (
         <div className="rounded-[22px] border border-amber-500/18 bg-gradient-to-br from-amber-500/[0.07] via-white to-orange-500/[0.04] px-5 py-4 shadow-[0_4px_24px_rgba(245,158,11,0.06)] sm:px-6 sm:py-5">
           <div className="flex gap-4">
@@ -1519,7 +1519,7 @@ const Batches = () => {
         </div>
       )}
 
-      {/* Batch list table — Zapeera card */}
+      {/* Batch list table — Tickimo card */}
       <div className="space-y-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-2.5">

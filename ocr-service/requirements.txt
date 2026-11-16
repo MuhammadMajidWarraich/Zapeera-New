@@ -1,4 +1,4 @@
-# Zapeera OCR service — single-host (ARM64) requirements, 2026-10-15
+# Tickimo OCR service — single-host (ARM64) requirements, 2026-10-15
 #
 # PaddleOCR / paddlepaddle were REMOVED: paddlepaddle publishes no Linux
 # aarch64 wheels, so the old pins cannot install on the Oracle Ampere A1

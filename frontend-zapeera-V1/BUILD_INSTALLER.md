@@ -1,4 +1,4 @@
-# Building Zapeera Installer
+# Building Tickimo Installer
 
 ## Important: Building Installer (Not Portable EXE)
 
@@ -10,7 +10,7 @@ npm run electron:dist:win
 ```
 
 This will create:
-- **Installer EXE**: `C:\Users\Admin\Desktop\Zapeera-Build\Zapeera Setup 1.0.0.exe`
+- **Installer EXE**: `C:\Users\Admin\Desktop\Tickimo-Build\Tickimo Setup 1.0.0.exe`
 - This is an **NSIS installer** that shows installation wizard
 - User can choose installation directory
 - Creates desktop and start menu shortcuts
@@ -32,7 +32,7 @@ This will create:
 
 ## After Installation:
 
-1. User launches Zapeera from desktop shortcut or Start Menu
+1. User launches Tickimo from desktop shortcut or Start Menu
 2. App starts and automatically creates SQLite database
 3. Database is initialized with all required tables
 4. App is ready to use
@@ -47,7 +47,7 @@ If you get a **portable EXE** (runs directly):
 ## Build Output:
 
 After successful build, you'll find:
-- **Installer**: `Zapeera Setup 1.0.0.exe` (this is the installer)
+- **Installer**: `Tickimo Setup 1.0.0.exe` (this is the installer)
 - **Unpacked**: `win-unpacked\` folder (for testing, not for distribution)
 
 **Distribute the installer EXE, not the unpacked folder!**

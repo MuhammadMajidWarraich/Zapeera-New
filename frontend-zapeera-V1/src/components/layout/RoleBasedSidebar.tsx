@@ -751,7 +751,7 @@ export const RoleBasedSidebar: React.FC = () => {
         )}
         {/* User widget — the same card + account dropdown as the account
             dashboard sidebar (shared SidebarUserWidget). Its menu covers
-            the old standalone "Zapeera" and "Log Out" footer rows
+            the old standalone "Tickimo" and "Log Out" footer rows
             (Back to Dashboard / Logout), so those rows are removed. */}
         <div className="pt-2">
           <SidebarUserWidget

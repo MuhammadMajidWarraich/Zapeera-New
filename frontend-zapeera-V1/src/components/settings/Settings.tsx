@@ -670,7 +670,7 @@ const Settings = () => {
     try {
       const parsed = JSON.parse(await file.text());
       if (!parsed || parsed.format !== "zapeera-backup") {
-        toast({ title: "Not a Zapeera backup", description: "That file was not exported from Zapeera.", variant: "destructive" });
+        toast({ title: "Not a Tickimo backup", description: "That file was not exported from Tickimo.", variant: "destructive" });
         return;
       }
       setRestorePayload(parsed);
@@ -1929,10 +1929,10 @@ toast({
             </p>
             {isDesktopApp && (
               <p className="mb-[18px] rounded-[10px] bg-amber-500/[0.08] px-4 py-3 text-[13px] leading-relaxed text-amber-700">
-                <strong>FBR is managed on the Zapeera cloud.</strong> Your FBR API token
+                <strong>FBR is managed on the Tickimo cloud.</strong> Your FBR API token
                 never leaves the server, so these settings can't be viewed or changed
                 in the desktop app — the controls below are disabled here. To change
-                FBR settings, sign in to Zapeera on the web. Sales you make here still
+                FBR settings, sign in to Tickimo on the web. Sales you make here still
                 post to FBR through the cloud.
               </p>
             )}
@@ -2793,7 +2793,7 @@ toast({
                 </p>
                 {p.skippedMembers > 0 && (
                   <p className="mt-1 text-[13px] text-[#8c95b0]">
-                    {p.skippedMembers} staff member(s) have no account in Zapeera and will be reported for re-inviting.
+                    {p.skippedMembers} staff member(s) have no account in Tickimo and will be reported for re-inviting.
                   </p>
                 )}
                 <div className="mt-2 flex flex-col gap-0.5">

@@ -151,7 +151,7 @@ export function CompletionStrip() {
         </span>
         <div className="min-w-[190px]">
           <p className="text-sm font-bold text-[#0a1128]">Finish setting up your account</p>
-          <p className="mt-0.5 text-xs text-[#8c95b0]">Complete a few more steps to get the most out of Zapeera.</p>
+          <p className="mt-0.5 text-xs text-[#8c95b0]">Complete a few more steps to get the most out of Tickimo.</p>
         </div>
         <div className="flex min-w-[200px] flex-1 items-center gap-3">
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e8edf6]">
@@ -223,7 +223,7 @@ export function RecentActivity({ onOpen }: { onOpen: (slug?: string | null, id: 
       list.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500/10 text-violet-600", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
     }
     list.push({ id: "login", icon: LogIn, tint: "bg-[#1a52c5]/10 text-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Zapeera", time: "Sign up" });
+    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]/10 text-[#159dab]", title: "Account created on Tickimo", time: "Sign up" });
     return list;
   }, [runtime.desktopBusinessStates]);
 
@@ -327,7 +327,7 @@ export function DesktopBanner() {
             <Monitor className="h-6 w-6" />
           </span>
           <div className="min-w-[210px] flex-1">
-            <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Get the Zapeera desktop app</p>
+            <p className="text-[15px] font-extrabold tracking-tight text-[#0a1128]">Get the Tickimo desktop app</p>
             <p className="mt-0.5 text-[13px] text-[#4a5578]">Work offline at the counter, your data syncs automatically.</p>
           </div>
           <a

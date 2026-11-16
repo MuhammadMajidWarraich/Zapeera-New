@@ -256,7 +256,7 @@ export const INTEGRATION_REGISTRY: IntegrationProviderEntry[] = [
     docsUrl: 'https://developer.intuit.com/',
     sandboxAvailable: true,
     limitation:
-      'Export-only. QBO subscription availability/sales in Pakistan not verified; low PK SME demand — Zapeera already has accounting.',
+      'Export-only. QBO subscription availability/sales in Pakistan not verified; low PK SME demand — Tickimo already has accounting.',
     tier: 2,
     credentialFields: [] // OAuth-only: no manual fields.
   },
@@ -269,7 +269,7 @@ export const INTEGRATION_REGISTRY: IntegrationProviderEntry[] = [
     docsUrl: 'https://developer.xero.com/',
     sandboxAvailable: true,
     limitation:
-      'Export-only. Xero sales/availability in Pakistan not verified; low PK SME demand — Zapeera already has accounting.',
+      'Export-only. Xero sales/availability in Pakistan not verified; low PK SME demand — Tickimo already has accounting.',
     tier: 2,
     credentialFields: [] // OAuth-only: no manual fields.
   },

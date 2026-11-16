@@ -29,7 +29,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
         return res.status(410).json({
           success: false,
           code: 'SIGNUP_ONLINE_ONLY',
-          message: 'Accounts are created online. Please sign up on the Zapeera web app, then sign in here with the same account.'
+          message: 'Accounts are created online. Please sign up on the Tickimo web app, then sign in here with the same account.'
         });
       });
 
@@ -582,7 +582,7 @@ function registerAuthRoutes(app, authMiddleware, deps) {
               requiresActivation: true,
               contactInfo: {
                 phone: '+92 310 7100663',
-                email: 'support@zapeera.com'
+                email: 'support@tickimo.com'
               },
               debug: {
                 isActiveValue: u.isActive,

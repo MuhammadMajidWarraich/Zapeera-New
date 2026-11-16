@@ -2,9 +2,9 @@
 // 1. OWNER   - Created the business; full access, no branch restriction
 // 2. MANAGER - Invited to manage a branch; branch-scoped management
 // 3. CASHIER - Invited for POS/sales; branch-scoped sales only
-// Note: USER = Zapeera account with no business yet (not a business role)
+// Note: USER = Tickimo account with no business yet (not a business role)
 export type AppUserRole = 'OWNER' | 'MANAGER' | 'CASHIER';
-export type ZapeeraAccountRole = 'USER'; // Registered Zapeera account with no business yet
+export type ZapeeraAccountRole = 'USER'; // Registered Tickimo account with no business yet
 
 /**
  * Backoffice roles (separate from customer roles)

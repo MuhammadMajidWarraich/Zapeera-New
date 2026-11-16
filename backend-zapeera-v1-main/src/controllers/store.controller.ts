@@ -1,6 +1,6 @@
 // Public online pharmacy storefront (Wave C5 — gap item 5).
 //
-// NO authentication: customers have no Zapeera account. Security rests
+// NO authentication: customers have no Tickimo account. Security rests
 // on three things, all enforced here (never in the frontend):
 //   1. The branch id in the path is the store key — a cuid, unguessable,
 //      and every query is scoped to that ONE branch (a customer never

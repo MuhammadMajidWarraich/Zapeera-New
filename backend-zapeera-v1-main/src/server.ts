@@ -651,7 +651,7 @@ registerHealthChecks(app);
 
 // Google Sheets OAuth callback — registered BEFORE the universal module
 // protection middleware on purpose. Google redirects the merchant's
-// browser here with no Zapeera session, so the request cannot carry auth
+// browser here with no Tickimo session, so the request cannot carry auth
 // and the protection middleware would 401 it. The callback is
 // self-authenticating instead: `state` is an AES-256-GCM blob minted at
 // flow start (business id + picks, 10-minute expiry) and the
@@ -907,12 +907,12 @@ function isPortAvailable(port: number): Promise<boolean> {
 
 /**
  * SAFE port reclaim (Issue 7).
- * Never kills an unknown process. Only a verified stale Zapeera backend
+ * Never kills an unknown process. Only a verified stale Tickimo backend
  * (confirmed via a local health/identity probe) may be stopped.
  *
  * Returns:
  *   'not-listening' — port is free;
- *   'stopped'       — verified stale Zapeera backend was stopped;
+ *   'stopped'       — verified stale Tickimo backend was stopped;
  *   'unknown-owner' — an unrelated process owns the port (NOT touched).
  */
 async function safePortReclaim(port: number): Promise<'not-listening' | 'stopped' | 'unknown-owner'> {
@@ -924,16 +924,16 @@ async function safePortReclaim(port: number): Promise<'not-listening' | 'stopped
   }
 
   if (!owner.confirmedZapeera) {
-    console.warn(`[Server] ⚠️  Port ${port} is in use by a process that is NOT a verified Zapeera backend.`);
+    console.warn(`[Server] ⚠️  Port ${port} is in use by a process that is NOT a verified Tickimo backend.`);
     console.warn(`[Server] ⚠️  Refusing to terminate it (pids: ${owner.pids.join(', ')}).`);
     return 'unknown-owner';
   }
 
-  console.log(`[Server] 🔄 Port ${port} is held by a stale Zapeera backend (pid(s): ${owner.pids.join(', ')}). Stopping it...`);
+  console.log(`[Server] 🔄 Port ${port} is held by a stale Tickimo backend (pid(s): ${owner.pids.join(', ')}). Stopping it...`);
   for (const pid of owner.pids) {
     try {
       process.kill(Number(pid), 'SIGTERM');
-      console.log(`[Server] ✅ Stopped verified Zapeera process ${pid}`);
+      console.log(`[Server] ✅ Stopped verified Tickimo process ${pid}`);
     } catch (error: any) {
       if (error && error.code !== 'ESRCH') {
         console.warn(`[Server] ⚠️  Could not stop pid ${pid}: ${error?.message || error}`);
@@ -948,7 +948,7 @@ async function safePortReclaim(port: number): Promise<'not-listening' | 'stopped
       return 'stopped';
     }
   }
-  console.warn(`[Server] ⚠️  Verified Zapeera processes stopped but port ${port} is still occupied.`);
+  console.warn(`[Server] ⚠️  Verified Tickimo processes stopped but port ${port} is still occupied.`);
   return 'unknown-owner';
 }
 
@@ -962,13 +962,13 @@ async function startServer(): Promise<void> {
   let server: any = null;
 
   while (attempts < maxAttempts) {
-    // Safely reclaim the port: only a VERIFIED stale Zapeera backend may be
+    // Safely reclaim the port: only a VERIFIED stale Tickimo backend may be
     // stopped; an unrelated process is never touched (Issue 7).
     const reclaim = await safePortReclaim(currentPort);
 
     if (reclaim === 'unknown-owner') {
       if (PORT_EXPLICITLY_SET) {
-        console.error(`❌ Port ${currentPort} is in use by a non-Zapeera application and cannot be freed safely.`);
+        console.error(`❌ Port ${currentPort} is in use by a non-Tickimo application and cannot be freed safely.`);
         console.error(`❌ Stop that application, or set PORT to a different value, then restart.`);
         process.exit(1);
       }
@@ -995,7 +995,7 @@ async function startServer(): Promise<void> {
         const bindHost = process.env.BIND_HOST || '0.0.0.0';
         server = app.listen(currentPort, bindHost, () => {
           console.log('='.repeat(60));
-          console.log('🚀 ZAPEERA BACKEND SERVER STARTED');
+          console.log('🚀 TICKIMO BACKEND SERVER STARTED');
           console.log('='.repeat(60));
           console.log(`🌐 Server running on port: ${currentPort}`);
           console.log(`📊 Environment: ${process.env.NODE_ENV || 'production'}`);

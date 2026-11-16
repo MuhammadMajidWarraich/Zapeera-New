@@ -1,7 +1,7 @@
-# WooCommerce integration for Zapeera
+# WooCommerce integration for Tickimo
 
-One WooCommerce store maps to **one Zapeera branch**. Products and stock
-flow **out** of Zapeera; orders flow **in** as Zapeera sales. Zapeera is
+One WooCommerce store maps to **one Tickimo branch**. Products and stock
+flow **out** of Tickimo; orders flow **in** as Tickimo sales. Tickimo is
 the master for products and stock; WooCommerce is the master for orders
 placed on the store.
 
@@ -11,7 +11,7 @@ placed on the store.
    (user with access to orders/products, **Read/Write** permissions).
    Copy the **Consumer key** and **Consumer secret** (the secret is shown
    once).
-2. **In Zapeera → Settings → Integrations → WooCommerce → Connect.**
+2. **In Tickimo → Settings → Integrations → WooCommerce → Connect.**
    Enter the Store URL (`https://mystore.com`), the consumer key and the
    consumer secret. Turn on the syncs you want (Products / Stock levels /
    Orders). The connection is verified against the store before anything
@@ -30,27 +30,27 @@ placed on the store.
    Settings → Advanced → Webhooks → Add webhook, for each topic:
    - `order.created` and `order.updated` → delivery URL
      `https://<your-zapeera-host>/api/v1/integrations/webhooks/woocommerce/<business-id>`
-     (the business id is the Zapeera business the store is bound to;
+     (the business id is the Tickimo business the store is bound to;
      find it in Settings → Branches, or in the URL of the business).
    - `product.updated` → same delivery URL.
    - Set a **Secret** on each webhook (any random string) and paste that
      same secret into the **Webhook secret** field when connecting (or
-     reconnecting) WooCommerce in Zapeera. **The signature is keyed by
+     reconnecting) WooCommerce in Tickimo. **The signature is keyed by
      this per-webhook secret — not by the consumer secret.** Deliveries
      with a missing or wrong secret are rejected (401) and never touch
      your data.
    - WooCommerce retries a delivery that does not get a 2xx response,
      and auto-disables a webhook after 5 consecutive failures — keep the
-     Zapeera server reachable, and re-run a manual **Orders** sync any
+     Tickimo server reachable, and re-run a manual **Orders** sync any
      time you suspect a delivery was missed.
 
 ## What syncs, and how
 
 | Direction | Entity | How |
 |---|---|---|
-| Out | Products | Zapeera product → WooCommerce product, matched by **SKU**. Variants → variations (matched by variant SKU). Price = the selling price of the FEFO batch the POS would sell. A product with no priced batch is skipped, not pushed priceless. |
+| Out | Products | Tickimo product → WooCommerce product, matched by **SKU**. Variants → variations (matched by variant SKU). Price = the selling price of the FEFO batch the POS would sell. A product with no priced batch is skipped, not pushed priceless. |
 | Out | Stock | Base-unit batch stock of the bound branch → `stock_quantity` (`manage_stock: true`). Simple products at product level, variants at variation level. |
-| In | Orders | WooCommerce `processing` / `completed` orders → Zapeera sales through the **existing `createSale` engine** (same FEFO batch deduction, receipt, customer stats, khata, tax, FBR as a POS sale). `pending` / `on-hold` / `cancelled` / `refunded` / `failed` orders are never imported — an unpaid or dead order must not decrement stock. |
+| In | Orders | WooCommerce `processing` / `completed` orders → Tickimo sales through the **existing `createSale` engine** (same FEFO batch deduction, receipt, customer stats, khata, tax, FBR as a POS sale). `pending` / `on-hold` / `cancelled` / `refunded` / `failed` orders are never imported — an unpaid or dead order must not decrement stock. |
 | In | Customers | Matched by billing phone, then billing email (within this business); otherwise created. |
 
 **Idempotency.** Each imported sale is tagged `Sale.channel =
@@ -65,16 +65,16 @@ sale transaction itself, never as a second sale to void.
 
 ## Honest limitations (read before relying on this)
 
-- **Totals are recomputed by Zapeera.** An imported sale's total comes
-  from its line prices through Zapeera's tax engine. WooCommerce
-  **shipping charges and WooCommerce tax are not carried over** (Zapeera
+- **Totals are recomputed by Tickimo.** An imported sale's total comes
+  from its line prices through Tickimo's tax engine. WooCommerce
+  **shipping charges and WooCommerce tax are not carried over** (Tickimo
   sales have no shipping-line field), so an imported total can differ
   from the WooCommerce order total by shipping + tax.
 - **Paid-ness comes from `date_paid`, not status.** A `processing`
   order paid by card imports as paid; a COD `processing` order imports
   **unpaid** (khata due until the rider's cash is collected).
 - **Payment method is mapped, not preserved.** WooCommerce method ids
-  map to Zapeera tenders (`cod`→CASH, `bacs`/`cheque`→BANK_TRANSFER,
+  map to Tickimo tenders (`cod`→CASH, `bacs`/`cheque`→BANK_TRANSFER,
   card gateways→CARD, `jazzcash`→JAZZCASH, `easypaisa`→EASYPAISA,
   anything else→MOBILE). The WooCommerce method title is not stored.
 - **Quantities are base units.** A WooCommerce line quantity is treated
@@ -87,13 +87,13 @@ sale transaction itself, never as a second sale to void.
 - **Prescription products cannot auto-import.** An order containing a
   `requiresPrescription` product fails the same way a POS sale without
   an attached prescription would (pharmacy businesses with enforcement
-  on). Attach the prescription in Zapeera, or exclude the product.
+  on). Attach the prescription in Tickimo, or exclude the product.
 - **Promotions are re-evaluated, not copied.** The imported sale runs
-  Zapeera's own promotions engine; WooCommerce coupons/discounts are not
+  Tickimo's own promotions engine; WooCommerce coupons/discounts are not
   carried over (line prices are taken as-is).
-- **Webhook product pushes re-assert Zapeera.** A `product.updated`
-  delivery re-pushes that product from Zapeera, overwriting a
-  WooCommerce-side edit. Edit products in Zapeera, not in WooCommerce.
+- **Webhook product pushes re-assert Tickimo.** A `product.updated`
+  delivery re-pushes that product from Tickimo, overwriting a
+  WooCommerce-side edit. Edit products in Tickimo, not in WooCommerce.
 - **No live store was available in the build sandbox.** All vendor
   behaviour is covered by mocked tests only (see
   `tests/integrations-woocommerce.test.ts`). Verify against a real

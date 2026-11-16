@@ -282,7 +282,7 @@ export function comparePnl(current: PnlStatement, previous: PnlStatement): PnlCo
 }
 
 // ─── Financial position (v1.0.22 — derived, NOT a double-entry GL) ───
-// Zapeera has no chart of accounts and no debit/credit postings, so a
+// Tickimo has no chart of accounts and no debit/credit postings, so a
 // true trial balance / balance sheet cannot be built from real data.
 // What CAN be built honestly is a position summary whose every line
 // traces to an operational aggregate (batches, khata ledger,
@@ -339,7 +339,7 @@ export interface PositionSummary {
   /** Assets − liabilities − retained profit. Shown, never plugged. */
   unreconciledDifference: number;
   trialBalance: { rows: TrialBalanceRow[]; totalDebits: number; totalCredits: number; difference: number };
-  /** Areas Zapeera does not track — the reason the books do not balance. */
+  /** Areas Tickimo does not track — the reason the books do not balance. */
   gaps: string[];
 }
 

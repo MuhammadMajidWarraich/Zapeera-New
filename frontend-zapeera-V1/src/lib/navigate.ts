@@ -6,7 +6,7 @@
  * `window.location.href = "/zapeera"` there resolves against the DRIVE
  * ROOT (file:///C:/zapeera) — a file that does not exist — which fires
  * Electron's did-fail-load (ERR_FILE_NOT_FOUND) and the native
- * "Zapeera - Load Error" dialog (incident 2026-10-24: Promotions →
+ * "Tickimo - Load Error" dialog (incident 2026-10-24: Promotions →
  * ErrorBoundary "Go to Dashboard"). The app uses HashRouter under
  * file:, so in-app navigation must set the hash instead. On the web
  * (http/https) a normal href assignment is correct.

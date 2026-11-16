@@ -83,7 +83,7 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
       );
     }
     return res.status(outcome.ok ? 200 : 400).send(
-      `<html><body style="font-family:sans-serif;padding:40px"><h1>${outcome.ok ? 'Shopify connected' : 'Shopify connect failed'}</h1><p>${outcome.message}</p><p>Return to Zapeera → Settings → Integrations.</p></body></html>`
+      `<html><body style="font-family:sans-serif;padding:40px"><h1>${outcome.ok ? 'Shopify connected' : 'Shopify connect failed'}</h1><p>${outcome.message}</p><p>Return to Tickimo → Settings → Integrations.</p></body></html>`
     );
   } catch (error) {
     const message =

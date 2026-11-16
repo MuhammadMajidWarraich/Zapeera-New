@@ -43,13 +43,13 @@ describe('parseLsofPids (macOS/Linux)', () => {
 });
 
 describe('isZapeeraHealthPayload', () => {
-  it('accepts the Zapeera /health payload', () => {
+  it('accepts the Tickimo /health payload', () => {
     expect(isZapeeraHealthPayload({ status: 'ok', database: { type: 'sqlite', mode: 'sqlite' } })).toBe(true);
     expect(isZapeeraHealthPayload({ status: 'ok', database: {} })).toBe(true);
   });
 
-  it('accepts the Zapeera root payload', () => {
-    expect(isZapeeraHealthPayload({ message: 'Zapeera Business Management API', version: '1.0.0' })).toBe(true);
+  it('accepts the Tickimo root payload', () => {
+    expect(isZapeeraHealthPayload({ message: 'Tickimo Business Management API', version: '1.0.0' })).toBe(true);
   });
 
   it('rejects unrelated services', () => {
@@ -61,10 +61,10 @@ describe('isZapeeraHealthPayload', () => {
 });
 
 describe('findPortOwnerPids (Issue 7 — verify before stopping)', () => {
-  it('never reports a non-Zapeera listener as stoppable (confirmedZapeera=false)', async () => {
+  it('never reports a non-Tickimo listener as stoppable (confirmedZapeera=false)', async () => {
     // exec stub returns a LISTENING pid (Windows netstat format); the probe
     // will fail (no real server), so the owner must NOT be confirmed as
-    // Zapeera. The platform is injected so the test is deterministic on CI
+    // Tickimo. The platform is injected so the test is deterministic on CI
     // (Linux) as well.
     const owner = await findPortOwnerPids(59999, (() => {
       let called = false;

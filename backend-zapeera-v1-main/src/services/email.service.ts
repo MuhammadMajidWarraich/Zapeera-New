@@ -170,11 +170,11 @@ class EmailService {
   }
 
   private getFromEmail(): string {
-    return process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@zapeera.com';
+    return process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@tickimo.com';
   }
 
   private getAppName(): string {
-    return process.env.APP_NAME || 'Zapeera';
+    return process.env.APP_NAME || 'Tickimo';
   }
 
   private getFrontendUrl(): string {

@@ -21,7 +21,7 @@
 //   order.created / order.updated → re-fetch the order and import it
 //     (idempotent — a retry re-delivers the same order, which the
 //     Sale.channel + externalOrderId tag deduplicates). Gated by config.syncOrders.
-//   product.updated → re-push that one product from Zapeera (Zapeera is
+//   product.updated → re-push that one product from Tickimo (Tickimo is
 //     the master for products; a WooCommerce-side edit is overwritten
 //     on the next push). Gated by config.syncProducts.
 //   anything else (incl. the creation ping) → 200, ignored.
@@ -33,7 +33,7 @@
 // webhook carries no session; the HMAC IS the authentication):
 //   POST /api/v1/integrations/webhooks/woocommerce/:businessId
 //   POST /api/integrations/webhooks/woocommerce/:businessId
-// The :businessId is the Zapeera business the store is bound to. It is
+// The :businessId is the Tickimo business the store is bound to. It is
 // not a secret — it only selects the connection; the signature decides
 // whether the delivery is genuine.
 

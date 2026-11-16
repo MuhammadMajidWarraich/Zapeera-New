@@ -36,7 +36,7 @@
  *     2026-10-25 at Rs 1,000/mo (Muhammad's order): no competitor
  *     publishes a price for gift cards/eWallet/kiosk — Odoo bundles
  *     them into POS with no separate price and CloudPOS does not
- *     sell them — so it is anchored to Zapeera's own ladder (same as
+ *     sell them — so it is anchored to Tickimo's own ladder (same as
  *     the Finance Pack, below the HR Pack / Extra Branch at 1,500).
  *     The gate (giftCardKioskAllowed) works off the granted row.
  *
@@ -162,7 +162,7 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
       'Customer-facing online pharmacy storefront for a branch (browse/search the branch catalog, cart, cash-on-delivery checkout into a real sale). Prescription upload is a separate pack.',
     // Priced 2026-10-25 (Muhammad's order, competitor-based):
     // Rs 500/mo. CloudPOS reference: store PKR 5,000/yr (~Rs 417/mo
-    // annualised) — Zapeera rounds to Rs 500/mo, monthly-flexible,
+    // annualised) — Tickimo rounds to Rs 500/mo, monthly-flexible,
     // no setup fee, no lock-in.
     priceMonthly: 500,
     stackable: false,
@@ -177,7 +177,7 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
       'Let patients upload prescription photos from the online storefront for pharmacist review before dispensing (upload, review queue, approve/reject with transcription). Needs the Online Pharmacy Store for checkout.',
     // Priced 2026-10-25 (Muhammad's order, competitor-based):
     // Rs 1,000/mo. CloudPOS reference: prescription upload
-    // PKR 15,000/yr (Rs 1,250/mo) — Zapeera undercuts by 20%.
+    // PKR 15,000/yr (Rs 1,250/mo) — Tickimo undercuts by 20%.
     priceMonthly: 1000,
     stackable: false,
     // L-2 fix (2026-10-26): prescription upload is pharmacy-only.
@@ -190,7 +190,7 @@ export const ADDON_CATALOGUE: Record<AddonType, AddonCatalogueEntry> = {
       'Retail counter pack: sell gift cards and redeem them at the POS, customer eWallet top-up and spend, and the in-store self-ordering kiosk screen that places orders into the POS.',
     // Priced 2026-10-25 (Muhammad's order): Rs 1,000/mo. No
     // competitor anchor exists — Odoo bundles these into POS,
-    // CloudPOS does not sell them — so it is anchored to Zapeera's
+    // CloudPOS does not sell them — so it is anchored to Tickimo's
     // own ladder (same as the Finance Pack at Rs 1,000/mo).
     priceMonthly: 1000,
     stackable: false,

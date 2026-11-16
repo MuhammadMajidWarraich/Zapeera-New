@@ -13,7 +13,7 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ children, fallback }) =>
   // Check if user is properly authenticated
   const isProperlyAuthenticated = checkAuthStatus();
 
-  // Check if user account is disabled - allow access to Zapeera screen
+  // Check if user account is disabled - allow access to Tickimo screen
   if (user && user.isActive === false) {
     return <>{children}</>;
   }

@@ -584,7 +584,7 @@ export function IntegrationsSection({
       }
     );
     setDialogProvider(provider);
-    // Sales channels map to ONE Zapeera branch (feature/integration-shopify):
+    // Sales channels map to ONE Tickimo branch (feature/integration-shopify):
     // load the branch list for the picker below. The default (first active
     // branch) applies when the merchant leaves it unset.
     if (provider.category === "sales-channel" && branches === null && !branchesLoading) {
@@ -788,7 +788,7 @@ export function IntegrationsSection({
       </div>
       <div className="flex flex-col px-[30px] py-[30px]">
         <p className="text-[13px] leading-relaxed text-[#8c95b0] pb-[18px]">
-          Connect your sales channels, payment wallets, couriers, accounting tools and SMS gateways so Zapeera
+          Connect your sales channels, payment wallets, couriers, accounting tools and SMS gateways so Tickimo
           can sync products, stock, orders and customers with them. Payment providers don&apos;t sync —
           once connected, their payments are taken at checkout and land on the sale&apos;s record.
           Credentials are encrypted on the server and are never shown back. Providers marked “Coming soon”
@@ -861,7 +861,7 @@ export function IntegrationsSection({
               )}
               {dialogProvider.category === "sales-channel" && (
                 <div>
-                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Zapeera branch</Label>
+                  <Label className="mb-2 block text-sm font-bold text-[#0a1128]">Tickimo branch</Label>
                   <Select
                     value={configDraft.branchId ?? "default"}
                     onValueChange={(v) =>
@@ -891,7 +891,7 @@ export function IntegrationsSection({
               {dialogProvider.id === "shopify" && (
                 <div className="rounded-[10px] border border-[rgba(15,23,60,0.08)] px-4 py-3">
                   <p className="text-[13px] leading-relaxed text-[#4a5578]">
-                    Prefer OAuth? Install the Zapeera app on your store instead of pasting a token — the
+                    Prefer OAuth? Install the Tickimo app on your store instead of pasting a token — the
                     access token is issued by Shopify and stored encrypted.
                   </p>
                   <Button
@@ -957,7 +957,7 @@ export function IntegrationsSection({
                     </p>
                   </div>
                   <p className="rounded-[10px] bg-[#f0f2f7] px-4 py-3 text-[13px] text-[#4a5578]">
-                    Export only — Google Sheets has no webhooks, so Zapeera exports on demand instead of
+                    Export only — Google Sheets has no webhooks, so Tickimo exports on demand instead of
                     live-syncing. Each export appends Sales, Stock, Customers and Khata rows to their own
                     tabs; previous exports are kept.
                   </p>
@@ -1005,8 +1005,8 @@ export function IntegrationsSection({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="both">Both directions</SelectItem>
-                        <SelectItem value="in">Into Zapeera only</SelectItem>
-                        <SelectItem value="out">Out of Zapeera only</SelectItem>
+                        <SelectItem value="in">Into Tickimo only</SelectItem>
+                        <SelectItem value="out">Out of Tickimo only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

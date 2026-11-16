@@ -293,7 +293,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({
         <div className="space-y-4">
           <div className="text-center mb-4">
             <h3 className="text-lg font-semibold text-[#0a1128]">User Found</h3>
-            <p className="text-sm text-[#8c95b0]">This user already has a Zapeera account</p>
+            <p className="text-sm text-[#8c95b0]">This user already has a Tickimo account</p>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">

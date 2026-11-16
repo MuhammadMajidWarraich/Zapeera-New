@@ -316,7 +316,7 @@ describe('woocommerce mapping (pure)', () => {
     });
   });
 
-  it('maps payment methods to Zapeera tenders, unknown methods to MOBILE', () => {
+  it('maps payment methods to Tickimo tenders, unknown methods to MOBILE', () => {
     expect(mapWooPaymentMethod('cod')).toBe('CASH');
     expect(mapWooPaymentMethod('bacs')).toBe('BANK_TRANSFER');
     expect(mapWooPaymentMethod('stripe')).toBe('CARD');
@@ -639,7 +639,7 @@ describe('woocommerce handler (mocked vendor + fake prisma)', () => {
       expect(invokeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('product.updated re-pushes the product from Zapeera', async () => {
+    it('product.updated re-pushes the product from Tickimo', async () => {
       installFetch([
         (url, init) => {
           if (url.includes('/products?sku=PARA-500')) return { status: 200, body: [{ id: 101, sku: 'PARA-500' }] };

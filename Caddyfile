@@ -1,8 +1,8 @@
-# Zapeera single-host reverse proxy — the ONLY public entry point.
+# Tickimo single-host reverse proxy — the ONLY public entry point.
 # Site addresses come from the environment (docker-compose `caddy` service):
 #   FRONTEND_DOMAIN  e.g. zapeera.seikho.online
 #   API_DOMAIN       e.g. api.zapeera.seikho.online
-# Moving to Zapeera's own domain later = change those values + DNS. No rebuild.
+# Moving to Tickimo's own domain later = change those values + DNS. No rebuild.
 # Let's Encrypt needs no account/email by default; to receive expiry notices,
 # add a line `email you@example.com` inside the global block below.
 {

@@ -30,7 +30,7 @@ import { isPharmacyBusinessType } from "@/utils/business-labels";
 // or below that level, the product appears here, grouped by the supplier
 // of its most recent batch, with a suggested quantity (the product's
 // fixed Reorder Quantity, or 2 x level - stock). "Create purchase order"
-// posts a REAL purchase through the standard purchase flow: Zapeera
+// posts a REAL purchase through the standard purchase flow: Tickimo
 // purchases have no draft/receive state (status is a payment status), so
 // the order lands the stock immediately and stays PENDING (unpaid).
 

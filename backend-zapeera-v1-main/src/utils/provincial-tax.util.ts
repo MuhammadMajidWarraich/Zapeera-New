@@ -10,7 +10,7 @@
 //   BRA  — Balochistan Revenue Authority (Balochistan)
 //
 // CloudPOS sells exactly this (provincial authority alongside FBR);
-// Zapeera listed FBR only. This module is the whole engine; the sale
+// Tickimo listed FBR only. This module is the whole engine; the sale
 // controller only resolves inputs and persists outputs, mirroring the
 // tax-class engine (tax.util.ts, Wave B5).
 //

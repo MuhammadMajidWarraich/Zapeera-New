@@ -35,7 +35,7 @@ export const config = {
 
   // App Configuration
   app: {
-    name: import.meta.env.VITE_APP_NAME || 'Zapeera',
+    name: import.meta.env.VITE_APP_NAME || 'Tickimo',
     version: import.meta.env.VITE_APP_VERSION || '1.0.0',
   },
 
@@ -60,9 +60,9 @@ export const config = {
   // Support Contact Configuration
   support: {
     phoneNumber: import.meta.env.VITE_SUPPORT_PHONE || '+923075445509',
-    email: import.meta.env.VITE_SUPPORT_EMAIL || 'support@zapeera.com',
+    email: import.meta.env.VITE_SUPPORT_EMAIL || 'support@tickimo.com',
     whatsappUrl: import.meta.env.VITE_WHATSAPP_URL || 'https://wa.me/923075445509',
-    contactUrl: import.meta.env.VITE_CONTACT_URL || 'https://zapeera.com/contact',
+    contactUrl: import.meta.env.VITE_CONTACT_URL || 'https://tickimo.com/contact',
   },
 
   // Cloud API Configuration (used by Desktop for online operations: auth, sync, etc.)

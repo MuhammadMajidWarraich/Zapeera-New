@@ -35,7 +35,7 @@ export function SystemPage() {
   const dbConnected = !!db && (db.postgresql.connected || db.sqlite.connected);
 
   const envInfo = [
-    { label: 'Platform', value: 'Zapeera Admin Portal', icon: Zap },
+    { label: 'Platform', value: 'Tickimo Admin Portal', icon: Zap },
     { label: 'API Server', value: health ? (apiUp ? 'Healthy' : `Degraded (${health.status})`) : 'Unknown', icon: Server },
     { label: 'Database', value: db ? `${db.type} (${db.modeLabel || db.mode})` : 'Unknown', icon: Database },
     { label: 'Last Checked', value: health?.timestamp ? new Date(health.timestamp).toLocaleString() : '—', icon: Clock },

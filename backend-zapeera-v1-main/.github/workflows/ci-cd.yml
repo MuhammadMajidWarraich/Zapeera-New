@@ -1,4 +1,4 @@
-name: Zapeera Backend CI/CD
+name: Tickimo Backend CI/CD
 
 on:
   push:

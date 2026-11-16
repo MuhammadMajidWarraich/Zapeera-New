@@ -7,7 +7,7 @@ import { slugifyPartnerName } from '../utils/partner.util';
 // Platform-admin management of reseller partners, behind the
 // backoffice router (adminAuthenticate + role guard in the router).
 // Creating a partner designates its admin by EMAIL: the email must
-// belong to an existing Zapeera user account (the partner admin signs
+// belong to an existing Tickimo user account (the partner admin signs
 // in to the normal app and opens /partner — v1 has exactly one admin
 // per partner). Suspending a partner stops its branding from resolving
 // and blocks new attributions, without touching existing businesses'
@@ -65,7 +65,7 @@ async function resolveAdminUser(prisma: any, email: string, res: Response): Prom
     res.status(400).json({
       success: false,
       code: 'PARTNER_ADMIN_NOT_FOUND',
-      message: `No Zapeera user account exists with email ${email}. The partner admin must register first.`
+      message: `No Tickimo user account exists with email ${email}. The partner admin must register first.`
     });
     return null;
   }
@@ -197,7 +197,7 @@ export const updatePartner = async (req: Request, res: Response): Promise<void> 
 };
 
 const reassignSchema = Joi.object({
-  // null clears the attribution (business becomes a direct Zapeera sale)
+  // null clears the attribution (business becomes a direct Tickimo sale)
   partnerId: Joi.string().allow(null).required()
 });
 

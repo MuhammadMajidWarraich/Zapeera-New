@@ -2,10 +2,10 @@
   "name": "zapeera-frontend",
   "private": true,
   "version": "1.0.22",
-  "description": "Zapeera Frontend - Business Management UI",
+  "description": "Tickimo Frontend - Business Management UI",
   "author": {
-    "name": "Zapeera Team",
-    "email": "support@zapeera.com"
+    "name": "Tickimo Team",
+    "email": "support@tickimo.com"
   },
   "main": "electron/main.js",
   "scripts": {

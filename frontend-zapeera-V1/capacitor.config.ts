@@ -2,13 +2,13 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.seikho.zapeera',
-  appName: 'Zapeera',
+  appName: 'Tickimo',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
     // Current deployment hosts (2026-10-15): the single-host test deployment
-    // lives under seikho.online. The old zapeera.com / Railway / Render hosts
-    // are retired. Add Zapeera's own domain here once it is registered.
+    // lives under seikho.online. The old tickimo.com / Railway / Render hosts
+    // are retired. Add Tickimo's own domain here once it is registered.
     allowNavigation: ['*.seikho.online'],
   },
   plugins: {

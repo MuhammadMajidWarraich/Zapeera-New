@@ -11,7 +11,7 @@ import { useAuth } from './AuthContext';
 //     verification round-trip and is later sent with business creation
 //     (attribution happens server-side, once, at createCompany).
 //   · otherwise, when signed in, the partner behind the current
-//     business; when anonymous, the default Zapeera branding.
+//     business; when anonymous, the default Tickimo branding.
 // With no partner anywhere in play the provider yields EXACTLY the
 // stock branding and touches nothing — the pre-white-label render.
 //
@@ -39,7 +39,7 @@ export interface BrandingViewer {
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  productName: 'Zapeera',
+  productName: 'Tickimo',
   logoUrl: null,
   primaryColor: null,
   tagline: null,

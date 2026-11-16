@@ -1,6 +1,6 @@
-# Zapeera Frontend (React + Vite + Electron)
+# Tickimo Frontend (React + Vite + Electron)
 
-Frontend application for the Zapeera business management platform.  
+Frontend application for the Tickimo business management platform.  
 Supports:
 
 - Web deployment (Vite production build)
@@ -10,7 +10,7 @@ Supports:
 
 - Secure login/signup flow and password reset
 - Role-based routing and guarded pages
-- Dashboard views for business and Zapeera admin contexts
+- Dashboard views for business and Tickimo admin contexts
 - POS workflows: sales, invoices, refunds, and check-in/performance
 - Inventory management:
   - Medical and non-medical products
@@ -47,7 +47,7 @@ Frontend expects Vite environment variables (example):
 ```env
 VITE_API_BASE_URL=http://localhost:4200/api
 VITE_API_TIMEOUT=30000
-VITE_APP_NAME=Zapeera
+VITE_APP_NAME=Tickimo
 VITE_APP_VERSION=1.0.0
 VITE_DEBUG_MODE=false
 VITE_LOG_LEVEL=info

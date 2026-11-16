@@ -147,7 +147,7 @@ export const joinAffiliate = async (req: AuthRequest, res: Response): Promise<vo
 
     res.status(201).json({
       success: true,
-      message: 'Affiliate application received. Your account is pending approval by the Zapeera team.',
+      message: 'Affiliate application received. Your account is pending approval by the Tickimo team.',
       data: { id: affiliate.id, code: affiliate.code, status: affiliate.status }
     });
   } catch (error: any) {
@@ -329,7 +329,7 @@ export const requestPayout = async (req: AuthRequest, res: Response): Promise<vo
 
     res.status(201).json({
       success: true,
-      message: 'Payout requested. The Zapeera team will process it shortly.',
+      message: 'Payout requested. The Tickimo team will process it shortly.',
       data: payout
     });
   } catch (error: any) {

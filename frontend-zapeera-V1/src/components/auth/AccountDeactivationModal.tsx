@@ -43,7 +43,7 @@ ${userInfo?.name || 'User'}`;
   };
 
   const handleEmailContact = () => {
-    const subject = "Account Activation Request - Zapeera";
+    const subject = "Account Activation Request - Tickimo";
     const body = `Hello,
 
 My account is currently disabled and I need it to be activated.

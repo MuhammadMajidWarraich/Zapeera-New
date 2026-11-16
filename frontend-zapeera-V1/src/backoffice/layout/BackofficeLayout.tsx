@@ -104,7 +104,7 @@ export function BackofficeLayout({ children }: BackofficeLayoutProps) {
             </div>
             {labelsVisible && (
               <div>
-                <span className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Zapeera</span>
+                <span className="text-lg font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">Tickimo</span>
                 <span className="block text-[10px] text-gray-400 font-medium leading-tight">Admin Portal</span>
               </div>
             )}

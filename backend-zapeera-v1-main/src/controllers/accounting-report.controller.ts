@@ -589,7 +589,7 @@ export const getCashbook = async (req: AuthRequest, res: Response) => {
 
 // ─── GET /reports/accounting/position ────────────────────────────────
 // Item: trial balance + balance sheet (v1.0.22) — a DERIVED position
-// summary, point-in-time (as-of now), from real rows only. Zapeera
+// summary, point-in-time (as-of now), from real rows only. Tickimo
 // has no double-entry ledger, so a true trial balance cannot be
 // built: see the header of utils/accounting.util.ts for the exact
 // derivation, the identity, and the gaps. The response labels the

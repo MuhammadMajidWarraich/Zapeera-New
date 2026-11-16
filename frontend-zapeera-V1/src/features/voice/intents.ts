@@ -1,5 +1,5 @@
 /**
- * Voice command intent parser for the Zapeera Voice Assistant.
+ * Voice command intent parser for the Tickimo Voice Assistant.
  *
  * Pure, deterministic, framework-free module (no React / no imports) so it can
  * be unit-tested in plain Node. It converts a raw utterance (English, Roman

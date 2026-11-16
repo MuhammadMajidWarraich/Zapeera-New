@@ -1,4 +1,4 @@
-# Zapeera OCR Service
+# Tickimo OCR Service
 
 Python microservice for OCR processing. Handles handwritten and printed medical rep documents.
 

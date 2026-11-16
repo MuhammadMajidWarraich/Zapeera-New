@@ -1,14 +1,14 @@
 // ─── Shopify integration — mapping (feature/integration-shopify) ─────────
-// Pure mapping between Zapeera shapes and Shopify shapes. No I/O, no
+// Pure mapping between Tickimo shapes and Shopify shapes. No I/O, no
 // Prisma — every function here is unit-tested with fixtures in
 // tests/shopify.test.ts.
 //
 // JOIN KEYS (the whole sync stands on these):
-//   Product <-> Shopify product: Zapeera Product.sku (globally unique)
+//   Product <-> Shopify product: Tickimo Product.sku (globally unique)
 //   Variant <-> Shopify variant: ProductVariant.sku (unique per branch by
 //     convention — see resolveVariantSku); Shopify variant SKU lives in
 //     inventoryItem.sku.
-//   Order  <-> Zapeera sale:     Sale.channel='shopify' +
+//   Order  <-> Tickimo sale:     Sale.channel='shopify' +
 //     Sale.externalOrderId=<Shopify numeric order id> (unique index).
 //
 // STOCK IS BASE UNITS: Batch.quantity has always been a base-unit count
@@ -23,7 +23,7 @@ import type { ShopifyOrder, ShopifyVariantInput } from './client';
 export const MAX_SHOPIFY_OPTIONS = 3;
 
 /**
- * Zapeera variant attributes ({size, color, ...}) -> Shopify optionValues.
+ * Tickimo variant attributes ({size, color, ...}) -> Shopify optionValues.
  * Keys are sorted for determinism; option names are Title-Cased for the
  * storefront ("size" -> "Size"). Returns the values plus any dropped keys.
  */
@@ -49,7 +49,7 @@ export function toShopifyPrice(amount: number): string {
 }
 
 /**
- * The Shopify variant input for one Zapeera product/variant.
+ * The Shopify variant input for one Tickimo product/variant.
  * `poolPrice` is the latest active batch sellingPrice of the variant's
  * pool (base units); the variant's priceDelta adjusts it. When the
  * product has no variants, the caller passes the single base variant
@@ -86,7 +86,7 @@ export function buildShopifyVariantInput(input: {
 
 // ─── Order -> sale financial mapping ──────────────────────────────────────
 // Shopify money: line prices are pre-tax; order total = subtotal -
-// discounts + tax + shipping. Zapeera's createSale recomputes the total
+// discounts + tax + shipping. Tickimo's createSale recomputes the total
 // from the lines with its OWN tax engine (defaultTax setting) and has
 // no shipping field, so an imported sale's total matches Shopify's
 // exactly only when Shopify tax + shipping are both zero (the usual PK
@@ -102,7 +102,7 @@ export type ShopifySalePayment =
   | 'MOBILE';
 
 /**
- * Shopify payment gateways -> Zapeera tender. COD/manual payments are
+ * Shopify payment gateways -> Tickimo tender. COD/manual payments are
  * CASH; JazzCash/Easypaisa by name; bank transfer by name; anything
  * else paid online is CARD. Unknown gateways fall back to CASH so the
  * sale still records (the gateway name rides in the import message).
@@ -118,7 +118,7 @@ export function mapPaymentMethod(gatewayNames: string[], financialStatus: string
 }
 
 export interface MappedOrderFinancials {
-  /** Zapeera paymentStatus for the imported sale. */
+  /** Tickimo paymentStatus for the imported sale. */
   paymentStatus: 'PENDING' | 'COMPLETED' | 'REFUNDED';
   /** Amount already paid by the customer (PKR). */
   paidAmount: number;
@@ -131,7 +131,7 @@ export interface MappedOrderFinancials {
   skipReason?: string;
 }
 
-/** Financial status -> Zapeera payment state. Cancelled orders are skipped. */
+/** Financial status -> Tickimo payment state. Cancelled orders are skipped. */
 export function mapOrderFinancials(order: ShopifyOrder): MappedOrderFinancials {
   if (order.cancelledAt) {
     return {
@@ -191,7 +191,7 @@ export function shopifyCustomerName(
   return fallback;
 }
 
-/** Normalize a Shopify phone for Zapeera's Customer.phone (unique) lookup. */
+/** Normalize a Shopify phone for Tickimo's Customer.phone (unique) lookup. */
 export function normalizeCustomerPhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
   const cleaned = phone.replace(/[\s()-]/g, '');

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E Test Configuration for Zapeera
+ * Playwright E2E Test Configuration for Tickimo
  * 
  * Tests cover:
  * - Authentication flows (login, logout)

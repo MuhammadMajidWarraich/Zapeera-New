@@ -1,6 +1,6 @@
-# Zapeera Backend API (Node.js + Express + TypeScript)
+# Tickimo Backend API (Node.js + Express + TypeScript)
 
-Backend service for the Zapeera business management platform with support for web (PostgreSQL) and desktop/electron (SQLite) modes.
+Backend service for the Tickimo business management platform with support for web (PostgreSQL) and desktop/electron (SQLite) modes.
 
 ## Core Features
 

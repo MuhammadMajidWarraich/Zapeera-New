@@ -10,10 +10,10 @@ const DownloadsPage = () => {
   const isDesktop = runtime.isDesktop;
 
   const steps = [
-    { title: "Download the app", body: "Get the Zapeera desktop installer for Windows from the card above." },
-    { title: "Install & sign in", body: "Run the installer and sign in with your existing Zapeera account." },
+    { title: "Download the app", body: "Get the Tickimo desktop installer for Windows from the card above." },
+    { title: "Install & sign in", body: "Run the installer and sign in with your existing Tickimo account." },
     { title: "Provision your business", body: "Choose a business to download locally so you can work offline." },
-    { title: "Automatic sync", body: "Zapeera keeps everything in sync whenever you're back online." },
+    { title: "Automatic sync", body: "Tickimo keeps everything in sync whenever you're back online." },
   ];
 
   const androidCard = (
@@ -23,9 +23,9 @@ const DownloadsPage = () => {
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.35)]">
             <Smartphone className="h-8 w-8" />
           </div>
-          <h2 className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Zapeera for Android</h2>
+          <h2 className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Tickimo for Android</h2>
           <p className="text-[14px] leading-relaxed text-[#8c95b0]">
-            Run your shop from your phone — sales, stock and reports in your pocket. The Android app works with the same Zapeera account and the same live data as the desktop and web apps.
+            Run your shop from your phone — sales, stock and reports in your pocket. The Android app works with the same Tickimo account and the same live data as the desktop and web apps.
           </p>
           <Button
             asChild
@@ -33,7 +33,7 @@ const DownloadsPage = () => {
           >
             <a href={ANDROID_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
               <Smartphone className="mr-2 h-4 w-4" />
-              Download Zapeera for Android (APK)
+              Download Tickimo for Android (APK)
             </a>
           </Button>
           <p className="text-[12px] leading-relaxed text-[#8c95b0]">Direct APK download · version {ANDROID_VERSION} · not on Google Play yet.</p>
@@ -68,8 +68,8 @@ const DownloadsPage = () => {
           <Smartphone className="h-3.5 w-3.5" />
           Desktop & Mobile
         </div>
-        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Download the Zapeera Apps</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">Take Zapeera beyond the browser — work offline on your computer, or keep your shop in your pocket with the Android app.</p>
+        <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Download the Tickimo Apps</h1>
+        <p className="mt-1 text-sm text-[#8c95b0]">Take Tickimo beyond the browser — work offline on your computer, or keep your shop in your pocket with the Android app.</p>
       </div>
 
       {isDesktop ? (
@@ -79,7 +79,7 @@ const DownloadsPage = () => {
             <div>
               <h3 className="text-[16px] font-bold text-[#0a1128]">You're running the desktop app</h3>
               <p className="mt-1 text-[13px] text-[#4a5578]">
-                This is the Zapeera desktop app. Check your sync status on the Profile & Security page.
+                This is the Tickimo desktop app. Check your sync status on the Profile & Security page.
               </p>
             </div>
           </div>
@@ -91,7 +91,7 @@ const DownloadsPage = () => {
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-[#1a52c5] to-[#28c2ce] text-white shadow-[0_8px_24px_rgba(26,82,197,0.35)]">
                 <Monitor className="h-8 w-8" />
               </div>
-              <h2 className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Zapeera for Windows</h2>
+              <h2 className="text-[22px] font-extrabold tracking-tight text-[#0a1128]">Tickimo for Windows</h2>
               <p className="text-[14px] leading-relaxed text-[#8c95b0]">
                 Run your business even without internet. Sales, inventory and more stay on your machine and sync when you're back online.
               </p>
@@ -101,7 +101,7 @@ const DownloadsPage = () => {
               >
                 <a href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
                   <Laptop className="mr-2 h-4 w-4" />
-                  Download Zapeera for Windows
+                  Download Tickimo for Windows
                 </a>
               </Button>
             </div>

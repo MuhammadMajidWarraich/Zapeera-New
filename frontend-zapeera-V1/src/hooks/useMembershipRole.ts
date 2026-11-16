@@ -52,7 +52,7 @@ export const useMembershipRole = (): AppUserRole | null => {
     return null;
   }
 
-  // Outside business context (e.g., platform/Zapeera screens): allow global role fallback.
+  // Outside business context (e.g., platform/Tickimo screens): allow global role fallback.
   if (user.membership?.roleName) {
     return normalizeAppRole(user.membership.roleName);
   }

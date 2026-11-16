@@ -1371,7 +1371,7 @@ const renderInvoiceHtml = (invoice: {
 <body>
   <div class="header">
     <div>
-      <div class="brand">Zapeera</div>
+      <div class="brand">Tickimo</div>
       <div>Subscription Invoice</div>
     </div>
     <div class="inv">
@@ -1392,7 +1392,7 @@ const renderInvoiceHtml = (invoice: {
       <tr><td class="total">Total</td><td class="total" style="text-align:right">${escapeHtml(invoice.currency)} ${Number(invoice.amount).toLocaleString()}</td></tr>
     </tbody>
   </table>
-  <p class="meta">This invoice was generated from the payment record stored in Zapeera. Payments are verified manually via the payment-proof flow.</p>
+  <p class="meta">This invoice was generated from the payment record stored in Tickimo. Payments are verified manually via the payment-proof flow.</p>
 </body>
 </html>`;
 

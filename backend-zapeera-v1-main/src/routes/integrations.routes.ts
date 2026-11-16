@@ -37,7 +37,7 @@ router.get('/', listIntegrationsHandler);
 // Google Sheets OAuth start (authenticated, OWNER/MANAGER — the router
 // gate above). The callback lives in server.ts, before the universal
 // module protection middleware: Google redirects the browser there with
-// no Zapeera session, so it cannot go through this router's auth.
+// no Tickimo session, so it cannot go through this router's auth.
 router.get('/google-sheets/oauth/start', startGoogleSheetsOAuthHandler);
 router.post('/:provider/connect', connectIntegrationHandler);
 router.post('/:provider/disconnect', disconnectIntegrationHandler);

@@ -320,7 +320,7 @@ const BillingPage = () => {
             <p className="mt-1 text-[13px] text-[#8c95b0]">Need a refund, invoice correction or help paying? Our team can help.</p>
             <Button
               variant="outline"
-              onClick={() => (window.location.href = "mailto:support@zapeera.com?subject=Billing%20support")}
+              onClick={() => (window.location.href = "mailto:support@tickimo.com?subject=Billing%20support")}
               className="mt-4 h-10 w-full rounded-[10px] border-[rgba(15,23,60,0.1)] font-semibold text-[#0a1128] hover:bg-[#f0f2f7]"
             >
               Contact Billing Support

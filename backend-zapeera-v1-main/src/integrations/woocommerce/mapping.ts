@@ -1,4 +1,4 @@
-// ─── WooCommerce ↔ Zapeera mapping (feature/integration-woocommerce) ─────
+// ─── WooCommerce ↔ Tickimo mapping (feature/integration-woocommerce) ─────
 // Pure functions only — no prisma, no fetch, no sale engine — so they are
 // unit-testable without a store or a database. Vendor field shapes are
 // from the WooCommerce REST API v3 docs
@@ -8,15 +8,15 @@
 // completed | cancelled | refunded | failed.
 //
 // DIRECTIONS
-//   out: Zapeera product (+ variants) → WooCommerce product (+ variations)
-//   out: Zapeera branch stock (base units) → WooCommerce stock_quantity
-//   in:  WooCommerce order → Zapeera sale (via the existing createSale
+//   out: Tickimo product (+ variants) → WooCommerce product (+ variations)
+//   out: Tickimo branch stock (base units) → WooCommerce stock_quantity
+//   in:  WooCommerce order → Tickimo sale (via the existing createSale
 //        engine — see ./sale-invoker.ts, never a parallel writer)
 //
 // MAPPING RULES (the honest ones — see README.md for the full list)
-//   · Products match by SKU on both sides (Zapeera Product.sku is
+//   · Products match by SKU on both sides (Tickimo Product.sku is
 //     globally unique; WooCommerce enforces SKU uniqueness per store).
-//   · Zapeera has no product-level price — the price pushed is the
+//   · Tickimo has no product-level price — the price pushed is the
 //     sellingPrice of the FEFO batch the POS would sell (earliest-expiry
 //     active batch with stock), falling back to the newest batch.
 //   · Stock is counted in BASE units (Batch.quantity) — the base-unit
@@ -25,9 +25,9 @@
 //   · A WooCommerce order line quantity is treated as BASE units: the
 //     store sells single units. A merchant selling packs on WooCommerce
 //     must sell them as separate SKUs (one SKU per pack size).
-//   · Imported sale totals are RECOMPUTED by Zapeera's sale engine from
+//   · Imported sale totals are RECOMPUTED by Tickimo's sale engine from
 //     the line prices — WooCommerce shipping charges and WooCommerce tax
-//     are not carried over (Zapeera sales have no shipping-line field
+//     are not carried over (Tickimo sales have no shipping-line field
 //     and tax is computed by the local tax engine).
 
 /** Idempotency key + channel tag for an imported sale. Stored on the sale
@@ -110,7 +110,7 @@ export interface WcOrder {
   line_items: WcOrderLineItem[];
 }
 
-// ─── Outbound: Zapeera → WooCommerce ───────────────────────────────────────
+// ─── Outbound: Tickimo → WooCommerce ───────────────────────────────────────
 
 export interface ZapeeraProductForPush {
   id: string;
@@ -135,11 +135,11 @@ export interface ZapeeraProductForPush {
 }
 
 /**
- * WooCommerce product payload for a Zapeera product. Variable products
+ * WooCommerce product payload for a Tickimo product. Variable products
  * carry `attributes` built from the variants' free-form attribute pairs
  * (size / colour / …) so variations can be created against them.
- * `manage_stock` + `stock_quantity` are always pushed: a product Zapeera
- * pushes is a product Zapeera stocks.
+ * `manage_stock` + `stock_quantity` are always pushed: a product Tickimo
+ * pushes is a product Tickimo stocks.
  */
 export function buildWooProductPayload(product: ZapeeraProductForPush): Record<string, unknown> {
   const isVariable = product.variants.length > 0;
@@ -165,7 +165,7 @@ export function buildWooProductPayload(product: ZapeeraProductForPush): Record<s
   return payload;
 }
 
-/** WooCommerce variation payload for one Zapeera variant. The price is
+/** WooCommerce variation payload for one Tickimo variant. The price is
  *  the variant's own FEFO batch price plus its priceDelta (falling back
  *  to the product price when the variant has no batch of its own). */
 export function buildWooVariationPayload(
@@ -183,11 +183,11 @@ export function buildWooVariationPayload(
   };
 }
 
-// ─── Inbound: WooCommerce order → Zapeera sale payload ─────────────────────
+// ─── Inbound: WooCommerce order → Tickimo sale payload ─────────────────────
 
 /** Order statuses we import. `pending` (unpaid checkout), `on-hold`
  *  (awaiting payment), `cancelled`, `refunded` and `failed` never create
- *  a Zapeera sale — an unpaid or dead order must not decrement stock. */
+ *  a Tickimo sale — an unpaid or dead order must not decrement stock. */
 export const IMPORTABLE_WOO_ORDER_STATUSES = ['processing', 'completed'] as const;
 
 export function isImportableWooOrder(order: WcOrder): boolean {
@@ -195,7 +195,7 @@ export function isImportableWooOrder(order: WcOrder): boolean {
 }
 
 /**
- * WooCommerce payment method id → Zapeera tender. Zapeera's tender enum
+ * WooCommerce payment method id → Tickimo tender. Tickimo's tender enum
  * is CASH | CARD | JAZZCASH | EASYPAISA | BANK_TRANSFER | MOBILE; anything
  * else (PayPal, Stripe, wallet plugins, …) lands in MOBILE — the
  * "other electronic payment" bucket — because inventing a tender would
@@ -251,7 +251,7 @@ export interface WooSalePayload {
 
 /**
  * Build the createSale payload for a WooCommerce order whose lines have
- * already been matched to Zapeera products (by SKU, branch-scoped — see
+ * already been matched to Tickimo products (by SKU, branch-scoped — see
  * handler.ts). Quantities are base units (see the module header).
  * Paid-ness comes from `date_paid`, not from status: a `processing`
  * order paid by card has date_paid set; a COD `processing` order does

@@ -308,7 +308,7 @@ export function SupportWidget() {
           </span>
         </a>
         <a
-          href={whatsappUrl("Hello! I need support with Zapeera.")}
+          href={whatsappUrl("Hello! I need support with Tickimo.")}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#1a52c5]/20 hover:bg-[#f0f2f7]"
@@ -322,7 +322,7 @@ export function SupportWidget() {
           </span>
         </a>
         <a
-          href={emailUrl("Zapeera Support", "Hello, I need help with Zapeera.")}
+          href={emailUrl("Tickimo Support", "Hello, I need help with Tickimo.")}
           className="flex items-center gap-3 rounded-xl border border-[rgba(15,23,60,0.06)] bg-white px-3.5 py-3 transition-colors hover:border-[#1a52c5]/20 hover:bg-[#f0f2f7]"
         >
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#1a52c5]/10 text-[#1a52c5]">
@@ -356,7 +356,7 @@ export function DesktopStatusCard() {
     return (
       <Panel title="Desktop App">
         <div className="p-4 pt-1">
-          <p className="text-[13px] text-[#4a5578]">Use Zapeera offline with the desktop app — your data stays in sync automatically.</p>
+          <p className="text-[13px] text-[#4a5578]">Use Tickimo offline with the desktop app — your data stays in sync automatically.</p>
           <Button
             asChild
             variant="outline"
@@ -427,7 +427,7 @@ export function ActivityTimeline({ compact }: { compact?: boolean }) {
       list.push({ id: "desktop", icon: Laptop, tint: "bg-violet-500", title: `Desktop connected · ${desktopCount} business${desktopCount > 1 ? "es" : ""} ready offline`, time: "Now" });
     }
     list.push({ id: "login", icon: Shield, tint: "bg-[#1a52c5]", title: "New login from your account", time: "Today" });
-    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]", title: "Account created on Zapeera", time: "Sign up" });
+    list.push({ id: "signup", icon: BadgeCheck, tint: "bg-[#28c2ce]", title: "Account created on Tickimo", time: "Sign up" });
     void user;
     return list;
   }, [runtime.desktopBusinessStates]);

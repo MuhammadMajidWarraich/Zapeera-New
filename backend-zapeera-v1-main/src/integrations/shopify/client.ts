@@ -273,8 +273,8 @@ export async function fetchLocations(creds: ShopifyCredentials): Promise<Shopify
 }
 
 /**
- * The location Zapeera stocks into: the credentials' locationId override
- * when set, else the store's first location. One Zapeera branch maps to
+ * The location Tickimo stocks into: the credentials' locationId override
+ * when set, else the store's first location. One Tickimo branch maps to
  * one Shopify location — a multi-location store uses the first unless
  * the merchant sets the override (see SHOPIFY_SETUP.md).
  */
@@ -291,7 +291,7 @@ export async function resolveLocationId(creds: ShopifyCredentials): Promise<stri
 }
 
 // ─── Products (read: paginated list, matched client-side by SKU) ──────────
-// The SKU is the join key between Zapeera and Shopify (Zapeera Product.sku
+// The SKU is the join key between Tickimo and Shopify (Tickimo Product.sku
 // is globally unique). We list products and match in code rather than
 // relying on Shopify's `sku:` search filter, so a filter-syntax change
 // can never silently miss a product.
@@ -552,7 +552,7 @@ export async function setInventoryQuantities(
           inventoryItemId: item.inventoryItemId,
           locationId: item.locationId,
           quantity: Math.max(0, Math.floor(item.quantity)),
-          // Zapeera is the source of truth for stock: opt out of the
+          // Tickimo is the source of truth for stock: opt out of the
           // compare-and-swap check (null = skip; mandatory to pass
           // explicitly as of API 2026-04).
           changeFromQuantity: null
@@ -700,7 +700,7 @@ export async function fetchShopifyOrder(
 /**
  * Resolve an inventory item to its variant SKU + current available
  * quantity at a location. Used to reconcile a Shopify-side stock change
- * against Zapeera's level for the same variant.
+ * against Tickimo's level for the same variant.
  */
 export async function fetchInventoryItem(
   creds: ShopifyCredentials,

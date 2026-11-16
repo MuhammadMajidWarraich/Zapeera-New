@@ -10,7 +10,7 @@
 //   · The restored business starts on the TRIAL plan (15 days, same as
 //     a fresh signup). Subscriptions and payment proofs are NOT copied.
 //   · Staff accounts are NOT recreated (passwords never travel). A
-//     member whose email matches an existing Zapeera account is
+//     member whose email matches an existing Tickimo account is
 //     re-linked with their role; everyone else is reported in
 //     `skippedStaff` so the owner can re-invite them.
 //   · Globally-unique identifiers that would collide with the original

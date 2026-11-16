@@ -183,8 +183,8 @@ const PartnerPortal = () => {
         <Store className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
         <h1 className="text-xl font-semibold">Partner Portal</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This account does not administer a white-label partner. If you sell Zapeera under your
-          own brand, ask the Zapeera team to set up your partner account.
+          This account does not administer a white-label partner. If you sell Tickimo under your
+          own brand, ask the Tickimo team to set up your partner account.
         </p>
       </div>
     );
@@ -317,7 +317,7 @@ const PartnerPortal = () => {
           </div>
         )}
         <p className="mt-3 text-xs text-muted-foreground">
-          Plans are the standard Zapeera plans; pricing is managed by the Zapeera team.
+          Plans are the standard Tickimo plans; pricing is managed by the Tickimo team.
         </p>
       </div>
 

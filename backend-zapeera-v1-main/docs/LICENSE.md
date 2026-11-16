@@ -1,4 +1,4 @@
-# Zapeera Signed Licenses — server contract
+# Tickimo Signed Licenses — server contract
 
 Approved by Muhammad 2026-10-28 18:58 PKT. Implementation: `src/services/license.service.ts`
 (issue), `src/controllers/license.controller.ts` + `src/routes/license.routes.ts`

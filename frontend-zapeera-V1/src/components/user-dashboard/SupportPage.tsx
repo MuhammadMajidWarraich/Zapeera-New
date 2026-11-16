@@ -135,7 +135,7 @@ const SupportPage = () => {
           Support
         </div>
         <h1 className="text-[28px] font-extrabold tracking-[-0.7px] text-[#0a1128]">Support Center</h1>
-        <p className="mt-1 text-sm text-[#8c95b0]">Get help with your account, businesses and the Zapeera apps.</p>
+        <p className="mt-1 text-sm text-[#8c95b0]">Get help with your account, businesses and the Tickimo apps.</p>
       </div>
 
       {/* Contact cards */}
@@ -154,7 +154,7 @@ const SupportPage = () => {
           </span>
         </a>
         <a
-          href={whatsappUrl("Hello! I need support with Zapeera.")}
+          href={whatsappUrl("Hello! I need support with Tickimo.")}
           target="_blank"
           rel="noopener noreferrer"
           className="group rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
@@ -169,7 +169,7 @@ const SupportPage = () => {
           </span>
         </a>
         <a
-          href={emailUrl("Zapeera Support", "Hello, I need help with Zapeera.")}
+          href={emailUrl("Tickimo Support", "Hello, I need help with Tickimo.")}
           className="group rounded-2xl border border-[rgba(15,23,60,0.06)] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.03),0_8px_32px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
         >
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#1a52c5]/10 text-[#1a52c5]">
@@ -324,7 +324,7 @@ const SupportPage = () => {
                   )}
                 >
                   <p className={cn("mb-1 text-[11px] font-semibold", message.authorType === "ADMIN" ? "text-[#1a52c5]" : "text-white/70")}>
-                    {message.authorType === "ADMIN" ? "Zapeera Support" : "You"} · {new Date(message.createdAt).toLocaleString()}
+                    {message.authorType === "ADMIN" ? "Tickimo Support" : "You"} · {new Date(message.createdAt).toLocaleString()}
                   </p>
                   <p className="whitespace-pre-wrap">{message.body}</p>
                 </div>
@@ -414,7 +414,7 @@ const SupportPage = () => {
               Reach out on WhatsApp — our support team typically responds within a few hours.
             </p>
             <a
-              href={whatsappUrl("Hello! I need help with Zapeera.")}
+              href={whatsappUrl("Hello! I need help with Tickimo.")}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-green-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(34,197,94,0.3)] hover:opacity-95"

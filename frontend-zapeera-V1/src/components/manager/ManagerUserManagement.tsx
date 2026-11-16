@@ -606,7 +606,7 @@ const ManagerUserManagement = () => {
             {selectedUser && (
               <div className="space-y-4">
                 <p>
-                  Remove <strong>{selectedUser.name}</strong> from this business? Their Zapeera account stays
+                  Remove <strong>{selectedUser.name}</strong> from this business? Their Tickimo account stays
                   active.
                 </p>
                 <p className="text-sm text-muted-foreground">

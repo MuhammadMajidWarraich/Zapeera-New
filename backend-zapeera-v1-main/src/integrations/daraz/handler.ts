@@ -6,12 +6,12 @@
 //   out  syncProducts — create/update Daraz listings from branch products
 //   out  syncStock    — hourly push of price + base-unit stock
 //   in   importOrders — POLLING (Daraz publishes no webhooks): fetch
-//        new/updated orders every ~15 min, import as Zapeera sales
+//        new/updated orders every ~15 min, import as Tickimo sales
 //   out  createShipment — the generic per-sale fulfilment step:
 //        mark one imported Daraz order 'packed' (ready-to-ship is NOT
 //        auto-applied — see below)
 //
-// TENANCY — ONE Daraz seller shop maps to ONE Zapeera branch. Every
+// TENANCY — ONE Daraz seller shop maps to ONE Tickimo branch. Every
 // query is scoped to (businessId, branchId): products, batches and
 // sales never cross branches, and another branch's stock can never leak
 // into this shop. The branch resolves from config.branchId, else from
@@ -49,7 +49,7 @@
 // Manual trigger: POST /api/integrations/daraz/sync { entity: 'order' }.
 //
 // SHIPMENTS — createShipment is per-sale (the generic shape): the
-// service builds CreateShipmentInput from the Zapeera sale and the
+// service builds CreateShipmentInput from the Tickimo sale and the
 // handler marks that sale's Daraz order 'packed'. Nothing auto-packs:
 // the human triggering the shipment (sale screen / manual sync with
 // saleRef) is the packing acknowledgement. 'ready_to_ship' (courier
@@ -499,12 +499,12 @@ export const darazHandler: IntegrationSyncHandler = {
       const stock = stockMap.get(product.id) ?? { quantity: 0, price: null };
       try {
         if (listings.has(product.sku)) {
-          if (stock.price === null) throw new Error('no priced batch in Zapeera');
+          if (stock.price === null) throw new Error('no priced batch in Tickimo');
           await client.updatePriceQuantity([
             { SellerSku: product.sku, price: stock.price, quantity: stock.quantity }
           ]);
         } else if (darazCategoryId) {
-          if (stock.price === null) throw new Error('no priced batch in Zapeera');
+          if (stock.price === null) throw new Error('no priced batch in Tickimo');
           await client.createProduct({
             PrimaryCategory: darazCategoryId,
             Attributes: {
@@ -554,11 +554,11 @@ export const darazHandler: IntegrationSyncHandler = {
         where: { sku: sellerSku, companyId: ctx.businessId, branchId: branch.id },
         select: { id: true }
       });
-      if (!product) continue; // a Daraz listing with no Zapeera product in this branch — not ours to push
+      if (!product) continue; // a Daraz listing with no Tickimo product in this branch — not ours to push
       const stock = stockMap.get(product.id);
       if (!stock || stock.price === null) {
         failed += 1;
-        failures.push(`${sellerSku}: no priced batch in Zapeera`);
+        failures.push(`${sellerSku}: no priced batch in Tickimo`);
         continue;
       }
       updates.push({ SellerSku: sellerSku, price: stock.price, quantity: stock.quantity });
@@ -590,7 +590,7 @@ export const darazHandler: IntegrationSyncHandler = {
 
   /**
    * Pack one Daraz order (the generic createShipment shape): the
-   * service builds the input from a Zapeera sale, so this method only
+   * service builds the input from a Tickimo sale, so this method only
    * needs the sale's channel + Daraz order id. A sale that did not
    * come from Daraz fails loudly; an order Daraz already shows as
    * packed (or further along) is an idempotent no-op — never a second
@@ -717,7 +717,7 @@ export async function pollDarazOrders(
         ]);
         if (items.length === 0) throw new Error('Daraz returned no order items');
 
-        // Map every line to a branch-scoped Zapeera product by SKU. One
+        // Map every line to a branch-scoped Tickimo product by SKU. One
         // unknown SKU fails the WHOLE order — never create a partial sale.
         const lines: DarazSaleLine[] = [];
         const unknownSkus: string[] = [];
@@ -738,7 +738,7 @@ export async function pollDarazOrders(
         }
         if (unknownSkus.length > 0) {
           throw new Error(
-            `unknown SKU(s) in this branch: ${[...new Set(unknownSkus)].join(', ')} — map them to Zapeera products first`
+            `unknown SKU(s) in this branch: ${[...new Set(unknownSkus)].join(', ')} — map them to Tickimo products first`
           );
         }
 

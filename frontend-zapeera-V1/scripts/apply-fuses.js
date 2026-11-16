@@ -36,10 +36,10 @@ exports.default = async function applyFuses(context) {
   const { appOutDir, electronPlatformName } = context;
   const candidates =
     electronPlatformName === 'win32'
-      ? [path.join(appOutDir, 'Zapeera.exe')]
+      ? [path.join(appOutDir, 'Tickimo.exe')]
       : electronPlatformName === 'darwin'
-        ? [path.join(appOutDir, 'Zapeera.app', 'Contents', 'MacOS', 'Zapeera')]
-        : [path.join(appOutDir, 'zapeera'), path.join(appOutDir, 'Zapeera')];
+        ? [path.join(appOutDir, 'Tickimo.app', 'Contents', 'MacOS', 'Tickimo')]
+        : [path.join(appOutDir, 'zapeera'), path.join(appOutDir, 'Tickimo')];
   const electronBinary = candidates.find((p) => fs.existsSync(p));
   if (!electronBinary) {
     // Fail the build loudly rather than shipping an un-fused binary.

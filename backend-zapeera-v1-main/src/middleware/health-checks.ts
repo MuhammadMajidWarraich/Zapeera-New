@@ -157,7 +157,7 @@ function pingHandler(_req: Request, res: Response): void {
 
 function rootHandler(_req: Request, res: Response): void {
   res.status(200).json({
-    message: 'Zapeera Business Management API',
+    message: 'Tickimo Business Management API',
     version: '1.0.0',
     endpoints: {
       health: '/health',
@@ -170,7 +170,7 @@ function rootHandler(_req: Request, res: Response): void {
 
 function apiInfoHandler(_req: Request, res: Response): void {
   res.status(200).json({
-    message: 'Zapeera Business Management API',
+    message: 'Tickimo Business Management API',
     version: '1.0.0',
     availableEndpoints: [
       '/api/auth',

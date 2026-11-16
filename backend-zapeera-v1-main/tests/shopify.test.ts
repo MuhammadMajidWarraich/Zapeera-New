@@ -352,7 +352,7 @@ describe('shopify mapping (pure)', () => {
     expect(dropped).toEqual(['size']);
   });
 
-  it('maps payment gateways to Zapeera tenders', () => {
+  it('maps payment gateways to Tickimo tenders', () => {
     expect(mapPaymentMethod(['Cash on Delivery'], 'PENDING')).toBe('CASH');
     expect(mapPaymentMethod(['JazzCash'], 'PAID')).toBe('JAZZCASH');
     expect(mapPaymentMethod(['Easypaisa'], 'PAID')).toBe('EASYPAISA');
@@ -746,7 +746,7 @@ describe('shopify webhooks', () => {
     expect(outcome.message).toMatch(/not restocked/);
   });
 
-  it('inventory_levels/update pushes Zapeera stock when Shopify diverged', async () => {
+  it('inventory_levels/update pushes Tickimo stock when Shopify diverged', async () => {
     process.env.INTEGRATION_ENCRYPTION_KEY = TEST_KEY;
     connectedRow();
     const payload = { inventory_item_id: 101, location_id: 1, available: 999 };
@@ -766,7 +766,7 @@ describe('shopify webhooks', () => {
     expect(outcome.message).toMatch(/diverged/);
     const setCalls = calls.filter((c) => c.body.query.includes('inventorySetQuantities'));
     expect(setCalls).toHaveLength(1);
-    expect(setCalls[0].body.variables.input.quantities[0].quantity).toBe(150); // Zapeera wins
+    expect(setCalls[0].body.variables.input.quantities[0].quantity).toBe(150); // Tickimo wins
     expect(setCalls[0].body.variables.idempotencyKey).toContain('wh-9');
   });
 });

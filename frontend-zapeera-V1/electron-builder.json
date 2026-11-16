@@ -1,6 +1,6 @@
 {
   "appId": "com.zapeera.desktop",
-  "productName": "Zapeera",
+  "productName": "Tickimo",
   "directories": {
     "output": "release",
     "buildResources": "build"
@@ -172,7 +172,7 @@
     "installerHeaderIcon": "public/icons/icon.ico",
     "createDesktopShortcut": "always",
     "createStartMenuShortcut": true,
-    "shortcutName": "Zapeera",
+    "shortcutName": "Tickimo",
     "deleteAppDataOnUninstall": true,
     "runAfterFinish": true,
     "menuCategory": "Business",
@@ -211,12 +211,12 @@
     ],
     "icon": "public/icons/icon.png",
     "category": "Office",
-    "maintainer": "Zapeera Team <support@zapeera.com>"
+    "maintainer": "Tickimo Team <support@tickimo.com>"
   },
   "deb": {
     "priority": "optional",
     "depends": [],
-    "maintainer": "Zapeera Team <support@zapeera.com>"
+    "maintainer": "Tickimo Team <support@tickimo.com>"
   },
   "extraMetadata": {
     "main": "electron/main.js"

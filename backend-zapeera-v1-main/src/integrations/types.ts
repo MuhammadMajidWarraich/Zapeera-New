@@ -55,7 +55,7 @@ export type IntegrationAuthType =
 
 export type IntegrationConnectionStatus = 'connected' | 'disconnected' | 'error';
 
-/** Inbound (vendor -> Zapeera), outbound (Zapeera -> vendor), or both. */
+/** Inbound (vendor -> Tickimo), outbound (Tickimo -> vendor), or both. */
 export type IntegrationSyncDirection = 'in' | 'out' | 'both';
 
 export type IntegrationSyncEntity =
@@ -66,7 +66,7 @@ export type IntegrationSyncEntity =
   | 'payment'
   | 'shipment'
   // Generic export run (added by the google-sheets builder, 2026-10-24):
-  // an export-only provider (Sheets, QuickBooks, Xero) pushes Zapeera
+  // an export-only provider (Sheets, QuickBooks, Xero) pushes Tickimo
   // data OUT to the vendor in one run instead of syncing one entity.
   // Maps to IntegrationSyncHandler.exportData (see below) and to the
   // 'export' row in ENTITY_TO_METHOD (integration.service.ts). The
@@ -82,7 +82,7 @@ export interface IntegrationSyncConfig {
   syncCustomers: boolean;
   direction: IntegrationSyncDirection;
   /**
-   * The ONE Zapeera branch this connection maps to. A sales-channel
+   * The ONE Tickimo branch this connection maps to. A sales-channel
    * store maps to exactly one branch: every product/stock read and
    * every imported sale is scoped to it, so another branch's stock can
    * never leak into the store. Optional — when absent the provider
@@ -101,7 +101,7 @@ export interface IntegrationSyncConfig {
   branchId?: string | null;
   /**
    * Daraz-only: the Daraz PrimaryCategory id used when syncProducts
-   * CREATES a listing for a Zapeera product that is not listed yet.
+   * CREATES a listing for a Tickimo product that is not listed yet.
    * Without it, unlisted products are reported (not created).
    */
   darazCategoryId?: string;
@@ -202,7 +202,7 @@ export interface IntegrationSyncResult {
 // The v1 handler interface had no shipment method, but logistics providers
 // (PostEx first; Daraz pack/ready-to-ship and future couriers next) need
 // one. These types are deliberately vendor-neutral: the service builds a
-// CreateShipmentInput from a Zapeera sale (recipient from the customer,
+// CreateShipmentInput from a Tickimo sale (recipient from the customer,
 // COD from the unpaid balance, parcel from the sale lines) and the
 // provider handler maps it to the vendor's own payload. No vendor field
 // names leak into this file — see the provider module for those.
@@ -221,7 +221,7 @@ export interface ShipmentRecipient {
 export interface ShipmentParcel {
   /** Number of pieces/parcels. */
   pieces?: number;
-  /** Total weight in kg, when known (Zapeera products carry no weight). */
+  /** Total weight in kg, when known (Tickimo products carry no weight). */
   weightKg?: number;
   /** Short contents description for the label (product names). */
   description?: string;
@@ -232,7 +232,7 @@ export interface ShipmentParcel {
  * step reads channel / externalOrderId / saleInvoiceNumber; PostEx's
  * booking reads orderRef / recipient / paymentMethod / parcel / sender. */
 export interface CreateShipmentInput {
-  /** Zapeera sale id the shipment is for. */
+  /** Tickimo sale id the shipment is for. */
   saleId: string;
   /** Sale invoice number (human reference). */
   saleInvoiceNumber?: string | null;
@@ -299,7 +299,7 @@ export interface TrackingResult {
  * - createShipment: the generic fulfilment step, added by the PostEx
  *   builder and reused by Daraz pack/ready-to-ship (and future
  *   couriers). The service builds the vendor-neutral input from a
- *   Zapeera sale (recipient from the customer, COD = unpaid balance,
+ *   Tickimo sale (recipient from the customer, COD = unpaid balance,
  *   parcel from the lines) — handlers never build it themselves.
  *   getTracking / cancelShipment / createReturnShipment are the
  *   on-demand companions, dispatched by the dedicated shipment routes.
@@ -360,7 +360,7 @@ export type IntegrationPaymentStatus =
   | 'redirect'; // card: caller must POST the customer to redirectUrl with redirectFields
 
 export interface IntegrationPaymentRequest {
-  /** Zapeera sale id the payment settles. */
+  /** Tickimo sale id the payment settles. */
   saleId: string;
   /** PKR, major units (rupees). Must be > 0 and <= the sale's remaining balance. */
   amount: number;

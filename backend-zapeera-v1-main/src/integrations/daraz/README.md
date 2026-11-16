@@ -1,4 +1,4 @@
-# Daraz integration — Zapeera
+# Daraz integration — Tickimo
 
 Provider `daraz` (Tier 1, sales-channel). Handler: `./handler.ts`,
 client: `./client.ts`. Registered by `./index.ts`, wired by the single
@@ -11,7 +11,7 @@ https://open.daraz.com/doc/doc.htm?nodeId=27493&docId=118729
 
 Daraz business APIs need **three** things: App Key, App Secret, and a
 **seller OAuth access token**. The App Key/Secret alone cannot call any
-business API. There is no OAuth redirect/callback in Zapeera yet, so
+business API. There is no OAuth redirect/callback in Tickimo yet, so
 the token exchange is a manual step; the connect dialog then stores
 all four values encrypted (AES-256-GCM, framework).
 
@@ -30,7 +30,7 @@ all four values encrypted (AES-256-GCM, framework).
    Response data: `access_token`, `refresh_token`, `expires_in`,
    `account`. (The client has `exchangeAuthCode()` for this; there is
    no UI for it yet — run it from the API Explorer or curl.)
-5. **Connect in Zapeera.** Settings → Integrations → Daraz → Connect,
+5. **Connect in Tickimo.** Settings → Integrations → Daraz → Connect,
    paste App Key, App Secret, Seller Access Token, Seller Refresh
    Token. `connect()` verifies with a cheap vendor read
    (`/products/get`, limit 1) and only then stores anything.
@@ -44,10 +44,10 @@ all four values encrypted (AES-256-GCM, framework).
 
 | Sync | Direction | What happens |
 |---|---|---|
-| Products | out | Branch products → Daraz listings. Already-listed SKUs (matched by SellerSku = Zapeera SKU) get price+stock refreshed. Unlisted products are CREATED only when `darazCategoryId` is set in the connection config (Daraz needs a PrimaryCategory); otherwise they are reported as failed with the reason. New listings use brand "No Brand" and no images (Zapeera products carry none) — both are live-verification items. Name/description edits are NOT pushed in v1. |
+| Products | out | Branch products → Daraz listings. Already-listed SKUs (matched by SellerSku = Tickimo SKU) get price+stock refreshed. Unlisted products are CREATED only when `darazCategoryId` is set in the connection config (Daraz needs a PrimaryCategory); otherwise they are reported as failed with the reason. New listings use brand "No Brand" and no images (Tickimo products carry none) — both are live-verification items. Name/description edits are NOT pushed in v1. |
 | Stock | out | Hourly push (cadence: §4). Price + sellable base-unit stock per listed SKU. Sellable = live batches, qty > 0, not expired. Pushes in chunks of 50 SKUs. SKUs listed on Daraz but absent from this branch are never touched; products with no priced batch are reported, not guessed. |
 | Orders | in (poll) | §3. |
-| Shipments | out (per-sale) | `createShipment` — the generic fulfilment step. The service builds a vendor-neutral input from a Zapeera sale (recipient, COD = unpaid balance, parcel lines) and the handler marks that sale's Daraz order `packed` via `/order/set_status`. A sale that did not come from Daraz fails loudly; an order Daraz already shows as packed (or further) is an idempotent no-op. Trigger: `POST /api/integrations/daraz/sync { "entity": "shipment", "saleRef": "<sale id or invoice number>" }`. `ready_to_ship` is NOT set — it needs the courier handover (packing UI, wave follow-up). |
+| Shipments | out (per-sale) | `createShipment` — the generic fulfilment step. The service builds a vendor-neutral input from a Tickimo sale (recipient, COD = unpaid balance, parcel lines) and the handler marks that sale's Daraz order `packed` via `/order/set_status`. A sale that did not come from Daraz fails loudly; an order Daraz already shows as packed (or further) is an idempotent no-op. Trigger: `POST /api/integrations/daraz/sync { "entity": "shipment", "saleRef": "<sale id or invoice number>" }`. `ready_to_ship` is NOT set — it needs the courier handover (packing UI, wave follow-up). |
 
 ## 3. Order polling (Daraz has no webhooks)
 
@@ -72,7 +72,7 @@ all four values encrypted (AES-256-GCM, framework).
   import; `canceled`/`returned`/`failed` are skipped; any unknown
   status is skipped (never minted into a sale).
 - **One unknown SKU fails the whole order** — never a partial sale.
-  Map the SKU to a Zapeera product in the mapped branch first.
+  Map the SKU to a Tickimo product in the mapped branch first.
 - **Sale shape:** created through the existing `createSale` engine
   (same FEFO batch path, tax, receipts, stock movements as a counter
   sale). Walk-in sale, `paymentMethod: CASH` (COD tender marker),
@@ -85,7 +85,7 @@ all four values encrypted (AES-256-GCM, framework).
   (Product decision point: the one-line change is `customerId` in
   `buildSalePayload`/`createSaleViaEngine` in `handler.ts`.)
 - **Quantities are base units** (UNIT level). Daraz quantities map
-  1:1 to Zapeera base units; pack/strip-level mapping is a follow-up.
+  1:1 to Tickimo base units; pack/strip-level mapping is a follow-up.
   Item price is Daraz's `paid_price` (money truth from Daraz).
   Shipping fees and vouchers are NOT folded into the sale total in
   v1 (the seller never receives the shipping fee; the voucher is a
@@ -120,7 +120,7 @@ handler marks its Daraz order packed.
 
 ## 5. Branch mapping
 
-One Daraz seller shop ↔ ONE Zapeera branch, enforced in config:
+One Daraz seller shop ↔ ONE Tickimo branch, enforced in config:
 `config.branchId` (set in the connect payload's config object) wins;
 otherwise the business's single active branch is used; a
 multi-branch business without an explicit `branchId` fails the sync
@@ -134,11 +134,11 @@ lives in the same config object (see §2).
 - No true sandbox: the API Explorer runs against **production** data.
 - Seller account required (CNIC/NTN + bank, verification 24–48h).
 - Product creation needs a Daraz category id + images may be required
-  by Daraz (Zapeera products carry no images) — creation failures
+  by Daraz (Tickimo products carry no images) — creation failures
   surface per-SKU in the sync log; list such products in Seller
   Center instead.
 - `ready_to_ship` is not set automatically (needs the handover step).
-- No token-revoke endpoint is published: disconnect wipes Zapeera's
+- No token-revoke endpoint is published: disconnect wipes Tickimo's
   stored credentials; revoke the app grant in the Daraz console if
   needed.
 

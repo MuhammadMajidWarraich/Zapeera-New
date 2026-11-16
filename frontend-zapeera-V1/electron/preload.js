@@ -112,6 +112,6 @@ contextBridge.exposeInMainWorld('windowControls', {
 
 // Minimal app info - no process/env leaks
 contextBridge.exposeInMainWorld('appInfo', {
-  name: 'Zapeera',
+  name: 'Tickimo',
   description: 'Business Management Platform'
 });

@@ -1284,7 +1284,7 @@ const AdvancedReports = () => {
           </Select>
           <p className="text-xs text-slate-500">
             Current period vs the equal-length previous period. Brand and department breakdowns
-            are not available — products carry no brand and departments do not exist in Zapeera.
+            are not available — products carry no brand and departments do not exist in Tickimo.
           </p>
         </div>
         <Card className="border-slate-200 shadow-sm">

@@ -57,19 +57,19 @@ const METHOD_LABELS: Record<string, string> = {
 // Dummy account details – replace with real values later.
 const ACCOUNT_DETAILS: Record<string, { title: string; number: string; extra?: string; icon: React.ComponentType<{ className?: string }> }> = {
   BANK_TRANSFER: {
-    title: 'Zapeera Technologies (Pvt) Ltd',
+    title: 'Tickimo Technologies (Pvt) Ltd',
     number: 'PK36HABB0012345678901234',
     extra: 'Habib Bank Limited (HBL) · Gulberg Branch, Lahore',
     icon: Landmark,
   },
   EASYPAISA: {
-    title: 'Zapeera Technologies',
+    title: 'Tickimo Technologies',
     number: '0300-1234567',
     extra: 'EasyPaisa Merchant Account',
     icon: Smartphone,
   },
   JAZZCASH: {
-    title: 'Zapeera Technologies',
+    title: 'Tickimo Technologies',
     number: '0301-7654321',
     extra: 'JazzCash Merchant Account',
     icon: Wallet,

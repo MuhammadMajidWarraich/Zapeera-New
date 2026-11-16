@@ -43,7 +43,7 @@ export const CANONICAL_BUSINESS_TYPES = [
  * Legacy business-type values that resolve to a canonical type
  * (business-types overhaul, 2026-10-31): DEPARTMENTAL_STORE was merged
  * into RETAIL_STORE — Muhammad's decision, backed by competitor research
- * (0 of 8 competitors in Zapeera's comparison set treat "departmental
+ * (0 of 8 competitors in Tickimo's comparison set treat "departmental
  * store" as a separate industry; all use one Retail bucket). The boot
  * seeder (modules.util ensureBusinessTypesExist) rewrites stored
  * business rows to RETAIL_STORE; these aliases keep any not-yet-migrated

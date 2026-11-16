@@ -3,7 +3,7 @@
 // (OWNER/MANAGER only, like every other integration route). The
 // CALLBACK route is registered in server.ts BEFORE the universal module
 // protection middleware on purpose: Google redirects the merchant's
-// browser here with no Zapeera session, so it cannot carry a Bearer
+// browser here with no Tickimo session, so it cannot carry a Bearer
 // token. The callback is self-authenticating instead:
 //   - `state` is an AES-256-GCM blob (INTEGRATION_ENCRYPTION_KEY)
 //     minted at start time, carrying the business id + the merchant's

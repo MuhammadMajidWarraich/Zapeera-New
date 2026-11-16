@@ -50,7 +50,7 @@ export function BackofficeLoginPage() {
             <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Zap className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl font-bold text-white">Zapeera</span>
+            <span className="text-2xl font-bold text-white">Tickimo</span>
           </div>
 
           <div className="text-center mb-8">
@@ -74,7 +74,7 @@ export function BackofficeLoginPage() {
           <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">Email Address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm text-white placeholder-blue-300/50" placeholder="admin@zapeera.com" />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm text-white placeholder-blue-300/50" placeholder="admin@tickimo.com" />
             </div>
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">Password</label>
