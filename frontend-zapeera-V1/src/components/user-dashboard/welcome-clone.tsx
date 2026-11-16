@@ -1359,7 +1359,7 @@ function CloneStoragePanel() {
 
 function CloneDownloadPanel() {
   const navigate = useNavigate();
-  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/Tickimo-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
+  const versionMatch = DESKTOP_DOWNLOAD_URL.match(/(?:Tickimo|Zapeera)-Setup-([0-9]+\.[0-9]+\.[0-9]+)\.exe$/);
   const versionLabel = versionMatch ? `Version ${versionMatch[1]} · Windows` : "Windows";
 
   return (
