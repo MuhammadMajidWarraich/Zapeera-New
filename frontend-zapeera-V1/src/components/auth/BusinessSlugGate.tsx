@@ -29,6 +29,12 @@ export default function BusinessSlugGate({
   // Use refs to prevent state updates during active transitions
   const isProcessingRef = useRef(false);
   const lastSlugRef = useRef<string | null>(null);
+  // Hotfix 1.0.23.1: companies-list length the last lookup ran against.
+  // The old top guard froze the FIRST resolution forever, so when the
+  // companies list landed later (0 -> >0) the gate never re-resolved
+  // and "Business Not Found" stuck. Recording the length lets a run
+  // against a changed list re-resolve instead of returning early.
+  const lastAttemptedCountRef = useRef<number>(-1);
 
   const normalizedSlug = useMemo(
     () => String(businessSlug || "").trim().toLowerCase(),
@@ -63,8 +69,15 @@ export default function BusinessSlugGate({
   );
 
   useEffect(() => {
-    // Prevent duplicate processing for same slug
-    if (normalizedSlug === lastSlugRef.current && hasAttemptedLookup) {
+    // Prevent duplicate processing for same slug against the SAME
+    // companies list. A changed list length is new evidence (the
+    // list landing 0 -> >0, or a refresh): re-run the local + API
+    // lookup instead of freezing the first attempt's outcome.
+    if (
+      normalizedSlug === lastSlugRef.current &&
+      hasAttemptedLookup &&
+      allBusinesses.length === lastAttemptedCountRef.current
+    ) {
       return;
     }
     
@@ -76,6 +89,7 @@ export default function BusinessSlugGate({
     let cancelled = false;
     isProcessingRef.current = true;
     lastSlugRef.current = normalizedSlug;
+    lastAttemptedCountRef.current = allBusinesses.length;
 
     if (!normalizedSlug) {
       setExpectedBusinessId(null);

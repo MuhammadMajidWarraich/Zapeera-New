@@ -179,20 +179,71 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
   const [isLoading, setIsLoading] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
 
-  const staffProfileId = membershipId;
+  // Hotfix 1.0.23.1: membershipId is NOT a staffProfileId. The old
+  // `const staffProfileId = membershipId` sent the membership id to
+  // /attendance/check-in, /attendance/today/*, /attendance and
+  // /staff/*, so the backend's staffProfile lookup missed: check-in
+  // 404'd ('Staff not found') and today/history/profile silently
+  // came back empty. Resolve the REAL profile for the CURRENT
+  // business/membership via GET /api/staff/me, scoped by
+  // X-Business-ID (the backend reads the caller's membership for
+  // that business, so duplicate profiles across businesses can
+  // never be confused), and load profile-scoped data only after
+  // the resolution settles.
+  const [staffProfileId, setStaffProfileId] = useState<string | null>(null);
+  const [profileResolved, setProfileResolved] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    setProfileResolved(false);
+    setStaffProfileId(null);
+    apiService.getMyStaffProfile(businessId || undefined)
+      .then((response: any) => {
+        if (cancelled) return;
+        const data = response?.success ? response.data : null;
+        const candidates: any[] = Array.isArray(data)
+          ? data
+          : data
+            ? [data, ...(Array.isArray(data.staff) ? data.staff : [])]
+            : [];
+        // Prefer the profile attached to THIS membership; fall back
+        // to the profile for THIS business. Never take an arbitrary
+        // first profile when several exist.
+        const mine = candidates.find((c: any) => membershipId && String(c?.membership?.id || '') === String(membershipId))
+          || candidates.find((c: any) => businessId && String(c?.membership?.businessId || '') === String(businessId))
+          || (candidates.length === 1 ? candidates[0] : null);
+        const resolvedId = mine?.id ? String(mine.id) : null;
+        // Belt-and-braces: a resolved profile whose membership is
+        // known and differs from this membership is the WRONG
+        // profile — treat as unresolved rather than clocking in
+        // against another membership's record.
+        const membershipMismatch = resolvedId && membershipId && mine?.membership?.id
+          && String(mine.membership.id) !== String(membershipId);
+        setStaffProfileId(membershipMismatch ? null : resolvedId);
+        setProfileResolved(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStaffProfileId(null);
+          setProfileResolved(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [businessId, membershipId]);
+
+  useEffect(() => {
+    if (!profileResolved) return;
     loadAllData();
-  }, [staffProfileId, businessId]);
+  }, [profileResolved, staffProfileId, businessId]);
 
   const loadAllData = async () => {
     setIsLoading(true);
     try {
       await Promise.all([
-        loadTodayAttendance(),
-        loadAttendanceHistory(),
+        loadTodayAttendance(staffProfileId),
+        loadAttendanceHistory(staffProfileId),
         loadScheduledShifts(),
-        loadStaffProfile(),
+        loadStaffProfile(staffProfileId),
         loadNotifications(),
       ]);
     } catch (err) {
@@ -202,9 +253,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
     }
   };
 
-  const loadTodayAttendance = async () => {
+  const loadTodayAttendance = async (profileId: string | null) => {
+    if (!profileId) {
+      setTodayAttendance(null);
+      return;
+    }
     try {
-      const response = await apiService.getTodayAttendance(staffProfileId);
+      const response = await apiService.getTodayAttendance(profileId);
       if (response.success && response.data) {
         setTodayAttendance(response.data as unknown as AttendanceRecord);
       } else {
@@ -215,14 +270,19 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
     }
   };
 
-  const loadAttendanceHistory = async () => {
+  const loadAttendanceHistory = async (profileId: string | null) => {
+    if (!profileId) {
+      setAttendanceHistory([]);
+      setAttendanceStats({ present: 0, absent: 0, late: 0, total: 0 });
+      return;
+    }
     try {
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
       const endDate = now.toISOString().split('T')[0];
 
       const response = await apiService.getAttendance({
-        staffProfileId,
+        staffProfileId: profileId,
         startDate,
         endDate,
         limit: 31,
@@ -259,9 +319,13 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
     }
   };
 
-  const loadStaffProfile = async () => {
+  const loadStaffProfile = async (profileId: string | null) => {
+    if (!profileId) {
+      setStaffProfile(null);
+      return;
+    }
     try {
-      const response = await apiService.getStaffMember(staffProfileId);
+      const response = await apiService.getStaffMember(profileId);
       if (response.success && response.data) {
         setStaffProfile(response.data as unknown as StaffProfile);
       }
@@ -286,6 +350,10 @@ const EmployeePortal: React.FC<EmployeePortalProps> = ({ businessId, businessNam
   };
 
   const handleCheckIn = async () => {
+    if (!staffProfileId) {
+      toast.error('No staff profile found', { description: 'Please contact your manager.' });
+      return;
+    }
     const branchId = user?.membership?.branchIds?.[0] || user?.branchId || '';
     if (!branchId) {
       toast.error('No branch assigned', { description: 'Please contact your manager.' });
